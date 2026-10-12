@@ -1,0 +1,12 @@
+{
+  "main_window_wall_seconds": 18.35666775000027,
+  "main_window_time_seconds": 3660.0,
+  "main_window_state": "COMPLETED",
+  "timer_responsiveness_probes": 228,
+  "comparison_wall_seconds": 4.634146574999249,
+  "comparison_states": [
+    "COMPLETED",
+    "COMPLETED",
+    "COMPLETED"
+  ]
+}

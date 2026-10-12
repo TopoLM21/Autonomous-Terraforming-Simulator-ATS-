@@ -56,7 +56,11 @@ class Terrain:
 
     @property
     def remaining(self):
-        return float(np.maximum(self.height-self.target, 0)[self.excavation].sum()*self.area)
+        revision=getattr(self,"revision",0)
+        if getattr(self,"_remaining_revision",None)!=revision:
+            self._remaining_cache=float(np.maximum(self.height-self.target, 0)[self.excavation].sum()*self.area)
+            self._remaining_revision=revision
+        return self._remaining_cache
 
     @property
     def dump_space(self):
@@ -85,11 +89,13 @@ class Terrain:
         self.revision += 1
         return volume*self.config.terrain.density
 
-    def dump_location(self, volume):
+    def dump_location(self, volume, reserved=(), separation=0.0):
         capacity = np.where(self.dump_mask, np.maximum(self.dump_cap-self.height, 0), 0)
         if capacity.sum()*self.area < volume-1e-12:
             return None
         candidates = np.flatnonzero(capacity.ravel() > 1e-12)
+        for point in reserved:
+            candidates=candidates[(self.x.ravel()[candidates]-point[0])**2+(self.y.ravel()[candidates]-point[1])**2 >= separation**2]
         if not len(candidates):
             return None
         # Lowest available site produces distributed heaps, not a single spire.

@@ -41,4 +41,16 @@ def test_offscreen_window_start_pause_reset_and_new_scenario():
     window.refresh()
     assert "09:42:52" in window.telemetry.text()
     assert "0 д 00:42:52" in window.telemetry.text()
+    from ats.fleet_ui import FleetDialog,ComparisonWindow
+    dialog=FleetDialog(window.config,window)
+    dialog.count.setValue(3);dialog.slots.setValue(2);dialog.preset(True);dialog.save()
+    assert dialog.result_config.fleet.count==3
+    assert dialog.result_config.fleet.models[0].payload==30
+    window.replace_simulation(dialog.result_config)
+    window.sim.run(20);window.refresh(True)
+    assert window.fleet_table.rowCount()==3
+    assert len(window.drone_labels)>=3
+    comparison=ComparisonWindow(window.config,window);comparison.timer.stop();comparison.tick()
+    assert comparison.sim is not None
+    comparison.cancel();assert not comparison.timer.isActive();comparison.close()
     window.close()

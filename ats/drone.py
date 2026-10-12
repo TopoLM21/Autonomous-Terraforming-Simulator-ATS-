@@ -15,6 +15,12 @@ class DroneState(str, Enum):
     DUMP = "DUMP"
     RETURN = "RETURN"
     LANDING = "LANDING"
+    WAIT_GROUND = "WAIT_GROUND"
+    WAIT_HOVER = "WAIT_HOVER"
+    WAIT_LANDING = "WAIT_LANDING"
+    TRANSFER_TAKEOFF = "TRANSFER_TAKEOFF"
+    TO_SLOT = "TO_SLOT"
+    SLOT_LANDING = "SLOT_LANDING"
 
 
 @dataclass
@@ -29,13 +35,31 @@ class Drone:
     consumed: float = 0.0
     grabber_extension: float = 0.0
     dump_released: bool = False
+    identifier: int = 0
+    slot: int | None = None
+    trip: object = None
+    destination: object = None
+    detour: object = None
+    trips: int = 0
+    excavated_mass: float = 0.0
+    waiting_seconds: float = 0.0
+    charging_seconds: float = 0.0
+    charged_energy: float = 0.0
+    traffic_yields: int = 0
+    minimum_charge: float = field(init=False)
+    last_wait: str = ""
 
     def __post_init__(self):
         self.battery = self.config.battery*self.config.initial_charge
+        self.minimum_charge = self.battery
 
     @property
     def docked(self):
         return self.state in (DroneState.DOCKED, DroneState.CHARGING)
+
+    @property
+    def grounded(self):
+        return self.docked or self.state == DroneState.WAIT_GROUND
 
     def power(self, moving=False, winching=False, cargo=None, lift_height=0.0):
         load = self.cargo if cargo is None else cargo
@@ -54,7 +78,7 @@ class Drone:
             self.dump_released = False
 
     def cable_length(self, surface_height):
-        if self.docked:
+        if self.grounded:
             return 0.0
         clearance = max(0.0, self.position[2]-surface_height)
         short = min(clearance, self.config.stowed_cable)

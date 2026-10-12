@@ -35,8 +35,12 @@ class Dust:
             padded = np.pad(self.field, 1, mode="edge")
             self.field += alpha*(padded[1:-1, 2:]+padded[1:-1, :-2]+padded[2:, 1:-1]+padded[:-2, 1:-1]-4*self.field)
         self.field *= math.exp(-dt/c.lifetime)
+        self.emit(dt,position,altitude,power_ratio,working)
+        np.maximum(self.field, 0, out=self.field)
+
+    def emit(self, dt, position, altitude, power_ratio, working=True):
+        c = self.config
         if working and c.strength:
             distance = ((self.x+0.5)*self.cell-position[0])**2+((self.y+0.5)*self.cell-position[1])**2
             emission = c.strength*power_ratio*math.exp(-max(0, altitude)/c.height_scale)
             self.field += emission*dt*np.exp(-distance/(2*self.cell**2))
-        np.maximum(self.field, 0, out=self.field)

@@ -41,11 +41,16 @@ class SolarBase:
         return self.sun(hour, day_of_year).irradiance
 
     def motion_power(self, drone):
-        total_mass = self.config.mass+drone.config.empty_mass+drone.cargo
+        drones = drone if isinstance(drone, list) else [drone]
+        total_mass = self.config.mass+sum(d.config.empty_mass+d.cargo for d in drones if d.docked)
+        if not isinstance(drone, list) and not drone.docked:
+            total_mass += drone.config.empty_mass+drone.cargo
         return self.config.move_power*total_mass/self.config.reference_total_mass
 
     def tick(self, dt, hour, drone, charging, day_of_year=None):
         b = self.config
+        drones = drone if isinstance(drone, list) else [drone]
+        flags = charging if isinstance(charging, list) else [charging]*len(drones)
         if self.destination is not None:
             self.state = BaseState.MOVING
             self.solar_power = 0.0
@@ -73,27 +78,40 @@ class SolarBase:
         available -= idle
         self.consumed += idle
         charging_energy = 0.0
-        if drone.docked and charging:
-            energy = min(b.charge_power*dt, available, (drone.config.battery-drone.battery)/b.charge_efficiency)
-            available -= energy
-            drone.battery += energy*b.charge_efficiency
-            self.charging_input += energy
-            self.charging_losses += energy*(1-b.charge_efficiency)
-            charging_energy = energy
+        active = [d for d, flag in zip(drones, flags) if d.docked and flag and d.battery < d.config.battery-1e-8]
+        budget = min(b.charge_power*dt, available)
+        # Equal shares, redistributing unused power when a battery reaches 100%.
+        while active and budget > 1e-9:
+            share = budget/len(active)
+            pending = []
+            spent = 0.0
+            for d in active:
+                energy = min(share, (d.config.battery-d.battery)/b.charge_efficiency)
+                d.battery = min(d.config.battery, d.battery+energy*b.charge_efficiency)
+                d.charged_energy += energy*b.charge_efficiency
+                self.charging_input += energy
+                self.charging_losses += energy*(1-b.charge_efficiency)
+                spent += energy
+                if d.battery < d.config.battery-1e-8:
+                    pending.append(d)
+            budget -= spent
+            charging_energy += spent
+            available -= spent
+            active = pending
         # Integrate simultaneous generation and discharge before applying capacity.
         # A full base can still feed solar power into a docked drone this tick.
         self.curtailed += max(0.0, available-b.battery)
-        self.battery = min(available, b.battery)
+        self.battery = max(0.0,min(available, b.battery))
         self.state = BaseState.PARKED_GENERATING if self.solar_power > 0 or self.battery > 0 else BaseState.WAITING_FOR_SUN
-        if drone.docked and charging:
+        if any(d.docked and flag for d, flag in zip(drones, flags)):
             self.state = BaseState.CHARGING if charging_energy > 0 else BaseState.WAITING_FOR_SUN
         return None
 
-    def safe_path(self, target, terrain):
+    def safe_path(self, target, terrain, offset=(0, 0)):
         b = self.config
         distance = float(np.linalg.norm(np.asarray(target)-self.position[:2]))
         steps = max(2, int(math.ceil(distance/(terrain.cell/2)))+1)
-        points = np.linspace(self.position[:2], target, steps)
+        points = np.linspace(self.position[:2]+offset, np.asarray(target)+offset, steps)
         side = terrain.config.terrain.n*terrain.cell
         q = terrain.config.trench
         margin = q.depth/terrain.slope + b.radius
@@ -119,7 +137,8 @@ class SolarBase:
 
     def maybe_relocate(self, time, trips, dig, dump, terrain, drone):
         b = self.config
-        if not drone.docked or self.destination is not None or trips-self.last_relocation_trip < b.relocation_trips or time-self.last_relocation < b.relocation_cooldown:
+        drones = drone if isinstance(drone, list) else [drone]
+        if not all(d.docked for d in drones) or self.destination is not None or trips-self.last_relocation_trip < b.relocation_trips or time-self.last_relocation < b.relocation_cooldown:
             return False
         q = terrain.config.trench
         point = np.array([q.x-q.length/2-q.depth/terrain.slope-b.relocation_clearance-b.radius, q.y])

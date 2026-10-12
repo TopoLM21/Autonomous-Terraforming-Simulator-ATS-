@@ -8,6 +8,7 @@ from .config import KWH
 from .scenarios import PRESETS
 from .simulation import Simulation, MissionState
 from .drone import DroneState
+from .fleet_ui import FleetDialog,ComparisonWindow
 
 pg.setConfigOptions(imageAxisOrder="row-major", antialias=True, background="#111d2b", foreground="#c7d7e5")
 
@@ -59,6 +60,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.reset_button = QtWidgets.QPushButton("Reset")
         self.reset_button.clicked.connect(self.reset)
         header.addWidget(self.reset_button)
+        fleet_button=QtWidgets.QPushButton("Дроны / зарядка")
+        fleet_button.clicked.connect(self.edit_fleet);header.addWidget(fleet_button)
+        compare_button=QtWidgets.QPushButton("Сравнить 1…N")
+        compare_button.clicked.connect(self.compare_fleet);header.addWidget(compare_button)
         self.speed = QtWidgets.QComboBox()
         for factor in [1, 10, 50, 200]:
             self.speed.addItem(f"{factor}×", factor)
@@ -109,6 +114,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.reference_curve = self.profile.plot(pen=pg.mkPen("#627789", width=1), name="Исходный")
         self.profile.showGrid(x=True, y=True, alpha=0.2)
         left_layout.addWidget(self.profile, 2)
+        self.fleet_table=QtWidgets.QTableWidget(0,10)
+        self.fleet_table.setHorizontalHeaderLabels(["Дрон","Состояние","Заряд","Груз, кг","Рейсы","Грунт, кг","Расход, кВт·ч","Очередь, мин","Зарядка, мин","Уступил"])
+        self.fleet_table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
+        self.fleet_table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.fleet_table.setMaximumHeight(170);self.fleet_table.setMinimumHeight(85)
+        left_layout.addWidget(self.fleet_table)
+        self.palette=["#82f5db","#ffd166","#68b6ff","#ff89c1","#b0f083","#c4a6ff"]
+        self.drone_labels=[self.drone_label]
+        self.slot_markers=pg.ScatterPlotItem(size=10,symbol="s",pen="#f4b651")
+        self.map.addItem(self.slot_markers)
         split.addWidget(left)
 
         right = QtWidgets.QWidget()
@@ -241,6 +256,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self.profile.setXRange(q.y-q.width/2-q.depth/t.slope-1, q.y+q.width/2+q.depth/t.slope+1)
         self.profile.setYRange(-q.depth-0.08, 0.15)
         self.last_revision = -1
+        while len(self.drone_labels)<len(self.sim.drones):
+            label=pg.TextItem(color=self.palette[len(self.drone_labels)],anchor=(0,1));self.map.addItem(label);self.drone_labels.append(label)
+        for index,label in enumerate(self.drone_labels):label.setVisible(index<len(self.sim.drones))
+        self.fleet_table.setRowCount(len(self.sim.drones))
+
+    def edit_fleet(self):
+        dialog=FleetDialog(self.config,self)
+        if dialog.exec()==QtWidgets.QDialog.DialogCode.Accepted:
+            try:self.replace_simulation(dialog.result_config)
+            except ValueError as error:QtWidgets.QMessageBox.warning(self,"Неверный флот",str(error))
+
+    def compare_fleet(self):
+        self.running=False;self.play.setText("▶ Start")
+        self.comparison=ComparisonWindow(self.config,self);self.comparison.show()
 
     def apply_preset(self):
         length, width, depth = PRESETS[self.preset.currentData()]
@@ -340,17 +369,24 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dust_image.setRect(QtCore.QRectF(0, 0, s.dust.side, s.dust.side))
         self.dust_image.setVisible(self.show_dust.isChecked())
         self.base_marker.setData([b.position[0]], [b.position[1]])
-        self.drone_marker.setData([d.position[0]], [d.position[1]])
-        operation = " · грейфер вниз" if d.state == DroneState.DUMP and not d.dump_released else " · грейфер вверх" if d.state == DroneState.DUMP else ""
-        self.drone_label.setText(f"Дрон · {d.cargo:.0f} кг · z {d.position[2]:.1f} м{operation}")
-        self.drone_label.setPos(d.position[0]+0.4, d.position[1]+0.4)
+        self.drone_marker.setData([{'pos':tuple(o.position[:2]),'pen':pg.mkPen(self.palette[o.identifier],width=3),'symbol':'+','size':20} for o in s.drones])
+        self.slot_markers.setData([{'pos':tuple(s.slot_position(i)[:2]),'brush':'#f4b651' if occupant is not None else '#41566b','symbol':'s','size':10} for i,occupant in enumerate(s.slots)])
+        for o,label in zip(s.drones,self.drone_labels):
+            operation=" · грейфер вниз" if o.state==DroneState.DUMP and not o.dump_released else " · грейфер вверх" if o.state==DroneState.DUMP else ""
+            label.setText(f"Д{o.identifier+1} · {o.cargo:.0f} кг · z {o.position[2]:.1f} м{operation}")
+            label.setPos(o.position[0]+.4,o.position[1]+.4+o.identifier*.3)
         self.base_label.setPos(b.position[0]+0.6, b.position[1]-0.4)
-        if s.trip is not None:
-            points = np.array([b.position[:2], s.trip.dig, s.trip.dump, b.position[:2]])
+        if any(o.trip for o in s.drones):
+            points = np.array([p for o in s.drones if o.trip for p in [b.position[:2],o.trip.dig,o.trip.dump,b.position[:2],(np.nan,np.nan)]])
             self.route.setData(points[:, 0], points[:, 1])
         else:
             self.route.setData([], [])
         report = s.report()
+        self.fleet_table.setUpdatesEnabled(False)
+        for row,o in enumerate(report['drones']):
+            values=[f"{o['id']} · {o['name']}",o['state'],f"{o['battery_percent']:.0f}%",f"{o['cargo_kg']:.1f}",str(o['trips']),f"{o['excavated_mass_kg']:.0f}",f"{o['consumed_kwh']:.3f}",f"{o['waiting_seconds']/60:.1f}",f"{o['charging_seconds']/60:.1f}",str(o['traffic_yields'])]
+            for col,value in enumerate(values):self.fleet_table.setItem(row,col,QtWidgets.QTableWidgetItem(value))
+        self.fleet_table.setUpdatesEnabled(True)
         status = {MissionState.RUNNING: "Автономная работа" if self.running else "Готов / пауза", MissionState.COMPLETED: "✓ Миссия завершена", MissionState.BLOCKED: "⚠ Работа заблокирована"}[s.state]
         self.status.setText(f"<b style='font-size:17px'>{status}</b><br>{s.reason}")
         self.progress.setValue(round(report["completion_percent"]*10))
@@ -358,14 +394,15 @@ class MainWindow(QtWidgets.QMainWindow):
         rows = [
             ("Прошло с запуска", report["elapsed_display"]),
             ("Дата / солнечное время", f"{s.date_text} · {s.clock_text}"),
-            ("Дрон", d.state.value), ("База", b.state.value),
+            ("Флот / очередь",f"{len(s.drones)} / {len(s.queue)}"), ("База", b.state.value),
+            ("Зарядные слоты",f"{sum(v is not None for v in s.slots)} / {len(s.slots)} · {b.config.charge_power/1000:.1f} кВт всего"),
             ("Проект / остаток", f"{report['initial_excavation_m3']:.3f} / {report['remaining_m3']:.3f} м³"),
             ("Вынуто / рейсы", f"{report['excavated_m3']:.3f} м³ / {s.trips}"),
-            ("Груз / грейфер", f"{d.cargo:.1f} кг / трос {report['cable_length_m']:.1f} м"),
+            ("Общий груз", f"{report['cargo_kg']:.1f} кг"),
             ("База / панели", f"{b.config.mass:.0f} кг / {b.config.panel_area:.1f} м²"),
             ("Широта / световой день", f"{b.config.latitude_deg:+.1f}° / {report['daylight_hours']:.1f} ч"),
             ("Солнце: высота / поток", f"{report['sun_elevation_deg']:.1f}° / {report['irradiance_w_m2']:.0f} Вт/м²"),
-            ("Батарея дрона", f"{d.battery/KWH:.2f} кВт·ч · {100*d.battery/d.config.battery:.0f}%"),
+            ("Батареи флота", f"{report['drone_kwh']:.2f} / {sum(o.config.battery for o in s.drones)/KWH:.2f} кВт·ч"),
             ("Батарея базы", f"{b.battery/KWH:.2f} кВт·ч · {100*b.battery/b.config.battery:.0f}%"),
             ("Солнечная мощность", f"{b.solar_power/1000:.2f} кВт"),
             ("Солнце / расход", f"{report['solar_generated_kwh']:.3f} / {report['consumed_kwh']:.3f} кВт·ч"),

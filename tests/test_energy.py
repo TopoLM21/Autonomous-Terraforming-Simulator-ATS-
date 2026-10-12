@@ -59,7 +59,7 @@ def test_empty_base_and_night_waits_for_sun():
     s.run(300)
     assert s.drone.docked and s.drone.battery == c.drone.battery*0.2
     assert s.base.battery == 0
-    s.run(7000)
+    s.run(20000)  # now a complete 5 kWh charge is required before departure
     assert s.excavated_mass > 0  # dawn eventually enables autonomous work
     assert abs(s.report()["energy_error_j"]) < 1e-4
 

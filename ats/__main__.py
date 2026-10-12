@@ -17,6 +17,10 @@ def main():
     parser.add_argument("--day-of-year", type=int, default=172, help="Start day, 1..365; day 172 = 21 June")
     parser.add_argument("--panel-area", type=float, default=20, help="Horizontal solar panel area in m²")
     parser.add_argument("--base-mass", type=float, default=1000, help="Base mass including panels/battery, kg")
+    parser.add_argument("--drones", type=int, default=1, help="Fleet size, 1..6")
+    parser.add_argument("--charge-slots", type=int, default=1, help="Charging sockets, 1..6; share total charging power")
+    parser.add_argument("--wait-mode", choices=("ground","air"), default="ground")
+    parser.add_argument("--compare-fleet", help="Compare fleet sizes, e.g. 1,2,3, with the same scenario")
     parser.add_argument("--json", dest="json_path", help="Save the headless report")
     args = parser.parse_args()
     if args.steps < 0:
@@ -28,11 +32,18 @@ def main():
     config.base.start_day_of_year = args.day_of_year
     config.base.panel_area = args.panel_area
     config.base.mass = args.base_mass
+    config.fleet.count = args.drones
+    config.fleet.charge_slots = args.charge_slots
+    config.fleet.wait_mode = args.wait_mode
     try:
         config.validate()
         if args.headless:
-            sim = Simulation(config)
-            report = sim.run(args.steps)
+            if args.compare_fleet:
+                from .comparison import compare_fleets
+                report = compare_fleets(config,[int(n) for n in args.compare_fleet.split(',')],args.steps)
+            else:
+                sim = Simulation(config)
+                report = sim.run(args.steps)
             result = json.dumps(report, ensure_ascii=False, indent=2)
             # Windows redirected consoles can use cp1252. Escape Unicode only
             # when the stream cannot encode it; JSON files always remain UTF-8.
@@ -45,7 +56,7 @@ def main():
             if args.json_path:
                 from pathlib import Path
                 Path(args.json_path).write_text(result+"\n", encoding="utf-8")
-            return 2 if report["state"] == "BLOCKED" else 0
+            return 2 if isinstance(report,dict) and report["state"] == "BLOCKED" else 0
         from .gui import launch
         return launch(config)
     except ValueError as error:

@@ -35,6 +35,7 @@ class TerrainConfig:
 
 @dataclass
 class DroneConfig:
+    name: str = "Тяжёлый 60"
     empty_mass: float = 105.0
     payload: float = 60.0
     battery: float = 5 * KWH
@@ -96,12 +97,29 @@ class DustConfig:
 
 
 @dataclass
+class FleetConfig:
+    count: int = 1
+    charge_slots: int = 1
+    models: list[DroneConfig] = field(default_factory=list)
+    wait_mode: str = "ground"
+    separation: float = 2.0
+    pad_spacing: float = 3.0
+    waiting_offset: float = 3.0
+    ground_clearance: float = 0.4
+    altitude_spacing: float = 3.0
+    detour_distance: float = 3.0
+    emergency_landing_seconds: float = 20.0
+    comparison_step_limit: int = 2_000_000
+
+
+@dataclass
 class Config:
     terrain: TerrainConfig = field(default_factory=TerrainConfig)
     trench: TrenchConfig = field(default_factory=TrenchConfig)
     drone: DroneConfig = field(default_factory=DroneConfig)
     base: BaseConfig = field(default_factory=BaseConfig)
     dust: DustConfig = field(default_factory=DustConfig)
+    fleet: FleetConfig = field(default_factory=FleetConfig)
     seed: int = 42
     dt: float = 1.0
     start_hour: float = 9.0
@@ -110,6 +128,10 @@ class Config:
     max_frame_steps: int = 200
     display_interval_ms: int = 40
     terrain_display_seconds: float = 0.20
+
+    def drone_models(self):
+        from copy import deepcopy
+        return deepcopy(self.fleet.models) if self.fleet.models else [deepcopy(self.drone) for _ in range(self.fleet.count)]
 
     def validate(self):
         def require(condition, message):
@@ -123,6 +145,14 @@ class Config:
             return not isinstance(value, (int, float)) or math.isfinite(value)
         require(finite_values(asdict(self)), "Все параметры должны быть конечными")
         t, q, d, b, dust = self.terrain, self.trench, self.drone, self.base, self.dust
+        f = self.fleet
+        require(isinstance(f.count, int) and 1 <= f.count <= 6 and isinstance(f.charge_slots, int) and 1 <= f.charge_slots <= 6, "Число дронов и зарядных слотов: от 1 до 6")
+        require(not f.models or len(f.models) == f.count, "Число моделей не совпадает с числом дронов")
+        require(f.wait_mode in ("ground", "air"), "Неизвестный режим очереди")
+        require(f.separation > 0 and f.pad_spacing > f.separation and f.altitude_spacing > f.separation and f.waiting_offset > f.separation and f.ground_clearance > 0 and f.detour_distance > f.separation and f.emergency_landing_seconds > 0 and f.comparison_step_limit > 0, "Неверные расстояния безопасности или предел сравнения")
+        for model in f.models:
+            clone = Config(terrain=t, trench=q, drone=model, base=b, dust=dust, seed=self.seed, dt=self.dt, start_hour=self.start_hour)
+            clone.validate()
         require(isinstance(t.n, int) and t.n >= 16 and t.cell_size > 0, "Неверная сетка")
         require(self.dt == 1.0, "Движок использует фиксированный шаг 1 с")
         require(t.density > 0 and t.floor < -q.depth - t.roughness, "Неверная плотность/нижняя граница грунта")
@@ -147,6 +177,7 @@ class Config:
         for obj, keys in [(d, ("empty_mass", "payload", "battery", "empty_speed", "loaded_speed", "vertical_speed", "work_height", "hover_power", "scoop_seconds", "dump_seconds", "winch_seconds")), (b, ("battery", "speed", "move_power", "max_slope", "relocation_trips", "relocation_cooldown", "relocation_clearance"))]:
             require(all(getattr(obj, k) > 0 for k in keys), "Масса, скорость, ёмкость и длительности должны быть положительными")
         require(0 <= d.initial_charge <= 1 and 0 <= b.initial_charge <= 1 and 0 <= d.reserve < 1, "Неверный заряд/резерв")
+        require(bool(d.name.strip()), "У дрона должно быть имя")
         require(0 < b.charge_efficiency <= 1 and 0 <= b.panel_efficiency <= 1 and b.panel_area >= 0 and b.peak_irradiance >= 0 and b.charge_power >= 0, "Неверные параметры солнечной энергии/зарядки")
         require(0 <= self.start_hour < 24, "Неверный стартовый час")
         require(d.flight_factor >= 1 and d.budget_margin >= 1 and d.winch_power >= 0 and b.idle_power >= 0 and 0 <= b.relocation_min_gain < 1, "Неверные энергетические параметры")

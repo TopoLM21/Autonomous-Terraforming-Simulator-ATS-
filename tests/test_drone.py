@@ -20,7 +20,7 @@ def test_finite_speed_states_and_collision_clearance():
         assert pos[2] >= s.terrain.sample(*pos[:2])
         if not s.drone.docked:
             assert s.base.destination is None
-    assert states == set(DS)-{DS.CHARGING}
+    assert states == {DS.DOCKED,DS.CHARGING,DS.TAKEOFF,DS.TO_DIG,DS.LOWER_GRABBER,DS.SCOOP,DS.LIFT_GRABBER,DS.TO_DUMP,DS.DUMP,DS.RETURN,DS.LANDING}
 
 
 def test_base_relocation_is_finite_speed_and_safe():
