@@ -34,7 +34,14 @@ def main():
             sim = Simulation(config)
             report = sim.run(args.steps)
             result = json.dumps(report, ensure_ascii=False, indent=2)
-            print(result)
+            # Windows redirected consoles can use cp1252. Escape Unicode only
+            # when the stream cannot encode it; JSON files always remain UTF-8.
+            stdout_result = result
+            try:
+                result.encode(sys.stdout.encoding or "utf-8")
+            except UnicodeEncodeError:
+                stdout_result = json.dumps(report, ensure_ascii=True, indent=2)
+            print(stdout_result)
             if args.json_path:
                 from pathlib import Path
                 Path(args.json_path).write_text(result+"\n", encoding="utf-8")
