@@ -47,6 +47,7 @@ class DroneConfig:
     scoop_seconds: float = 10.0
     dump_seconds: float = 10.0
     winch_seconds: float = 5.0
+    stowed_cable: float = 1.0
     hover_power: float = 18_000.0
     flight_factor: float = 1.08
     winch_power: float = 500.0
@@ -61,11 +62,13 @@ class BaseConfig:
     y: float = 16.0
     roof_height: float = 1.5
     radius: float = 0.75
+    mass: float = 1000.0  # includes battery, panels, tracks and equipment
+    reference_total_mass: float = 1105.0  # calibration for move_power
     panel_area: float = 20.0
     panel_efficiency: float = 0.20
     peak_irradiance: float = 1000.0
-    sunrise_hour: float = 6.0
-    daylight_hours: float = 12.0
+    latitude_deg: float = 55.0
+    start_day_of_year: int = 172  # 21 June in the non-leap model calendar
     battery: float = 30 * KWH
     initial_charge: float = 1.0
     charge_power: float = 8000.0  # input from the base, output = input * efficiency
@@ -138,11 +141,14 @@ class Config:
         require(w >= t.cell_size and h >= t.cell_size and x >= 0 and y >= 0 and x+w <= side and y+h <= side, "Отвал выходит за карту или слишком мал")
         require(t.dump_max_height > 0 and 0 < t.dump_slope_factor < 1, "Неверная высота/уклон отвала")
         require(0 < b.x < side and 0 < b.y < side and b.radius > 0 and b.roof_height > 0, "Неверное положение/размер базы")
+        require(b.mass > 0 and b.reference_total_mass > 0, "Масса базы должна быть положительной")
+        require(-90 <= b.latitude_deg <= 90 and isinstance(b.start_day_of_year, int) and 1 <= b.start_day_of_year <= 365, "Неверная широта или день года")
+        require(d.stowed_cable > 0 and d.dump_seconds >= 2*d.winch_seconds, "Выгрузка должна включать опускание и подъём грейфера")
         for obj, keys in [(d, ("empty_mass", "payload", "battery", "empty_speed", "loaded_speed", "vertical_speed", "work_height", "hover_power", "scoop_seconds", "dump_seconds", "winch_seconds")), (b, ("battery", "speed", "move_power", "max_slope", "relocation_trips", "relocation_cooldown", "relocation_clearance"))]:
             require(all(getattr(obj, k) > 0 for k in keys), "Масса, скорость, ёмкость и длительности должны быть положительными")
         require(0 <= d.initial_charge <= 1 and 0 <= b.initial_charge <= 1 and 0 <= d.reserve < 1, "Неверный заряд/резерв")
         require(0 < b.charge_efficiency <= 1 and 0 <= b.panel_efficiency <= 1 and b.panel_area >= 0 and b.peak_irradiance >= 0 and b.charge_power >= 0, "Неверные параметры солнечной энергии/зарядки")
-        require(0 < b.daylight_hours <= 24 and 0 <= b.sunrise_hour < 24 and 0 <= self.start_hour < 24, "Неверный солнечный цикл")
+        require(0 <= self.start_hour < 24, "Неверный стартовый час")
         require(d.flight_factor >= 1 and d.budget_margin >= 1 and d.winch_power >= 0 and b.idle_power >= 0 and 0 <= b.relocation_min_gain < 1, "Неверные энергетические параметры")
         require(0 < d.winch_efficiency <= 1 and d.gravity > 0, "Неверные параметры лебёдки/гравитации")
         require(dust.downsample >= 1 and isinstance(dust.downsample, int) and dust.lifetime > 0 and dust.diffusion >= 0 and dust.strength >= 0 and dust.height_scale > 0 and dust.concentration_scale > 0, "Неверная модель пыли")

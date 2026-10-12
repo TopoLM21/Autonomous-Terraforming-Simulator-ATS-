@@ -13,6 +13,10 @@ def main():
     parser.add_argument("--preset", choices=PRESETS, default="demo")
     parser.add_argument("--start-hour", type=float, default=9)
     parser.add_argument("--roughness", type=float, default=0)
+    parser.add_argument("--latitude", type=float, default=55, help="Latitude in degrees; positive = north")
+    parser.add_argument("--day-of-year", type=int, default=172, help="Start day, 1..365; day 172 = 21 June")
+    parser.add_argument("--panel-area", type=float, default=20, help="Horizontal solar panel area in m²")
+    parser.add_argument("--base-mass", type=float, default=1000, help="Base mass including panels/battery, kg")
     parser.add_argument("--json", dest="json_path", help="Save the headless report")
     args = parser.parse_args()
     if args.steps < 0:
@@ -20,6 +24,10 @@ def main():
     config = scenario(args.preset, args.seed)
     config.start_hour = args.start_hour
     config.terrain.roughness = args.roughness
+    config.base.latitude_deg = args.latitude
+    config.base.start_day_of_year = args.day_of_year
+    config.base.panel_area = args.panel_area
+    config.base.mass = args.base_mass
     try:
         config.validate()
         if args.headless:

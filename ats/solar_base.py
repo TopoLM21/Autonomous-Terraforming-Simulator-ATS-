@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 import math
 import numpy as np
+from .solar import sunlight
 
 
 class BaseState(str, Enum):
@@ -32,26 +33,31 @@ class SolarBase:
     def __post_init__(self):
         self.battery = self.config.battery*self.config.initial_charge
 
-    def irradiance(self, hour):
-        phase = (hour-self.config.sunrise_hour) % 24
-        if phase >= self.config.daylight_hours:
-            return 0.0
-        return self.config.peak_irradiance*math.sin(math.pi*phase/self.config.daylight_hours)
+    def sun(self, hour, day_of_year=None):
+        b = self.config
+        return sunlight(b.latitude_deg, b.start_day_of_year if day_of_year is None else day_of_year, hour, b.peak_irradiance)
 
-    def tick(self, dt, hour, drone, charging):
+    def irradiance(self, hour, day_of_year=None):
+        return self.sun(hour, day_of_year).irradiance
+
+    def motion_power(self, drone):
+        total_mass = self.config.mass+drone.config.empty_mass+drone.cargo
+        return self.config.move_power*total_mass/self.config.reference_total_mass
+
+    def tick(self, dt, hour, drone, charging, day_of_year=None):
         b = self.config
         if self.destination is not None:
             self.state = BaseState.MOVING
             self.solar_power = 0.0
-            needed = b.move_power*dt
+            distance = float(np.linalg.norm(self.destination-self.position[:2]))
+            needed = self.motion_power(drone)*min(dt, distance/b.speed)
             if self.battery < needed:
                 self.destination = None  # unfold panels at the actual stopping point
                 self.state = BaseState.WAITING_FOR_SUN
                 return "База остановилась: недостаточно энергии для движения"
-            distance = float(np.linalg.norm(self.destination-self.position[:2]))
             fraction = min(1.0, b.speed*dt/max(distance, 1e-12))
             self.position[:2] += (self.destination-self.position[:2])*fraction
-            energy = b.move_power*min(dt, distance/b.speed)
+            energy = needed
             self.battery -= energy
             self.consumed += energy
             if distance <= b.speed*dt:
@@ -59,7 +65,7 @@ class SolarBase:
                 self.state = BaseState.PARKED_GENERATING
                 return "База закончила перемещение"
             return None
-        self.solar_power = self.irradiance(hour)*b.panel_area*b.panel_efficiency
+        self.solar_power = self.irradiance(hour, day_of_year)*b.panel_area*b.panel_efficiency
         solar = self.solar_power*dt
         self.generated += solar
         available = self.battery+solar
@@ -121,7 +127,7 @@ class SolarBase:
         new_distance = np.linalg.norm(point-dig)+np.linalg.norm(point-dump)
         if new_distance >= old_distance*(1-b.relocation_min_gain) or not self.safe_path(point, terrain):
             return False
-        cost = np.linalg.norm(point-self.position[:2])/b.speed*b.move_power
+        cost = np.linalg.norm(point-self.position[:2])/b.speed*self.motion_power(drone)
         if self.battery < cost:
             return False
         self.destination = point

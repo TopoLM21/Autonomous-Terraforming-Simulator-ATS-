@@ -143,20 +143,45 @@ class MainWindow(QtWidgets.QMainWindow):
         self.angle = self.spin(5, 55, config.trench.angle_deg, 1)
         self.start_hour = self.spin(0, 23.99, config.start_hour, 0.5)
         self.roughness = self.spin(0, 0.03, config.terrain.roughness, 0.005, 3)
-        self.panels = self.spin(0, 50, config.base.panel_area, 1)
         self.seed = QtWidgets.QSpinBox()
         self.seed.setRange(0, 2147483647)
         self.seed.setValue(config.seed)
-        for label, widget in [("Длина дна", self.length), ("Ширина дна", self.width), ("Глубина", self.depth), ("Центр X", self.cx), ("Центр Y", self.cy), ("Откос, °", self.angle), ("Стартовый час", self.start_hour), ("Неровности, ±м", self.roughness), ("Панели, м²", self.panels), ("Seed", self.seed)]:
+        for label, widget in [("Длина дна", self.length), ("Ширина дна", self.width), ("Глубина", self.depth), ("Центр X", self.cx), ("Центр Y", self.cy), ("Откос, °", self.angle), ("Стартовый час", self.start_hour), ("Неровности, ±м", self.roughness), ("Seed", self.seed)]:
             form.addRow(label, widget)
-        self.panel_info = QtWidgets.QLabel("При 1000 Вт/м²: 4,0 кВт")
-        form.addRow(self.panel_info)
-        self.panels.valueChanged.connect(lambda value: self.panel_info.setText(f"Пик генерации: {value*self.config.base.panel_efficiency*self.config.base.peak_irradiance/1000:.1f} кВт"))
+        solar_group = QtWidgets.QGroupBox("База и солнце · для нового сценария")
+        solar_form = QtWidgets.QFormLayout(solar_group)
+        self.panels = self.spin(0, 200, config.base.panel_area, 1)
+        self.base_mass = self.spin(100, 20000, config.base.mass, 100, 0)
+        self.latitude = self.spin(-90, 90, config.base.latitude_deg, 1)
+        self.season = QtWidgets.QComboBox()
+        for label, day in [("21 марта · равноденствие", 80), ("21 июня · солнцестояние", 172), ("21 сентября · равноденствие", 264), ("21 декабря · солнцестояние", 355)]:
+            self.season.addItem(label, day)
+        self.season.setPlaceholderText("Выбрать сезонную дату")
+        self.season.setCurrentIndex(1)
+        self.calendar = QtWidgets.QDateEdit(QtCore.QDate(2025, 1, 1).addDays(config.base.start_day_of_year-1))
+        self.calendar.setDisplayFormat("dd.MM")
+        self.calendar.setCalendarPopup(True)
+        self.calendar.setMinimumDate(QtCore.QDate(2025, 1, 1))
+        self.calendar.setMaximumDate(QtCore.QDate(2025, 12, 31))
+        for label, widget in [("Площадь панелей, м²", self.panels), ("Масса базы, кг", self.base_mass), ("Широта, ° (+север)", self.latitude), ("Сезонная дата", self.season), ("Стартовая дата", self.calendar)]:
+            solar_form.addRow(label, widget)
+        self.panel_info = QtWidgets.QLabel()
+        self.panel_info.setWordWrap(True)
+        solar_form.addRow(self.panel_info)
+        self.season.currentIndexChanged.connect(lambda index: self.calendar.setDate(QtCore.QDate(2025, 1, 1).addDays(self.season.currentData()-1)) if index >= 0 else None)
+        for widget in [self.panels, self.latitude]:
+            widget.valueChanged.connect(self.update_solar_preview)
+        self.calendar.dateChanged.connect(self.update_solar_preview)
+        self.update_solar_preview()
         self.preset.currentIndexChanged.connect(self.apply_preset)
         new = QtWidgets.QPushButton("Создать новый сценарий")
         new.clicked.connect(self.new_scenario)
         form.addRow(new)
         controls.addWidget(project)
+        solar_apply = QtWidgets.QPushButton("Создать сценарий с этими настройками")
+        solar_apply.clicked.connect(self.new_scenario)
+        solar_form.addRow(solar_apply)
+        controls.addWidget(solar_group)
         dust_group = QtWidgets.QGroupBox("Пыль и ветер · применяется сразу")
         dust_form = QtWidgets.QFormLayout(dust_group)
         self.show_dust = QtWidgets.QCheckBox("Показывать пылевое поле")
@@ -227,6 +252,15 @@ class MainWindow(QtWidgets.QMainWindow):
         c = self.sim.config.dust
         c.wind_x, c.wind_y, c.strength = self.wind_x.value(), self.wind_y.value(), self.dust_strength.value()
 
+    def update_solar_preview(self):
+        from .solar import sunlight
+        sun = sunlight(self.latitude.value(), self.calendar.date().dayOfYear(), 12, self.config.base.peak_irradiance)
+        self.season.blockSignals(True)
+        self.season.setCurrentIndex(self.season.findData(self.calendar.date().dayOfYear()))
+        self.season.blockSignals(False)
+        power = sun.irradiance*self.panels.value()*self.config.base.panel_efficiency/1000
+        self.panel_info.setText(f"Ясное небо, горизонтальные панели. Полдень: {sun.irradiance:.0f} Вт/м² → {power:.2f} кВт; световой день {sun.daylight_hours:.1f} ч.\nВремя — местное солнечное; календарь 365 дней.")
+
     def replace_simulation(self, config):
         sim = Simulation(config)  # validate before discarding the current state
         self.running = False
@@ -249,6 +283,9 @@ class MainWindow(QtWidgets.QMainWindow):
         config.start_hour = self.start_hour.value()
         config.terrain.roughness = self.roughness.value()
         config.base.panel_area = self.panels.value()
+        config.base.mass = self.base_mass.value()
+        config.base.latitude_deg = self.latitude.value()
+        config.base.start_day_of_year = self.calendar.date().dayOfYear()
         try:
             self.replace_simulation(config)
         except ValueError as error:
@@ -304,7 +341,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dust_image.setVisible(self.show_dust.isChecked())
         self.base_marker.setData([b.position[0]], [b.position[1]])
         self.drone_marker.setData([d.position[0]], [d.position[1]])
-        self.drone_label.setText(f"Дрон · {d.cargo:.0f} кг · z {d.position[2]:.1f} м")
+        operation = " · грейфер вниз" if d.state == DroneState.DUMP and not d.dump_released else " · грейфер вверх" if d.state == DroneState.DUMP else ""
+        self.drone_label.setText(f"Дрон · {d.cargo:.0f} кг · z {d.position[2]:.1f} м{operation}")
         self.drone_label.setPos(d.position[0]+0.4, d.position[1]+0.4)
         self.base_label.setPos(b.position[0]+0.6, b.position[1]-0.4)
         if s.trip is not None:
@@ -313,19 +351,20 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self.route.setData([], [])
         report = s.report()
-        days, remainder = divmod(int(s.time), 86400)
-        hours, remainder = divmod(remainder, 3600)
-        minutes, seconds = divmod(remainder, 60)
         status = {MissionState.RUNNING: "Автономная работа" if self.running else "Готов / пауза", MissionState.COMPLETED: "✓ Миссия завершена", MissionState.BLOCKED: "⚠ Работа заблокирована"}[s.state]
         self.status.setText(f"<b style='font-size:17px'>{status}</b><br>{s.reason}")
         self.progress.setValue(round(report["completion_percent"]*10))
         self.progress.setFormat(f"{report['completion_percent']:.1f}% · допуск {self.config.terrain.completion_volume:.3f} м³")
         rows = [
-            ("Время", f"{days}д {hours:02}:{minutes:02}:{seconds:02} · сутки {s.hour:05.2f}ч"),
+            ("Прошло с запуска", report["elapsed_display"]),
+            ("Дата / солнечное время", f"{s.date_text} · {s.clock_text}"),
             ("Дрон", d.state.value), ("База", b.state.value),
             ("Проект / остаток", f"{report['initial_excavation_m3']:.3f} / {report['remaining_m3']:.3f} м³"),
             ("Вынуто / рейсы", f"{report['excavated_m3']:.3f} м³ / {s.trips}"),
-            ("Груз / грейфер", f"{d.cargo:.1f} кг / трос {d.grabber_extension*max(0, d.position[2]-t.sample(*d.position[:2])):.1f} м"),
+            ("Груз / грейфер", f"{d.cargo:.1f} кг / трос {report['cable_length_m']:.1f} м"),
+            ("База / панели", f"{b.config.mass:.0f} кг / {b.config.panel_area:.1f} м²"),
+            ("Широта / световой день", f"{b.config.latitude_deg:+.1f}° / {report['daylight_hours']:.1f} ч"),
+            ("Солнце: высота / поток", f"{report['sun_elevation_deg']:.1f}° / {report['irradiance_w_m2']:.0f} Вт/м²"),
             ("Батарея дрона", f"{d.battery/KWH:.2f} кВт·ч · {100*d.battery/d.config.battery:.0f}%"),
             ("Батарея базы", f"{b.battery/KWH:.2f} кВт·ч · {100*b.battery/b.config.battery:.0f}%"),
             ("Солнечная мощность", f"{b.solar_power/1000:.2f} кВт"),

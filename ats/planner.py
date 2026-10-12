@@ -30,7 +30,7 @@ class Planner:
         unload = math.ceil(d.dump_seconds)
         # Scooping is charged at empty power, lifting/haul/unload at full load.
         joules = empty*d.flight_factor*(2*up+out+home) + loaded*d.flight_factor*haul
-        joules += (empty+d.winch_power)*lower + empty*scoop + (loaded+d.winch_power)*lower + loaded*unload
+        joules += (empty+d.winch_power)*lower + empty*scoop + (loaded+d.winch_power)*lower + (loaded+d.winch_power)*unload
         joules += cargo*d.gravity*(altitude+self.config.trench.depth+self.config.terrain.roughness)/d.winch_efficiency
         return joules*d.budget_margin
 

@@ -8,6 +8,8 @@ from ats.simulation import Simulation
 
 def objects():
     c = Config()
+    c.base.latitude_deg = 0.0
+    c.base.start_day_of_year = 80  # equinox: the zenith noon reference
     c.drone.initial_charge = 0.0
     c.base.initial_charge = 0.5
     return c, SolarBase(c.base, np.zeros(3)), Drone(c.drone, np.zeros(3))
@@ -49,6 +51,8 @@ def test_no_charging_in_flight_and_no_solar_while_moving():
 
 def test_empty_base_and_night_waits_for_sun():
     c = Config(start_hour=5.9)
+    c.base.latitude_deg = 0.0
+    c.base.start_day_of_year = 80
     c.drone.initial_charge = 0.2
     c.base.initial_charge = 0.0
     s = Simulation(c)

@@ -1,6 +1,7 @@
 """Fixed-step autonomous engine; no GUI imports, no wall-clock dependence."""
 from collections import deque
 from enum import Enum
+from datetime import date, timedelta
 import math
 import numpy as np
 from .config import Config, KWH
@@ -15,6 +16,13 @@ class MissionState(str, Enum):
     RUNNING = "RUNNING"
     COMPLETED = "COMPLETED"
     BLOCKED = "BLOCKED"
+
+
+def elapsed_text(seconds):
+    days, remainder = divmod(int(seconds), 86400)
+    hours, remainder = divmod(remainder, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{days} д {hours:02}:{minutes:02}:{seconds:02}"
 
 
 class Simulation:
@@ -48,6 +56,25 @@ class Simulation:
     @property
     def hour(self):
         return (self.config.start_hour+self.time/3600) % 24
+
+    def day_at(self, seconds):
+        passed_midnights = int((self.config.start_hour*3600+seconds)//86400)
+        return (self.config.base.start_day_of_year-1+passed_midnights) % 365+1
+
+    @property
+    def day_of_year(self):
+        return self.day_at(self.time)
+
+    @property
+    def clock_text(self):
+        seconds = int(round((self.config.start_hour*3600+self.time) % 86400)) % 86400
+        hours, remainder = divmod(seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        return f"{hours:02}:{minutes:02}:{seconds:02}"
+
+    @property
+    def date_text(self):
+        return (date(2025, 1, 1)+timedelta(days=self.day_of_year-1)).strftime("%d.%m")
 
     def event(self, message, key=None):
         if key is not None and self._event_keys.get(key) == message:
@@ -127,8 +154,8 @@ class Simulation:
     def _airborne(self, dt):
         d, c, trip = self.drone, self.config.drone, self.trip
         movement = d.state in (DS.TAKEOFF, DS.TO_DIG, DS.TO_DUMP, DS.RETURN, DS.LANDING)
-        winching = d.state in (DS.LOWER_GRABBER, DS.LIFT_GRABBER)
-        lift_height = max(0.0, d.position[2]-self.terrain.sample(*d.position[:2])) if d.state == DS.LIFT_GRABBER else 0.0
+        winching = d.state in (DS.LOWER_GRABBER, DS.LIFT_GRABBER, DS.DUMP)
+        lift_height = max(0.0, d.position[2]-self.terrain.sample(*d.position[:2])-c.stowed_cable) if d.state == DS.LIFT_GRABBER else 0.0
         if not self.consume_drone(d.power(movement, winching, lift_height=lift_height)*dt):
             return
         d.elapsed += dt
@@ -155,17 +182,27 @@ class Simulation:
                 d.transition(DS.TO_DUMP if d.cargo > 1e-9 else DS.RETURN)
         elif d.state == DS.TO_DUMP:
             self._move([*trip.dump, trip.altitude], DS.DUMP, dt)
-        elif d.state == DS.DUMP and d.elapsed >= c.dump_seconds:
-            try:
-                self.terrain.deposit(*trip.dump, d.cargo)
-            except ValueError as error:
-                self.block(str(error))  # cargo remains in the aircraft
-                return
-            d.cargo = 0.0
-            self.trips += 1
-            self._terrain_active = True
-            self.event(f"Рейс {self.trips}: песок выгружен в отвал")
-            d.transition(DS.RETURN)
+            if d.state == DS.DUMP:
+                self.event("Дрон завис над отвалом: опускает грейфер к поверхности")
+        elif d.state == DS.DUMP:
+            if not d.dump_released:
+                d.grabber_extension = min(1, d.elapsed/c.winch_seconds)
+                if d.elapsed >= c.winch_seconds:
+                    try:
+                        self.terrain.deposit(*trip.dump, d.cargo)
+                    except ValueError as error:
+                        self.block(str(error))  # cargo remains in the aircraft
+                        return
+                    mass = d.cargo
+                    d.cargo = 0.0
+                    d.dump_released = True
+                    self.trips += 1
+                    self._terrain_active = True
+                    self.event(f"Рейс {self.trips}: грейфер раскрыт у поверхности, выгружено {mass:.1f} кг")
+            else:
+                d.grabber_extension = max(0, (c.dump_seconds-d.elapsed)/(c.dump_seconds-c.winch_seconds))
+                if d.elapsed >= c.dump_seconds:
+                    d.transition(DS.RETURN)
         elif d.state == DS.RETURN:
             self._move([*self.base.position[:2], trip.altitude], DS.LANDING, dt)
         elif d.state == DS.LANDING:
@@ -181,7 +218,7 @@ class Simulation:
             return
         d = self.drone
         base_was_moving = self.base.destination is not None
-        message = self.base.tick(dt, (self.hour+dt/7200) % 24, d, d.state == DS.CHARGING)
+        message = self.base.tick(dt, (self.hour+dt/7200) % 24, d, d.state == DS.CHARGING, self.day_at(self.time+dt/2))
         if message:
             self.event(message)
         if d.docked:
@@ -217,8 +254,17 @@ class Simulation:
         ground_error = t.mass+d.cargo-t.initial_volume*self.config.terrain.density
         energy_error = (d.battery+b.battery+d.consumed+b.consumed+b.charging_losses+b.curtailed)-(self._initial_energy+b.generated)
         remaining = t.remaining
+        sun = b.sun(self.hour, self.day_of_year)
         return {
             "state": self.state.value, "reason": self.reason, "time_seconds": self.time,
+            "elapsed_display": elapsed_text(self.time), "solar_clock": self.clock_text,
+            "date": self.date_text, "day_of_year": self.day_of_year,
+            "latitude_deg": b.config.latitude_deg, "base_mass_kg": b.config.mass,
+            "panel_area_m2": b.config.panel_area, "irradiance_w_m2": sun.irradiance,
+            "sun_elevation_deg": sun.elevation_deg, "daylight_hours": sun.daylight_hours,
+            "sunrise_hour": sun.sunrise_hour, "sunset_hour": sun.sunset_hour,
+            "base_motion_power_w": b.motion_power(d) if b.destination is not None else 0.0,
+            "cable_length_m": d.cable_length(t.sample(*d.position[:2])),
             "hour": self.hour, "trips": self.trips, "relocations": b.relocations,
             "initial_excavation_m3": t.initial_excavation, "remaining_m3": remaining,
             "completion_percent": max(0.0, min(100.0, 100*(1-remaining/max(t.initial_excavation, 1e-12)))),

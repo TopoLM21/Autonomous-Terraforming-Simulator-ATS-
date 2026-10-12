@@ -28,6 +28,7 @@ class Drone:
     elapsed: float = 0.0
     consumed: float = 0.0
     grabber_extension: float = 0.0
+    dump_released: bool = False
 
     def __post_init__(self):
         self.battery = self.config.battery*self.config.initial_charge
@@ -49,6 +50,15 @@ class Drone:
         self.state = state
         self.elapsed = 0.0
         self.velocity[:] = 0
+        if state == DroneState.DUMP:
+            self.dump_released = False
+
+    def cable_length(self, surface_height):
+        if self.docked:
+            return 0.0
+        clearance = max(0.0, self.position[2]-surface_height)
+        short = min(clearance, self.config.stowed_cable)
+        return short+self.grabber_extension*(clearance-short)
 
     def move_towards(self, target, dt):
         target = np.asarray(target, dtype=float)
