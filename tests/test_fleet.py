@@ -133,3 +133,15 @@ def test_disabled_charger_blocks_after_using_initial_full_battery():
     assert s.state.value=='BLOCKED'
     assert 'отключено' in s.reason
     assert s.trips==1
+
+
+def test_incapable_model_occupying_only_slot_reports_block_instead_of_endless_queue():
+    c=fleet(2,1)
+    incapable=deepcopy(c.drone);incapable.battery=.01*KWH
+    c.fleet.models=[incapable,deepcopy(c.drone)]
+    s=Simulation(c);s.run(12000)
+    assert s.state.value=='BLOCKED'
+    assert 'слоты заняты' in s.reason
+    assert s.drones[1].trips==1
+    assert abs(s.report()['mass_error_kg'])<1e-7
+    assert abs(s.report()['energy_error_j'])<1e-4

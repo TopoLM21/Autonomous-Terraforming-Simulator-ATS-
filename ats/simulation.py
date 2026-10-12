@@ -426,6 +426,8 @@ class Simulation:
                 self.block("Полная зарядка невозможна: база разряжена, солнечная генерация или зарядное устройство отключены")
             elif all(d.state == DS.WAIT_GROUND for d in self.drones) and all(not any(d.battery >= d.config.battery*d.config.reserve+self._transfer_energy(d,i) for i in range(len(self.slots))) for d in self.drones):
                 self.block("Дронам на площадках не хватает энергии для перелёта к зарядке с резервом; требуется внешняя доставка")
+            elif self.queue and all(i is not None and self.drones[i].battery >= self.drones[i].config.battery-1e-7 and self.planner.choose(self.terrain,self.base,self.drones[i]) is None for i in self.slots) and not any(self.planner.choose(self.terrain,self.base,d) is not None for d in full):
+                self.block("Зарядные слоты заняты полностью заряженными дронами, которым недостаточно ёмкости для рейса; добавьте слот или измените состав")
             elif self.base.battery <= 1e-8 and self.config.base.idle_power >= self.config.base.panel_area*self.config.base.panel_efficiency*self.config.base.peak_irradiance:
                 self.block("Собственное потребление базы поглощает всю солнечную мощность")
 
