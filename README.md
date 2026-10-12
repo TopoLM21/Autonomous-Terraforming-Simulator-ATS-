@@ -23,12 +23,14 @@ py -3 -m venv .venv
 ```bash
 git clone https://github.com/TopoLM21/Autonomous-Terraforming-Simulator-ATS-.git
 cd Autonomous-Terraforming-Simulator-ATS-
+sudo apt-get update
+sudo apt-get install -y python3-venv libegl1 libopengl0 libxcb-cursor0 libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0
 python3 -m venv .venv
 .venv/bin/python -m pip install -e '.[test]'
 .venv/bin/python -m ats
 ```
 
-Для приватного репозитория GitHub потребуется обычный настроенный доступ Git. На минимальной Ubuntu может понадобиться системный пакет `python3-venv`; GUI требует рабочего окружения Qt/Wayland либо X11. Весь движок и CLI доступны на сервере без дисплея, без импорта PySide6.
+Для приватного репозитория GitHub потребуется обычный настроенный доступ Git. Системные библиотеки Ubuntu в команде выше нужны Qt; даже `offscreen` требует `libegl1`. Для обычного GUI нужно рабочее окружение Wayland либо X11. Весь движок и CLI доступны на сервере без дисплея, без импорта PySide6 и без этих библиотек Qt.
 
 После активации venv можно использовать короткие команды:
 
