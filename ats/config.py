@@ -1,0 +1,148 @@
+"""All model constants in SI units; electrical powers are estimates."""
+from dataclasses import dataclass, field, asdict
+import math
+
+KWH = 3_600_000.0
+
+
+@dataclass
+class TrenchConfig:
+    length: float = 2.0
+    width: float = 1.0  # flat bottom, NOT top opening
+    depth: float = 0.25
+    x: float = 16.0
+    y: float = 16.0
+    angle_deg: float = 35.0
+
+
+@dataclass
+class TerrainConfig:
+    n: int = 128
+    cell_size: float = 0.25
+    density: float = 1600.0
+    floor: float = -3.0
+    roughness: float = 0.0
+    grab_radius: float = 0.5
+    dump_rect: tuple = (22.0, 19.0, 9.0, 12.0)
+    dump_max_height: float = 2.5
+    dump_slope_factor: float = 0.90
+    relaxation: float = 0.45
+    avalanche_sweeps: int = 3
+    avalanche_epsilon: float = 1e-9
+    avalanche_stop_volume: float = 1e-10
+    completion_volume: float = 0.05
+
+
+@dataclass
+class DroneConfig:
+    empty_mass: float = 105.0
+    payload: float = 60.0
+    battery: float = 5 * KWH
+    initial_charge: float = 1.0
+    reserve: float = 0.20
+    empty_speed: float = 6.0
+    loaded_speed: float = 4.0
+    vertical_speed: float = 2.0
+    work_height: float = 6.0
+    scoop_seconds: float = 10.0
+    dump_seconds: float = 10.0
+    winch_seconds: float = 5.0
+    hover_power: float = 18_000.0
+    flight_factor: float = 1.08
+    winch_power: float = 500.0
+    winch_efficiency: float = 0.8
+    gravity: float = 9.80665
+    budget_margin: float = 1.25
+
+
+@dataclass
+class BaseConfig:
+    x: float = 5.0
+    y: float = 16.0
+    roof_height: float = 1.5
+    radius: float = 0.75
+    panel_area: float = 20.0
+    panel_efficiency: float = 0.20
+    peak_irradiance: float = 1000.0
+    sunrise_hour: float = 6.0
+    daylight_hours: float = 12.0
+    battery: float = 30 * KWH
+    initial_charge: float = 1.0
+    charge_power: float = 8000.0  # input from the base, output = input * efficiency
+    charge_efficiency: float = 0.90
+    speed: float = 0.20
+    move_power: float = 1000.0
+    max_slope: float = 0.15
+    relocation_trips: int = 5
+    relocation_cooldown: float = 900.0
+    relocation_min_gain: float = 0.15
+    relocation_clearance: float = 2.0
+    idle_power: float = 0.0
+
+
+@dataclass
+class DustConfig:
+    downsample: int = 4
+    wind_x: float = 1.0
+    wind_y: float = 0.4
+    strength: float = 1.0
+    lifetime: float = 18.0
+    diffusion: float = 0.08
+    height_scale: float = 4.0
+    concentration_scale: float = 4.0
+
+
+@dataclass
+class Config:
+    terrain: TerrainConfig = field(default_factory=TerrainConfig)
+    trench: TrenchConfig = field(default_factory=TrenchConfig)
+    drone: DroneConfig = field(default_factory=DroneConfig)
+    base: BaseConfig = field(default_factory=BaseConfig)
+    dust: DustConfig = field(default_factory=DustConfig)
+    seed: int = 42
+    dt: float = 1.0
+    start_hour: float = 9.0
+    event_limit: int = 300
+    frame_budget_ms: float = 12.0
+    max_frame_steps: int = 200
+    display_interval_ms: int = 40
+    terrain_display_seconds: float = 0.20
+
+    def validate(self):
+        def require(condition, message):
+            if not condition:
+                raise ValueError(message)
+        def finite_values(value):
+            if isinstance(value, dict):
+                return all(finite_values(v) for v in value.values())
+            if isinstance(value, (list, tuple)):
+                return all(finite_values(v) for v in value)
+            return not isinstance(value, (int, float)) or math.isfinite(value)
+        require(finite_values(asdict(self)), "Все параметры должны быть конечными")
+        t, q, d, b, dust = self.terrain, self.trench, self.drone, self.base, self.dust
+        require(isinstance(t.n, int) and t.n >= 16 and t.cell_size > 0, "Неверная сетка")
+        require(self.dt == 1.0, "Движок использует фиксированный шаг 1 с")
+        require(t.density > 0 and t.floor < -q.depth - t.roughness, "Неверная плотность/нижняя граница грунта")
+        require(t.roughness >= 0 and 0 < t.relaxation <= 0.5, "Неверные параметры рельефа")
+        require(isinstance(t.avalanche_sweeps, int) and t.avalanche_sweeps > 0, "Неверное число проходов осыпания")
+        require(t.grab_radius >= t.cell_size and t.completion_volume > 0 and t.avalanche_epsilon > 0, "Неверный радиус/допуск")
+        require(t.avalanche_stop_volume > 0, "Неверный допуск остановки осыпания")
+        require(isinstance(self.seed, int) and self.seed >= 0, "Seed должен быть неотрицательным целым числом")
+        require(self.event_limit > 0 and self.frame_budget_ms > 0 and self.max_frame_steps > 0 and self.display_interval_ms > 0 and self.terrain_display_seconds > 0, "Неверные параметры обновления интерфейса")
+        require(q.length > 0 and q.width > 0 and q.depth > 0 and 5 <= q.angle_deg <= 55, "Неверная геометрия канавы")
+        side = t.n * t.cell_size
+        margin = q.depth / math.tan(math.radians(q.angle_deg)) + t.cell_size
+        require(q.length >= t.cell_size and q.width >= t.cell_size, "Дно меньше разрешения сетки")
+        require(q.x-q.length/2-margin > 0 and q.x+q.length/2+margin < side and q.y-q.width/2-margin > 0 and q.y+q.width/2+margin < side, "Канава с откосами выходит за карту")
+        x, y, w, h = t.dump_rect
+        require(w >= t.cell_size and h >= t.cell_size and x >= 0 and y >= 0 and x+w <= side and y+h <= side, "Отвал выходит за карту или слишком мал")
+        require(t.dump_max_height > 0 and 0 < t.dump_slope_factor < 1, "Неверная высота/уклон отвала")
+        require(0 < b.x < side and 0 < b.y < side and b.radius > 0 and b.roof_height > 0, "Неверное положение/размер базы")
+        for obj, keys in [(d, ("empty_mass", "payload", "battery", "empty_speed", "loaded_speed", "vertical_speed", "work_height", "hover_power", "scoop_seconds", "dump_seconds", "winch_seconds")), (b, ("battery", "speed", "move_power", "max_slope", "relocation_trips", "relocation_cooldown", "relocation_clearance"))]:
+            require(all(getattr(obj, k) > 0 for k in keys), "Масса, скорость, ёмкость и длительности должны быть положительными")
+        require(0 <= d.initial_charge <= 1 and 0 <= b.initial_charge <= 1 and 0 <= d.reserve < 1, "Неверный заряд/резерв")
+        require(0 < b.charge_efficiency <= 1 and 0 <= b.panel_efficiency <= 1 and b.panel_area >= 0 and b.peak_irradiance >= 0 and b.charge_power >= 0, "Неверные параметры солнечной энергии/зарядки")
+        require(0 < b.daylight_hours <= 24 and 0 <= b.sunrise_hour < 24 and 0 <= self.start_hour < 24, "Неверный солнечный цикл")
+        require(d.flight_factor >= 1 and d.budget_margin >= 1 and d.winch_power >= 0 and b.idle_power >= 0 and 0 <= b.relocation_min_gain < 1, "Неверные энергетические параметры")
+        require(0 < d.winch_efficiency <= 1 and d.gravity > 0, "Неверные параметры лебёдки/гравитации")
+        require(dust.downsample >= 1 and isinstance(dust.downsample, int) and dust.lifetime > 0 and dust.diffusion >= 0 and dust.strength >= 0 and dust.height_scale > 0 and dust.concentration_scale > 0, "Неверная модель пыли")

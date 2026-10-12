@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autonomous-terraforming-simulator"
+version = "0.1.0"
+description = "Conservative sand excavation and solar electric drone simulator"
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.26,<3", "PySide6>=6.6,<7", "pyqtgraph>=0.13.7,<0.15"]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10"]
+
+[project.scripts]
+ats = "ats.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["ats*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
