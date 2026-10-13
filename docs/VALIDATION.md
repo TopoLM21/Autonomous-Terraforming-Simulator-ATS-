@@ -2,7 +2,7 @@
 
 Дата: 2026-10-13. Среда: Linux, Python 3.12.14, numpy 2.5.4, Qt/PySide6 6.12.0, pyqtgraph 0.14.0, pytest 9.1.1.
 
-**86 тестов прошли за 99,84 с**. Полный локальный запуск: `ATS_REPORT_DIR=docs python -m pytest -q --junitxml=docs/test-results.xml`; [JUnit XML](test-results.xml) содержит все 86 результатов без ошибок и пропусков. После уточнения компоновки редактора повторены 19 проверок оборудования, GUI и CLI: 19 passed за 3,20 с. Протокол GitHub Actions — [ci-results.json](ci-results.json).
+**86 тестов прошли за 99,84 с**. Полный локальный запуск: `ATS_REPORT_DIR=docs python -m pytest -q --junitxml=docs/test-results.xml`; [JUnit XML](test-results.xml) содержит все 86 результатов без ошибок и пропусков. После уточнения компоновки редактора повторены 19 проверок оборудования, GUI и CLI: 19 passed за 3,20 с. Все четыре задания GitHub Actions на Ubuntu/Windows с Python 3.11/3.12 успешно прошли **по 86 тестов**, включая Qt offscreen и полный headless CLI. Логи: Ubuntu 3.11 — 115,19 с; Ubuntu 3.12 — 148,67 с; Windows 3.11 — 148,86 с; Windows 3.12 — 149,38 с. [Запуск CI](https://github.com/TopoLM21/Autonomous-Terraforming-Simulator-ATS-/actions/runs/38376251774) для коммита `e0173356cafbca0ed43f3e956b6653bf1550d129`; протокол — [ci-results.json](ci-results.json).
 
 ## Оборудование без перезапуска
 
