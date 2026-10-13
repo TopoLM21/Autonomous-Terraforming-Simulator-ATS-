@@ -1,32 +1,36 @@
 {
-  "commit": "e0173356cafbca0ed43f3e956b6653bf1550d129",
-  "run_id": 38376251774,
-  "url": "https://github.com/TopoLM21/Autonomous-Terraforming-Simulator-ATS-/actions/runs/38376251774",
-  "tests_per_job": 86,
+  "commit": "9a3bf1a0e0880842c29aeb01c15c945315f80c8c",
+  "run_id": 38391520661,
+  "url": "https://github.com/TopoLM21/Autonomous-Terraforming-Simulator-ATS-/actions/runs/38391520661",
+  "tests_per_job": 108,
   "jobs": [
     {
       "name": "test (windows-latest, 3.11)",
       "conclusion": "success",
-      "test_summary": "86 passed in 148.86s (0:02:28)",
-      "headless_completed": true
-    },
-    {
-      "name": "test (ubuntu-latest, 3.12)",
-      "conclusion": "success",
-      "test_summary": "86 passed in 148.67s (0:02:28)",
-      "headless_completed": true
-    },
-    {
-      "name": "test (windows-latest, 3.12)",
-      "conclusion": "success",
-      "test_summary": "86 passed in 149.38s (0:02:29)",
-      "headless_completed": true
+      "test_summary": "108 passed in 117.91s (0:01:57)",
+      "headless_completed": true,
+      "qt_installed": "PySide6-Essentials-6.11.2"
     },
     {
       "name": "test (ubuntu-latest, 3.11)",
       "conclusion": "success",
-      "test_summary": "86 passed in 115.19s (0:01:55)",
-      "headless_completed": true
+      "test_summary": "108 passed in 151.02s (0:02:31)",
+      "headless_completed": true,
+      "qt_installed": "PySide6-Essentials-6.11.2"
+    },
+    {
+      "name": "test (ubuntu-latest, 3.12)",
+      "conclusion": "success",
+      "test_summary": "108 passed in 108.11s (0:01:48)",
+      "headless_completed": true,
+      "qt_installed": "PySide6-Essentials-6.12.0"
+    },
+    {
+      "name": "test (windows-latest, 3.12)",
+      "conclusion": "success",
+      "test_summary": "108 passed in 111.29s (0:01:51)",
+      "headless_completed": true,
+      "qt_installed": "PySide6-Essentials-6.12.0"
     }
   ]
 }
