@@ -1,0 +1,51 @@
+{
+  "source_commit": "0eee700e54c004a2b6aea8ba5e9869399ece3bff",
+  "workflow_run": 38456365557,
+  "url": "https://github.com/TopoLM21/Autonomous-Terraforming-Simulator-ATS-/actions/runs/38456365557",
+  "jobs": [
+    {
+      "id": 115500027090,
+      "name": "test (ubuntu-latest, 3.11)",
+      "conclusion": "success",
+      "tests": "139 passed in 114.16s (0:01:54)",
+      "qt_versions": [
+        "6.11.2"
+      ],
+      "headless_legacy_completed": true,
+      "logistics_step_success": true
+    },
+    {
+      "id": 115500027170,
+      "name": "test (windows-latest, 3.12)",
+      "conclusion": "success",
+      "tests": "139 passed in 100.01s (0:01:40)",
+      "qt_versions": [
+        "6.12.0"
+      ],
+      "headless_legacy_completed": true,
+      "logistics_step_success": true
+    },
+    {
+      "id": 115500027141,
+      "name": "test (ubuntu-latest, 3.12)",
+      "conclusion": "success",
+      "tests": "139 passed in 192.92s (0:03:12)",
+      "qt_versions": [
+        "6.12.0"
+      ],
+      "headless_legacy_completed": true,
+      "logistics_step_success": true
+    },
+    {
+      "id": 115500026594,
+      "name": "test (windows-latest, 3.11)",
+      "conclusion": "success",
+      "tests": "139 passed in 163.15s (0:02:43)",
+      "qt_versions": [
+        "6.11.2"
+      ],
+      "headless_legacy_completed": true,
+      "logistics_step_success": true
+    }
+  ]
+}

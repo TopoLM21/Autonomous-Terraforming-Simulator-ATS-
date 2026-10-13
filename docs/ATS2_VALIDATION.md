@@ -9,6 +9,19 @@
 все 15 пунктов раздела 14 ТЗ, GUI и обнаруженные сквозными прогонами конфликты.
 [JUnit 3.12](ats2/test-results-312.xml), [JUnit 3.11](ats2/test-results-311.xml).
 
+GitHub Actions также завершился успешно на **Ubuntu и Windows, Python 3.11/3.12**:
+по **139 тестов** в каждом из четырёх заданий. Старый headless-пресет и новая
+миссия Крот + 4 дрона завершились; отдельная CI-проверка проверяет штатную смену
+батарей, массу и электрический баланс. [CI run](https://github.com/TopoLM21/Autonomous-Terraforming-Simulator-ATS-/actions/runs/38456365557),
+код `0eee700e54c004a2b6aea8ba5e9869399ece3bff`, [протокол](ats2/ci-results.json).
+
+| CI | Тесты | Qt | Время тестов, с |
+| --- | ---: | --- | ---: |
+| Ubuntu / Python 3.11 | 139 passed | 6.11.2 | 114.16 |
+| Ubuntu / Python 3.12 | 139 passed | 6.12.0 | 192.92 |
+| Windows / Python 3.11 | 139 passed | 6.11.2 | 163.15 |
+| Windows / Python 3.12 | 139 passed | 6.12.0 | 100.01 |
+
 | Этап | Полный набор | Результат |
 | --- | ---: | --- |
 | Исходный код | 108 | passed, 111,06 с |
