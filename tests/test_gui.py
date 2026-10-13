@@ -161,3 +161,28 @@ def test_high_speeds_real_timer_fixed_physics_and_laser_display():
     table.item(0,5).setCheckState(QtCore.Qt.CheckState.Unchecked)
     dialog.save();assert not dialog.result_config.base.equipment.emitters[0].enabled
     dialog.close();w.close();app.processEvents()
+
+
+def test_equipment_and_brush_signal_callbacks_allow_clean_process_exit():
+    # CPython 3.11 detects PySide bool reference errors only during finalization;
+    # checking a fresh interpreter's exit code catches failures after pytest.
+    import subprocess,sys
+    code='''
+from PySide6 import QtWidgets,QtCore
+from ats.gui import MainWindow
+from ats.config import Config
+from ats.equipment import LaserEmitter
+from ats.equipment_ui import EquipmentDialog
+app=QtWidgets.QApplication([])
+w=MainWindow(Config());w.timer.stop()
+w.config.base.equipment.emitters=[LaserEmitter()]
+d=EquipmentDialog(w.config,w);item=d.base.emitters.table.item(0,5)
+for _ in range(10):
+    item.setCheckState(QtCore.Qt.CheckState.Unchecked)
+    item.setCheckState(QtCore.Qt.CheckState.Checked)
+button=next(b for b in w.plan_editor.findChildren(QtWidgets.QPushButton) if b.text()=='Посадить флот')
+button.click();app.processEvents()
+d.close();w.close()
+'''
+    result=subprocess.run([sys.executable,'-c',code],capture_output=True,timeout=30)
+    assert result.returncode==0,result.stderr.decode('utf-8',errors='replace')

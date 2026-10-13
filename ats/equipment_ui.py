@@ -30,7 +30,11 @@ class ModuleTable(QtWidgets.QWidget):
         add.clicked.connect(lambda:self.append(self.kind()));remove.clicked.connect(self.remove)
         buttons.addWidget(add);buttons.addWidget(remove);buttons.addStretch();layout.addLayout(buttons)
         for module in modules:self.append(module)
-        self.table.itemChanged.connect(lambda _:self.changed.emit())
+        self.table.itemChanged.connect(self.notify_changed)
+
+    def notify_changed(self,_):
+        # Forward a notification through a void Qt callback.
+        self.changed.emit()
 
     def append(self,module):
         limit=6 if self.kind is LaserEmitter else 12

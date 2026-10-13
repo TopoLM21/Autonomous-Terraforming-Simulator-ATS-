@@ -63,7 +63,10 @@ class PlanEditor(QtWidgets.QWidget):
         layout.addLayout(tools)
         actions=QtWidgets.QHBoxLayout()
         for label,handler in [("Удалить мазок",self.remove),("Очистить рисунок",self.clear),("Посадить флот",self.landingRequested.emit),("Применить план",self.applyRequested.emit),("Сохранить…",self.saveRequested.emit),("Открыть…",self.loadRequested.emit)]:
-            button=QtWidgets.QPushButton(label);button.clicked.connect(lambda checked=False,action=handler:action());actions.addWidget(button)
+            button=QtWidgets.QPushButton(label)
+            def invoke(checked=False,action=handler):
+                action()  # discard the bool returned by Signal.emit()
+            button.clicked.connect(invoke);actions.addWidget(button)
         layout.addLayout(actions)
         self.info=QtWidgets.QLabel("Кисть задаёт высоту поверхности, не меняя грунт сразу. Для применения флот должен приземлиться. Высота 0 м — исходный уровень; засыпка берёт грунт из отвала или выемки.")
         self.info.setWordWrap(True);layout.addWidget(self.info)
