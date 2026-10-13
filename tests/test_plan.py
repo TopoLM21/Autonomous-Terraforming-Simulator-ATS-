@@ -54,6 +54,22 @@ def test_threshold_changes_when_charging_starts():
     with pytest.raises(ValueError,match='Порог'):c.validate()
 
 
+def test_100_percent_trigger_allows_full_battery_to_leave_and_recharges_between_transfers():
+    c=Config();c.drone.charge_threshold=1
+    s=Simulation(c);s.step()
+    assert s.drone.state==DS.TAKEOFF
+    assert not s.drone.charge_requested
+    assert s.drone.charge_cycles==0
+    charged=False
+    for _ in range(2000):
+        previous=s.drone.state;s.step()
+        if previous==DS.CHARGING and s.drone.state==DS.TAKEOFF:
+            charged=True;assert s.drone.battery==pytest.approx(c.drone.battery,abs=1e-6)
+        if s.trips>=3:break
+    assert charged and s.trips>=3
+    assert_balances(s)
+
+
 @pytest.mark.parametrize('count,slots',[(1,1),(3,1),(6,2)])
 def test_dig_then_brush_fill_uses_existing_stockpile_and_preserves_both_ledgers(count,slots):
     c=Config();c.fleet.count=count;c.fleet.charge_slots=slots

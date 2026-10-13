@@ -296,7 +296,7 @@ class Simulation:
             d.charge_requested = False
             d.charge_cycles += 1
             self.drone_event(d, "зарядка завершена: 100%")
-        if d.battery <= d.config.battery*d.config.charge_threshold and self.terrain.remaining > self.config.terrain.completion_volume:
+        if d.battery < d.config.battery-1e-7 and d.battery <= d.config.battery*d.config.charge_threshold and self.terrain.remaining > self.config.terrain.completion_volume:
             self._request_charge(d, "достигнут нижний порог")
         return d.charge_requested
 

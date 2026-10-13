@@ -56,7 +56,7 @@ class Drone:
     def __post_init__(self):
         self.battery = self.config.battery*self.config.initial_charge
         self.minimum_charge = self.battery
-        self.charge_requested = self.battery <= self.config.battery*self.config.charge_threshold
+        self.charge_requested = self.battery < self.config.battery-1e-7 and self.battery <= self.config.battery*self.config.charge_threshold
 
     @property
     def docked(self):
