@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "autonomous-terraforming-simulator"
-version = "0.1.0"
-description = "Conservative sand excavation and solar electric drone simulator"
+version = "2.0.0"
+description = "Conservative sand excavation, autonomous logistics and solar electric drone simulator"
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.26,<3",

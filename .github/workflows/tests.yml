@@ -27,3 +27,11 @@ jobs:
       - run: python -m pip install -e ".[test]"
       - run: python -m pytest -q
       - run: python -m ats --headless --steps 10000 --seed 42
+      - name: ATS 2.0 logistics smoke test
+        run: |
+          python -m ats --headless --mode logistics --drones 4 --steps 20000 --json ats2-ci.json > ats2-ci-stdout.json
+          python -c "import json; r=json.load(open('ats2-ci.json',encoding='utf-8')); assert r['state']=='COMPLETED'; assert r['excavator']['swaps']>=1; assert abs(r['mass_error_kg'])<1e-7; assert abs(r['energy_error_j'])<0.002"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ats2-${{ matrix.os }}-${{ matrix.python }}
+          path: ats2-ci.json

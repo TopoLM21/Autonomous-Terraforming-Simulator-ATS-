@@ -15,16 +15,24 @@ def main():
     parser.add_argument("--roughness", type=float, default=0)
     parser.add_argument("--latitude", type=float, default=55, help="Latitude in degrees; positive = north")
     parser.add_argument("--day-of-year", type=int, default=172, help="Start day, 1..365; day 172 = 21 June")
-    parser.add_argument("--panel-area", type=float, default=20, help="Horizontal solar panel area in m²")
+    parser.add_argument("--panel-area", type=float, help="Horizontal solar panel area in m²; default 20, or equipment profile")
     parser.add_argument("--base-mass", type=float, default=1000, help="Base mass including panels/battery, kg")
-    parser.add_argument("--drones", type=int, default=1, help="Fleet size, 1..6")
-    parser.add_argument("--charge-slots", type=int, default=1, help="Charging sockets, 1..6; share total charging power")
+    parser.add_argument("--drones", type=int, help="Fleet size, 1..6; default 1 legacy / 4 logistics")
+    parser.add_argument("--charge-slots", type=int, help="Landing/charging sockets, 1..6; share total charging power")
     parser.add_argument("--wait-mode", choices=("ground","air"), default="ground")
     parser.add_argument("--charge-threshold", type=float, default=30, help="Lower charging trigger, percent; charging then continues to 100%")
     parser.add_argument("--plan", help="Load a brush plan JSON, including its starting terrain")
     parser.add_argument("--equipment", help="Load an equipment inventory JSON exported from the equipment editor")
     parser.add_argument("--compare-fleet", help="Compare fleet sizes, e.g. 1,2,3, with the same scenario")
     parser.add_argument("--json", dest="json_path", help="Save the headless report")
+    parser.add_argument('--mode',choices=('legacy','logistics','hybrid'),default='legacy')
+    parser.add_argument('--containers',type=int,default=8)
+    parser.add_argument('--battery-modules',type=int,choices=(1,2),help='Explicit drone battery variant; otherwise preserve equipment')
+    parser.add_argument('--module-charge-ports',type=int,default=4)
+    parser.add_argument('--laser-profile',choices=('laser_off','existing_legacy','realistic_reference'))
+    parser.add_argument('--configuration',help='Load version 2 experiment JSON')
+    parser.add_argument('--save-configuration',help='Save version 2 experiment JSON')
+    parser.add_argument('--batch-experiments',action='store_true',help='Run S0–S9 with the same terrain/seed')
     args = parser.parse_args()
     if args.steps < 0:
         parser.error("--steps must be nonnegative")
@@ -33,10 +41,10 @@ def main():
     config.terrain.roughness = args.roughness
     config.base.latitude_deg = args.latitude
     config.base.start_day_of_year = args.day_of_year
-    config.base.panel_area = args.panel_area
+    config.base.panel_area = 20 if args.panel_area is None else args.panel_area
     config.base.mass = args.base_mass
-    config.fleet.count = args.drones
-    config.fleet.charge_slots = args.charge_slots
+    config.fleet.count = args.drones if args.drones is not None else (1 if args.mode=='legacy' else 4)
+    config.fleet.charge_slots = 1 if args.charge_slots is None else args.charge_slots
     config.fleet.wait_mode = args.wait_mode
     config.drone.charge_threshold = args.charge_threshold/100
     try:
@@ -47,9 +55,28 @@ def main():
             from pathlib import Path
             from .equipment import load_equipment_data
             config=load_equipment_data(json.loads(Path(args.equipment).read_text(encoding="utf-8")),config)
+        if args.mode!='legacy':
+            from .experiments import experiment_config
+            profile=args.laser_profile or ('existing_legacy' if config.base.equipment and any(e.enabled for e in config.base.equipment.emitters) else 'laser_off')
+            landing=args.charge_slots if args.charge_slots is not None else (config.base.equipment.landing_slots if args.equipment else None)
+            config=experiment_config(config,mode=args.mode,drones=config.fleet.count,containers=args.containers,
+                ports=args.module_charge_ports,panel_area=args.panel_area,laser=profile,
+                battery_modules=args.battery_modules,landing_slots=landing)
+        elif args.laser_profile:
+            from .laser_profiles import with_laser_profile
+            config=with_laser_profile(config,args.laser_profile)
+        if args.configuration:
+            from .experiments import load_configuration
+            config=load_configuration(args.configuration)
+        if args.save_configuration:
+            from .experiments import save_configuration
+            save_configuration(args.save_configuration,config)
         config.validate()
         if args.headless:
-            if args.compare_fleet:
+            if args.batch_experiments:
+                from .experiments import run_benchmarks
+                report=run_benchmarks(config,args.steps,args.json_path)
+            elif args.compare_fleet:
                 from .comparison import compare_fleets
                 report = compare_fleets(config,[int(n) for n in args.compare_fleet.split(',')],args.steps)
             else:
@@ -67,7 +94,9 @@ def main():
             if args.json_path:
                 from pathlib import Path
                 Path(args.json_path).write_text(result+"\n", encoding="utf-8")
-            return 2 if isinstance(report,dict) and report["state"] == "BLOCKED" else 0
+            blocked=isinstance(report,dict) and report['state']=='BLOCKED'
+            if args.batch_experiments:blocked=any(row['state']=='BLOCKED' for row in report)
+            return 2 if blocked else 0
         from .gui import launch
         return launch(config)
     except (ValueError, OSError, KeyError, TypeError) as error:

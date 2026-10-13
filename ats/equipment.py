@@ -61,6 +61,12 @@ class LaserEmitter:
     enabled: bool=True
     beam_radius_m: float=.10
     divergence_mrad: float=2.0
+    profile: str='existing_legacy'
+    reference_capture: float=1.0
+    attenuation_per_m: float=0.0
+    dust_attenuation: float=0.0
+    shared_source: str=''
+    shared_limit_kw: float=0.0
 
     def validate(self):
         if not isinstance(self.drone_number,int) or not 1<=self.drone_number<=6:raise ValueError("Номер позиции дрона для передатчика: 1–6")
@@ -68,6 +74,10 @@ class LaserEmitter:
         positive(self.beam_radius_m,"Радиус луча");positive(self.divergence_mrad,"Расходимость луча",True)
         if not isinstance(self.enabled,bool):raise ValueError("Состояние передатчика должно быть логическим")
         if not 0<self.efficiency<=1:raise ValueError("КПД передатчика: больше 0 и не больше 100%")
+        if self.profile not in ('existing_legacy','realistic_reference') or not 0<=self.reference_capture<=1:
+            raise ValueError('Неверный профиль/захват лазера')
+        positive(self.attenuation_per_m,'Затухание',True);positive(self.dust_attenuation,'Пыль',True)
+        positive(self.shared_limit_kw,'Общий предел источника',True)
 
 
 @dataclass
@@ -77,10 +87,20 @@ class LaserReceiver:
     area_m2: float=.25
     max_power_kw: float=8.0
     efficiency: float=.45
+    optical_cap_kw: float | None=None  # legacy limit is electrical, preserved
+    orientation_cosine: float=1.0
+    thermal_capacity_j_k: float=4000.
+    cooling_w_k: float=20.
+    max_temperature_c: float=70.
+    ambient_temperature_c: float=25.
 
     def validate(self):
         positive(self.mass_kg,"Масса приёмника");positive(self.area_m2,"Площадь приёмника");positive(self.max_power_kw,"Мощность приёмника")
         if not isinstance(self.installed,bool) or not 0<self.efficiency<=1:raise ValueError("Неверные параметры лазерного приёмника")
+        if self.optical_cap_kw is not None:positive(self.optical_cap_kw,'Оптический предел')
+        if not 0<=self.orientation_cosine<=1:raise ValueError('Ориентация приёмника: 0..1')
+        positive(self.thermal_capacity_j_k,'Теплоёмкость');positive(self.cooling_w_k,'Охлаждение',True)
+        if self.max_temperature_c<=self.ambient_temperature_c:raise ValueError('Тепловой предел ниже среды')
 
 
 @dataclass
@@ -187,6 +207,17 @@ def resolve_config(config):
         d.equipment.resolve(d,config.terrain.density)
     config.fleet.models=models
     return config
+
+
+def physical_payload_limit(drone):
+    e=drone.config.equipment
+    batteries=sum(b.quantity*b.mass_kg for b in e.batteries)
+    reference_batteries=max(0.,e.reference_mass_kg-e.frame_mass_kg-e.bucket.mass_kg)
+    receiver=e.receiver.mass_kg if e.receiver.installed else 0.
+    structural=max(0.,e.payload_limit_kg-max(0.,batteries-reference_batteries)-receiver)
+    output=getattr(drone,'max_battery_output_w',math.inf)
+    power_limit=drone.config.empty_mass*((output/(drone.config.hover_power*drone.config.flight_factor))**(2/3)-1)
+    return max(0.,min(structural,power_limit))
 
 
 def equipment_data(config):

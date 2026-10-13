@@ -30,6 +30,7 @@ class Drone:
     position: np.ndarray
     battery: float = field(init=False)
     cargo: float = 0.0
+    equivalent_load: float | None = None  # cooperative cable tension; physical cargo stays separate
     velocity: np.ndarray = field(default_factory=lambda: np.zeros(3))
     state: DroneState = DroneState.DOCKED
     elapsed: float = 0.0
@@ -60,6 +61,8 @@ class Drone:
     laser_step_energy: float = 0.0  # settled into motors/storage within the same step
     laser_power_w: float = 0.0
     laser_status: str = "Нет передатчика"
+    receiver_temperature_c: float = 25.0
+    receiver_heat_j: float = 0.0
     last_flight_power_w: float = 0.0
     airborne_seconds: float = 0.0
     flight_seconds: float = 0.0
@@ -81,7 +84,7 @@ class Drone:
         return self.docked or self.state == DroneState.WAIT_GROUND
 
     def power(self, moving=False, winching=False, cargo=None, lift_height=0.0):
-        load = self.cargo if cargo is None else cargo
+        load = (self.equivalent_load if self.equivalent_load is not None else self.cargo) if cargo is None else cargo
         p = self.config.hover_power*((self.config.empty_mass+load)/self.config.empty_mass)**1.5
         winch = 0.0
         if winching:

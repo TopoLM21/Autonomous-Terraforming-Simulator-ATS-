@@ -20,6 +20,7 @@ class ModuleTable(QtWidgets.QWidget):
 
     def __init__(self,kind,columns,modules,parent=None):
         super().__init__(parent);self.kind=kind;self.columns=columns
+        self.sources=[]
         layout=QtWidgets.QVBoxLayout(self);layout.setContentsMargins(0,0,0,0)
         self.table=QtWidgets.QTableWidget(0,len(columns))
         self.table.setHorizontalHeaderLabels([label for _,label in columns])
@@ -40,6 +41,7 @@ class ModuleTable(QtWidgets.QWidget):
         limit=6 if self.kind is LaserEmitter else 12
         if self.table.rowCount()>=limit:return
         row=self.table.rowCount();self.table.insertRow(row)
+        self.sources.append(deepcopy(module))
         for col,(key,_) in enumerate(self.columns):
             value=getattr(module,key)
             if key=="efficiency":value*=100
@@ -52,13 +54,13 @@ class ModuleTable(QtWidgets.QWidget):
 
     def remove(self):
         row=self.table.currentRow()
-        if row>=0:self.table.removeRow(row);self.changed.emit()
+        if row>=0:self.table.removeRow(row);self.sources.pop(row);self.changed.emit()
 
     def modules(self):
         result=[]
         types={f.name:f.type for f in fields(self.kind)}
         for row in range(self.table.rowCount()):
-            values={}
+            values={f.name:getattr(self.sources[row],f.name) for f in fields(self.kind)}
             for col,(key,_) in enumerate(self.columns):
                 item=self.table.item(row,col)
                 if item is None:raise ValueError("Заполните все ячейки оборудования")
@@ -148,7 +150,9 @@ class DroneEditor(QtWidgets.QWidget):
         e.frame_mass_kg=self.frame.value();e.payload_limit_kg=self.payload_limit.value()
         e.reference_mass_kg=self.reference_mass.value();e.reference_hover_power_kw=self.reference_power.value()
         e.batteries=self.batteries.modules();e.bucket=BucketModule(self.bucket_mass.value(),self.volume.value(),self.radius.value())
-        e.receiver=LaserReceiver(self.receiver.isChecked(),self.receiver_mass.value(),self.receiver_area.value(),self.receiver_power.value(),self.receiver_efficiency.value()/100)
+        e.receiver.installed=self.receiver.isChecked();e.receiver.mass_kg=self.receiver_mass.value()
+        e.receiver.area_m2=self.receiver_area.value();e.receiver.max_power_kw=self.receiver_power.value()
+        e.receiver.efficiency=self.receiver_efficiency.value()/100
         e.resolve(model,self.density);return model
 
     def update_summary(self):

@@ -147,7 +147,10 @@ def test_high_speeds_real_timer_fixed_physics_and_laser_display():
     w=MainWindow(c);w.show()
     assert [w.speed.itemData(i) for i in range(w.speed.count())][-2:]==[1000,2000]
     w.speed.setCurrentIndex(w.speed.findData(1000));assert w.speed.currentData()==1000
-    w.speed.setCurrentIndex(w.speed.findData(2000));w.toggle_play();QtTest.QTest.qWait(180)
+    w.speed.setCurrentIndex(w.speed.findData(2000));w.toggle_play()
+    deadline=QtCore.QElapsedTimer();deadline.start()
+    while w.sim.drone.laser_received==0 and deadline.elapsed()<3000:
+        QtTest.QTest.qWait(20)
     w.running=False;w.timer.stop();w.refresh(True)
     assert w.sim.time>0 and w.config.dt==1
     reference=Simulation(deepcopy(c));reference.run(int(w.sim.time))
@@ -186,3 +189,34 @@ d.close();w.close()
 '''
     result=subprocess.run([sys.executable,'-c',code],capture_output=True,timeout=30)
     assert result.returncode==0,result.stderr.decode('utf-8',errors='replace')
+
+
+def test_logistics_inventory_and_experiments_ui(tmp_path):
+    from PySide6 import QtWidgets
+    from ats.gui import MainWindow
+    from ats.experiments import experiment_config,save_configuration,load_configuration
+    from ats.logistics_ui import LogisticsWindow,ExperimentDialog
+    from ats.simulation import Simulation
+    app=QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    c=experiment_config(Config(),drones=4,laser='realistic_reference')
+    path=tmp_path/'scenario.json';save_configuration(path,c)
+    clone=load_configuration(path)
+    assert Simulation(c).run(50)==Simulation(clone).run(50)
+    w=MainWindow(clone);w.timer.stop();w.sim.run(90);w.refresh(True)
+    view=LogisticsWindow(w);view.timer.stop();view.refresh()
+    assert view.inventory.rowCount()==len(w.sim.logistics.inventory.items)
+    assert view.jobs.rowCount()>0 and 'Крот:' in view.status.text()
+    assert w.excavator_marker.data.size>0 and w.container_markers.data.size==8
+    view.filter.setText('excavator_battery')
+    assert view.inventory.rowCount()==4
+    dialog=ExperimentDialog(w);dialog.mode.setCurrentIndex(2)
+    assert dialog.candidate().logistics.direct_allowed
+    from ats.equipment_ui import EquipmentDialog
+    gear=EquipmentDialog(w.config,w);gear.save()
+    assert gear.result_config.base.equipment.emitters[0].profile=='realistic_reference'
+    assert gear.result_config.fleet.models[0].equipment.receiver.optical_cap_kw==1.5
+    gear.result_config.base.equipment.emitters[0].enabled=False
+    assert w.sim.request_equipment(gear.result_config)=='applied'
+    assert not w.sim.config.base.equipment.emitters[0].enabled
+    gear.close()
+    dialog.close();view.close();w.close();app.processEvents()

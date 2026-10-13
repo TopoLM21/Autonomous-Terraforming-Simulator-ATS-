@@ -51,7 +51,8 @@ class SolarBase:
             total_mass += drone.config.empty_mass+drone.cargo
         return self.config.move_power*total_mass/self.config.reference_total_mass
 
-    def tick(self, dt, hour, drone, charging, day_of_year=None,laser_links=()):
+    def tick(self, dt, hour, drone, charging, day_of_year=None,laser_links=(),modules=(),bus_limit_w=None,
+             storage_charge_w=None,storage_discharge_w=None,auxiliary_w=0.):
         b = self.config
         drones = drone if isinstance(drone, list) else [drone]
         flags = charging if isinstance(charging, list) else [charging]*len(drones)
@@ -78,27 +79,32 @@ class SolarBase:
         self.solar_power = self.irradiance(hour, day_of_year)*b.panel_area*b.panel_efficiency
         solar = self.solar_power*dt
         self.generated += solar
-        available = self.battery+solar
-        idle = min(available, b.idle_power*dt)
+        total_available = self.battery+solar
+        available = total_available if bus_limit_w is None else min(total_available,bus_limit_w*dt)
+        if storage_discharge_w is not None:
+            available=min(available,solar+min(self.battery,storage_discharge_w*dt))
+        inaccessible=total_available-available
+        idle = min(available, (b.idle_power+auxiliary_w)*dt)
         available -= idle
         self.consumed += idle
         charging_energy = 0.0
-        active = [d for d, flag in zip(drones, flags) if d.docked and flag and d.battery < d.config.battery-1e-8]
+        active = [(d,min(b.charge_power,getattr(d,'max_charge_input_w',b.charge_power))) for d, flag in zip(drones, flags) if d.docked and flag and d.battery < d.config.battery-1e-8]
+        active += [(module,limit) for module,limit in modules if module.battery<module.config.battery-1e-8]
         budget = min(b.charge_power*dt, available)
         # Equal shares, redistributing unused power when a battery reaches 100%.
         while active and budget > 1e-9:
             share = budget/len(active)
             pending = []
             spent = 0.0
-            for d in active:
-                energy = min(share, (d.config.battery-d.battery)/b.charge_efficiency)
+            for d,limit in active:
+                energy = min(share,limit*dt, (d.config.battery-d.battery)/b.charge_efficiency)
                 d.battery = min(d.config.battery, d.battery+energy*b.charge_efficiency)
                 d.charged_energy += energy*b.charge_efficiency
                 self.charging_input += energy
                 self.charging_losses += energy*(1-b.charge_efficiency)
                 spent += energy
-                if d.battery < d.config.battery-1e-8:
-                    pending.append(d)
+                if d.battery < d.config.battery-1e-8 and energy < limit*dt-1e-9:
+                    pending.append((d,limit-energy/dt))
             budget -= spent
             charging_energy += spent
             available -= spent
@@ -108,10 +114,14 @@ class SolarBase:
         self.laser_input_power=laser_input/dt;self.laser_losses+=laser_input-laser_received
         # Integrate simultaneous generation and discharge before applying capacity.
         # A full base can still feed solar power into a docked drone this tick.
+        available += inaccessible
+        if storage_charge_w is not None:
+            overflow=max(0.,available-self.battery-storage_charge_w*dt)
+            self.curtailed+=overflow;available-=overflow
         self.curtailed += max(0.0, available-b.battery)
         self.battery = max(0.0,min(available, b.battery))
         self.state = BaseState.PARKED_GENERATING if self.solar_power > 0 or self.battery > 0 else BaseState.WAITING_FOR_SUN
-        if any(d.docked and flag for d, flag in zip(drones, flags)):
+        if modules or any(d.docked and flag for d, flag in zip(drones, flags)):
             self.state = BaseState.CHARGING if charging_energy > 0 else BaseState.WAITING_FOR_SUN
         elif laser_input>0:self.state=BaseState.CHARGING
         return None

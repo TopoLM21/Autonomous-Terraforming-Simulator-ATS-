@@ -74,6 +74,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cancel_equipment_button.hide()
         compare_button=QtWidgets.QPushButton("Сравнить 1…N")
         compare_button.clicked.connect(self.compare_fleet);header.addWidget(compare_button)
+        logistics_button=QtWidgets.QPushButton('Склад / диспетчер')
+        logistics_button.clicked.connect(self.show_logistics);header.addWidget(logistics_button)
+        experiments_button=QtWidgets.QPushButton('ATS 2.0')
+        experiments_button.clicked.connect(self.show_experiments);header.addWidget(experiments_button)
         self.brush_button=QtWidgets.QPushButton("Кисть / план")
         self.brush_button.setCheckable(True);header.addWidget(self.brush_button)
         self.speed = QtWidgets.QComboBox()
@@ -118,6 +122,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.drone_marker.setZValue(12)
         self.map.addItem(self.base_marker)
         self.map.addItem(self.drone_marker)
+        self.excavator_marker=pg.ScatterPlotItem(size=20,symbol='t',brush='#ffc16e');self.map.addItem(self.excavator_marker)
+        self.container_markers=pg.ScatterPlotItem(size=9,symbol='s');self.map.addItem(self.container_markers)
+        self.excavator_reach=pg.PlotDataItem(pen=pg.mkPen('#ffca82',width=1,style=QtCore.Qt.PenStyle.DotLine));self.map.addItem(self.excavator_reach)
+        self.solar_field_outline=pg.PlotDataItem(pen=pg.mkPen('#83b9f8',width=2));self.map.addItem(self.solar_field_outline)
+        self.excavator_label=pg.TextItem(color='#ffe0a1',anchor=(0,1));self.map.addItem(self.excavator_label)
         self.route = pg.PlotDataItem(pen=pg.mkPen("#75d8d1", width=1, style=QtCore.Qt.PenStyle.DashLine))
         self.map.addItem(self.route)
         self.laser_beams=pg.PlotDataItem(pen=pg.mkPen("#ff7850",width=2));self.laser_beams.setZValue(9);self.map.addItem(self.laser_beams)
@@ -408,6 +417,18 @@ class MainWindow(QtWidgets.QMainWindow):
         self.profile.setTitle(title)
         self.profile.enableAutoRange()
 
+    def closeEvent(self,event):
+        self.timer.stop();self.running=False
+        super().closeEvent(event)
+
+    def show_logistics(self):
+        from .logistics_ui import LogisticsWindow
+        self.logistics_window=LogisticsWindow(self);self.logistics_window.show()
+
+    def show_experiments(self):
+        from .logistics_ui import ExperimentDialog
+        dialog=ExperimentDialog(self);dialog.exec()
+
     def edit_fleet(self):
         previous=self.running;self.running=False;self.credit=0
         dialog=FleetDialog(self.sim.pending_equipment or self.config,self)
@@ -535,7 +556,11 @@ class MainWindow(QtWidgets.QMainWindow):
                     self.running=self._equipment_resume;self._equipment_resume=None
                     self.play.setText("⏸ Pause" if self.running else "▶ Start")
                     if not self.running:self.credit=0;break
-                if self.sim.landing_requested and all(d.grounded for d in self.sim.drones):
+                logistics=self.sim.logistics
+                robot=logistics.excavator if logistics is not None else None
+                robot_ready=(robot is None or robot.bucket_kg==0 and robot.active_container is None)
+                if logistics is not None:robot_ready=robot_ready and all(c.soil_kg==0 for c in logistics.containers)
+                if self.sim.landing_requested and robot_ready and all(d.grounded and d.cargo==0 for d in self.sim.drones):
                     self.running=False;self.credit=0;self.play.setText("▶ Start")
                     self.plan_editor.info.setText("Флот приземлён. Можно применить нарисованный план.")
                     break
@@ -562,6 +587,22 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dust_image.setRect(QtCore.QRectF(0, 0, s.dust.side, s.dust.side))
         self.dust_image.setVisible(self.show_dust.isChecked())
         self.base_marker.setData([b.position[0]], [b.position[1]])
+        if s.logistics is not None:
+            l=s.logistics;e=l.excavator
+            if l.field_rect is not None:
+                x,y,w,h=l.field_rect;self.solar_field_outline.setData([x,x+w,x+w,x,x],[y,y,y+h,y+h,y])
+            else:self.solar_field_outline.clear()
+            self.container_markers.setData([dict(pos=o.position[:2],brush='#a8e3ae' if o.soil_kg==0 else '#e9a560') for o in l.containers])
+            if e is not None:
+                self.excavator_marker.setData([e.position[0]],[e.position[1]])
+                empty=sum(c.soil_kg==0 for c in l.containers);filled=len(l.containers)-empty
+                self.excavator_label.setText(f'Крот · {e.state.value}\nТара: пустых {empty}, с грунтом {filled}')
+                self.excavator_label.setPos(e.position[0]+1.,e.position[1]-1.)
+                phi=np.linspace(0,2*np.pi,80)
+                self.excavator_reach.setData(e.position[0]+l.config.reach_m*np.cos(phi),e.position[1]+l.config.reach_m*np.sin(phi))
+            else:self.excavator_marker.clear();self.excavator_reach.clear();self.excavator_label.setText('')
+        else:
+            self.excavator_marker.clear();self.container_markers.clear();self.excavator_reach.clear();self.solar_field_outline.clear();self.excavator_label.setText('')
         self.drone_marker.setData([{'pos':tuple(o.position[:2]),'pen':pg.mkPen(self.palette[o.identifier],width=3),'symbol':'+','size':20} for o in s.drones])
         self.slot_markers.setData([{'pos':tuple(s.slot_position(i)[:2]),'brush':'#f4b651' if occupant is not None else '#41566b','symbol':'s','size':10} for i,occupant in enumerate(s.slots)])
         for o,label in zip(s.drones,self.drone_labels):
@@ -570,8 +611,11 @@ class MainWindow(QtWidgets.QMainWindow):
             label.setText(f"Д{o.serial} · {o.cargo:.0f} кг · z {o.position[2]:.1f} м{operation}{laser}")
             label.setPos(o.position[0]+.4,o.position[1]+.4+o.identifier*.3)
         self.base_label.setPos(b.position[0]+0.6, b.position[1]-0.4)
-        if any(o.trip for o in s.drones):
-            points = np.array([p for o in s.drones if o.trip for p in [b.position[:2],o.trip.dig,o.trip.dump,b.position[:2],(np.nan,np.nan)]])
+        routes=[p for o in s.drones if o.trip for p in [b.position[:2],o.trip.dig,o.trip.dump,b.position[:2],(np.nan,np.nan)]]
+        if s.logistics is not None:
+            routes.extend(p for j in s.logistics.active.values() for p in [j.origin[:2],j.destination[:2],(np.nan,np.nan)])
+        if routes:
+            points = np.array(routes)
             self.route.setData(points[:, 0], points[:, 1])
         else:
             self.route.setData([], [])
@@ -586,6 +630,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for row,o in enumerate(report['drones']):
             values=[f"{o['serial']} · {o['name']}",o['state'],f"{o['battery_percent']:.0f}%",f"{o['cargo_kg']:.1f}",str(o['trips']),f"{o['excavated_mass_kg']:.0f} / {o['filled_mass_kg']:.0f}",f"{o['consumed_kwh']:.3f}",f"{o['waiting_seconds']/60:.1f}",f"{o['charging_seconds']/60:.1f}",str(o['traffic_yields']),f"{o['last24_volume_m3']:.4f}",f"{o['laser_power_w']/1000:.2f}"]
             for col,value in enumerate(values):self.fleet_table.setItem(row,col,QtWidgets.QTableWidgetItem(value))
+            if 'task' in o:self.fleet_table.item(row,1).setToolTip(f"{o['task']} · {o['attachment']}\nБатареи: {', '.join(o['battery_ids'])}\nГрузовой лимит: {o['transport_payload_kg']:.1f} кг")
             self.fleet_table.item(row,2).setToolTip(f"Порог зарядки {o['charge_threshold_percent']:.0f}%; полных зарядок: {o['charge_cycles']}. Полёт сейчас: {o['current_flight_seconds']:.0f} с; самый длинный: {o['longest_flight_seconds']:.0f} с; в воздухе всего: {o['airborne_seconds']:.0f} с.")
             self.fleet_table.item(row,10).setToolTip(f"За текущие солнечные сутки: {o['today_volume_m3']:.4f} м³ / {o['today_mass_kg']:.2f} кг. Всего доставлено: {o['transported_volume_m3']:.4f} м³. Подробности — «По суткам».")
             self.fleet_table.item(row,11).setToolTip(f"{o['laser_status']}\nПолучено за миссию: {o['laser_received_kwh']:.3f} кВт·ч. Потребление двигателей и лебёдки за последний шаг: {o['flight_power_w']/1000:.2f} кВт. Показана фактическая мощность за последнюю физическую секунду.")

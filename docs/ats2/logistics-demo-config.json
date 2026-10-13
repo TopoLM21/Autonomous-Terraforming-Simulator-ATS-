@@ -1,0 +1,769 @@
+{
+  "schema_version": 2,
+  "config": {
+    "terrain": {
+      "n": 128,
+      "cell_size": 0.25,
+      "density": 1600.0,
+      "floor": -3.0,
+      "roughness": 0,
+      "grab_radius": 0.5,
+      "dump_rect": [
+        22.0,
+        19.0,
+        9.0,
+        12.0
+      ],
+      "dump_max_height": 2.5,
+      "dump_slope_factor": 0.9,
+      "relaxation": 0.45,
+      "avalanche_sweeps": 3,
+      "avalanche_epsilon": 1e-09,
+      "avalanche_stop_volume": 1e-10,
+      "completion_volume": 0.05
+    },
+    "trench": {
+      "length": 2.0,
+      "width": 1.0,
+      "depth": 0.25,
+      "x": 16.0,
+      "y": 16.0,
+      "angle_deg": 35.0
+    },
+    "drone": {
+      "name": "Тяжёлый 60",
+      "empty_mass": 105.0,
+      "payload": 60.0,
+      "battery": 18000000.0,
+      "initial_charge": 1.0,
+      "reserve": 0.2,
+      "charge_threshold": 0.3,
+      "empty_speed": 6.0,
+      "loaded_speed": 4.0,
+      "vertical_speed": 2.0,
+      "work_height": 6.0,
+      "scoop_seconds": 10.0,
+      "dump_seconds": 10.0,
+      "winch_seconds": 5.0,
+      "stowed_cable": 1.0,
+      "hover_power": 18000.0,
+      "flight_factor": 1.08,
+      "winch_power": 500.0,
+      "winch_efficiency": 0.8,
+      "gravity": 9.80665,
+      "budget_margin": 1.25,
+      "equipment": {
+        "frame_mass_kg": 60.0,
+        "payload_limit_kg": 120.0,
+        "reference_mass_kg": 105.0,
+        "reference_hover_power_kw": 18.0,
+        "batteries": [
+          {
+            "name": "Аккумулятор",
+            "quantity": 2,
+            "capacity_kwh": 2.5,
+            "mass_kg": 15.0
+          }
+        ],
+        "bucket": {
+          "mass_kg": 15.0,
+          "volume_m3": 0.0375,
+          "radius_m": 0.5
+        },
+        "receiver": {
+          "installed": false,
+          "mass_kg": 5.0,
+          "area_m2": 0.25,
+          "max_power_kw": 8.0,
+          "efficiency": 0.45,
+          "optical_cap_kw": null,
+          "orientation_cosine": 1.0,
+          "thermal_capacity_j_k": 4000.0,
+          "cooling_w_k": 20.0,
+          "max_temperature_c": 70.0,
+          "ambient_temperature_c": 25.0
+        }
+      },
+      "grab_radius": 0.5
+    },
+    "base": {
+      "x": 5.0,
+      "y": 16.0,
+      "roof_height": 1.5,
+      "radius": 0.75,
+      "mass": 1060.0,
+      "reference_total_mass": 1105.0,
+      "panel_area": 20.0,
+      "panel_efficiency": 0.2,
+      "peak_irradiance": 1000.0,
+      "latitude_deg": 55,
+      "start_day_of_year": 172,
+      "battery": 108000000.0,
+      "initial_charge": 1.0,
+      "charge_power": 8000.0,
+      "charge_efficiency": 0.9,
+      "speed": 0.2,
+      "move_power": 1000.0,
+      "max_slope": 0.15,
+      "relocation_trips": 5,
+      "relocation_cooldown": 900.0,
+      "relocation_min_gain": 0.15,
+      "relocation_clearance": 2.0,
+      "idle_power": 0.0,
+      "equipment": {
+        "chassis_mass_kg": 585.0,
+        "batteries": [
+          {
+            "name": "Аккумулятор",
+            "quantity": 6,
+            "capacity_kwh": 5.0,
+            "mass_kg": 50.0
+          }
+        ],
+        "panels": [
+          {
+            "name": "Солнечная панель",
+            "quantity": 10,
+            "area_m2": 2.0,
+            "mass_kg": 8.0,
+            "efficiency": 0.2
+          }
+        ],
+        "landing_slots": 4,
+        "slot_mass_kg": 20,
+        "charger_mass_kg": 15,
+        "charge_power_kw": 8.0,
+        "charge_efficiency": 0.9,
+        "emitters": []
+      }
+    },
+    "dust": {
+      "downsample": 4,
+      "wind_x": 1.0,
+      "wind_y": 0.4,
+      "strength": 1.0,
+      "lifetime": 18.0,
+      "diffusion": 0.08,
+      "height_scale": 4.0,
+      "concentration_scale": 4.0
+    },
+    "fleet": {
+      "count": 4,
+      "charge_slots": 4,
+      "models": [
+        {
+          "name": "Тяжёлый 60",
+          "empty_mass": 105.0,
+          "payload": 60.0,
+          "battery": 18000000.0,
+          "initial_charge": 1.0,
+          "reserve": 0.2,
+          "charge_threshold": 0.3,
+          "empty_speed": 6.0,
+          "loaded_speed": 4.0,
+          "vertical_speed": 2.0,
+          "work_height": 6.0,
+          "scoop_seconds": 10.0,
+          "dump_seconds": 10.0,
+          "winch_seconds": 5.0,
+          "stowed_cable": 1.0,
+          "hover_power": 18000.0,
+          "flight_factor": 1.08,
+          "winch_power": 500.0,
+          "winch_efficiency": 0.8,
+          "gravity": 9.80665,
+          "budget_margin": 1.25,
+          "equipment": {
+            "frame_mass_kg": 60.0,
+            "payload_limit_kg": 120.0,
+            "reference_mass_kg": 105.0,
+            "reference_hover_power_kw": 18.0,
+            "batteries": [
+              {
+                "name": "Аккумулятор",
+                "quantity": 2,
+                "capacity_kwh": 2.5,
+                "mass_kg": 15.0
+              }
+            ],
+            "bucket": {
+              "mass_kg": 15.0,
+              "volume_m3": 0.0375,
+              "radius_m": 0.5
+            },
+            "receiver": {
+              "installed": false,
+              "mass_kg": 5.0,
+              "area_m2": 0.25,
+              "max_power_kw": 8.0,
+              "efficiency": 0.45,
+              "optical_cap_kw": null,
+              "orientation_cosine": 1.0,
+              "thermal_capacity_j_k": 4000.0,
+              "cooling_w_k": 20.0,
+              "max_temperature_c": 70.0,
+              "ambient_temperature_c": 25.0
+            }
+          },
+          "grab_radius": 0.5
+        },
+        {
+          "name": "Тяжёлый 60",
+          "empty_mass": 105.0,
+          "payload": 60.0,
+          "battery": 18000000.0,
+          "initial_charge": 1.0,
+          "reserve": 0.2,
+          "charge_threshold": 0.3,
+          "empty_speed": 6.0,
+          "loaded_speed": 4.0,
+          "vertical_speed": 2.0,
+          "work_height": 6.0,
+          "scoop_seconds": 10.0,
+          "dump_seconds": 10.0,
+          "winch_seconds": 5.0,
+          "stowed_cable": 1.0,
+          "hover_power": 18000.0,
+          "flight_factor": 1.08,
+          "winch_power": 500.0,
+          "winch_efficiency": 0.8,
+          "gravity": 9.80665,
+          "budget_margin": 1.25,
+          "equipment": {
+            "frame_mass_kg": 60.0,
+            "payload_limit_kg": 120.0,
+            "reference_mass_kg": 105.0,
+            "reference_hover_power_kw": 18.0,
+            "batteries": [
+              {
+                "name": "Аккумулятор",
+                "quantity": 2,
+                "capacity_kwh": 2.5,
+                "mass_kg": 15.0
+              }
+            ],
+            "bucket": {
+              "mass_kg": 15.0,
+              "volume_m3": 0.0375,
+              "radius_m": 0.5
+            },
+            "receiver": {
+              "installed": false,
+              "mass_kg": 5.0,
+              "area_m2": 0.25,
+              "max_power_kw": 8.0,
+              "efficiency": 0.45,
+              "optical_cap_kw": null,
+              "orientation_cosine": 1.0,
+              "thermal_capacity_j_k": 4000.0,
+              "cooling_w_k": 20.0,
+              "max_temperature_c": 70.0,
+              "ambient_temperature_c": 25.0
+            }
+          },
+          "grab_radius": 0.5
+        },
+        {
+          "name": "Тяжёлый 60",
+          "empty_mass": 105.0,
+          "payload": 60.0,
+          "battery": 18000000.0,
+          "initial_charge": 1.0,
+          "reserve": 0.2,
+          "charge_threshold": 0.3,
+          "empty_speed": 6.0,
+          "loaded_speed": 4.0,
+          "vertical_speed": 2.0,
+          "work_height": 6.0,
+          "scoop_seconds": 10.0,
+          "dump_seconds": 10.0,
+          "winch_seconds": 5.0,
+          "stowed_cable": 1.0,
+          "hover_power": 18000.0,
+          "flight_factor": 1.08,
+          "winch_power": 500.0,
+          "winch_efficiency": 0.8,
+          "gravity": 9.80665,
+          "budget_margin": 1.25,
+          "equipment": {
+            "frame_mass_kg": 60.0,
+            "payload_limit_kg": 120.0,
+            "reference_mass_kg": 105.0,
+            "reference_hover_power_kw": 18.0,
+            "batteries": [
+              {
+                "name": "Аккумулятор",
+                "quantity": 2,
+                "capacity_kwh": 2.5,
+                "mass_kg": 15.0
+              }
+            ],
+            "bucket": {
+              "mass_kg": 15.0,
+              "volume_m3": 0.0375,
+              "radius_m": 0.5
+            },
+            "receiver": {
+              "installed": false,
+              "mass_kg": 5.0,
+              "area_m2": 0.25,
+              "max_power_kw": 8.0,
+              "efficiency": 0.45,
+              "optical_cap_kw": null,
+              "orientation_cosine": 1.0,
+              "thermal_capacity_j_k": 4000.0,
+              "cooling_w_k": 20.0,
+              "max_temperature_c": 70.0,
+              "ambient_temperature_c": 25.0
+            }
+          },
+          "grab_radius": 0.5
+        },
+        {
+          "name": "Тяжёлый 60",
+          "empty_mass": 105.0,
+          "payload": 60.0,
+          "battery": 18000000.0,
+          "initial_charge": 1.0,
+          "reserve": 0.2,
+          "charge_threshold": 0.3,
+          "empty_speed": 6.0,
+          "loaded_speed": 4.0,
+          "vertical_speed": 2.0,
+          "work_height": 6.0,
+          "scoop_seconds": 10.0,
+          "dump_seconds": 10.0,
+          "winch_seconds": 5.0,
+          "stowed_cable": 1.0,
+          "hover_power": 18000.0,
+          "flight_factor": 1.08,
+          "winch_power": 500.0,
+          "winch_efficiency": 0.8,
+          "gravity": 9.80665,
+          "budget_margin": 1.25,
+          "equipment": {
+            "frame_mass_kg": 60.0,
+            "payload_limit_kg": 120.0,
+            "reference_mass_kg": 105.0,
+            "reference_hover_power_kw": 18.0,
+            "batteries": [
+              {
+                "name": "Аккумулятор",
+                "quantity": 2,
+                "capacity_kwh": 2.5,
+                "mass_kg": 15.0
+              }
+            ],
+            "bucket": {
+              "mass_kg": 15.0,
+              "volume_m3": 0.0375,
+              "radius_m": 0.5
+            },
+            "receiver": {
+              "installed": false,
+              "mass_kg": 5.0,
+              "area_m2": 0.25,
+              "max_power_kw": 8.0,
+              "efficiency": 0.45,
+              "optical_cap_kw": null,
+              "orientation_cosine": 1.0,
+              "thermal_capacity_j_k": 4000.0,
+              "cooling_w_k": 20.0,
+              "max_temperature_c": 70.0,
+              "ambient_temperature_c": 25.0
+            }
+          },
+          "grab_radius": 0.5
+        }
+      ],
+      "wait_mode": "ground",
+      "separation": 2.0,
+      "pad_spacing": 3.0,
+      "waiting_offset": 3.0,
+      "ground_clearance": 0.4,
+      "altitude_spacing": 3.0,
+      "detour_distance": 3.0,
+      "emergency_landing_seconds": 20.0,
+      "comparison_step_limit": 2000000
+    },
+    "plan": null,
+    "initial_height": null,
+    "seed": 42,
+    "dt": 1.0,
+    "start_hour": 9,
+    "event_limit": 300,
+    "frame_budget_ms": 12.0,
+    "max_frame_steps": 200,
+    "display_interval_ms": 40,
+    "terrain_display_seconds": 0.2,
+    "logistics": {
+      "version": 2,
+      "excavator_enabled": true,
+      "direct_allowed": false,
+      "container_count": 8,
+      "container_tare_kg": 5.0,
+      "container_volume_m3": 0.055,
+      "container_gross_kg": 90.0,
+      "hoist_mass_kg": 2.0,
+      "excavator_dry_mass_kg": 160.0,
+      "excavator_battery_slots": 2,
+      "excavator_battery_count": 4,
+      "pack_capacity_kwh": 1.5,
+      "pack_mass_kg": 11.0,
+      "pack_charge_kw": 1.5,
+      "buffer_kwh": 0.1,
+      "excavator_initial_soc": 1.0,
+      "excavator_reserve": 0.2,
+      "excavator_speed": 0.2,
+      "max_slope_deg": 10.0,
+      "reach_m": 2.0,
+      "local_depth_m": 1.2,
+      "bucket_volume_m3": 0.015,
+      "bucket_fill_factor": 0.75,
+      "cycle_seconds": 35.0,
+      "digging_power_w": 2500.0,
+      "peak_power_w": 6000.0,
+      "idle_power_w": 60.0,
+      "sleep_power_w": 1.0,
+      "sleep_soc": 0.1,
+      "moving_power_w": 500.0,
+      "support_seconds": 10.0,
+      "digging_force_n": 150.0,
+      "support_half_width_m": 0.6,
+      "tipping_margin": 1.5,
+      "battery_swap_seconds": 60.0,
+      "drone_swap_seconds": 60.0,
+      "attachment_seconds": 45.0,
+      "handling_seconds": 5.0,
+      "charger_ports": 4,
+      "port_power_w": 1500.0,
+      "bus_power_w": 8000.0,
+      "inverter_power_w": 100000.0,
+      "swap_station": true,
+      "drone_spare_sets": 1,
+      "drone_pack_discharge_w": 60000.0,
+      "drone_pack_charge_w": 4000.0,
+      "drone_spare_initial_soc": 1.0,
+      "rigging_mass_kg": 12.0,
+      "cable_angle_deg": 30.0,
+      "lift_margin": 1.2,
+      "air_relocation": true,
+      "laser_profile": "laser_off",
+      "stall_timeout_s": 1800.0,
+      "field_deployment_seconds": 300.0
+    },
+    "legacy_laser_equipment": {
+      "emitters": [],
+      "receivers": [
+        {
+          "installed": false,
+          "mass_kg": 5.0,
+          "area_m2": 0.25,
+          "max_power_kw": 8.0,
+          "efficiency": 0.45,
+          "optical_cap_kw": null,
+          "orientation_cosine": 1.0,
+          "thermal_capacity_j_k": 4000.0,
+          "cooling_w_k": 20.0,
+          "max_temperature_c": 70.0,
+          "ambient_temperature_c": 25.0
+        },
+        {
+          "installed": false,
+          "mass_kg": 5.0,
+          "area_m2": 0.25,
+          "max_power_kw": 8.0,
+          "efficiency": 0.45,
+          "optical_cap_kw": null,
+          "orientation_cosine": 1.0,
+          "thermal_capacity_j_k": 4000.0,
+          "cooling_w_k": 20.0,
+          "max_temperature_c": 70.0,
+          "ambient_temperature_c": 25.0
+        },
+        {
+          "installed": false,
+          "mass_kg": 5.0,
+          "area_m2": 0.25,
+          "max_power_kw": 8.0,
+          "efficiency": 0.45,
+          "optical_cap_kw": null,
+          "orientation_cosine": 1.0,
+          "thermal_capacity_j_k": 4000.0,
+          "cooling_w_k": 20.0,
+          "max_temperature_c": 70.0,
+          "ambient_temperature_c": 25.0
+        },
+        {
+          "installed": false,
+          "mass_kg": 5.0,
+          "area_m2": 0.25,
+          "max_power_kw": 8.0,
+          "efficiency": 0.45,
+          "optical_cap_kw": null,
+          "orientation_cosine": 1.0,
+          "thermal_capacity_j_k": 4000.0,
+          "cooling_w_k": 20.0,
+          "max_temperature_c": 70.0,
+          "ambient_temperature_c": 25.0
+        }
+      ]
+    }
+  },
+  "equipment": {
+    "version": 1,
+    "base": {
+      "chassis_mass_kg": 585.0,
+      "batteries": [
+        {
+          "name": "Аккумулятор",
+          "quantity": 6,
+          "capacity_kwh": 5.0,
+          "mass_kg": 50.0
+        }
+      ],
+      "panels": [
+        {
+          "name": "Солнечная панель",
+          "quantity": 10,
+          "area_m2": 2.0,
+          "mass_kg": 8.0,
+          "efficiency": 0.2
+        }
+      ],
+      "landing_slots": 4,
+      "slot_mass_kg": 20,
+      "charger_mass_kg": 15,
+      "charge_power_kw": 8.0,
+      "charge_efficiency": 0.9,
+      "emitters": []
+    },
+    "models": [
+      {
+        "name": "Тяжёлый 60",
+        "empty_mass": 105.0,
+        "payload": 60.0,
+        "battery": 18000000.0,
+        "initial_charge": 1.0,
+        "reserve": 0.2,
+        "charge_threshold": 0.3,
+        "empty_speed": 6.0,
+        "loaded_speed": 4.0,
+        "vertical_speed": 2.0,
+        "work_height": 6.0,
+        "scoop_seconds": 10.0,
+        "dump_seconds": 10.0,
+        "winch_seconds": 5.0,
+        "stowed_cable": 1.0,
+        "hover_power": 18000.0,
+        "flight_factor": 1.08,
+        "winch_power": 500.0,
+        "winch_efficiency": 0.8,
+        "gravity": 9.80665,
+        "budget_margin": 1.25,
+        "equipment": {
+          "frame_mass_kg": 60.0,
+          "payload_limit_kg": 120.0,
+          "reference_mass_kg": 105.0,
+          "reference_hover_power_kw": 18.0,
+          "batteries": [
+            {
+              "name": "Аккумулятор",
+              "quantity": 2,
+              "capacity_kwh": 2.5,
+              "mass_kg": 15.0
+            }
+          ],
+          "bucket": {
+            "mass_kg": 15.0,
+            "volume_m3": 0.0375,
+            "radius_m": 0.5
+          },
+          "receiver": {
+            "installed": false,
+            "mass_kg": 5.0,
+            "area_m2": 0.25,
+            "max_power_kw": 8.0,
+            "efficiency": 0.45,
+            "optical_cap_kw": null,
+            "orientation_cosine": 1.0,
+            "thermal_capacity_j_k": 4000.0,
+            "cooling_w_k": 20.0,
+            "max_temperature_c": 70.0,
+            "ambient_temperature_c": 25.0
+          }
+        },
+        "grab_radius": 0.5
+      },
+      {
+        "name": "Тяжёлый 60",
+        "empty_mass": 105.0,
+        "payload": 60.0,
+        "battery": 18000000.0,
+        "initial_charge": 1.0,
+        "reserve": 0.2,
+        "charge_threshold": 0.3,
+        "empty_speed": 6.0,
+        "loaded_speed": 4.0,
+        "vertical_speed": 2.0,
+        "work_height": 6.0,
+        "scoop_seconds": 10.0,
+        "dump_seconds": 10.0,
+        "winch_seconds": 5.0,
+        "stowed_cable": 1.0,
+        "hover_power": 18000.0,
+        "flight_factor": 1.08,
+        "winch_power": 500.0,
+        "winch_efficiency": 0.8,
+        "gravity": 9.80665,
+        "budget_margin": 1.25,
+        "equipment": {
+          "frame_mass_kg": 60.0,
+          "payload_limit_kg": 120.0,
+          "reference_mass_kg": 105.0,
+          "reference_hover_power_kw": 18.0,
+          "batteries": [
+            {
+              "name": "Аккумулятор",
+              "quantity": 2,
+              "capacity_kwh": 2.5,
+              "mass_kg": 15.0
+            }
+          ],
+          "bucket": {
+            "mass_kg": 15.0,
+            "volume_m3": 0.0375,
+            "radius_m": 0.5
+          },
+          "receiver": {
+            "installed": false,
+            "mass_kg": 5.0,
+            "area_m2": 0.25,
+            "max_power_kw": 8.0,
+            "efficiency": 0.45,
+            "optical_cap_kw": null,
+            "orientation_cosine": 1.0,
+            "thermal_capacity_j_k": 4000.0,
+            "cooling_w_k": 20.0,
+            "max_temperature_c": 70.0,
+            "ambient_temperature_c": 25.0
+          }
+        },
+        "grab_radius": 0.5
+      },
+      {
+        "name": "Тяжёлый 60",
+        "empty_mass": 105.0,
+        "payload": 60.0,
+        "battery": 18000000.0,
+        "initial_charge": 1.0,
+        "reserve": 0.2,
+        "charge_threshold": 0.3,
+        "empty_speed": 6.0,
+        "loaded_speed": 4.0,
+        "vertical_speed": 2.0,
+        "work_height": 6.0,
+        "scoop_seconds": 10.0,
+        "dump_seconds": 10.0,
+        "winch_seconds": 5.0,
+        "stowed_cable": 1.0,
+        "hover_power": 18000.0,
+        "flight_factor": 1.08,
+        "winch_power": 500.0,
+        "winch_efficiency": 0.8,
+        "gravity": 9.80665,
+        "budget_margin": 1.25,
+        "equipment": {
+          "frame_mass_kg": 60.0,
+          "payload_limit_kg": 120.0,
+          "reference_mass_kg": 105.0,
+          "reference_hover_power_kw": 18.0,
+          "batteries": [
+            {
+              "name": "Аккумулятор",
+              "quantity": 2,
+              "capacity_kwh": 2.5,
+              "mass_kg": 15.0
+            }
+          ],
+          "bucket": {
+            "mass_kg": 15.0,
+            "volume_m3": 0.0375,
+            "radius_m": 0.5
+          },
+          "receiver": {
+            "installed": false,
+            "mass_kg": 5.0,
+            "area_m2": 0.25,
+            "max_power_kw": 8.0,
+            "efficiency": 0.45,
+            "optical_cap_kw": null,
+            "orientation_cosine": 1.0,
+            "thermal_capacity_j_k": 4000.0,
+            "cooling_w_k": 20.0,
+            "max_temperature_c": 70.0,
+            "ambient_temperature_c": 25.0
+          }
+        },
+        "grab_radius": 0.5
+      },
+      {
+        "name": "Тяжёлый 60",
+        "empty_mass": 105.0,
+        "payload": 60.0,
+        "battery": 18000000.0,
+        "initial_charge": 1.0,
+        "reserve": 0.2,
+        "charge_threshold": 0.3,
+        "empty_speed": 6.0,
+        "loaded_speed": 4.0,
+        "vertical_speed": 2.0,
+        "work_height": 6.0,
+        "scoop_seconds": 10.0,
+        "dump_seconds": 10.0,
+        "winch_seconds": 5.0,
+        "stowed_cable": 1.0,
+        "hover_power": 18000.0,
+        "flight_factor": 1.08,
+        "winch_power": 500.0,
+        "winch_efficiency": 0.8,
+        "gravity": 9.80665,
+        "budget_margin": 1.25,
+        "equipment": {
+          "frame_mass_kg": 60.0,
+          "payload_limit_kg": 120.0,
+          "reference_mass_kg": 105.0,
+          "reference_hover_power_kw": 18.0,
+          "batteries": [
+            {
+              "name": "Аккумулятор",
+              "quantity": 2,
+              "capacity_kwh": 2.5,
+              "mass_kg": 15.0
+            }
+          ],
+          "bucket": {
+            "mass_kg": 15.0,
+            "volume_m3": 0.0375,
+            "radius_m": 0.5
+          },
+          "receiver": {
+            "installed": false,
+            "mass_kg": 5.0,
+            "area_m2": 0.25,
+            "max_power_kw": 8.0,
+            "efficiency": 0.45,
+            "optical_cap_kw": null,
+            "orientation_cosine": 1.0,
+            "thermal_capacity_j_k": 4000.0,
+            "cooling_w_k": 20.0,
+            "max_temperature_c": 70.0,
+            "ambient_temperature_c": 25.0
+          }
+        },
+        "grab_radius": 0.5
+      }
+    ],
+    "wait_mode": "ground"
+  }
+}

@@ -133,12 +133,18 @@ class Config:
     max_frame_steps: int = 200
     display_interval_ms: int = 40
     terrain_display_seconds: float = 0.20
+    logistics: object = None  # LogisticsConfig; None preserves the original engine
+    legacy_laser_equipment: dict | None = None
 
     def drone_models(self):
         from copy import deepcopy
         return deepcopy(self.fleet.models) if self.fleet.models else [deepcopy(self.drone) for _ in range(self.fleet.count)]
 
     def validate(self):
+        if self.logistics is not None:
+            self.logistics.validate()
+            if self.logistics.direct_allowed and self.logistics.excavator_enabled and self.fleet.count<2:
+                raise ValueError('Смешанной команде нужны как минимум два дрона; одиночный грейфер доступен в старом режиме')
         def require(condition, message):
             if not condition:
                 raise ValueError(message)

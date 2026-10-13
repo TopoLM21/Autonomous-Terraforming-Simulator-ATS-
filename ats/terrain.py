@@ -134,10 +134,14 @@ class Terrain:
         mask = (excess > 0) & ((self.x-x)**2+(self.y-y)**2 <= radius**2)
         return mask, np.where(mask, excess, 0)
 
-    def scoop(self, x, y, max_mass, source="cut", radius=None):
+    def scoop(self, x, y, max_mass, source="cut", radius=None, allowed_mask=None, minimum_height=None):
         if not math.isfinite(max_mass) or max_mass < 0:
             raise ValueError("Неверная масса захвата")
         _, excess = self.local_available(x, y, source, radius)
+        if minimum_height is not None:
+            excess=np.minimum(excess,np.maximum(self.height-minimum_height,0.))
+        if allowed_mask is not None:
+            excess=np.where(allowed_mask,excess,0.)
         available = float(excess.sum()*self.area)
         volume = min(max_mass/self.config.terrain.density, available)
         if available <= 0:
