@@ -15,15 +15,18 @@ def fleet(count=3,slots=1,mode='ground'):
 
 
 @pytest.mark.parametrize('count,slots',[(1,1),(3,1),(3,3),(6,2)])
-def test_fleet_completion_mass_energy_and_full_charge_departures(count,slots):
+def test_fleet_completion_mass_energy_and_full_charge_after_charging(count,slots):
     s=Simulation(fleet(count,slots))
     departures=0
     for _ in range(12000):
         before=[d.state for d in s.drones]
+        requested=[d.charge_requested for d in s.drones]
         s.step()
-        for previous,d in zip(before,s.drones):
+        for previous,charging,d in zip(before,requested,s.drones):
             if previous in (DS.DOCKED,DS.CHARGING,DS.WAIT_GROUND) and d.state==DS.TAKEOFF:
-                assert d.battery==pytest.approx(d.config.battery,abs=1e-6)
+                if charging:
+                    assert d.battery==pytest.approx(d.config.battery,abs=1e-6)
+                assert d.battery>d.config.battery*d.config.charge_threshold
                 departures+=1
             assert d.config.battery*d.config.reserve-1e-6<=d.battery<=d.config.battery+1e-6
             assert 0<=d.cargo<=d.config.payload+1e-9
@@ -36,7 +39,8 @@ def test_fleet_completion_mass_energy_and_full_charge_departures(count,slots):
         if s.state.value!='RUNNING':break
     r=s.report()
     assert r['state']=='COMPLETED',r
-    assert departures>=20
+    assert departures>=count
+    assert s.trips>=20  # multiple transfers share a work sortie
     assert sum(d.trips for d in s.drones)==s.trips
     assert all(d.grounded and d.cargo==0 for d in s.drones)
     assert abs(r['energy_error_j'])<1e-4
@@ -56,7 +60,7 @@ def test_shared_charger_power_not_duplicated_between_slots():
 
 def test_no_charging_in_air_or_on_waiting_ground_pad():
     s=Simulation(fleet(3,1))
-    for d in s.drones:d.battery=4*KWH
+    for d in s.drones:d.battery=1.3*KWH
     before=[d.battery for d in s.drones]
     s.step()
     assert s.drones[0].battery>before[0]
@@ -66,7 +70,8 @@ def test_no_charging_in_air_or_on_waiting_ground_pad():
 
 
 def test_air_queue_spends_energy_and_emergency_lands_preserving_reserve():
-    s=Simulation(fleet(3,1,'air'))
+    c=fleet(3,1,'air');c.drone.battery=2*KWH
+    s=Simulation(c)
     seen=False; fallback=False
     for _ in range(200000):
         old=[d.state for d in s.drones]
@@ -132,7 +137,7 @@ def test_disabled_charger_blocks_after_using_initial_full_battery():
     s=Simulation(c);s.run(10000)
     assert s.state.value=='BLOCKED'
     assert 'отключено' in s.reason
-    assert s.trips==1
+    assert s.trips>1
 
 
 def test_incapable_model_occupying_only_slot_reports_block_instead_of_endless_queue():
@@ -142,6 +147,6 @@ def test_incapable_model_occupying_only_slot_reports_block_instead_of_endless_qu
     s=Simulation(c);s.run(12000)
     assert s.state.value=='BLOCKED'
     assert 'слоты заняты' in s.reason
-    assert s.drones[1].trips==1
+    assert s.drones[1].trips>1
     assert abs(s.report()['mass_error_kg'])<1e-7
     assert abs(s.report()['energy_error_j'])<1e-4

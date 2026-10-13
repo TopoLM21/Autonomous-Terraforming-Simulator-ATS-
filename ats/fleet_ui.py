@@ -25,10 +25,10 @@ class FleetDialog(QtWidgets.QDialog):
         for name,widget in [("Количество дронов",self.count),("Зарядных слотов",self.slots),("Общая мощность зарядки",self.power),("Очередь",self.wait_mode)]:
             form.addRow(name,widget)
         layout.addLayout(form)
-        info=QtWidgets.QLabel("Каждый рабочий вылет — после зарядки до 100%. Слоты делят общую входную мощность, КПД зарядки 90%. Параметры моделей — инженерные оценки. Изменения создадут новый сценарий.")
+        info=QtWidgets.QLabel("Дрон работает сериями рейсов до нижнего порога заряда. После запроса зарядки — до 100%. Возврат раньше порога возможен для сохранения резерва на следующий рейс. Слоты делят общую мощность, КПД 90%. Изменения создадут новый сценарий.")
         info.setWordWrap(True); layout.addWidget(info)
-        self.table=QtWidgets.QTableWidget(0,7)
-        self.table.setHorizontalHeaderLabels(["Имя","Масса, кг","Груз, кг","Батарея, кВт·ч","Висение, кВт","Без груза, м/с","С грузом, м/с"])
+        self.table=QtWidgets.QTableWidget(0,8)
+        self.table.setHorizontalHeaderLabels(["Имя","Масса, кг","Груз, кг","Батарея, кВт·ч","Висение, кВт","Без груза, м/с","С грузом, м/с","Зарядка ниже, %"])
         self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.table)
         self.models=config.drone_models()
@@ -48,7 +48,7 @@ class FleetDialog(QtWidgets.QDialog):
             self.fill(i,deepcopy(self.models[i] if i<len(self.models) else self.config.drone))
 
     def fill(self,row,model):
-        values=[model.name,model.empty_mass,model.payload,model.battery/KWH,model.hover_power/1000,model.empty_speed,model.loaded_speed]
+        values=[model.name,model.empty_mass,model.payload,model.battery/KWH,model.hover_power/1000,model.empty_speed,model.loaded_speed,model.charge_threshold*100]
         for column,value in enumerate(values):
             self.table.setItem(row,column,QtWidgets.QTableWidgetItem(str(value)))
 
@@ -66,9 +66,10 @@ class FleetDialog(QtWidgets.QDialog):
             models=[]
             for row in range(self.table.rowCount()):
                 model=deepcopy(self.models[row] if row<len(self.models) else self.config.drone)
-                values=[self.table.item(row,c).text() for c in range(7)]
+                values=[self.table.item(row,c).text() for c in range(8)]
                 model.name=values[0]
-                model.empty_mass,model.payload,battery,power,model.empty_speed,model.loaded_speed=map(float,values[1:])
+                model.empty_mass,model.payload,battery,power,model.empty_speed,model.loaded_speed,threshold=map(float,values[1:])
+                model.charge_threshold=threshold/100
                 model.battery=battery*KWH;model.hover_power=power*1000;models.append(model)
             clone.fleet.models=models;clone.validate();self.result_config=clone;self.accept()
         except (ValueError,AttributeError) as error:

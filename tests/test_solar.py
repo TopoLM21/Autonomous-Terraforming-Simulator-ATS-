@@ -108,7 +108,7 @@ def test_dump_lowers_grabber_and_releases_at_surface_without_landing():
     assert s.drone.position[2] == z
     for _ in range(5):
         s.step()
-    assert s.drone.state.value == "RETURN"
+    assert s.drone.state.value == "TO_DIG"
     assert s.drone.grabber_extension == 0
     assert abs(s.report()["mass_error_kg"]) < 1e-7
 

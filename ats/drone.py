@@ -48,10 +48,15 @@ class Drone:
     traffic_yields: int = 0
     minimum_charge: float = field(init=False)
     last_wait: str = ""
+    charge_requested: bool = False
+    charge_cycles: int = 0
+    filled_mass: float = 0.0
+    reclaimed_mass: float = 0.0
 
     def __post_init__(self):
         self.battery = self.config.battery*self.config.initial_charge
         self.minimum_charge = self.battery
+        self.charge_requested = self.battery <= self.config.battery*self.config.charge_threshold
 
     @property
     def docked(self):

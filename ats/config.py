@@ -41,6 +41,7 @@ class DroneConfig:
     battery: float = 5 * KWH
     initial_charge: float = 1.0
     reserve: float = 0.20
+    charge_threshold: float = 0.30
     empty_speed: float = 6.0
     loaded_speed: float = 4.0
     vertical_speed: float = 2.0
@@ -120,6 +121,8 @@ class Config:
     base: BaseConfig = field(default_factory=BaseConfig)
     dust: DustConfig = field(default_factory=DustConfig)
     fleet: FleetConfig = field(default_factory=FleetConfig)
+    plan: object = None  # PlanConfig, imported lazily to keep configuration simple
+    initial_height: list | None = None
     seed: int = 42
     dt: float = 1.0
     start_hour: float = 9.0
@@ -177,6 +180,12 @@ class Config:
         for obj, keys in [(d, ("empty_mass", "payload", "battery", "empty_speed", "loaded_speed", "vertical_speed", "work_height", "hover_power", "scoop_seconds", "dump_seconds", "winch_seconds")), (b, ("battery", "speed", "move_power", "max_slope", "relocation_trips", "relocation_cooldown", "relocation_clearance"))]:
             require(all(getattr(obj, k) > 0 for k in keys), "Масса, скорость, ёмкость и длительности должны быть положительными")
         require(0 <= d.initial_charge <= 1 and 0 <= b.initial_charge <= 1 and 0 <= d.reserve < 1, "Неверный заряд/резерв")
+        require(d.reserve <= d.charge_threshold <= 1, "Порог зарядки должен быть между резервом и 100%")
+        if self.initial_height is not None:
+            require(len(self.initial_height) == t.n and all(len(row) == t.n for row in self.initial_height), "Размер исходного рельефа не совпадает с сеткой")
+            require(all(value >= t.floor for row in self.initial_height for value in row), "Исходный рельеф ниже неподвижного основания")
+        if self.plan is not None:
+            self.plan.validate(self)
         require(bool(d.name.strip()), "У дрона должно быть имя")
         require(0 < b.charge_efficiency <= 1 and 0 <= b.panel_efficiency <= 1 and b.panel_area >= 0 and b.peak_irradiance >= 0 and b.charge_power >= 0, "Неверные параметры солнечной энергии/зарядки")
         require(0 <= self.start_hour < 24, "Неверный стартовый час")

@@ -20,6 +20,8 @@ def main():
     parser.add_argument("--drones", type=int, default=1, help="Fleet size, 1..6")
     parser.add_argument("--charge-slots", type=int, default=1, help="Charging sockets, 1..6; share total charging power")
     parser.add_argument("--wait-mode", choices=("ground","air"), default="ground")
+    parser.add_argument("--charge-threshold", type=float, default=30, help="Lower charging trigger, percent; charging then continues to 100%")
+    parser.add_argument("--plan", help="Load a brush plan JSON, including its starting terrain")
     parser.add_argument("--compare-fleet", help="Compare fleet sizes, e.g. 1,2,3, with the same scenario")
     parser.add_argument("--json", dest="json_path", help="Save the headless report")
     args = parser.parse_args()
@@ -35,7 +37,11 @@ def main():
     config.fleet.count = args.drones
     config.fleet.charge_slots = args.charge_slots
     config.fleet.wait_mode = args.wait_mode
+    config.drone.charge_threshold = args.charge_threshold/100
     try:
+        if args.plan:
+            from .plan import load_plan
+            config = load_plan(args.plan, config)
         config.validate()
         if args.headless:
             if args.compare_fleet:
@@ -59,7 +65,7 @@ def main():
             return 2 if isinstance(report,dict) and report["state"] == "BLOCKED" else 0
         from .gui import launch
         return launch(config)
-    except ValueError as error:
+    except (ValueError, OSError, KeyError, TypeError) as error:
         parser.error(str(error))
 
 

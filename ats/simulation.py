@@ -42,7 +42,7 @@ class Simulation:
             d = Drone(model, point, identifier=index, slot=slot)
             if slot is None:
                 d.state = DS.WAIT_GROUND
-                if d.battery < d.config.battery-1e-7:
+                if d.charge_requested:
                     self.queue.append(index)
             else:
                 self.slots[slot] = index
@@ -57,6 +57,8 @@ class Simulation:
         self._event_keys = {}
         self.trips = 0
         self.excavated_mass = 0.0
+        self.filled_mass = 0.0
+        self.landing_requested = False
         self._relocation_attempt_time = -float("inf")
         self._terrain_active = self.config.terrain.roughness > 0
         self._initial_energy = sum(d.battery for d in self.drones)+self.base.battery
@@ -65,7 +67,7 @@ class Simulation:
         points = [self.slot_position(i) for i in range(len(self.slots))]+[self.wait_position(i) for i in range(len(self.drones))]
         if not self.base.safe_path(self.base.position[:2], self.terrain) or any(not self._safe_pad(p) for p in points):
             self.block("База или посадочные площадки пересекают канаву, отвал либо край карты")
-        elif self.terrain.dump_space < self.terrain.initial_excavation:
+        elif self.terrain.dump_space < max(0, self.terrain.remaining_cut-self.terrain.remaining_fill):
             self.block("Недостаточно места в отвале для проектного объёма песка")
 
     @property
@@ -103,9 +105,37 @@ class Simulation:
         if not (t.cell < p[0] < side-t.cell and t.cell < p[1] < side-t.cell):
             return False
         ix, iy = int(p[0]/t.cell), int(p[1]/t.cell)
-        margin = self.config.fleet.separation/2
+        margin = self.config.fleet.separation
         near = (t.x-p[0])**2+(t.y-p[1])**2 < margin**2
-        return not np.any((t.excavation|t.dump_mask)&near) and not t.excavation[iy, ix]
+        return not np.any((t.work_mask|t.dump_mask)&near) and not t.work_mask[iy, ix]
+
+    def apply_plan(self, plan):
+        from copy import deepcopy
+        if self.base.destination is not None or not all(d.grounded and d.cargo == 0 for d in self.drones):
+            raise ValueError("Применяйте план после посадки всех дронов и выгрузки груза; при полёте можно подготовить рисунок")
+        candidate = deepcopy(self.terrain)
+        candidate.set_plan(plan)
+        points = [self.slot_position(i) for i in range(len(self.slots))]+[self.wait_position(i) for i in range(len(self.drones))]
+        for p in points:
+            near = (candidate.x-p[0])**2+(candidate.y-p[1])**2 < self.config.fleet.separation**2
+            if np.any(candidate.work_mask & near):
+                raise ValueError("Кисть пересекает базу или посадочную площадку")
+        t = self.terrain
+        for key in ("target", "segment_labels", "excavation", "fill_mask", "bottom"):
+            setattr(t, key, getattr(candidate, key))
+        t.revision += 1
+        t.initial_excavation = t.remaining
+        self.config.plan = deepcopy(plan)
+        self.config.initial_height = t.height.tolist()
+        self.config.base.x,self.config.base.y = map(float,self.base.position[:2])
+        self.state, self.reason = MissionState.RUNNING, ""
+        self.landing_requested = False
+        self._terrain_active = True
+        self.event(f"Применён план: сегментов {len(plan.segments)}, выемка {t.remaining_cut:.3f} м³, засыпка {t.remaining_fill:.3f} м³")
+
+    def request_landing(self):
+        self.landing_requested = True
+        self.event("Запрошена посадка флота: завершение текущих переносов, без новых рейсов")
 
     @property
     def hour(self):
@@ -162,7 +192,7 @@ class Simulation:
         d.slot = None
 
     def _enqueue(self, d):
-        if d.identifier not in self.queue:
+        if d.charge_requested and d.identifier not in self.queue:
             self.queue.append(d.identifier)
 
     def _reserve_return(self, d):
@@ -176,12 +206,12 @@ class Simulation:
         d.detour = None
 
     def _assign_slots(self):
-        if not self.queue or self.base.destination is not None or self.terrain.remaining <= self.config.terrain.completion_volume:
+        if self.landing_requested or not self.queue or self.base.destination is not None or self.terrain.remaining <= self.config.terrain.completion_volume:
             return
         for slot in range(len(self.slots)):
             if self.slots[slot] is not None:
                 continue
-            eligible = next((i for i in self.queue if self.drones[i].state in (DS.WAIT_GROUND,DS.WAIT_HOVER) and self.drones[i].battery < self.drones[i].config.battery-1e-7 and self.drones[i].battery >= self.drones[i].config.battery*self.drones[i].config.reserve+self._transfer_energy(self.drones[i],slot)), None)
+            eligible = next((i for i in self.queue if self.drones[i].charge_requested and self.drones[i].state in (DS.WAIT_GROUND,DS.WAIT_HOVER) and self.drones[i].battery < self.drones[i].config.battery-1e-7 and self.drones[i].battery >= self.drones[i].config.battery*self.drones[i].config.reserve+self._transfer_energy(self.drones[i],slot)), None)
             if eligible is None:
                 break
             d = self.drones[eligible]
@@ -251,19 +281,40 @@ class Simulation:
     def _reserved_dump(self,d):
         return [o.trip.dump for o in self.drones if o is not d and o.trip is not None and o.state not in (DS.RETURN,DS.LANDING)]
 
+    def _choose_trip(self, d, battery=None, unreserved=False, airborne=False):
+        incoming = sum(o.trip.mass for o in self.drones if o is not d and o.trip is not None and o.trip.destination == "fill" and not o.dump_released and o.state not in (DS.RETURN,DS.LANDING))
+        home = self.slot_position(d.slot) if d.slot is not None else self.wait_position(d.identifier)
+        return self.planner.choose(self.terrain,self.base,d,() if unreserved else self._reserved_dig(d),home,() if unreserved else self._reserved_dump(d),0 if unreserved else incoming,battery,d.position if airborne else None)
+
+    def _request_charge(self, d, reason):
+        if not d.charge_requested:
+            self.drone_event(d, f"нужна зарядка: {reason}; текущий заряд {100*d.battery/d.config.battery:.1f}%")
+        d.charge_requested = True
+
+    def _charging_needed(self, d):
+        if d.charge_requested and d.battery >= d.config.battery-1e-7:
+            d.charge_requested = False
+            d.charge_cycles += 1
+            self.drone_event(d, "зарядка завершена: 100%")
+        if d.battery <= d.config.battery*d.config.charge_threshold and self.terrain.remaining > self.config.terrain.completion_volume:
+            self._request_charge(d, "достигнут нижний порог")
+        return d.charge_requested
+
     def _docked(self,d):
         if self.base.destination is not None:
             return
-        if self.terrain.remaining <= self.config.terrain.completion_volume:
+        if self.landing_requested or self.terrain.remaining <= self.config.terrain.completion_volume:
             return
-        if d.battery < d.config.battery-1e-7:
+        if self._charging_needed(d):
             d.state = DS.CHARGING
-            self.drone_event(d,"заряжается до 100% перед следующим вылетом","charge")
+            self.drone_event(d,"заряжается до 100% после запроса зарядки","charge")
             return
         d.state = DS.DOCKED
         if d.trip is None:
-            d.trip = self.planner.choose(self.terrain,self.base,d,self._reserved_dig(d),self.slot_position(d.slot),self._reserved_dump(d))
+            d.trip = self._choose_trip(d)
         if d.trip is None:
+            if self._choose_trip(d, unreserved=True) is None and self._choose_trip(d, battery=d.config.battery, unreserved=True) is not None:
+                self._request_charge(d, "не хватает энергии на следующий рейс с резервом")
             self.drone_event(d,"ожидает свободного участка выемки","job")
             return
         self._event_keys.pop((d.identifier,"job"),None)
@@ -272,14 +323,36 @@ class Simulation:
         self.drone_event(d,f"вылет с зарядом {100*d.battery/d.config.battery:.1f}%; план до {d.trip.mass:.1f} кг")
 
     def _ready_ground(self,d):
-        if d.battery < d.config.battery-1e-7 or self.terrain.remaining <= self.config.terrain.completion_volume:
+        if self.landing_requested or self.terrain.remaining <= self.config.terrain.completion_volume:
             return
-        trip=self.planner.choose(self.terrain,self.base,d,self._reserved_dig(d),d.position,self._reserved_dump(d))
+        if self._charging_needed(d):
+            self._enqueue(d)
+            return
+        trip=self._choose_trip(d)
         if trip is not None:
             d.trip=trip
             if d.identifier in self.queue:self.queue.remove(d.identifier)
             d.transition(DS.TAKEOFF)
-            self.drone_event(d,"вылет с наземной площадки с зарядом 100%")
+            self.drone_event(d,f"вылет с наземной площадки с зарядом {100*d.battery/d.config.battery:.1f}%")
+        elif self._choose_trip(d, unreserved=True) is None and self._choose_trip(d, battery=d.config.battery, unreserved=True) is not None:
+            self._request_charge(d, "не хватает энергии на рейс с резервом")
+            self._enqueue(d)
+
+    def _continue_or_return(self, d):
+        d.trip = None
+        d.dump_released = False
+        if not self.landing_requested and self.terrain.remaining > self.config.terrain.completion_volume:
+            if not self._charging_needed(d):
+                trip = self._choose_trip(d, airborne=True)
+                if trip is not None:
+                    d.trip = trip
+                    d.transition(DS.TO_DIG)
+                    self.drone_event(d, f"продолжает работу без зарядки: {100*d.battery/d.config.battery:.1f}%")
+                    return
+                if self._choose_trip(d, unreserved=True, airborne=True) is None and self._choose_trip(d,battery=d.config.battery,unreserved=True,airborne=True) is not None:
+                    self._request_charge(d,"не хватает энергии на следующий рейс с возвращением и резервом")
+        d.transition(DS.RETURN)
+        self._reserve_return(d)
 
     def _landed(self,d):
         d.trip = None
@@ -310,11 +383,14 @@ class Simulation:
             if d.elapsed >= c.winch_seconds:
                 d.transition(DS.SCOOP)
         elif d.state == DS.SCOOP and d.elapsed >= c.scoop_seconds:
-            d.cargo = self.terrain.scoop(*trip.dig,trip.mass)
-            d.excavated_mass += d.cargo
-            self.excavated_mass += d.cargo
+            d.cargo = self.terrain.scoop(*trip.dig,trip.mass,trip.source)
+            if trip.source == "cut":
+                d.excavated_mass += d.cargo
+                self.excavated_mass += d.cargo
+            else:
+                d.reclaimed_mass += d.cargo
             self._terrain_active = True
-            self.drone_event(d,f"завершена выемка: {d.cargo:.1f} кг в грейфере")
+            self.drone_event(d,f"{'Взято из отвала' if trip.source == 'stockpile' else 'Завершена выемка'}: {d.cargo:.1f} кг в грейфере")
             d.transition(DS.LIFT_GRABBER)
         elif d.state == DS.LIFT_GRABBER:
             d.grabber_extension = max(0,1-d.elapsed/c.winch_seconds)
@@ -331,25 +407,39 @@ class Simulation:
                 d.grabber_extension = min(1,d.elapsed/c.winch_seconds)
                 if d.elapsed >= c.winch_seconds:
                     try:
-                        self.terrain.deposit(*trip.dump,d.cargo)
+                        mass = self.terrain.deposit_fill(*trip.dump,d.cargo) if trip.destination == "fill" else d.cargo
+                        if trip.destination == "dump":
+                            self.terrain.deposit(*trip.dump,d.cargo)
                     except ValueError as error:
                         self.block(str(error)); return
-                    mass = d.cargo
-                    d.cargo = 0
+                    d.cargo = max(0, d.cargo-mass)
+                    if trip.destination == "fill":
+                        d.filled_mass += mass
+                        self.filled_mass += mass
                     d.dump_released = True
                     d.trips += 1
                     self.trips += 1
                     self._terrain_active = True
-                    self.drone_event(d,f"грейфер раскрыт у поверхности, выгружено {mass:.1f} кг; рейс {d.trips}")
+                    self.drone_event(d,f"{'Засыпка по плану' if trip.destination == 'fill' else 'Выгрузка в отвал'}: {mass:.1f} кг у поверхности; рейс {d.trips}")
             else:
                 d.grabber_extension = max(0,(c.dump_seconds-d.elapsed)/(c.dump_seconds-c.winch_seconds))
                 if d.elapsed >= c.dump_seconds:
-                    d.transition(DS.RETURN)
-                    self._reserve_return(d)
+                    if d.cargo > 1e-8:
+                        point = self.terrain.fill_location(self._reserved_dump(d),self.config.fleet.separation)
+                        kind = "fill"
+                        if point is None:
+                            point = self.terrain.dump_location(d.cargo/self.config.terrain.density,self._reserved_dump(d),self.config.fleet.separation)
+                            kind = "dump"
+                        if point is None:
+                            self.block("Нет места для оставшегося груза после изменения объёма засыпки");return
+                        trip.dump, trip.destination = point, kind
+                        d.transition(DS.TO_DUMP)
+                    else:
+                        self._continue_or_return(d)
         elif d.state == DS.RETURN:
             self._move(d,[*d.destination[:2],self.cruise(d)],DS.LANDING,dt)
         elif d.state == DS.LANDING:
-            air_wait = d.slot is None and self.config.fleet.wait_mode == "air" and self.terrain.remaining > self.config.terrain.completion_volume
+            air_wait = d.slot is None and d.charge_requested and not self.landing_requested and self.config.fleet.wait_mode == "air" and self.terrain.remaining > self.config.terrain.completion_volume
             goal = [*d.destination[:2],self.cruise(d)] if air_wait else d.destination
             self._move(d,goal,DS.WAIT_HOVER if air_wait else DS.DOCKED if d.slot is not None else DS.WAIT_GROUND,dt)
             if d.grounded:
@@ -362,7 +452,7 @@ class Simulation:
             landing_seconds=math.ceil((d.position[2]-self.wait_position(d.identifier)[2])/c.vertical_speed)
             future_transfer=max(self._transfer_energy_from_ground(d,i) for i in range(len(self.slots)))
             landing_budget = d.power(True)*(landing_seconds+self.config.fleet.emergency_landing_seconds)+future_transfer
-            if self.terrain.remaining <= self.config.terrain.completion_volume or d.battery <= c.battery*c.reserve+landing_budget:
+            if self.landing_requested or self.terrain.remaining <= self.config.terrain.completion_volume or d.battery <= c.battery*c.reserve+landing_budget:
                 d.destination = self.wait_position(d.identifier)
                 d.transition(DS.WAIT_LANDING)
                 self.drone_event(d,"садится на площадку ожидания, чтобы сохранить резерв")
@@ -380,7 +470,7 @@ class Simulation:
                 self._landed(d)
 
     def _maybe_relocate(self):
-        if not all(d.docked for d in self.drones) or any(d.trip for d in self.drones):
+        if self.landing_requested or self.config.plan is not None or not all(d.docked for d in self.drones) or any(d.trip for d in self.drones):
             return
         b,q,f = self.config.base,self.config.trench,self.config.fleet
         if self.trips-self.base.last_relocation_trip < b.relocation_trips or self.time-self.base.last_relocation < b.relocation_cooldown:
@@ -416,17 +506,26 @@ class Simulation:
             self.state = MissionState.COMPLETED
             self.event("Работа завершена: все дроны приземлились, достигнут допуск выемки")
             return
+        if self.landing_requested:
+            return
         if self.terrain.remaining > self.config.terrain.completion_volume:
-            full = [d for d in self.drones if d.battery >= d.config.battery-1e-7]
-            if full and len(full) == len(self.drones) and all(self.planner.choose(self.terrain,self.base,d) is None for d in full):
-                self.block("Нет доступного рейса ни для одного дрона: отвал заполнен или ёмкости батарей недостаточно")
-            elif self.config.base.charge_power == 0 and not any(self.planner.choose(self.terrain,self.base,d) is not None for d in full):
+            key = (self.terrain.revision,tuple(self.base.position))
+            if getattr(self,"_capability_key",None) != key:
+                self._capable_ids = {d.identifier for d in self.drones if self._choose_trip(d,battery=d.config.battery,unreserved=True) is not None}
+                self._capability_key = key
+            ready = [d for d in self.drones if d.identifier in self._capable_ids and not d.charge_requested]
+            if not self._capable_ids:
+                if self.terrain.remaining_fill > self.config.terrain.completion_volume and self.terrain.stockpile_volume+self.terrain.remaining_cut < 1e-9:
+                    self.block("Недостаточно грунта для засыпки: запас в отвале и запланированная выемка исчерпаны")
+                else:
+                    self.block("Нет доступного рейса ни для одного дрона: отвал заполнен или ёмкости батарей недостаточно")
+            elif self.config.base.charge_power == 0 and not ready:
                 self.block("Зарядное устройство отключено; полная зарядка перед продолжением невозможна")
-            elif self.base.battery <= 1e-8 and (self.config.base.charge_power == 0 or self.config.base.panel_area*self.config.base.panel_efficiency*self.config.base.peak_irradiance == 0) and not any(d.docked and d.battery >= d.config.battery-1e-7 for d in self.drones):
+            elif self.base.battery <= 1e-8 and self.config.base.panel_area*self.config.base.panel_efficiency*self.config.base.peak_irradiance == 0 and not ready:
                 self.block("Полная зарядка невозможна: база разряжена, солнечная генерация или зарядное устройство отключены")
             elif all(d.state == DS.WAIT_GROUND for d in self.drones) and all(not any(d.battery >= d.config.battery*d.config.reserve+self._transfer_energy(d,i) for i in range(len(self.slots))) for d in self.drones):
                 self.block("Дронам на площадках не хватает энергии для перелёта к зарядке с резервом; требуется внешняя доставка")
-            elif self.queue and all(i is not None and self.drones[i].battery >= self.drones[i].config.battery-1e-7 and self.planner.choose(self.terrain,self.base,self.drones[i]) is None for i in self.slots) and not any(self.planner.choose(self.terrain,self.base,d) is not None for d in full):
+            elif self.queue and all(i is not None and self.drones[i].battery >= self.drones[i].config.battery-1e-7 and i not in self._capable_ids for i in self.slots) and not ready:
                 self.block("Зарядные слоты заняты полностью заряженными дронами, которым недостаточно ёмкости для рейса; добавьте слот или измените состав")
             elif self.base.battery <= 1e-8 and self.config.base.idle_power >= self.config.base.panel_area*self.config.base.panel_efficiency*self.config.base.peak_irradiance:
                 self.block("Собственное потребление базы поглощает всю солнечную мощность")
@@ -440,7 +539,7 @@ class Simulation:
         self._starts = {d.identifier:d.position.copy() for d in self.drones}
         moving = self.base.destination is not None
         for d in self.drones:
-            if d.docked and d.battery < d.config.battery-1e-7:
+            if d.docked and self.terrain.remaining > self.config.terrain.completion_volume and self._charging_needed(d):
                 d.state = DS.CHARGING
                 d.charging_seconds += dt
         flags = [d.state == DS.CHARGING and d.slot is not None for d in self.drones]
@@ -449,7 +548,7 @@ class Simulation:
             self.event(message)
         if not moving:
             for d in self.drones:
-                if d.state in (DS.WAIT_GROUND,DS.WAIT_HOVER) and d.battery < d.config.battery-1e-7:
+                if d.state in (DS.WAIT_GROUND,DS.WAIT_HOVER) and d.charge_requested:
                     self._enqueue(d)
             self._assign_slots()
             self._maybe_relocate()
@@ -502,4 +601,6 @@ class Simulation:
         drone_rows = []
         for d in self.drones:
             drone_rows.append({"id":d.identifier+1,"name":d.config.name,"state":d.state.value,"position":d.position.tolist(),"battery_kwh":d.battery/KWH,"battery_percent":100*d.battery/d.config.battery,"capacity_kwh":d.config.battery/KWH,"cargo_kg":d.cargo,"payload_kg":d.config.payload,"empty_mass_kg":d.config.empty_mass,"trips":d.trips,"excavated_mass_kg":d.excavated_mass,"consumed_kwh":d.consumed/KWH,"waiting_seconds":d.waiting_seconds,"charging_seconds":d.charging_seconds,"traffic_yields":d.traffic_yields,"slot":d.slot+1 if d.slot is not None else None,"minimum_kwh":d.minimum_charge/KWH,"cable_length_m":d.cable_length(t.sample(*d.position[:2]))})
-        return {"state":self.state.value,"reason":self.reason,"time_seconds":self.time,"elapsed_display":elapsed_text(self.time),"solar_clock":self.clock_text,"date":self.date_text,"day_of_year":self.day_of_year,"latitude_deg":b.config.latitude_deg,"base_mass_kg":b.config.mass,"panel_area_m2":b.config.panel_area,"irradiance_w_m2":sun.irradiance,"sun_elevation_deg":sun.elevation_deg,"daylight_hours":sun.daylight_hours,"sunrise_hour":sun.sunrise_hour,"sunset_hour":sun.sunset_hour,"base_motion_power_w":b.motion_power(self.drones) if b.destination is not None else 0.0,"cable_length_m":drone_rows[0]["cable_length_m"],"hour":self.hour,"trips":self.trips,"relocations":b.relocations,"initial_excavation_m3":t.initial_excavation,"remaining_m3":remaining,"completion_percent":max(0,min(100,100*(1-remaining/max(t.initial_excavation,1e-12)))),"excavated_m3":self.excavated_mass/self.config.terrain.density,"excavated_mass_kg":self.excavated_mass,"cargo_kg":cargo,"drone_state":self.drone.state.value,"base_state":b.state.value,"drone_kwh":batteries/KWH,"base_kwh":b.battery/KWH,"solar_power_w":b.solar_power,"solar_generated_kwh":b.generated/KWH,"solar_curtailed_kwh":b.curtailed/KWH,"consumed_kwh":(consumed+b.consumed)/KWH,"charging_losses_kwh":b.charging_losses/KWH,"mass_error_kg":ground_error,"energy_error_j":energy_error,"minimum_drone_kwh":min(d.minimum_charge/KWH for d in self.drones),"initial_energy_kwh":self._initial_energy/KWH,"drone_count":len(self.drones),"charge_slots":len(self.slots),"slot_occupants":[v+1 if v is not None else None for v in self.slots],"queue":[i+1 for i in self.queue],"wait_mode":self.config.fleet.wait_mode,"drones":drone_rows}
+            drone_rows[-1].update(charge_threshold_percent=100*d.config.charge_threshold,charge_requested=d.charge_requested,charge_cycles=d.charge_cycles,filled_mass_kg=d.filled_mass,reclaimed_mass_kg=d.reclaimed_mass)
+        extra = {"remaining_cut_m3":t.remaining_cut,"remaining_fill_m3":t.remaining_fill,"stockpile_m3":t.stockpile_volume,"filled_mass_kg":self.filled_mass,"filled_m3":self.filled_mass/self.config.terrain.density,"plan_segments":len(self.config.plan.segments) if self.config.plan is not None else 1,"landing_requested":self.landing_requested}
+        return {**extra,"state":self.state.value,"reason":self.reason,"time_seconds":self.time,"elapsed_display":elapsed_text(self.time),"solar_clock":self.clock_text,"date":self.date_text,"day_of_year":self.day_of_year,"latitude_deg":b.config.latitude_deg,"base_mass_kg":b.config.mass,"panel_area_m2":b.config.panel_area,"irradiance_w_m2":sun.irradiance,"sun_elevation_deg":sun.elevation_deg,"daylight_hours":sun.daylight_hours,"sunrise_hour":sun.sunrise_hour,"sunset_hour":sun.sunset_hour,"base_motion_power_w":b.motion_power(self.drones) if b.destination is not None else 0.0,"cable_length_m":drone_rows[0]["cable_length_m"],"hour":self.hour,"trips":self.trips,"relocations":b.relocations,"initial_excavation_m3":t.initial_excavation,"remaining_m3":remaining,"completion_percent":max(0,min(100,100*(1-remaining/max(t.initial_excavation,1e-12)))),"excavated_m3":self.excavated_mass/self.config.terrain.density,"excavated_mass_kg":self.excavated_mass,"cargo_kg":cargo,"drone_state":self.drone.state.value,"base_state":b.state.value,"drone_kwh":batteries/KWH,"base_kwh":b.battery/KWH,"solar_power_w":b.solar_power,"solar_generated_kwh":b.generated/KWH,"solar_curtailed_kwh":b.curtailed/KWH,"consumed_kwh":(consumed+b.consumed)/KWH,"charging_losses_kwh":b.charging_losses/KWH,"mass_error_kg":ground_error,"energy_error_j":energy_error,"minimum_drone_kwh":min(d.minimum_charge/KWH for d in self.drones),"initial_energy_kwh":self._initial_energy/KWH,"drone_count":len(self.drones),"charge_slots":len(self.slots),"slot_occupants":[v+1 if v is not None else None for v in self.slots],"queue":[i+1 for i in self.queue],"wait_mode":self.config.fleet.wait_mode,"drones":drone_rows}

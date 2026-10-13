@@ -8,7 +8,7 @@ from ats.config import Config
 def test_finite_speed_states_and_collision_clearance():
     s = Simulation()
     states = set()
-    for _ in range(400):
+    for _ in range(6000):
         old = s.drone.position.copy()
         old_load = s.drone.cargo
         s.step()
@@ -20,6 +20,7 @@ def test_finite_speed_states_and_collision_clearance():
         assert pos[2] >= s.terrain.sample(*pos[:2])
         if not s.drone.docked:
             assert s.base.destination is None
+        if s.state.value!='RUNNING':break
     assert states == {DS.DOCKED,DS.CHARGING,DS.TAKEOFF,DS.TO_DIG,DS.LOWER_GRABBER,DS.SCOOP,DS.LIFT_GRABBER,DS.TO_DUMP,DS.DUMP,DS.RETURN,DS.LANDING}
 
 

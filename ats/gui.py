@@ -9,6 +9,9 @@ from .scenarios import PRESETS
 from .simulation import Simulation, MissionState
 from .drone import DroneState
 from .fleet_ui import FleetDialog,ComparisonWindow
+from .plan_ui import BrushViewBox,PlanEditor
+from .plan import load_plan,save_plan,target_surface
+from .profiles import profiles,segments_for
 
 pg.setConfigOptions(imageAxisOrder="row-major", antialias=True, background="#111d2b", foreground="#c7d7e5")
 
@@ -64,6 +67,8 @@ class MainWindow(QtWidgets.QMainWindow):
         fleet_button.clicked.connect(self.edit_fleet);header.addWidget(fleet_button)
         compare_button=QtWidgets.QPushButton("Сравнить 1…N")
         compare_button.clicked.connect(self.compare_fleet);header.addWidget(compare_button)
+        self.brush_button=QtWidgets.QPushButton("Кисть / план")
+        self.brush_button.setCheckable(True);header.addWidget(self.brush_button)
         self.speed = QtWidgets.QComboBox()
         for factor in [1, 10, 50, 200]:
             self.speed.addItem(f"{factor}×", factor)
@@ -76,10 +81,13 @@ class MainWindow(QtWidgets.QMainWindow):
         left = QtWidgets.QWidget()
         left_layout = QtWidgets.QVBoxLayout(left)
         left_layout.setContentsMargins(0, 0, 4, 0)
-        legend = QtWidgets.QLabel("Рельеф: синий — выемка, песочный — исходный уровень, светлый — насыпь  |  голубой — проект  |  оранжевый — отвал")
+        legend = QtWidgets.QLabel("Рельеф: синий — выемка, песочный — исходный уровень, светлый — насыпь | План: голубой — выемка, зелёный — засыпка, оранжевый — отвал; розовый — профиль")
         legend.setWordWrap(True)
         left_layout.addWidget(legend)
-        self.map = pg.PlotWidget()
+        self.plan_editor=PlanEditor(config,self)
+        left_layout.addWidget(self.plan_editor);self.plan_editor.hide()
+        self.view_box=BrushViewBox()
+        self.map = pg.PlotWidget(viewBox=self.view_box)
         self.map.setAspectLocked(True)
         self.map.setLabel("bottom", "X", units="m")
         self.map.setLabel("left", "Y", units="m")
@@ -89,6 +97,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.map.addItem(self.image)
         self.design_overlay = pg.ImageItem()
         self.map.addItem(self.design_overlay)
+        self.brush_overlay=pg.ImageItem();self.brush_overlay.setZValue(4);self.map.addItem(self.brush_overlay)
+        self.brush_cursor=QtWidgets.QGraphicsEllipseItem();self.brush_cursor.setPen(pg.mkPen("#94ffe2",width=1));self.brush_cursor.setZValue(15);self.brush_cursor.hide();self.map.addItem(self.brush_cursor)
+        self.brush_cursor.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
+        self.profile_line=pg.PlotDataItem(pen=pg.mkPen("#e7a3f0",width=2,style=QtCore.Qt.PenStyle.DotLine));self.map.addItem(self.profile_line)
         self.dust_image = pg.ImageItem()
         self.dust_image.setZValue(5)
         self.map.addItem(self.dust_image)
@@ -104,18 +116,26 @@ class MainWindow(QtWidgets.QMainWindow):
         self.base_label = pg.TextItem("База", color="#ffdb8a", anchor=(0, 0))
         self.map.addItem(self.drone_label)
         self.map.addItem(self.base_label)
-        self.profile = pg.PlotWidget(title="Поперечный профиль через центр канавы")
+        profile_controls=QtWidgets.QHBoxLayout()
+        self.profile_segment=QtWidgets.QComboBox()
+        self.profile_direction=QtWidgets.QComboBox();self.profile_direction.addItem("Поперечный","cross");self.profile_direction.addItem("Сквозной вдоль линий","along")
+        self.profile_position=QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal);self.profile_position.setRange(0,100);self.profile_position.setValue(50);self.profile_position.setMaximumWidth(180)
+        self.profile_position_label=QtWidgets.QLabel("Срез: 50%")
+        for widget in [QtWidgets.QLabel("Профиль"),self.profile_segment,self.profile_direction,self.profile_position_label,self.profile_position]:profile_controls.addWidget(widget)
+        profile_controls.addStretch();left_layout.addLayout(profile_controls)
+        self.profile = pg.PlotWidget(title="Поперечный профиль")
         self.profile.setLabel("bottom", "Y", units="m")
         self.profile.setLabel("left", "Высота", units="m")
         self.profile.getAxis("left").enableAutoSIPrefix(False)
-        self.profile.addLegend()
+        self.profile.addLegend(offset=(5,5),colCount=3)
         self.current_curve = self.profile.plot(pen=pg.mkPen("#efce8b", width=2), name="Текущий рельеф")
         self.target_curve = self.profile.plot(pen=pg.mkPen("#59cde4", width=2, style=QtCore.Qt.PenStyle.DashLine), name="Проект")
         self.reference_curve = self.profile.plot(pen=pg.mkPen("#627789", width=1), name="Исходный")
         self.profile.showGrid(x=True, y=True, alpha=0.2)
+        self.profile_extra=[];self.profile_boundaries=[]
         left_layout.addWidget(self.profile, 2)
         self.fleet_table=QtWidgets.QTableWidget(0,10)
-        self.fleet_table.setHorizontalHeaderLabels(["Дрон","Состояние","Заряд","Груз, кг","Рейсы","Грунт, кг","Расход, кВт·ч","Очередь, мин","Зарядка, мин","Уступил"])
+        self.fleet_table.setHorizontalHeaderLabels(["Дрон","Состояние","Заряд","Груз, кг","Рейсы","Грунт, кг\nвыемка / засыпка","Расход, кВт·ч","Очередь, мин","Зарядка, мин","Уступил"])
         self.fleet_table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
         self.fleet_table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.fleet_table.setMaximumHeight(170);self.fleet_table.setMinimumHeight(85)
@@ -124,6 +144,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.drone_labels=[self.drone_label]
         self.slot_markers=pg.ScatterPlotItem(size=10,symbol="s",pen="#f4b651")
         self.map.addItem(self.slot_markers)
+        self.brush_button.toggled.connect(self.toggle_brush_panel)
+        self.plan_editor.enabled.toggled.connect(self.toggle_brush)
+        self.view_box.strokeFinished.connect(self.add_brush_stroke)
+        self.view_box.brushMoved.connect(self.move_brush_cursor)
+        self.map.scene().sigMouseMoved.connect(lambda p:self.move_brush_cursor(self.view_box.point(p)))
+        self.plan_editor.planChanged.connect(self.preview_brush)
+        self.plan_editor.applyRequested.connect(self.apply_brush_plan)
+        self.plan_editor.landingRequested.connect(self.land_for_plan)
+        self.plan_editor.saveRequested.connect(self.save_brush_plan)
+        self.plan_editor.loadRequested.connect(self.load_brush_plan)
+        self.profile_segment.currentIndexChanged.connect(self.update_profile)
+        self.profile_direction.currentIndexChanged.connect(self.update_profile)
+        self.profile_position.valueChanged.connect(self.update_profile)
         split.addWidget(left)
 
         right = QtWidgets.QWidget()
@@ -243,23 +276,125 @@ class MainWindow(QtWidgets.QMainWindow):
         overlay = np.zeros((*t.height.shape, 4), dtype=np.uint8)
         overlay[t.excavation] = [57, 200, 237, 24]
         overlay[t.bottom] = [57, 200, 237, 50]
+        overlay[t.fill_mask] = [112, 242, 132, 65]
         # Outlines remain visible without obscuring the actual terrain.
-        for mask, color in [(t.excavation, [65, 210, 250, 190]), (t.bottom, [90, 225, 255, 200]), (t.dump_mask, [255, 164, 60, 190])]:
+        for mask, color in [(t.excavation, [65, 210, 250, 190]), (t.bottom & ~t.fill_mask, [90, 225, 255, 200]), (t.fill_mask,[112,242,132,220]), (t.dump_mask, [255, 164, 60, 190])]:
             padded = np.pad(mask, 1)
             border = mask & ~(padded[:-2, 1:-1] & padded[2:, 1:-1] & padded[1:-1, :-2] & padded[1:-1, 2:])
             overlay[border] = color
         self.design_overlay.setImage(overlay, autoLevels=False)
         self.design_overlay.setRect(rect)
         self.dust_image.setRect(rect)
+        self.brush_overlay.clear()
+        self.brush_overlay.setRect(rect)
         self.map.setRange(xRange=(0, side), yRange=(0, side), padding=0.015)
-        q = self.config.trench
-        self.profile.setXRange(q.y-q.width/2-q.depth/t.slope-1, q.y+q.width/2+q.depth/t.slope+1)
-        self.profile.setYRange(-q.depth-0.08, 0.15)
+        self.profile_segment.blockSignals(True)
+        self.profile_segment.clear();self.profile_segment.addItem("Все сегменты",None)
+        for index,segment in enumerate(segments_for(self.config)):self.profile_segment.addItem(segment.name,index)
+        self.profile_segment.blockSignals(False)
+        self.update_profile()
         self.last_revision = -1
         while len(self.drone_labels)<len(self.sim.drones):
             label=pg.TextItem(color=self.palette[len(self.drone_labels)],anchor=(0,1));self.map.addItem(label);self.drone_labels.append(label)
         for index,label in enumerate(self.drone_labels):label.setVisible(index<len(self.sim.drones))
         self.fleet_table.setRowCount(len(self.sim.drones))
+
+    def toggle_brush_panel(self,visible):
+        self.plan_editor.setVisible(visible)
+        self.plan_editor.enabled.setChecked(visible)
+
+    def toggle_brush(self,enabled):
+        self.view_box.brush_enabled=enabled
+        self.brush_cursor.setVisible(enabled)
+        if enabled:
+            self.running=False;self.credit=0;self.play.setText("▶ Start")
+        self.statusBar().showMessage("Кисть: зажмите левую кнопку и рисуйте. Колесо — масштаб. Примените план после посадки флота." if enabled else "Колесо — масштаб; перетаскивание — панорама.")
+
+    def move_brush_cursor(self,point):
+        if not self.view_box.brush_enabled:return
+        width=self.plan_editor.width.value()
+        self.brush_cursor.setRect(point[0]-width/2,point[1]-width/2,width,width)
+
+    def add_brush_stroke(self,points):
+        from .plan import PlanSegment
+        try:
+            PlanSegment(points,self.plan_editor.mode.currentData(),self.plan_editor.width.value(),self.plan_editor.height.value()).validate(self.config)
+            if len(self.plan_editor.segments)>=100:raise ValueError("План ограничен 100 сегментами")
+            self.plan_editor.add_stroke(points)
+        except ValueError as error:self.plan_editor.info.setText(str(error))
+
+    def preview_brush(self):
+        t=self.sim.terrain
+        target,_=target_surface(t,self.plan_editor.plan())
+        overlay=np.zeros((*t.height.shape,4),dtype=np.uint8)
+        overlay[target<t.height-1e-12]=[65,210,250,80]
+        overlay[target>t.height+1e-12]=[112,242,132,95]
+        self.brush_overlay.setImage(overlay,autoLevels=False)
+        self.brush_overlay.setRect(QtCore.QRectF(0,0,t.cell*t.height.shape[0],t.cell*t.height.shape[0]))
+        self.plan_editor.info.setText(f"Рисунок не применён: {len(self.plan_editor.segments)} сегментов. Голубой — выемка, зелёный — засыпка. «Применить план» сохранит текущий рельеф.")
+
+    def apply_brush_plan(self):
+        self.running=False;self.credit=0;self.play.setText("▶ Start")
+        try:self.sim.apply_plan(self.plan_editor.plan())
+        except ValueError as error:
+            self.plan_editor.info.setText(str(error));return False
+        self.config=self.sim.config;self.plan_editor.dirty=False
+        view=self.map.viewRange()
+        self.setup_map();self.map.setRange(xRange=view[0],yRange=view[1],padding=0)
+        self.plan_editor.info.setText("План применён. Нажмите Start. Для засыпки используются отвал и запланированная выемка; при нехватке грунта расчёт остановится с причиной.")
+        self.refresh(True);return True
+
+    def land_for_plan(self):
+        if self.sim.state!=MissionState.RUNNING:return
+        self.sim.request_landing();self.running=True;self.last_wall=time.perf_counter();self.play.setText("Посадка…")
+        self.plan_editor.enabled.setChecked(False)
+
+    def save_brush_plan(self):
+        if self.plan_editor.dirty or self.config.plan is None:
+            self.plan_editor.info.setText("Перед сохранением примените нарисованный план.");return
+        path,_=QtWidgets.QFileDialog.getSaveFileName(self,"Сохранить план","plan.json","План ATS (*.json)")
+        if path:
+            try:save_plan(path,self.config)
+            except OSError as error:self.plan_editor.info.setText(str(error))
+
+    def load_brush_plan(self):
+        path,_=QtWidgets.QFileDialog.getOpenFileName(self,"Открыть план","","План ATS (*.json)")
+        if path:
+            try:self.replace_simulation(load_plan(path,self.config))
+            except (ValueError,OSError,KeyError,TypeError) as error:self.plan_editor.info.setText(f"Не удалось открыть план: {error}")
+
+    def update_profile(self):
+        if not hasattr(self,"profile_extra"):return
+        direction=self.profile_direction.currentData()
+        fraction=self.profile_position.value()/100
+        self.profile_position.setEnabled(direction=="cross")
+        self.profile_position_label.setText(f"Срез: {fraction*100:.0f}%")
+        segments=segments_for(self.config)
+        selection=self.profile_segment.currentData()
+        if selection is not None and selection>=len(segments):selection=None
+        data=profiles(self.sim.terrain,segments,selection,direction,fraction)
+        for item in self.profile_extra+self.profile_boundaries:self.profile.removeItem(item)
+        self.profile_extra=[];self.profile_boundaries=[]
+        for curve in [self.current_curve,self.target_curve,self.reference_curve]:curve.clear()
+        points=[]
+        for index,p in enumerate(data):
+            if index==0:
+                curves=[self.current_curve,self.target_curve,self.reference_curve]
+            else:
+                color=self.palette[index%len(self.palette)]
+                curves=[self.profile.plot(pen=pg.mkPen(color,width=2),name=p.name if len(data)<=6 else None),self.profile.plot(pen=pg.mkPen(color,width=1,style=QtCore.Qt.PenStyle.DashLine)),self.profile.plot(pen=pg.mkPen("#627789",width=1))]
+                self.profile_extra.extend(curves)
+            for curve,values in zip(curves,[p.current,p.target,p.reference]):curve.setData(p.axis,values,connect="finite")
+            points.extend([*p.points,(np.nan,np.nan)])
+            for boundary in p.boundaries:
+                line=pg.InfiniteLine(pos=boundary,angle=90,pen=pg.mkPen("#627789",style=QtCore.Qt.PenStyle.DotLine));self.profile.addItem(line);self.profile_boundaries.append(line)
+        if points:
+            points=np.asarray(points);self.profile_line.setData(points[:,0],points[:,1],connect="finite")
+        else:self.profile_line.clear()
+        self.profile.setLabel("bottom","Поперечное расстояние от оси" if direction=="cross" else "Суммарная длина сегментов",units="m")
+        title="Поперечные профили всех сегментов" if direction=="cross" and selection is None else "Поперечный профиль" if direction=="cross" else "Сквозной профиль — сегменты разделены пунктиром"
+        self.profile.setTitle(title)
+        self.profile.enableAutoRange()
 
     def edit_fleet(self):
         dialog=FleetDialog(self.config,self)
@@ -297,6 +432,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.credit = 0
         self.config = config
         self.sim = sim
+        self.plan_editor.segments=deepcopy(config.plan.segments) if config.plan is not None else []
+        self.plan_editor.dirty=False;self.plan_editor.rebuild()
+        self.plan_editor.default_depth=config.trench.depth
         self.last_event = 0
         self.log.clear()
         self.setup_map()
@@ -305,6 +443,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def new_scenario(self):
         config = deepcopy(self.config)
+        config.plan=None;config.initial_height=None
         q = config.trench
         q.length, q.width, q.depth = self.length.value(), self.width.value(), self.depth.value()
         q.x, q.y, q.angle_deg = self.cx.value(), self.cy.value(), self.angle.value()
@@ -327,6 +466,9 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.sim.state != MissionState.RUNNING:
             return
         self.running = not self.running
+        if self.running:
+            self.sim.landing_requested=False
+            self.plan_editor.enabled.setChecked(False)
         self.credit = 0
         self.last_wall = time.perf_counter()
         self.play.setText("⏸ Pause" if self.running else "▶ Start")
@@ -343,6 +485,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.sim.step()
                 self.credit -= 1
                 steps += 1
+                if self.sim.landing_requested and all(d.grounded for d in self.sim.drones):
+                    self.running=False;self.credit=0;self.play.setText("▶ Start")
+                    self.plan_editor.info.setText("Флот приземлён. Можно применить нарисованный план.")
+                    break
                 if self.sim.state != MissionState.RUNNING:
                     self.running = False
                     self.play.setText("Завершено" if self.sim.state == MissionState.COMPLETED else "Заблокировано")
@@ -355,10 +501,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if force or (t.revision != self.last_revision and now-self.last_terrain_wall >= self.config.terrain_display_seconds):
             self.image.setImage(terrain_rgb(t.height, t.cell, self.config.trench.depth, max(0.5, float(t.height.max()))), autoLevels=False)
             self.image.setRect(QtCore.QRectF(0, 0, t.cell*t.height.shape[0], t.cell*t.height.shape[0]))
-            index = int(np.clip(self.config.trench.x/t.cell, 0, t.height.shape[1]-1))
-            self.current_curve.setData(t.axis, t.height[:, index])
-            self.target_curve.setData(t.axis, t.target[:, index])
-            self.reference_curve.setData(t.axis, t.reference[:, index])
+            self.update_profile()
             self.last_revision = t.revision
             self.last_terrain_wall = now
         concentration = 1-np.exp(-s.dust.field*self.config.dust.concentration_scale)
@@ -384,8 +527,9 @@ class MainWindow(QtWidgets.QMainWindow):
         report = s.report()
         self.fleet_table.setUpdatesEnabled(False)
         for row,o in enumerate(report['drones']):
-            values=[f"{o['id']} · {o['name']}",o['state'],f"{o['battery_percent']:.0f}%",f"{o['cargo_kg']:.1f}",str(o['trips']),f"{o['excavated_mass_kg']:.0f}",f"{o['consumed_kwh']:.3f}",f"{o['waiting_seconds']/60:.1f}",f"{o['charging_seconds']/60:.1f}",str(o['traffic_yields'])]
+            values=[f"{o['id']} · {o['name']}",o['state'],f"{o['battery_percent']:.0f}%",f"{o['cargo_kg']:.1f}",str(o['trips']),f"{o['excavated_mass_kg']:.0f} / {o['filled_mass_kg']:.0f}",f"{o['consumed_kwh']:.3f}",f"{o['waiting_seconds']/60:.1f}",f"{o['charging_seconds']/60:.1f}",str(o['traffic_yields'])]
             for col,value in enumerate(values):self.fleet_table.setItem(row,col,QtWidgets.QTableWidgetItem(value))
+            self.fleet_table.item(row,2).setToolTip(f"Порог зарядки {o['charge_threshold_percent']:.0f}%; полных циклов: {o['charge_cycles']}")
         self.fleet_table.setUpdatesEnabled(True)
         status = {MissionState.RUNNING: "Автономная работа" if self.running else "Готов / пауза", MissionState.COMPLETED: "✓ Миссия завершена", MissionState.BLOCKED: "⚠ Работа заблокирована"}[s.state]
         self.status.setText(f"<b style='font-size:17px'>{status}</b><br>{s.reason}")
@@ -397,6 +541,7 @@ class MainWindow(QtWidgets.QMainWindow):
             ("Флот / очередь",f"{len(s.drones)} / {len(s.queue)}"), ("База", b.state.value),
             ("Зарядные слоты",f"{sum(v is not None for v in s.slots)} / {len(s.slots)} · {b.config.charge_power/1000:.1f} кВт всего"),
             ("Проект / остаток", f"{report['initial_excavation_m3']:.3f} / {report['remaining_m3']:.3f} м³"),
+            ("Выемка / засыпка осталось",f"{report['remaining_cut_m3']:.3f} / {report['remaining_fill_m3']:.3f} м³"),
             ("Вынуто / рейсы", f"{report['excavated_m3']:.3f} м³ / {s.trips}"),
             ("Общий груз", f"{report['cargo_kg']:.1f} кг"),
             ("База / панели", f"{b.config.mass:.0f} кг / {b.config.panel_area:.1f} м²"),

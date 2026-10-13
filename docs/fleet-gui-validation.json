@@ -1,9 +1,13 @@
 {
-  "main_window_wall_seconds": 18.35666775000027,
-  "main_window_time_seconds": 3660.0,
-  "main_window_state": "COMPLETED",
-  "timer_responsiveness_probes": 228,
-  "comparison_wall_seconds": 4.634146574999249,
+  "cut_wall_seconds": 6.107894936999855,
+  "cut_time_seconds": 497.0,
+  "fill_wall_seconds": 21.281128498999806,
+  "total_mission_time_seconds": 4567.0,
+  "filled_mass_kg": 1123.3126743595933,
+  "mass_error_kg": 0.0,
+  "energy_error_j": -2.644956111907959e-07,
+  "timer_responsiveness_probes": 362,
+  "comparison_wall_seconds": 8.84499358300036,
   "comparison_states": [
     "COMPLETED",
     "COMPLETED",
