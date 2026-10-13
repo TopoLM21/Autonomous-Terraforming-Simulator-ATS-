@@ -1,0 +1,28 @@
+[
+  {
+    "selected_speed": 1000,
+    "wall_seconds": 0.5125449709994427,
+    "virtual_seconds": 311.0,
+    "actual_speed": 606.7760247331314,
+    "responsiveness_probe_seconds": [
+      0.09839442100019369
+    ],
+    "physics_dt_seconds": 1.0,
+    "energy_error_j": 1.0723015293478966e-06,
+    "mass_error_kg": 0.0,
+    "laser_received_kwh": 0.6888888888888889
+  },
+  {
+    "selected_speed": 2000,
+    "wall_seconds": 0.5039632699990761,
+    "virtual_seconds": 262.0,
+    "actual_speed": 519.8791570673003,
+    "responsiveness_probe_seconds": [
+      0.1109123569985968
+    ],
+    "physics_dt_seconds": 1.0,
+    "energy_error_j": 9.273644536733627e-07,
+    "mass_error_kg": 0.0,
+    "laser_received_kwh": 0.58
+  }
+]

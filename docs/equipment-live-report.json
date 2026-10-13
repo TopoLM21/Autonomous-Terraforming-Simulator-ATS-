@@ -19,8 +19,39 @@
     "equipment_imported_kwh": 0.0,
     "equipment_exported_kwh": 0.0,
     "equipment_pending": false,
-    "laser_transfer_enabled": false,
+    "laser_transfer_enabled": true,
     "retired_drones": [],
+    "lasers": [
+      {
+        "serial": 1,
+        "position_number": 1,
+        "status": "Нет передатчика",
+        "code": "no_emitter",
+        "limits": [],
+        "input_power_w": 0.0,
+        "received_power_w": 0.0,
+        "receiver_limit_w": 0.0,
+        "distance_m": 0.0,
+        "beam_radius_m": 0.0,
+        "capture_fraction": 0.0,
+        "total_efficiency": 0.0,
+        "source": [
+          5.0,
+          16.0,
+          2.0
+        ],
+        "target": [
+          16.625,
+          15.625,
+          10.0
+        ]
+      }
+    ],
+    "laser_input_power_w": 0.0,
+    "laser_received_power_w": 0.0,
+    "laser_input_kwh": 0.0,
+    "laser_received_kwh": 0.0,
+    "laser_losses_kwh": 0.0,
     "state": "RUNNING",
     "reason": "",
     "time_seconds": 100.0,
@@ -121,7 +152,15 @@
             "dump_mass_kg": 120.0,
             "deliveries": 2
           }
-        ]
+        ],
+        "laser_received_kwh": 0.0,
+        "laser_power_w": 0.0,
+        "laser_status": "Нет передатчика",
+        "flight_power_w": 37290.622061185524,
+        "airborne_seconds": 99.0,
+        "current_flight_seconds": 99.0,
+        "last_flight_seconds": 0.0,
+        "longest_flight_seconds": 99.0
       }
     ]
   },
@@ -145,8 +184,14 @@
     "equipment_imported_kwh": 0.0,
     "equipment_exported_kwh": 0.0,
     "equipment_pending": false,
-    "laser_transfer_enabled": false,
+    "laser_transfer_enabled": true,
     "retired_drones": [],
+    "lasers": [],
+    "laser_input_power_w": 0.0,
+    "laser_received_power_w": 0.0,
+    "laser_input_kwh": 0.0,
+    "laser_received_kwh": 0.0,
+    "laser_losses_kwh": 0.0,
     "state": "RUNNING",
     "reason": "",
     "time_seconds": 100.0,
@@ -248,7 +293,15 @@
             "dump_mass_kg": 120.0,
             "deliveries": 2
           }
-        ]
+        ],
+        "laser_received_kwh": 0.0,
+        "laser_power_w": 0.0,
+        "laser_status": "Ожидание следующего шага",
+        "flight_power_w": 37290.622061185524,
+        "airborne_seconds": 99.0,
+        "current_flight_seconds": 99.0,
+        "last_flight_seconds": 0.0,
+        "longest_flight_seconds": 99.0
       }
     ]
   },
@@ -272,8 +325,14 @@
     "equipment_imported_kwh": 0.0,
     "equipment_exported_kwh": 5.174014303419325e-16,
     "equipment_pending": false,
-    "laser_transfer_enabled": false,
+    "laser_transfer_enabled": true,
     "retired_drones": [],
+    "lasers": [],
+    "laser_input_power_w": 0.0,
+    "laser_received_power_w": 0.0,
+    "laser_input_kwh": 0.0,
+    "laser_received_kwh": 0.0,
+    "laser_losses_kwh": 0.0,
     "state": "RUNNING",
     "reason": "",
     "time_seconds": 125.0,
@@ -375,7 +434,15 @@
             "dump_mass_kg": 180.0,
             "deliveries": 3
           }
-        ]
+        ],
+        "laser_received_kwh": 0.0,
+        "laser_power_w": 0.0,
+        "laser_status": "Ожидание следующего шага",
+        "flight_power_w": 19440.0,
+        "airborne_seconds": 124.0,
+        "current_flight_seconds": 0.0,
+        "last_flight_seconds": 124.0,
+        "longest_flight_seconds": 124.0
       }
     ]
   },
@@ -399,8 +466,39 @@
     "equipment_imported_kwh": 0.0,
     "equipment_exported_kwh": 5.174014303419325e-16,
     "equipment_pending": false,
-    "laser_transfer_enabled": false,
+    "laser_transfer_enabled": true,
     "retired_drones": [],
+    "lasers": [
+      {
+        "serial": 1,
+        "position_number": 1,
+        "status": "Нет передатчика",
+        "code": "no_emitter",
+        "limits": [],
+        "input_power_w": 0.0,
+        "received_power_w": 0.0,
+        "receiver_limit_w": 0.0,
+        "distance_m": 0.0,
+        "beam_radius_m": 0.0,
+        "capture_fraction": 0.0,
+        "total_efficiency": 0.0,
+        "source": [
+          11.892962998314472,
+          16.0,
+          2.0
+        ],
+        "target": [
+          11.892962998314472,
+          16.0,
+          2.0
+        ]
+      }
+    ],
+    "laser_input_power_w": 0.0,
+    "laser_received_power_w": 0.0,
+    "laser_input_kwh": 0.0,
+    "laser_received_kwh": 0.0,
+    "laser_losses_kwh": 0.0,
     "state": "COMPLETED",
     "reason": "",
     "time_seconds": 3230.0,
@@ -502,7 +600,15 @@
             "dump_mass_kg": 1161.3714892772336,
             "deliveries": 12
           }
-        ]
+        ],
+        "laser_received_kwh": 0.0,
+        "laser_power_w": 0.0,
+        "laser_status": "Нет передатчика",
+        "flight_power_w": 23751.124766982994,
+        "airborne_seconds": 482.0,
+        "current_flight_seconds": 0.0,
+        "last_flight_seconds": 160.0,
+        "longest_flight_seconds": 198.0
       }
     ]
   }

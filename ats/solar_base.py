@@ -1,9 +1,10 @@
-"""Solar input, dock-only charging and finite-speed tracked relocation."""
+"""Solar input, shared contact/optical charging and tracked relocation."""
 from dataclasses import dataclass, field
 from enum import Enum
 import math
 import numpy as np
 from .solar import sunlight
+from .laser import transfer
 
 
 class BaseState(str, Enum):
@@ -26,6 +27,9 @@ class SolarBase:
     charging_losses: float = 0.0
     charging_input: float = 0.0
     solar_power: float = 0.0
+    laser_input: float = 0.0
+    laser_losses: float = 0.0
+    laser_input_power: float = 0.0
     last_relocation: float = -float("inf")
     last_relocation_trip: int = 0
     relocations: int = 0
@@ -47,10 +51,11 @@ class SolarBase:
             total_mass += drone.config.empty_mass+drone.cargo
         return self.config.move_power*total_mass/self.config.reference_total_mass
 
-    def tick(self, dt, hour, drone, charging, day_of_year=None):
+    def tick(self, dt, hour, drone, charging, day_of_year=None,laser_links=()):
         b = self.config
         drones = drone if isinstance(drone, list) else [drone]
         flags = charging if isinstance(charging, list) else [charging]*len(drones)
+        self.laser_input_power=0.
         if self.destination is not None:
             self.state = BaseState.MOVING
             self.solar_power = 0.0
@@ -98,6 +103,9 @@ class SolarBase:
             charging_energy += spent
             available -= spent
             active = pending
+        laser_input,laser_received=transfer(laser_links,max(0.,available),dt)
+        available-=laser_input;self.laser_input+=laser_input
+        self.laser_input_power=laser_input/dt;self.laser_losses+=laser_input-laser_received
         # Integrate simultaneous generation and discharge before applying capacity.
         # A full base can still feed solar power into a docked drone this tick.
         self.curtailed += max(0.0, available-b.battery)
@@ -105,6 +113,7 @@ class SolarBase:
         self.state = BaseState.PARKED_GENERATING if self.solar_power > 0 or self.battery > 0 else BaseState.WAITING_FOR_SUN
         if any(d.docked and flag for d, flag in zip(drones, flags)):
             self.state = BaseState.CHARGING if charging_energy > 0 else BaseState.WAITING_FOR_SUN
+        elif laser_input>0:self.state=BaseState.CHARGING
         return None
 
     def safe_path(self, target, terrain, offset=(0, 0)):

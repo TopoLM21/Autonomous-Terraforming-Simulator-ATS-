@@ -58,10 +58,15 @@ class LaserEmitter:
     input_power_kw: float=20.0
     efficiency: float=.5
     range_m: float=30.0
+    enabled: bool=True
+    beam_radius_m: float=.10
+    divergence_mrad: float=2.0
 
     def validate(self):
         if not isinstance(self.drone_number,int) or not 1<=self.drone_number<=6:raise ValueError("Номер позиции дрона для передатчика: 1–6")
-        positive(self.mass_kg,"Масса передатчика");positive(self.input_power_kw,"Мощность передатчика");positive(self.range_m,"Дальность передатчика")
+        positive(self.mass_kg,"Масса передатчика");positive(self.input_power_kw,"Мощность передатчика",True);positive(self.range_m,"Дальность передатчика")
+        positive(self.beam_radius_m,"Радиус луча");positive(self.divergence_mrad,"Расходимость луча",True)
+        if not isinstance(self.enabled,bool):raise ValueError("Состояние передатчика должно быть логическим")
         if not 0<self.efficiency<=1:raise ValueError("КПД передатчика: больше 0 и не больше 100%")
 
 

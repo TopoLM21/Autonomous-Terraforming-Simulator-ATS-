@@ -139,16 +139,17 @@ def test_base_without_storage_charges_directly_from_sun():
     assert s.base.charging_losses>0
 
 
-def test_equipment_roundtrip_and_passive_lasers():
+def test_equipment_roundtrip_and_laser_hardware():
     s=Simulation();c=deepcopy(s.config)
     c.base.equipment.emitters=[LaserEmitter(drone_number=1)]
     c.fleet.models[0].equipment.receiver.installed=True
     c=load_equipment_data(json.loads(json.dumps(equipment_data(c))),s.config)
     assert equipment_data(c)==equipment_data(load_equipment_data(equipment_data(c),s.config))
     s.request_equipment(c);assert s.config.base.mass==1030 and s.drone.config.empty_mass==110
-    assert s.report()['laser_transfer_enabled'] is False
+    assert s.report()['laser_transfer_enabled'] is True
     assert s.equipment_imported_energy==0
     s.run(500);balanced(s)
+    assert s.drone.laser_received>0 and s.base.laser_input>0
 
 
 def test_pending_installation_can_be_cancelled_without_config_change():

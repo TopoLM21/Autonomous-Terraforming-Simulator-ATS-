@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "base": {
+    "chassis_mass_kg": 585.0,
+    "batteries": [
+      {
+        "name": "Аккумулятор",
+        "quantity": 6,
+        "capacity_kwh": 5.0,
+        "mass_kg": 50.0
+      }
+    ],
+    "panels": [
+      {
+        "name": "Солнечная панель",
+        "quantity": 10,
+        "area_m2": 2.0,
+        "mass_kg": 8.0,
+        "efficiency": 0.2
+      }
+    ],
+    "landing_slots": 1,
+    "slot_mass_kg": 20,
+    "charger_mass_kg": 15,
+    "charge_power_kw": 8.0,
+    "charge_efficiency": 0.9,
+    "emitters": [
+      {
+        "drone_number": 1,
+        "mass_kg": 30.0,
+        "input_power_kw": 40,
+        "efficiency": 0.5,
+        "range_m": 30.0,
+        "enabled": true,
+        "beam_radius_m": 0.1,
+        "divergence_mrad": 2.0
+      }
+    ]
+  },
+  "models": [
+    {
+      "name": "Тяжёлый 60",
+      "empty_mass": 110.0,
+      "payload": 60.0,
+      "battery": 18000000.0,
+      "initial_charge": 1.0,
+      "reserve": 0.2,
+      "charge_threshold": 0.3,
+      "empty_speed": 6.0,
+      "loaded_speed": 4.0,
+      "vertical_speed": 2.0,
+      "work_height": 6.0,
+      "scoop_seconds": 10.0,
+      "dump_seconds": 10.0,
+      "winch_seconds": 5.0,
+      "stowed_cable": 1.0,
+      "hover_power": 19300.90104997971,
+      "flight_factor": 1.08,
+      "winch_power": 500.0,
+      "winch_efficiency": 0.8,
+      "gravity": 9.80665,
+      "budget_margin": 1.25,
+      "equipment": {
+        "frame_mass_kg": 60.0,
+        "payload_limit_kg": 120.0,
+        "reference_mass_kg": 105.0,
+        "reference_hover_power_kw": 18.0,
+        "batteries": [
+          {
+            "name": "Аккумулятор",
+            "quantity": 2,
+            "capacity_kwh": 2.5,
+            "mass_kg": 15.0
+          }
+        ],
+        "bucket": {
+          "mass_kg": 15.0,
+          "volume_m3": 0.0375,
+          "radius_m": 0.5
+        },
+        "receiver": {
+          "installed": true,
+          "mass_kg": 5.0,
+          "area_m2": 0.25,
+          "max_power_kw": 8.0,
+          "efficiency": 0.45
+        }
+      },
+      "grab_radius": 0.5
+    }
+  ],
+  "wait_mode": "ground"
+}

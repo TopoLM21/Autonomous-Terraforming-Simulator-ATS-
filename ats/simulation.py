@@ -12,6 +12,7 @@ from .planner import Planner
 from .dust import Dust
 from .traffic import conflicts
 from .equipment import resolve_config,retained_energy,station_offset
+from .laser import prepare_links
 
 
 class MissionState(str, Enum):
@@ -70,6 +71,7 @@ class Simulation:
         self._terrain_active = self.config.terrain.roughness > 0
         self._initial_energy = sum(d.battery for d in self.drones)+self.base.battery
         self._starts = {d.identifier:d.position.copy() for d in self.drones}
+        self.laser_links = []
         self.event(f"Сценарий готов: дронов {len(self.drones)}, зарядных слотов {len(self.slots)}")
         points = [self.slot_position(i) for i in range(len(self.slots))]+[self.wait_position(i) for i in range(len(self.drones))]
         if not self.base.safe_path(self.base.position[:2], self.terrain) or any(not self._safe_pad(p) for p in points):
@@ -225,6 +227,8 @@ class Simulation:
             self.state,self.reason,self.landing_requested=(MissionState.RUNNING,"",landing) if state==MissionState.BLOCKED else (state,reason,landing)
         elif self.state==MissionState.BLOCKED:self.state,self.reason=MissionState.RUNNING,""
         self.pending_equipment=None
+        self.laser_links=[];self.base.laser_input_power=0.
+        for d in self.drones:d.laser_power_w=0.;d.laser_status="Ожидание следующего шага"
         self.event(f"Оборудование установлено без сброса: база {candidate.base.mass:.1f} кг, панели {candidate.base.panel_area:.1f} м², слотов {slots}, дронов {count}; энергия снятого оборудования {self.equipment_exported_energy/KWH:.3f} кВт·ч")
 
     @property
@@ -268,13 +272,38 @@ class Simulation:
 
     def consume_drone(self, joules, drone=None):
         d = drone or self.drone
-        if joules > d.battery+1e-9:
+        supplied=d.laser_step_energy
+        if joules > d.battery+supplied+1e-9:
+            self._settle_laser(d)
             self.block(f"Недостаточно энергии дрона {d.serial}; расчёт остановлен до разряда ниже нуля")
             return False
-        d.battery = max(0, d.battery-joules)
+        d.laser_step_energy=0.
+        energy=d.battery+supplied-joules
+        self._laser_spill(d,max(0.,energy-d.config.battery))
+        d.battery = max(0,min(d.config.battery,energy))
         d.consumed += joules
         d.minimum_charge = min(d.minimum_charge, d.battery)
         return True
+
+    def _laser_spill(self,d,energy):
+        if energy<=0:return
+        self.base.laser_losses+=energy;d.laser_received-=energy
+        d.laser_power_w=max(0.,d.laser_power_w-energy/self.config.dt)
+        for link in self.laser_links:
+            if link.drone is d:link.received_w=d.laser_power_w
+
+    def _settle_laser(self,d):
+        # If an earlier actor stopped the engine, every delivered joule still
+        # ends up in storage or explicitly reported heat, never an orphan buffer.
+        energy=d.laser_step_energy;d.laser_step_energy=0.
+        stored=min(energy,max(0.,d.config.battery-d.battery))
+        d.battery+=stored;self._laser_spill(d,energy-stored)
+
+    def flight_power(self,d):
+        movement=d.state in (DS.TAKEOFF,DS.TO_DIG,DS.TO_DUMP,DS.RETURN,DS.LANDING,DS.TRANSFER_TAKEOFF,DS.TO_SLOT,DS.SLOT_LANDING,DS.WAIT_LANDING)
+        winching=d.state in (DS.LOWER_GRABBER,DS.LIFT_GRABBER,DS.DUMP)
+        lift_height=max(0,d.position[2]-self.terrain.sample(*d.position[:2])-d.config.stowed_cable) if d.state==DS.LIFT_GRABBER else 0
+        return d.power(movement,winching,lift_height=lift_height)
 
     def _clear_slot(self, d):
         if d.slot is not None and self.slots[d.slot] == d.identifier:
@@ -457,11 +486,20 @@ class Simulation:
 
     def _airborne(self,d,dt):
         c, trip = d.config,d.trip
-        movement = d.state in (DS.TAKEOFF,DS.TO_DIG,DS.TO_DUMP,DS.RETURN,DS.LANDING,DS.TRANSFER_TAKEOFF,DS.TO_SLOT,DS.SLOT_LANDING,DS.WAIT_LANDING)
-        winching = d.state in (DS.LOWER_GRABBER,DS.LIFT_GRABBER,DS.DUMP)
-        lift_height = max(0,d.position[2]-self.terrain.sample(*d.position[:2])-c.stowed_cable) if d.state == DS.LIFT_GRABBER else 0
-        if not self.consume_drone(d.power(movement,winching,lift_height=lift_height)*dt,d):
+        d.last_flight_power_w=self.flight_power(d)
+        if not self.consume_drone(d.last_flight_power_w*dt,d):
             return
+        d.airborne_seconds+=dt;d.flight_seconds+=dt
+        d.longest_flight_seconds=max(d.longest_flight_seconds,d.flight_seconds)
+        # A fulfilled wireless charge must release an air queue/reserved socket.
+        if d.charge_requested and d.battery>=c.battery-1e-7 and d.state in (DS.RETURN,DS.LANDING,DS.WAIT_HOVER,DS.WAIT_LANDING,DS.TRANSFER_TAKEOFF,DS.TO_SLOT,DS.SLOT_LANDING) and not self.landing_requested and self.terrain.remaining>self.config.terrain.completion_volume:
+            self._charging_needed(d)
+            next_trip=self._choose_trip(d,airborne=True)
+            if next_trip is not None:
+                self._clear_slot(d)
+                if d.identifier in self.queue:self.queue.remove(d.identifier)
+                d.trip=trip=next_trip;d.destination=None;d.detour=None;d.transition(DS.TO_DIG)
+                self.drone_event(d,"заряжен лазером до 100%: продолжает работу в воздухе")
         d.elapsed += dt
         if d.state == DS.TAKEOFF:
             self._move(d,[*d.position[:2],trip.altitude],DS.TO_DIG,dt)
@@ -638,14 +676,16 @@ class Simulation:
                 d.state = DS.CHARGING
                 d.charging_seconds += dt
         flags = [d.state == DS.CHARGING and d.slot is not None for d in self.drones]
-        message = self.base.tick(dt,(self.hour+dt/7200)%24,self.drones,flags,self.day_at(self.time+dt/2))
+        if not moving:
+            for d in self.drones:
+                if d.state in (DS.WAIT_GROUND,DS.WAIT_HOVER) and d.charge_requested:self._enqueue(d)
+            self._assign_slots()  # predict optical demand in the actual flight state
+        self.laser_links=prepare_links(self.base,self.drones,self.terrain,dt,self.flight_power,self.config.fleet.separation/4)
+        for link in self.laser_links:link.drone.laser_status=link.status
+        message = self.base.tick(dt,(self.hour+dt/7200)%24,self.drones,flags,self.day_at(self.time+dt/2),self.laser_links)
         if message:
             self.event(message)
         if not moving:
-            for d in self.drones:
-                if d.state in (DS.WAIT_GROUND,DS.WAIT_HOVER) and d.charge_requested:
-                    self._enqueue(d)
-            self._assign_slots()
             self._maybe_relocate()
         for d in self.drones:
             if self.state != MissionState.RUNNING:
@@ -662,6 +702,8 @@ class Simulation:
                 self._ready_ground(d)
             else:
                 self._airborne(d,dt)
+                if d.grounded:d.last_flight_seconds=d.flight_seconds;d.flight_seconds=0.
+        for d in self.drones:self._settle_laser(d)
         if self._terrain_active:
             moved = self.terrain.relax()
             if moved > 1e-8:
@@ -694,7 +736,7 @@ class Simulation:
         consumed = sum(d.consumed for d in self.drones+self.retired_drones)
         batteries = sum(d.battery for d in self.drones)
         ground_error = t.mass+cargo-t.initial_volume*self.config.terrain.density
-        energy_error = batteries+b.battery+consumed+b.consumed+b.charging_losses+b.curtailed+self.equipment_exported_energy-self._initial_energy-b.generated-self.equipment_imported_energy
+        energy_error = batteries+b.battery+consumed+b.consumed+b.charging_losses+b.laser_losses+b.curtailed+self.equipment_exported_energy-self._initial_energy-b.generated-self.equipment_imported_energy
         remaining = t.remaining
         sun = b.sun(self.hour,self.day_of_year)
         drone_rows = []
@@ -702,6 +744,8 @@ class Simulation:
             drone_rows.append({"id":d.identifier+1,"name":d.config.name,"state":d.state.value,"position":d.position.tolist(),"battery_kwh":d.battery/KWH,"battery_percent":100*d.battery/d.config.battery,"capacity_kwh":d.config.battery/KWH,"cargo_kg":d.cargo,"payload_kg":d.config.payload,"empty_mass_kg":d.config.empty_mass,"trips":d.trips,"excavated_mass_kg":d.excavated_mass,"consumed_kwh":d.consumed/KWH,"waiting_seconds":d.waiting_seconds,"charging_seconds":d.charging_seconds,"traffic_yields":d.traffic_yields,"slot":d.slot+1 if d.slot is not None else None,"minimum_kwh":d.minimum_charge/KWH,"cable_length_m":d.cable_length(t.sample(*d.position[:2]))})
             drone_rows[-1].update(charge_threshold_percent=100*d.config.charge_threshold,charge_requested=d.charge_requested,charge_cycles=d.charge_cycles,filled_mass_kg=d.filled_mass,reclaimed_mass_kg=d.reclaimed_mass)
             drone_rows[-1].update(serial=d.serial,created_at_seconds=d.created_at,equipment=d.config.equipment.breakdown(),**d.productivity.report(self.time,int((self.config.start_hour*3600+self.time)//86400)))
+            drone_rows[-1].update(laser_received_kwh=d.laser_received/KWH,laser_power_w=d.laser_power_w,laser_status=d.laser_status,flight_power_w=d.last_flight_power_w,airborne_seconds=d.airborne_seconds,current_flight_seconds=d.flight_seconds,last_flight_seconds=d.last_flight_seconds,longest_flight_seconds=d.longest_flight_seconds)
         extra = {"remaining_cut_m3":t.remaining_cut,"remaining_fill_m3":t.remaining_fill,"stockpile_m3":t.stockpile_volume,"filled_mass_kg":self.filled_mass,"filled_m3":self.filled_mass/self.config.terrain.density,"plan_segments":len(self.config.plan.segments) if self.config.plan is not None else 1,"landing_requested":self.landing_requested}
-        extra.update(base_equipment=b.config.equipment.breakdown(),equipment_imported_kwh=self.equipment_imported_energy/KWH,equipment_exported_kwh=self.equipment_exported_energy/KWH,equipment_pending=self.pending_equipment is not None,laser_transfer_enabled=False,retired_drones=[{"serial":d.serial,"name":d.config.name,"created_at_seconds":d.created_at,"retired_at_seconds":d.retired_at,"consumed_kwh":d.consumed/KWH,**d.productivity.report(self.time,int((self.config.start_hour*3600+self.time)//86400))} for d in self.retired_drones])
+        extra.update(base_equipment=b.config.equipment.breakdown(),equipment_imported_kwh=self.equipment_imported_energy/KWH,equipment_exported_kwh=self.equipment_exported_energy/KWH,equipment_pending=self.pending_equipment is not None,laser_transfer_enabled=True,retired_drones=[{"serial":d.serial,"name":d.config.name,"created_at_seconds":d.created_at,"retired_at_seconds":d.retired_at,"consumed_kwh":d.consumed/KWH,"laser_received_kwh":d.laser_received/KWH,"airborne_seconds":d.airborne_seconds,"longest_flight_seconds":d.longest_flight_seconds,**d.productivity.report(self.time,int((self.config.start_hour*3600+self.time)//86400))} for d in self.retired_drones])
+        extra.update(lasers=[link.report() for link in self.laser_links],laser_input_power_w=b.laser_input_power,laser_received_power_w=sum(d.laser_power_w for d in self.drones),laser_input_kwh=b.laser_input/KWH,laser_received_kwh=sum(d.laser_received for d in self.drones+self.retired_drones)/KWH,laser_losses_kwh=b.laser_losses/KWH)
         return {**extra,"state":self.state.value,"reason":self.reason,"time_seconds":self.time,"elapsed_display":elapsed_text(self.time),"solar_clock":self.clock_text,"date":self.date_text,"day_of_year":self.day_of_year,"latitude_deg":b.config.latitude_deg,"base_mass_kg":b.config.mass,"panel_area_m2":b.config.panel_area,"irradiance_w_m2":sun.irradiance,"sun_elevation_deg":sun.elevation_deg,"daylight_hours":sun.daylight_hours,"sunrise_hour":sun.sunrise_hour,"sunset_hour":sun.sunset_hour,"base_motion_power_w":b.motion_power(self.drones) if b.destination is not None else 0.0,"cable_length_m":drone_rows[0]["cable_length_m"],"hour":self.hour,"trips":self.trips,"relocations":b.relocations,"initial_excavation_m3":t.initial_excavation,"remaining_m3":remaining,"completion_percent":max(0,min(100,100*(1-remaining/max(t.initial_excavation,1e-12)))),"excavated_m3":self.excavated_mass/self.config.terrain.density,"excavated_mass_kg":self.excavated_mass,"cargo_kg":cargo,"drone_state":self.drone.state.value,"base_state":b.state.value,"drone_kwh":batteries/KWH,"base_kwh":b.battery/KWH,"solar_power_w":b.solar_power,"solar_generated_kwh":b.generated/KWH,"solar_curtailed_kwh":b.curtailed/KWH,"consumed_kwh":(consumed+b.consumed)/KWH,"charging_losses_kwh":b.charging_losses/KWH,"mass_error_kg":ground_error,"energy_error_j":energy_error,"minimum_drone_kwh":min(d.minimum_charge/KWH for d in self.drones),"initial_energy_kwh":self._initial_energy/KWH,"drone_count":len(self.drones),"charge_slots":len(self.slots),"slot_occupants":[v+1 if v is not None else None for v in self.slots],"queue":[i+1 for i in self.queue],"wait_mode":self.config.fleet.wait_mode,"drones":drone_rows}

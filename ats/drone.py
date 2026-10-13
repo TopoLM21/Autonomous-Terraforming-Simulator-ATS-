@@ -56,6 +56,15 @@ class Drone:
     serial: int = 0
     created_at: float = 0.0
     retired_at: float | None = None
+    laser_received: float = 0.0
+    laser_step_energy: float = 0.0  # settled into motors/storage within the same step
+    laser_power_w: float = 0.0
+    laser_status: str = "Нет передатчика"
+    last_flight_power_w: float = 0.0
+    airborne_seconds: float = 0.0
+    flight_seconds: float = 0.0
+    last_flight_seconds: float = 0.0
+    longest_flight_seconds: float = 0.0
     productivity: Productivity = field(default_factory=Productivity)
 
     def __post_init__(self):

@@ -39,7 +39,11 @@ class ModuleTable(QtWidgets.QWidget):
         for col,(key,_) in enumerate(self.columns):
             value=getattr(module,key)
             if key=="efficiency":value*=100
-            self.table.setItem(row,col,QtWidgets.QTableWidgetItem(str(value)))
+            item=QtWidgets.QTableWidgetItem(str(value))
+            if isinstance(value,bool):
+                item.setText("");item.setFlags((item.flags()|QtCore.Qt.ItemFlag.ItemIsUserCheckable)&~QtCore.Qt.ItemFlag.ItemIsEditable)
+                item.setCheckState(QtCore.Qt.CheckState.Checked if value else QtCore.Qt.CheckState.Unchecked)
+            self.table.setItem(row,col,item)
         self.changed.emit()
 
     def remove(self):
@@ -54,6 +58,8 @@ class ModuleTable(QtWidgets.QWidget):
             for col,(key,_) in enumerate(self.columns):
                 item=self.table.item(row,col)
                 if item is None:raise ValueError("Заполните все ячейки оборудования")
+                if types[key] is bool:
+                    values[key]=item.checkState()==QtCore.Qt.CheckState.Checked;continue
                 raw=item.text().strip()
                 value=raw if types[key] is str else float(raw.replace(",","."))
                 if types[key] is int:
@@ -82,7 +88,7 @@ class BaseEditor(QtWidgets.QWidget):
         self.summary=QtWidgets.QLabel();self.summary.setWordWrap(True);layout.addWidget(self.summary)
         self.batteries=ModuleTable(BatteryModule,BATTERY_COLUMNS,equipment.batteries)
         self.panels=ModuleTable(PanelModule,[("name","Тип панели"),("quantity","Количество"),("area_m2","м² / шт."),("mass_kg","кг / шт."),("efficiency","КПД, %")],equipment.panels)
-        self.emitters=ModuleTable(LaserEmitter,[("drone_number","Позиция дрона"),("mass_kg","Масса, кг"),("input_power_kw","Вход, кВт"),("efficiency","КПД, %"),("range_m","Дальность, м")],equipment.emitters)
+        self.emitters=ModuleTable(LaserEmitter,[("drone_number","Позиция\nдрона"),("mass_kg","Масса, кг"),("input_power_kw","Электровход,\nкВт"),("efficiency","КПД, %"),("range_m","Дальность, м"),("enabled","Включён"),("beam_radius_m","Радиус луча,\nм"),("divergence_mrad","Полуугол,\nмрад")],equipment.emitters)
         self.module_tabs=QtWidgets.QTabWidget();layout.addWidget(self.module_tabs)
         for title,table in [("Общий аккумулятор",self.batteries),("Солнечные панели",self.panels),("Лазерные передатчики",self.emitters)]:self.module_tabs.addTab(table,title)
         for widget in [self.chassis,self.slots,self.slot_mass,self.charger_mass,self.power,self.efficiency]:widget.valueChanged.connect(self.update_summary)
@@ -119,11 +125,13 @@ class DroneEditor(QtWidgets.QWidget):
         self.bucket_mass=spin(e.bucket.mass_kg,.001);self.volume=spin(e.bucket.volume_m3,.000001,100,6)
         self.radius=spin(e.bucket.radius_m,.001,1)
         for label,widget in [("Масса, кг",self.bucket_mass),("Объём, м³",self.volume),("Радиус захвата, м",self.radius)]:f.addRow(label,widget)
-        receiver=QtWidgets.QGroupBox("Лазерный приёмник — оборудование будущего этапа");f=QtWidgets.QFormLayout(receiver)
+        receiver=QtWidgets.QGroupBox("Лазерный приёмник · зарядка в полёте");f=QtWidgets.QFormLayout(receiver)
         self.receiver=QtWidgets.QCheckBox("Установлен");self.receiver.setChecked(e.receiver.installed);f.addRow(self.receiver)
         self.receiver_mass=spin(e.receiver.mass_kg,.001);self.receiver_area=spin(e.receiver.area_m2,.001)
         self.receiver_power=spin(e.receiver.max_power_kw,.001);self.receiver_efficiency=spin(e.receiver.efficiency*100,.001,100)
-        for label,widget in [("Масса, кг",self.receiver_mass),("Площадь, м²",self.receiver_area),("Предельная мощность, кВт",self.receiver_power),("КПД, %",self.receiver_efficiency)]:f.addRow(label,widget)
+        for label,widget in [("Масса, кг",self.receiver_mass),("Площадь, м²",self.receiver_area),("Предел электрического выхода, кВт",self.receiver_power),("КПД свет → электричество, %",self.receiver_efficiency)]:f.addRow(label,widget)
+        note=QtWidgets.QLabel("Установите передатчик базы для этой позиции дрона. Приёмник не выдаёт больше своего предела даже при увеличении мощности передатчика.")
+        note.setWordWrap(True);f.addRow(note)
         self.module_tabs=QtWidgets.QTabWidget();self.module_tabs.setMaximumHeight(300);layout.addWidget(self.module_tabs)
         self.module_tabs.addTab(self.batteries,"Батареи");self.module_tabs.addTab(bucket,"Ковш / грейфер");self.module_tabs.addTab(receiver,"Лазерный приёмник")
         for widget in self.findChildren(QtWidgets.QDoubleSpinBox):widget.valueChanged.connect(self.update_summary)
@@ -154,7 +162,7 @@ class EquipmentDialog(QtWidgets.QDialog):
         self.wait_mode=QtWidgets.QComboBox();self.wait_mode.addItem("На земле","ground");self.wait_mode.addItem("В воздухе с посадкой по резерву","air")
         self.wait_mode.setCurrentIndex(0 if config.fleet.wait_mode=="ground" else 1)
         form.addRow("Дронов (удаляются последние позиции)",self.count);form.addRow("Очередь зарядки",self.wait_mode);layout.addLayout(form)
-        info=QtWidgets.QLabel("База обновляется сразу на стоянке. Для изменения дронов флот завершит перенос груза и приземлится. Новые батарейные модули пустые; снятые уносят свой заряд. Новый дрон доставляется с указанным зарядом. Лазерное оборудование пока добавляет массу; передача энергии будет реализована отдельно.")
+        info=QtWidgets.QLabel("База обновляется сразу на стоянке. Для изменения дронов флот завершит перенос груза и приземлится. Новые батарейные модули пустые; снятые уносят свой заряд. Лазер питает летящего дрона за счёт энергии базы: нужны передатчик для его позиции, установленный приёмник и прямая видимость.")
         info.setWordWrap(True);layout.addWidget(info)
         self.tabs=QtWidgets.QTabWidget();layout.addWidget(self.tabs,1)
         self.base=BaseEditor(self.config.base.equipment);self.slots=self.base.slots;self.add_tab(self.base,"База")

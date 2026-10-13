@@ -133,3 +133,31 @@ def test_real_mouse_brush_apply_segments_and_profile_switches():
     assert window.profile_segment.count()==1
     assert window.sim.terrain.remaining==0
     window.close()
+
+
+def test_high_speeds_real_timer_fixed_physics_and_laser_display():
+    from copy import deepcopy
+    from PySide6 import QtWidgets,QtCore,QtTest
+    from ats.gui import MainWindow
+    from ats.simulation import Simulation
+    from ats.equipment import resolve_config,LaserEmitter
+    from ats.equipment_ui import EquipmentDialog
+    app=QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    c=resolve_config(Config());c.base.equipment.emitters=[LaserEmitter()];c.fleet.models[0].equipment.receiver.installed=True
+    w=MainWindow(c);w.show()
+    assert [w.speed.itemData(i) for i in range(w.speed.count())][-2:]==[1000,2000]
+    w.speed.setCurrentIndex(w.speed.findData(1000));assert w.speed.currentData()==1000
+    w.speed.setCurrentIndex(w.speed.findData(2000));w.toggle_play();QtTest.QTest.qWait(180)
+    w.running=False;w.timer.stop();w.refresh(True)
+    assert w.sim.time>0 and w.config.dt==1
+    reference=Simulation(deepcopy(c));reference.run(int(w.sim.time))
+    assert w.sim.drone.battery==pytest.approx(reference.drone.battery,abs=1e-6)
+    assert w.sim.base.battery==pytest.approx(reference.base.battery,abs=1e-6)
+    assert w.sim.drone.laser_received>0
+    assert 'Лазер: база' in w.telemetry.text()
+    assert 'Получено за миссию' in w.fleet_table.item(0,11).toolTip()
+    assert w.laser_beams.getData()[0] is not None
+    dialog=EquipmentDialog(w.config,w);table=dialog.base.emitters.table
+    table.item(0,5).setCheckState(QtCore.Qt.CheckState.Unchecked)
+    dialog.save();assert not dialog.result_config.base.equipment.emitters[0].enabled
+    dialog.close();w.close();app.processEvents()

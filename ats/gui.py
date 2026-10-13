@@ -77,9 +77,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.brush_button=QtWidgets.QPushButton("Кисть / план")
         self.brush_button.setCheckable(True);header.addWidget(self.brush_button)
         self.speed = QtWidgets.QComboBox()
-        for factor in [1, 10, 50, 200]:
+        for factor in [1, 10, 50, 200, 1000, 2000]:
             self.speed.addItem(f"{factor}×", factor)
         self.speed.setCurrentIndex(2)
+        self.speed.setToolTip("Целевая скорость виртуального времени. Физический шаг остаётся 1 с; доступное ускорение зависит от производительности компьютера.")
         self.speed.currentIndexChanged.connect(lambda: setattr(self, "credit", 0.0))
         header.addWidget(self.speed)
         layout.addLayout(header)
@@ -119,6 +120,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.map.addItem(self.drone_marker)
         self.route = pg.PlotDataItem(pen=pg.mkPen("#75d8d1", width=1, style=QtCore.Qt.PenStyle.DashLine))
         self.map.addItem(self.route)
+        self.laser_beams=pg.PlotDataItem(pen=pg.mkPen("#ff7850",width=2));self.laser_beams.setZValue(9);self.map.addItem(self.laser_beams)
         self.drone_label = pg.TextItem(color="#a4ffe8", anchor=(0, 1))
         self.base_label = pg.TextItem("База", color="#ffdb8a", anchor=(0, 0))
         self.map.addItem(self.drone_label)
@@ -141,8 +143,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.profile.showGrid(x=True, y=True, alpha=0.2)
         self.profile_extra=[];self.profile_boundaries=[]
         left_layout.addWidget(self.profile, 2)
-        self.fleet_table=QtWidgets.QTableWidget(0,11)
-        self.fleet_table.setHorizontalHeaderLabels(["Дрон","Состояние","Заряд","Груз, кг","Рейсы","Грунт, кг\nвыемка / засыпка","Расход, кВт·ч","Очередь, мин","Зарядка, мин","Уступил","24 ч, м³"])
+        self.fleet_table=QtWidgets.QTableWidget(0,12)
+        self.fleet_table.setHorizontalHeaderLabels(["Дрон","Состояние","Заряд","Груз, кг","Рейсы","Грунт, кг\nвыемка / засыпка","Расход, кВт·ч","Очередь, мин","Зарядка, мин","Уступил","24 ч, м³","Лазер, кВт"])
         self.fleet_table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
         self.fleet_table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.fleet_table.setMaximumHeight(170);self.fleet_table.setMinimumHeight(85)
@@ -564,7 +566,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.slot_markers.setData([{'pos':tuple(s.slot_position(i)[:2]),'brush':'#f4b651' if occupant is not None else '#41566b','symbol':'s','size':10} for i,occupant in enumerate(s.slots)])
         for o,label in zip(s.drones,self.drone_labels):
             operation=" · грейфер вниз" if o.state==DroneState.DUMP and not o.dump_released else " · грейфер вверх" if o.state==DroneState.DUMP else ""
-            label.setText(f"Д{o.serial} · {o.cargo:.0f} кг · z {o.position[2]:.1f} м{operation}")
+            laser=f" · лазер {o.laser_power_w/1000:.1f} кВт" if o.laser_power_w>0 else ""
+            label.setText(f"Д{o.serial} · {o.cargo:.0f} кг · z {o.position[2]:.1f} м{operation}{laser}")
             label.setPos(o.position[0]+.4,o.position[1]+.4+o.identifier*.3)
         self.base_label.setPos(b.position[0]+0.6, b.position[1]-0.4)
         if any(o.trip for o in s.drones):
@@ -573,12 +576,19 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self.route.setData([], [])
         report = s.report()
+        beams=[]
+        for link in s.laser_links:
+            if link.received_w>0:beams.extend([link.source[:2],link.drone.position[:2],(np.nan,np.nan)])
+        if beams:
+            points=np.asarray(beams);self.laser_beams.setData(points[:,0],points[:,1],connect="finite")
+        else:self.laser_beams.clear()
         self.fleet_table.setUpdatesEnabled(False)
         for row,o in enumerate(report['drones']):
-            values=[f"{o['serial']} · {o['name']}",o['state'],f"{o['battery_percent']:.0f}%",f"{o['cargo_kg']:.1f}",str(o['trips']),f"{o['excavated_mass_kg']:.0f} / {o['filled_mass_kg']:.0f}",f"{o['consumed_kwh']:.3f}",f"{o['waiting_seconds']/60:.1f}",f"{o['charging_seconds']/60:.1f}",str(o['traffic_yields']),f"{o['last24_volume_m3']:.4f}"]
+            values=[f"{o['serial']} · {o['name']}",o['state'],f"{o['battery_percent']:.0f}%",f"{o['cargo_kg']:.1f}",str(o['trips']),f"{o['excavated_mass_kg']:.0f} / {o['filled_mass_kg']:.0f}",f"{o['consumed_kwh']:.3f}",f"{o['waiting_seconds']/60:.1f}",f"{o['charging_seconds']/60:.1f}",str(o['traffic_yields']),f"{o['last24_volume_m3']:.4f}",f"{o['laser_power_w']/1000:.2f}"]
             for col,value in enumerate(values):self.fleet_table.setItem(row,col,QtWidgets.QTableWidgetItem(value))
-            self.fleet_table.item(row,2).setToolTip(f"Порог зарядки {o['charge_threshold_percent']:.0f}%; полных циклов: {o['charge_cycles']}")
+            self.fleet_table.item(row,2).setToolTip(f"Порог зарядки {o['charge_threshold_percent']:.0f}%; полных зарядок: {o['charge_cycles']}. Полёт сейчас: {o['current_flight_seconds']:.0f} с; самый длинный: {o['longest_flight_seconds']:.0f} с; в воздухе всего: {o['airborne_seconds']:.0f} с.")
             self.fleet_table.item(row,10).setToolTip(f"За текущие солнечные сутки: {o['today_volume_m3']:.4f} м³ / {o['today_mass_kg']:.2f} кг. Всего доставлено: {o['transported_volume_m3']:.4f} м³. Подробности — «По суткам».")
+            self.fleet_table.item(row,11).setToolTip(f"{o['laser_status']}\nПолучено за миссию: {o['laser_received_kwh']:.3f} кВт·ч. Потребление двигателей и лебёдки за последний шаг: {o['flight_power_w']/1000:.2f} кВт. Показана фактическая мощность за последнюю физическую секунду.")
         self.fleet_table.setUpdatesEnabled(True)
         status = {MissionState.RUNNING: "Автономная работа" if self.running else "Готов / пауза", MissionState.COMPLETED: "✓ Миссия завершена", MissionState.BLOCKED: "⚠ Работа заблокирована"}[s.state]
         if s.pending_equipment is not None:status="Посадка для установки оборудования"
@@ -603,6 +613,8 @@ class MainWindow(QtWidgets.QMainWindow):
             ("Солнечная мощность", f"{b.solar_power/1000:.2f} кВт"),
             ("Солнце / расход", f"{report['solar_generated_kwh']:.3f} / {report['consumed_kwh']:.3f} кВт·ч"),
             ("Потери зарядки", f"{report['charging_losses_kwh']:.3f} кВт·ч"),
+            ("Лазер: база → дроны",f"{report['laser_input_power_w']/1000:.2f} → {report['laser_received_power_w']/1000:.2f} кВт"),
+            ("Потери лазера",f"{report['laser_losses_kwh']:.3f} кВт·ч"),
             ("Ввоз / вывоз энергии",f"{report['equipment_imported_kwh']:.3f} / {report['equipment_exported_kwh']:.3f} кВт·ч"),
             ("Баланс массы", f"{report['mass_error_kg']:+.2e} кг"),
             ("Баланс энергии", f"{report['energy_error_j']:+.2e} Дж"),
