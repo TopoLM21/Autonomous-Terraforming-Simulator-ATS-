@@ -9,6 +9,7 @@ from .scenarios import PRESETS
 from .simulation import Simulation, MissionState
 from .drone import DroneState
 from .fleet_ui import FleetDialog,ComparisonWindow
+from .equipment_ui import DailyStatsWindow
 from .plan_ui import BrushViewBox,PlanEditor
 from .plan import load_plan,save_plan,target_surface
 from .profiles import profiles,segments_for
@@ -31,6 +32,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.config = deepcopy(config)
         self.sim = Simulation(self.config)
         self.running = False
+        self._equipment_resume = None
         self.credit = 0.0
         self.last_wall = time.perf_counter()
         self.last_terrain_wall = -1.0
@@ -63,8 +65,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.reset_button = QtWidgets.QPushButton("Reset")
         self.reset_button.clicked.connect(self.reset)
         header.addWidget(self.reset_button)
-        fleet_button=QtWidgets.QPushButton("Дроны / зарядка")
+        fleet_button=QtWidgets.QPushButton("Оборудование")
         fleet_button.clicked.connect(self.edit_fleet);header.addWidget(fleet_button)
+        daily_button=QtWidgets.QPushButton("По суткам")
+        daily_button.clicked.connect(self.show_daily_stats);header.addWidget(daily_button)
+        self.cancel_equipment_button=QtWidgets.QPushButton("Отменить установку")
+        self.cancel_equipment_button.clicked.connect(self.cancel_equipment);header.addWidget(self.cancel_equipment_button)
+        self.cancel_equipment_button.hide()
         compare_button=QtWidgets.QPushButton("Сравнить 1…N")
         compare_button.clicked.connect(self.compare_fleet);header.addWidget(compare_button)
         self.brush_button=QtWidgets.QPushButton("Кисть / план")
@@ -134,8 +141,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.profile.showGrid(x=True, y=True, alpha=0.2)
         self.profile_extra=[];self.profile_boundaries=[]
         left_layout.addWidget(self.profile, 2)
-        self.fleet_table=QtWidgets.QTableWidget(0,10)
-        self.fleet_table.setHorizontalHeaderLabels(["Дрон","Состояние","Заряд","Груз, кг","Рейсы","Грунт, кг\nвыемка / засыпка","Расход, кВт·ч","Очередь, мин","Зарядка, мин","Уступил"])
+        self.fleet_table=QtWidgets.QTableWidget(0,11)
+        self.fleet_table.setHorizontalHeaderLabels(["Дрон","Состояние","Заряд","Груз, кг","Рейсы","Грунт, кг\nвыемка / засыпка","Расход, кВт·ч","Очередь, мин","Зарядка, мин","Уступил","24 ч, м³"])
         self.fleet_table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
         self.fleet_table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.fleet_table.setMaximumHeight(170);self.fleet_table.setMinimumHeight(85)
@@ -198,8 +205,11 @@ class MainWindow(QtWidgets.QMainWindow):
             form.addRow(label, widget)
         solar_group = QtWidgets.QGroupBox("База и солнце · для нового сценария")
         solar_form = QtWidgets.QFormLayout(solar_group)
-        self.panels = self.spin(0, 200, config.base.panel_area, 1)
-        self.base_mass = self.spin(100, 20000, config.base.mass, 100, 0)
+        self.panels = self.spin(0, 10000000, self.config.base.panel_area, 1)
+        self.base_mass = self.spin(0, 10000000, self.config.base.mass, 100, 1)
+        for widget in [self.panels,self.base_mass]:
+            widget.setReadOnly(True);widget.setButtonSymbols(QtWidgets.QAbstractSpinBox.ButtonSymbols.NoButtons)
+            widget.setToolTip("Рассчитывается по установленным модулям. Измените состав кнопкой «Оборудование».")
         self.latitude = self.spin(-90, 90, config.base.latitude_deg, 1)
         self.season = QtWidgets.QComboBox()
         for label, day in [("21 марта · равноденствие", 80), ("21 июня · солнцестояние", 172), ("21 сентября · равноденствие", 264), ("21 декабря · солнцестояние", 355)]:
@@ -397,10 +407,43 @@ class MainWindow(QtWidgets.QMainWindow):
         self.profile.enableAutoRange()
 
     def edit_fleet(self):
-        dialog=FleetDialog(self.config,self)
+        previous=self.running;self.running=False;self.credit=0
+        dialog=FleetDialog(self.sim.pending_equipment or self.config,self)
         if dialog.exec()==QtWidgets.QDialog.DialogCode.Accepted:
-            try:self.replace_simulation(dialog.result_config)
-            except ValueError as error:QtWidgets.QMessageBox.warning(self,"Неверный флот",str(error))
+            try:self.apply_equipment(dialog.result_config,previous)
+            except ValueError as error:
+                self.running=previous;QtWidgets.QMessageBox.warning(self,"Неверная комплектация",str(error))
+        else:self.running=previous
+        self.last_wall=time.perf_counter();self.play.setText("⏸ Pause" if self.running else "▶ Start")
+
+    def apply_equipment(self,config,resume=None):
+        previous=self.running if resume is None else resume
+        result=self.sim.request_equipment(config)
+        if result=="pending":
+            if self._equipment_resume is None:self._equipment_resume=previous
+            self.plan_editor.enabled.setChecked(False);self.running=True
+        else:self.running=previous;self.sync_equipment()
+        self.play.setText("⏸ Pause" if self.running else "▶ Start");self.credit=0
+        self.refresh(True)
+        return result
+
+    def sync_equipment(self):
+        self.config=self.sim.config
+        self.panels.setValue(self.config.base.panel_area);self.base_mass.setValue(self.config.base.mass)
+        self.update_solar_preview()
+        while len(self.drone_labels)<len(self.sim.drones):
+            label=pg.TextItem(color=self.palette[len(self.drone_labels)],anchor=(0,1));self.map.addItem(label);self.drone_labels.append(label)
+        for index,label in enumerate(self.drone_labels):label.setVisible(index<len(self.sim.drones))
+        self.fleet_table.setRowCount(len(self.sim.drones))
+
+    def cancel_equipment(self):
+        self.sim.cancel_equipment()
+        if self._equipment_resume is not None:self.running=self._equipment_resume
+        self._equipment_resume=None;self.credit=0
+        self.play.setText("⏸ Pause" if self.running else "▶ Start");self.refresh()
+
+    def show_daily_stats(self):
+        self.daily_stats=DailyStatsWindow(self);self.daily_stats.show()
 
     def compare_fleet(self):
         self.running=False;self.play.setText("▶ Start")
@@ -428,10 +471,12 @@ class MainWindow(QtWidgets.QMainWindow):
     def replace_simulation(self, config):
         sim = Simulation(config)  # validate before discarding the current state
         self.running = False
+        self._equipment_resume = None
         self.play.setText("▶ Start")
         self.credit = 0
         self.config = config
         self.sim = sim
+        self.sync_equipment()
         self.plan_editor.segments=deepcopy(config.plan.segments) if config.plan is not None else []
         self.plan_editor.dirty=False;self.plan_editor.rebuild()
         self.plan_editor.default_depth=config.trench.depth
@@ -450,8 +495,6 @@ class MainWindow(QtWidgets.QMainWindow):
         config.seed = self.seed.value()
         config.start_hour = self.start_hour.value()
         config.terrain.roughness = self.roughness.value()
-        config.base.panel_area = self.panels.value()
-        config.base.mass = self.base_mass.value()
         config.base.latitude_deg = self.latitude.value()
         config.base.start_day_of_year = self.calendar.date().dayOfYear()
         try:
@@ -467,7 +510,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         self.running = not self.running
         if self.running:
-            self.sim.landing_requested=False
+            if self.sim.pending_equipment is None:self.sim.landing_requested=False
             self.plan_editor.enabled.setChecked(False)
         self.credit = 0
         self.last_wall = time.perf_counter()
@@ -483,8 +526,13 @@ class MainWindow(QtWidgets.QMainWindow):
             steps = 0
             while self.credit >= 1 and steps < self.config.max_frame_steps and time.perf_counter() < deadline:
                 self.sim.step()
+                if self.sim.config is not self.config:self.sync_equipment()
                 self.credit -= 1
                 steps += 1
+                if self._equipment_resume is not None and self.sim.pending_equipment is None:
+                    self.running=self._equipment_resume;self._equipment_resume=None
+                    self.play.setText("⏸ Pause" if self.running else "▶ Start")
+                    if not self.running:self.credit=0;break
                 if self.sim.landing_requested and all(d.grounded for d in self.sim.drones):
                     self.running=False;self.credit=0;self.play.setText("▶ Start")
                     self.plan_editor.info.setText("Флот приземлён. Можно применить нарисованный план.")
@@ -516,7 +564,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.slot_markers.setData([{'pos':tuple(s.slot_position(i)[:2]),'brush':'#f4b651' if occupant is not None else '#41566b','symbol':'s','size':10} for i,occupant in enumerate(s.slots)])
         for o,label in zip(s.drones,self.drone_labels):
             operation=" · грейфер вниз" if o.state==DroneState.DUMP and not o.dump_released else " · грейфер вверх" if o.state==DroneState.DUMP else ""
-            label.setText(f"Д{o.identifier+1} · {o.cargo:.0f} кг · z {o.position[2]:.1f} м{operation}")
+            label.setText(f"Д{o.serial} · {o.cargo:.0f} кг · z {o.position[2]:.1f} м{operation}")
             label.setPos(o.position[0]+.4,o.position[1]+.4+o.identifier*.3)
         self.base_label.setPos(b.position[0]+0.6, b.position[1]-0.4)
         if any(o.trip for o in s.drones):
@@ -527,11 +575,14 @@ class MainWindow(QtWidgets.QMainWindow):
         report = s.report()
         self.fleet_table.setUpdatesEnabled(False)
         for row,o in enumerate(report['drones']):
-            values=[f"{o['id']} · {o['name']}",o['state'],f"{o['battery_percent']:.0f}%",f"{o['cargo_kg']:.1f}",str(o['trips']),f"{o['excavated_mass_kg']:.0f} / {o['filled_mass_kg']:.0f}",f"{o['consumed_kwh']:.3f}",f"{o['waiting_seconds']/60:.1f}",f"{o['charging_seconds']/60:.1f}",str(o['traffic_yields'])]
+            values=[f"{o['serial']} · {o['name']}",o['state'],f"{o['battery_percent']:.0f}%",f"{o['cargo_kg']:.1f}",str(o['trips']),f"{o['excavated_mass_kg']:.0f} / {o['filled_mass_kg']:.0f}",f"{o['consumed_kwh']:.3f}",f"{o['waiting_seconds']/60:.1f}",f"{o['charging_seconds']/60:.1f}",str(o['traffic_yields']),f"{o['last24_volume_m3']:.4f}"]
             for col,value in enumerate(values):self.fleet_table.setItem(row,col,QtWidgets.QTableWidgetItem(value))
             self.fleet_table.item(row,2).setToolTip(f"Порог зарядки {o['charge_threshold_percent']:.0f}%; полных циклов: {o['charge_cycles']}")
+            self.fleet_table.item(row,10).setToolTip(f"За текущие солнечные сутки: {o['today_volume_m3']:.4f} м³ / {o['today_mass_kg']:.2f} кг. Всего доставлено: {o['transported_volume_m3']:.4f} м³. Подробности — «По суткам».")
         self.fleet_table.setUpdatesEnabled(True)
         status = {MissionState.RUNNING: "Автономная работа" if self.running else "Готов / пауза", MissionState.COMPLETED: "✓ Миссия завершена", MissionState.BLOCKED: "⚠ Работа заблокирована"}[s.state]
+        if s.pending_equipment is not None:status="Посадка для установки оборудования"
+        self.cancel_equipment_button.setVisible(s.pending_equipment is not None)
         self.status.setText(f"<b style='font-size:17px'>{status}</b><br>{s.reason}")
         self.progress.setValue(round(report["completion_percent"]*10))
         self.progress.setFormat(f"{report['completion_percent']:.1f}% · допуск {self.config.terrain.completion_volume:.3f} м³")
@@ -548,10 +599,11 @@ class MainWindow(QtWidgets.QMainWindow):
             ("Широта / световой день", f"{b.config.latitude_deg:+.1f}° / {report['daylight_hours']:.1f} ч"),
             ("Солнце: высота / поток", f"{report['sun_elevation_deg']:.1f}° / {report['irradiance_w_m2']:.0f} Вт/м²"),
             ("Батареи флота", f"{report['drone_kwh']:.2f} / {sum(o.config.battery for o in s.drones)/KWH:.2f} кВт·ч"),
-            ("Батарея базы", f"{b.battery/KWH:.2f} кВт·ч · {100*b.battery/b.config.battery:.0f}%"),
+            ("Батарея базы", f"{b.battery/KWH:.2f} / {b.config.battery/KWH:.2f} кВт·ч" if b.config.battery else "Без аккумулятора · напрямую от солнца"),
             ("Солнечная мощность", f"{b.solar_power/1000:.2f} кВт"),
             ("Солнце / расход", f"{report['solar_generated_kwh']:.3f} / {report['consumed_kwh']:.3f} кВт·ч"),
             ("Потери зарядки", f"{report['charging_losses_kwh']:.3f} кВт·ч"),
+            ("Ввоз / вывоз энергии",f"{report['equipment_imported_kwh']:.3f} / {report['equipment_exported_kwh']:.3f} кВт·ч"),
             ("Баланс массы", f"{report['mass_error_kg']:+.2e} кг"),
             ("Баланс энергии", f"{report['energy_error_j']:+.2e} Дж"),
         ]

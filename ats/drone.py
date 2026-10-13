@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from enum import Enum
 import numpy as np
+from .productivity import Productivity
 
 
 class DroneState(str, Enum):
@@ -52,6 +53,10 @@ class Drone:
     charge_cycles: int = 0
     filled_mass: float = 0.0
     reclaimed_mass: float = 0.0
+    serial: int = 0
+    created_at: float = 0.0
+    retired_at: float | None = None
+    productivity: Productivity = field(default_factory=Productivity)
 
     def __post_init__(self):
         self.battery = self.config.battery*self.config.initial_charge

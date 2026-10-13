@@ -6,6 +6,20 @@
   "filled_m3": 0.0,
   "plan_segments": 1,
   "landing_requested": false,
+  "base_equipment": {
+    "chassis_kg": 585.0,
+    "batteries_kg": 300.0,
+    "panels_kg": 80.0,
+    "landing_slots_kg": 20,
+    "charger_kg": 15,
+    "emitters_kg": 0,
+    "total_kg": 1000.0
+  },
+  "equipment_imported_kwh": 0.0,
+  "equipment_exported_kwh": 0.0,
+  "equipment_pending": false,
+  "laser_transfer_enabled": false,
+  "retired_drones": [],
   "state": "COMPLETED",
   "reason": "",
   "time_seconds": 447.0,
@@ -59,7 +73,7 @@
       "state": "WAIT_GROUND",
       "position": [
         2.0,
-        13.0,
+        16.0,
         0.3999999999999999
       ],
       "battery_kwh": 2.562804722140333,
@@ -81,7 +95,32 @@
       "charge_requested": false,
       "charge_cycles": 0,
       "filled_mass_kg": 0.0,
-      "reclaimed_mass_kg": 0.0
+      "reclaimed_mass_kg": 0.0,
+      "serial": 1,
+      "created_at_seconds": 0.0,
+      "equipment": {
+        "frame_kg": 60.0,
+        "batteries_kg": 30.0,
+        "bucket_kg": 15.0,
+        "receiver_kg": 0,
+        "total_kg": 105.0
+      },
+      "transported_mass_kg": 468.7783786923047,
+      "transported_volume_m3": 0.29298648668269045,
+      "today_mass_kg": 468.7783786923047,
+      "today_volume_m3": 0.29298648668269045,
+      "last24_mass_kg": 468.7783786923047,
+      "last24_volume_m3": 0.29298648668269045,
+      "daily": [
+        {
+          "mission_day": 0,
+          "mass_kg": 468.7783786923047,
+          "volume_m3": 0.29298648668269045,
+          "fill_mass_kg": 0.0,
+          "dump_mass_kg": 468.7783786923047,
+          "deliveries": 8
+        }
+      ]
     },
     {
       "id": 2,
@@ -89,7 +128,7 @@
       "state": "WAIT_GROUND",
       "position": [
         2.0,
-        16.0,
+        19.0,
         0.4
       ],
       "battery_kwh": 2.785906846401162,
@@ -111,7 +150,32 @@
       "charge_requested": false,
       "charge_cycles": 0,
       "filled_mass_kg": 0.0,
-      "reclaimed_mass_kg": 0.0
+      "reclaimed_mass_kg": 0.0,
+      "serial": 2,
+      "created_at_seconds": 0.0,
+      "equipment": {
+        "frame_kg": 60.0,
+        "batteries_kg": 30.0,
+        "bucket_kg": 15.0,
+        "receiver_kg": 0,
+        "total_kg": 105.0
+      },
+      "transported_mass_kg": 367.5934052768515,
+      "transported_volume_m3": 0.22974587829803217,
+      "today_mass_kg": 367.5934052768515,
+      "today_volume_m3": 0.22974587829803217,
+      "last24_mass_kg": 367.59340527685146,
+      "last24_volume_m3": 0.22974587829803217,
+      "daily": [
+        {
+          "mission_day": 0,
+          "mass_kg": 367.5934052768515,
+          "volume_m3": 0.22974587829803217,
+          "fill_mass_kg": 0.0,
+          "dump_mass_kg": 367.5934052768515,
+          "deliveries": 7
+        }
+      ]
     },
     {
       "id": 3,
@@ -141,7 +205,32 @@
       "charge_requested": false,
       "charge_cycles": 0,
       "filled_mass_kg": 0.0,
-      "reclaimed_mass_kg": 0.0
+      "reclaimed_mass_kg": 0.0,
+      "serial": 3,
+      "created_at_seconds": 0.0,
+      "equipment": {
+        "frame_kg": 60.0,
+        "batteries_kg": 30.0,
+        "bucket_kg": 15.0,
+        "receiver_kg": 0,
+        "total_kg": 105.0
+      },
+      "transported_mass_kg": 341.23315436922354,
+      "transported_volume_m3": 0.2132707214807647,
+      "today_mass_kg": 341.23315436922354,
+      "today_volume_m3": 0.2132707214807647,
+      "last24_mass_kg": 341.23315436922354,
+      "last24_volume_m3": 0.2132707214807647,
+      "daily": [
+        {
+          "mission_day": 0,
+          "mass_kg": 341.23315436922354,
+          "volume_m3": 0.2132707214807647,
+          "fill_mass_kg": 0.0,
+          "dump_mass_kg": 341.23315436922354,
+          "deliveries": 6
+        }
+      ]
     }
   ]
 }

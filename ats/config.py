@@ -1,8 +1,7 @@
 """All model constants in SI units; electrical powers are estimates."""
 from dataclasses import dataclass, field, asdict
 import math
-
-KWH = 3_600_000.0
+from .equipment import KWH
 
 
 @dataclass
@@ -56,6 +55,8 @@ class DroneConfig:
     winch_efficiency: float = 0.8
     gravity: float = 9.80665
     budget_margin: float = 1.25
+    equipment: object = None
+    grab_radius: float | None = None
 
 
 @dataclass
@@ -83,6 +84,7 @@ class BaseConfig:
     relocation_min_gain: float = 0.15
     relocation_clearance: float = 2.0
     idle_power: float = 0.0
+    equipment: object = None
 
 
 @dataclass
@@ -177,10 +179,14 @@ class Config:
         require(b.mass > 0 and b.reference_total_mass > 0, "Масса базы должна быть положительной")
         require(-90 <= b.latitude_deg <= 90 and isinstance(b.start_day_of_year, int) and 1 <= b.start_day_of_year <= 365, "Неверная широта или день года")
         require(d.stowed_cable > 0 and d.dump_seconds >= 2*d.winch_seconds, "Выгрузка должна включать опускание и подъём грейфера")
-        for obj, keys in [(d, ("empty_mass", "payload", "battery", "empty_speed", "loaded_speed", "vertical_speed", "work_height", "hover_power", "scoop_seconds", "dump_seconds", "winch_seconds")), (b, ("battery", "speed", "move_power", "max_slope", "relocation_trips", "relocation_cooldown", "relocation_clearance"))]:
+        for obj, keys in [(d, ("empty_mass", "payload", "battery", "empty_speed", "loaded_speed", "vertical_speed", "work_height", "hover_power", "scoop_seconds", "dump_seconds", "winch_seconds")), (b, ("speed", "move_power", "max_slope", "relocation_trips", "relocation_cooldown", "relocation_clearance"))]:
             require(all(getattr(obj, k) > 0 for k in keys), "Масса, скорость, ёмкость и длительности должны быть положительными")
         require(0 <= d.initial_charge <= 1 and 0 <= b.initial_charge <= 1 and 0 <= d.reserve < 1, "Неверный заряд/резерв")
         require(d.reserve <= d.charge_threshold <= 1, "Порог зарядки должен быть между резервом и 100%")
+        require(b.battery>=0,"Ёмкость базы не может быть отрицательной")
+        if b.equipment is not None:b.equipment.validate()
+        if d.equipment is not None:d.equipment.validate()
+        if d.grab_radius is not None:require(t.cell_size<=d.grab_radius<=f.separation/2,"Радиус ковша должен помещаться в расстояние между дронами")
         if self.initial_height is not None:
             require(len(self.initial_height) == t.n and all(len(row) == t.n for row in self.initial_height), "Размер исходного рельефа не совпадает с сеткой")
             require(all(value >= t.floor for row in self.initial_height for value in row), "Исходный рельеф ниже неподвижного основания")

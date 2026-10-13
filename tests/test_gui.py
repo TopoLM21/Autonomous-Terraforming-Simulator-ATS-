@@ -27,13 +27,12 @@ def test_offscreen_window_start_pause_reset_and_new_scenario():
     assert window.sim.dust.config.wind_x == 2
     window.latitude.setValue(-35)
     window.season.setCurrentIndex(3)
-    window.panels.setValue(30)
-    window.base_mass.setValue(1500)
+    assert window.panels.isReadOnly() and window.base_mass.isReadOnly()
     window.new_scenario()
     assert window.sim.config.base.latitude_deg == -35
     assert window.sim.config.base.start_day_of_year == 355
-    assert window.sim.config.base.panel_area == 30
-    assert window.sim.config.base.mass == 1500
+    assert window.sim.config.base.panel_area == 20
+    assert window.sim.config.base.mass == 1000
     from PySide6 import QtCore
     window.calendar.setDate(QtCore.QDate(2025, 7, 3))
     assert window.season.currentIndex() == -1
@@ -46,7 +45,7 @@ def test_offscreen_window_start_pause_reset_and_new_scenario():
     dialog.count.setValue(3);dialog.slots.setValue(2);dialog.preset(True);dialog.save()
     assert dialog.result_config.fleet.count==3
     assert dialog.result_config.fleet.models[0].payload==30
-    window.replace_simulation(dialog.result_config)
+    window.apply_equipment(dialog.result_config)
     window.sim.run(20);window.refresh(True)
     assert window.fleet_table.rowCount()==3
     assert len(window.drone_labels)>=3
@@ -54,6 +53,43 @@ def test_offscreen_window_start_pause_reset_and_new_scenario():
     assert comparison.sim is not None
     comparison.cancel();assert not comparison.timer.isActive();comparison.close()
     window.close()
+
+
+def test_equipment_editor_live_apply_and_daily_history():
+    from copy import deepcopy
+    import numpy as np
+    from PySide6 import QtWidgets
+    from ats.gui import MainWindow
+    from ats.equipment_ui import EquipmentDialog,DailyStatsWindow
+    app=QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    w=MainWindow(Config());w.timer.stop();w.sim.run(90);w.refresh(True)
+    sim=w.sim;time=sim.time;height=sim.terrain.height.copy();logs=w.log.toPlainText()
+    dialog=EquipmentDialog(w.config,w)
+    dialog.base.panels.table.item(0,1).setText('15');dialog.base.slots.setValue(2)
+    dialog.buttons.button(QtWidgets.QDialogButtonBox.StandardButton.Ok).click()
+    assert dialog.result()==QtWidgets.QDialog.DialogCode.Accepted
+    assert w.apply_equipment(dialog.result_config)=='applied'
+    assert w.sim is sim and w.sim.time==time and w.panels.value()==30
+    np.testing.assert_array_equal(height,sim.terrain.height)
+    assert w.log.toPlainText().startswith(logs)
+    assert w.fleet_table.item(0,10).text()==f"{sim.drone.productivity.total_volume:.4f}"
+    profile=w.profile_position.value();view=w.map.viewRange()
+    c=deepcopy(w.config);c.fleet.models[0].equipment.bucket.volume_m3*=2
+    assert w.apply_equipment(c)=='pending' and w.running
+    w.toggle_play();w.toggle_play()
+    assert sim.landing_requested  # pause/resume must preserve pending maintenance
+    for _ in range(100):
+        w.credit=4;w.on_frame()
+        if sim.pending_equipment is None:break
+    assert sim.pending_equipment is None and w.config is sim.config
+    assert not w.running and w.config.fleet.models[0].payload==120
+    assert w.profile_position.value()==profile and w.map.viewRange()==view
+    stats=DailyStatsWindow(w);stats.timer.stop();stats.refresh()
+    assert stats.table.rowCount()==1
+    assert float(stats.table.item(0,2).text())==sim.drone.productivity.total_mass
+    c=deepcopy(w.config);c.base.equipment.batteries=[];w.apply_equipment(c);w.refresh()
+    assert 'Без аккумулятора' in w.telemetry.text()
+    stats.close();dialog.close();w.close();app.processEvents()
 
 
 def test_real_mouse_brush_apply_segments_and_profile_switches():

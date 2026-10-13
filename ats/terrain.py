@@ -128,15 +128,16 @@ class Terrain:
         mask, surface = (self.dump_mask, self.reference) if source == "stockpile" else (self.excavation, self.target)
         return np.where(mask, np.maximum(self.height-surface, 0), 0)
 
-    def local_available(self, x, y, source="cut"):
+    def local_available(self, x, y, source="cut", radius=None):
         excess = self.source_excess(source)
-        mask = (excess > 0) & ((self.x-x)**2+(self.y-y)**2 <= self.config.terrain.grab_radius**2)
+        radius=self.config.terrain.grab_radius if radius is None else radius
+        mask = (excess > 0) & ((self.x-x)**2+(self.y-y)**2 <= radius**2)
         return mask, np.where(mask, excess, 0)
 
-    def scoop(self, x, y, max_mass, source="cut"):
+    def scoop(self, x, y, max_mass, source="cut", radius=None):
         if not math.isfinite(max_mass) or max_mass < 0:
             raise ValueError("Неверная масса захвата")
-        _, excess = self.local_available(x, y, source)
+        _, excess = self.local_available(x, y, source, radius)
         available = float(excess.sum()*self.area)
         volume = min(max_mass/self.config.terrain.density, available)
         if available <= 0:
@@ -160,14 +161,14 @@ class Terrain:
         i = candidates[int(np.argmin(score))]
         return (float(self.x.ravel()[i]), float(self.y.ravel()[i]))
 
-    def deposit(self, x, y, mass):
+    def deposit(self, x, y, mass, radius=None):
         if not math.isfinite(mass) or mass < 0:
             raise ValueError("Неверная масса выгрузки")
         volume = mass/self.config.terrain.density
         capacity = np.where(self.dump_mask, np.maximum(self.dump_cap-self.height, 0), 0)
         if capacity.sum()*self.area < volume-1e-12:
             raise ValueError("Отвал заполнен: груз не выгружен")
-        self._deposit_capacity(x, y, volume, capacity)
+        self._deposit_capacity(x, y, volume, capacity, radius)
 
     def fill_location(self, reserved=(), separation=0.0):
         capacity = np.where(self.fill_mask, np.maximum(self.target-self.height, 0), 0)
@@ -178,18 +179,19 @@ class Terrain:
         index = int(np.argmax(capacity))
         return float(self.x.ravel()[index]), float(self.y.ravel()[index])
 
-    def deposit_fill(self, x, y, mass):
+    def deposit_fill(self, x, y, mass, radius=None):
         if not math.isfinite(mass) or mass < 0:
             raise ValueError("Неверная масса засыпки")
         capacity = np.where(self.fill_mask, np.maximum(self.target-self.height, 0), 0)
         volume = min(mass/self.config.terrain.density, float(capacity.sum()*self.area))
-        self._deposit_capacity(x, y, volume, capacity)
+        self._deposit_capacity(x, y, volume, capacity, radius)
         return volume*self.config.terrain.density
 
-    def _deposit_capacity(self, x, y, volume, capacity):
+    def _deposit_capacity(self, x, y, volume, capacity, radius=None):
         if volume <= 0:
             return
-        local = ((self.x-x)**2+(self.y-y)**2 <= self.config.terrain.grab_radius**2)
+        radius=self.config.terrain.grab_radius if radius is None else radius
+        local = ((self.x-x)**2+(self.y-y)**2 <= radius**2)
         local_cap = np.where(local, capacity, 0)
         if local_cap.sum()*self.area < volume-1e-12:
             # Expand the footprint around the same unload site only as needed.

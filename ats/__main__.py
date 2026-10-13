@@ -22,6 +22,7 @@ def main():
     parser.add_argument("--wait-mode", choices=("ground","air"), default="ground")
     parser.add_argument("--charge-threshold", type=float, default=30, help="Lower charging trigger, percent; charging then continues to 100%")
     parser.add_argument("--plan", help="Load a brush plan JSON, including its starting terrain")
+    parser.add_argument("--equipment", help="Load an equipment inventory JSON exported from the equipment editor")
     parser.add_argument("--compare-fleet", help="Compare fleet sizes, e.g. 1,2,3, with the same scenario")
     parser.add_argument("--json", dest="json_path", help="Save the headless report")
     args = parser.parse_args()
@@ -42,6 +43,10 @@ def main():
         if args.plan:
             from .plan import load_plan
             config = load_plan(args.plan, config)
+        if args.equipment:
+            from pathlib import Path
+            from .equipment import load_equipment_data
+            config=load_equipment_data(json.loads(Path(args.equipment).read_text(encoding="utf-8")),config)
         config.validate()
         if args.headless:
             if args.compare_fleet:

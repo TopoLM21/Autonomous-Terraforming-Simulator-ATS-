@@ -7,6 +7,20 @@
     "filled_m3": 0.0,
     "plan_segments": 1,
     "landing_requested": false,
+    "base_equipment": {
+      "chassis_kg": 585.0,
+      "batteries_kg": 300.0,
+      "panels_kg": 80.0,
+      "landing_slots_kg": 20,
+      "charger_kg": 15,
+      "emitters_kg": 0,
+      "total_kg": 1000.0
+    },
+    "equipment_imported_kwh": 0.0,
+    "equipment_exported_kwh": 0.0,
+    "equipment_pending": false,
+    "laser_transfer_enabled": false,
+    "retired_drones": [],
     "state": "COMPLETED",
     "reason": "",
     "time_seconds": 2662.0,
@@ -82,7 +96,32 @@
         "charge_requested": false,
         "charge_cycles": 1,
         "filled_mass_kg": 0.0,
-        "reclaimed_mass_kg": 0.0
+        "reclaimed_mass_kg": 0.0,
+        "serial": 1,
+        "created_at_seconds": 0.0,
+        "equipment": {
+          "frame_kg": 60.0,
+          "batteries_kg": 30.0,
+          "bucket_kg": 15.0,
+          "receiver_kg": 0,
+          "total_kg": 105.0
+        },
+        "transported_mass_kg": 1166.949354300681,
+        "transported_volume_m3": 0.7293433464379255,
+        "today_mass_kg": 1166.949354300681,
+        "today_volume_m3": 0.7293433464379255,
+        "last24_mass_kg": 1166.949354300681,
+        "last24_volume_m3": 0.7293433464379258,
+        "daily": [
+          {
+            "mission_day": 0,
+            "mass_kg": 1166.949354300681,
+            "volume_m3": 0.7293433464379255,
+            "fill_mass_kg": 0.0,
+            "dump_mass_kg": 1166.949354300681,
+            "deliveries": 20
+          }
+        ]
       }
     ]
   },
@@ -94,6 +133,20 @@
     "filled_m3": 0.6857919947606834,
     "plan_segments": 1,
     "landing_requested": false,
+    "base_equipment": {
+      "chassis_kg": 585.0,
+      "batteries_kg": 300.0,
+      "panels_kg": 80.0,
+      "landing_slots_kg": 20,
+      "charger_kg": 15,
+      "emitters_kg": 0,
+      "total_kg": 1000.0
+    },
+    "equipment_imported_kwh": 0.0,
+    "equipment_exported_kwh": 0.0,
+    "equipment_pending": false,
+    "laser_transfer_enabled": false,
+    "retired_drones": [],
     "state": "COMPLETED",
     "reason": "",
     "time_seconds": 5363.0,
@@ -169,7 +222,32 @@
         "charge_requested": false,
         "charge_cycles": 2,
         "filled_mass_kg": 1097.2671916170934,
-        "reclaimed_mass_kg": 1097.2671916170934
+        "reclaimed_mass_kg": 1097.2671916170934,
+        "serial": 1,
+        "created_at_seconds": 0.0,
+        "equipment": {
+          "frame_kg": 60.0,
+          "batteries_kg": 30.0,
+          "bucket_kg": 15.0,
+          "receiver_kg": 0,
+          "total_kg": 105.0
+        },
+        "transported_mass_kg": 2264.216545917774,
+        "transported_volume_m3": 1.4151353411986092,
+        "today_mass_kg": 2264.216545917774,
+        "today_volume_m3": 1.4151353411986092,
+        "last24_mass_kg": 2264.2165459177745,
+        "last24_volume_m3": 1.4151353411986092,
+        "daily": [
+          {
+            "mission_day": 0,
+            "mass_kg": 2264.216545917774,
+            "volume_m3": 1.4151353411986092,
+            "fill_mass_kg": 1097.2671916170934,
+            "dump_mass_kg": 1166.949354300681,
+            "deliveries": 42
+          }
+        ]
       }
     ]
   }

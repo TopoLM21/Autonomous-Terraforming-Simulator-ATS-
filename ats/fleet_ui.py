@@ -2,78 +2,11 @@
 from copy import deepcopy
 import time
 from PySide6 import QtCore,QtWidgets
-from .config import DroneConfig,KWH
 from .comparison import comparison_config
 from .simulation import Simulation,elapsed_text
 
 
-class FleetDialog(QtWidgets.QDialog):
-    def __init__(self,config,parent=None):
-        super().__init__(parent)
-        self.config = deepcopy(config)
-        self.setWindowTitle("Дроны и зарядка")
-        self.resize(980,480)
-        layout = QtWidgets.QVBoxLayout(self)
-        form = QtWidgets.QFormLayout()
-        self.count = QtWidgets.QSpinBox(); self.count.setRange(1,6); self.count.setValue(config.fleet.count)
-        self.slots = QtWidgets.QSpinBox(); self.slots.setRange(1,6); self.slots.setValue(config.fleet.charge_slots)
-        self.wait_mode = QtWidgets.QComboBox()
-        self.wait_mode.addItem("Посадка рядом и ожидание на земле","ground")
-        self.wait_mode.addItem("Ожидание в воздухе; аварийная посадка по резерву","air")
-        self.wait_mode.setCurrentIndex(0 if config.fleet.wait_mode == "ground" else 1)
-        self.power = QtWidgets.QDoubleSpinBox(); self.power.setRange(0,100); self.power.setValue(config.base.charge_power/1000); self.power.setSuffix(" кВт")
-        for name,widget in [("Количество дронов",self.count),("Зарядных слотов",self.slots),("Общая мощность зарядки",self.power),("Очередь",self.wait_mode)]:
-            form.addRow(name,widget)
-        layout.addLayout(form)
-        info=QtWidgets.QLabel("Дрон работает сериями рейсов до нижнего порога заряда. После запроса зарядки — до 100%. Возврат раньше порога возможен для сохранения резерва на следующий рейс. Слоты делят общую мощность, КПД 90%. Изменения создадут новый сценарий.")
-        info.setWordWrap(True); layout.addWidget(info)
-        self.table=QtWidgets.QTableWidget(0,8)
-        self.table.setHorizontalHeaderLabels(["Имя","Масса, кг","Груз, кг","Батарея, кВт·ч","Висение, кВт","Без груза, м/с","С грузом, м/с","Зарядка ниже, %"])
-        self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
-        layout.addWidget(self.table)
-        self.models=config.drone_models()
-        self.rows(self.count.value()); self.count.valueChanged.connect(self.rows)
-        presets=QtWidgets.QHBoxLayout()
-        heavy=QtWidgets.QPushButton("Тяжёлый 60 для выбранной строки")
-        light=QtWidgets.QPushButton("Лёгкий 30 для выбранной строки")
-        heavy.clicked.connect(lambda:self.preset(False)); light.clicked.connect(lambda:self.preset(True))
-        presets.addWidget(heavy);presets.addWidget(light);layout.addLayout(presets)
-        self.error=QtWidgets.QLabel(); self.error.setWordWrap(True); layout.addWidget(self.error)
-        buttons=QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Ok|QtWidgets.QDialogButtonBox.StandardButton.Cancel)
-        buttons.accepted.connect(self.save);buttons.rejected.connect(self.reject);layout.addWidget(buttons)
-
-    def rows(self,count):
-        old=self.table.rowCount(); self.table.setRowCount(count)
-        for i in range(old,count):
-            self.fill(i,deepcopy(self.models[i] if i<len(self.models) else self.config.drone))
-
-    def fill(self,row,model):
-        values=[model.name,model.empty_mass,model.payload,model.battery/KWH,model.hover_power/1000,model.empty_speed,model.loaded_speed,model.charge_threshold*100]
-        for column,value in enumerate(values):
-            self.table.setItem(row,column,QtWidgets.QTableWidgetItem(str(value)))
-
-    def preset(self,light):
-        row=max(0,self.table.currentRow())
-        model=deepcopy(self.config.drone)
-        if light:
-            model.name="Лёгкий 30";model.empty_mass=75;model.payload=30;model.battery=3*KWH;model.hover_power=12000
-        self.fill(row,model)
-
-    def save(self):
-        try:
-            clone=deepcopy(self.config); clone.fleet.count=self.count.value(); clone.fleet.charge_slots=self.slots.value()
-            clone.fleet.wait_mode=self.wait_mode.currentData(); clone.base.charge_power=self.power.value()*1000
-            models=[]
-            for row in range(self.table.rowCount()):
-                model=deepcopy(self.models[row] if row<len(self.models) else self.config.drone)
-                values=[self.table.item(row,c).text() for c in range(8)]
-                model.name=values[0]
-                model.empty_mass,model.payload,battery,power,model.empty_speed,model.loaded_speed,threshold=map(float,values[1:])
-                model.charge_threshold=threshold/100
-                model.battery=battery*KWH;model.hover_power=power*1000;models.append(model)
-            clone.fleet.models=models;clone.validate();self.result_config=clone;self.accept()
-        except (ValueError,AttributeError) as error:
-            self.error.setText(f"Проверьте параметры: {error}")
+from .equipment_ui import EquipmentDialog as FleetDialog
 
 
 class ComparisonWindow(QtWidgets.QDialog):
