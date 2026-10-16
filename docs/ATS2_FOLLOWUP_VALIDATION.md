@@ -74,6 +74,22 @@ Linux, Python 3.12.14, numpy 2.5.4, PySide6-Essentials 6.12.0, Qt offscreen.
 так и с `--no-idle-digging` завершены; в строгом демо две смены батарей дронов и
 одна смена пары Крота.
 
+
+Проверка GitHub Actions также прошла на **Ubuntu и Windows, Python 3.11/3.12**:
+по 144 теста в каждом задании. Старый CLI, ATS 2.0 с совместным копанием и строгая
+логистика завершились; CI отдельно проверяет копание несколькими аппаратами,
+физические смены батарей дронов и Крота, массу и энергию.
+[CI run](https://github.com/TopoLM21/Autonomous-Terraforming-Simulator-ATS-/actions/runs/38863582756),
+код `66c2c64c0ef3df4815acfaa907e3f327bc5c283a`, [протокол](ats2/followup-ci-results.json).
+
+| CI | Тесты | Время тестов, с |
+| --- | ---: | ---: |
+| windows-latest, 3.11 | 144 passed | 132.43 |
+| ubuntu-latest, 3.12 | 144 passed | 133.20 |
+| ubuntu-latest, 3.11 | 144 passed | 126.60 |
+| windows-latest, 3.12 | 144 passed | 190.88 |
+
+
 ## Воспроизведение
 
 ```bash
