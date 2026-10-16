@@ -1,0 +1,270 @@
+[
+  {
+    "preset": "demo",
+    "idle_digging": false,
+    "landing_slots": 4,
+    "state": "COMPLETED",
+    "reason": "",
+    "time_seconds": 3861.0,
+    "wall_seconds": 2.3470030879999513,
+    "mass_error_kg": 0.0,
+    "energy_error_j": 2.2351741790771484e-08,
+    "initial_excavation_m3": 0.775265992929053,
+    "remaining_m3": 0.04006112597313295,
+    "consumed_kwh": 15.544724825345375,
+    "container_cycles": 15,
+    "excavator_swaps": 1,
+    "drone_swaps": 2,
+    "direct_diggers": [],
+    "excavator_waiting_seconds": 175.0,
+    "all_grounded": true,
+    "drones": [
+      {
+        "serial": 1,
+        "volume_m3": 0.6708298669559198,
+        "consumed_kwh": 6.987221572599336
+      },
+      {
+        "serial": 2,
+        "volume_m3": 0.064375,
+        "consumed_kwh": 2.672667326096911
+      },
+      {
+        "serial": 3,
+        "volume_m3": 0.0,
+        "consumed_kwh": 1.7445668911521754
+      },
+      {
+        "serial": 4,
+        "volume_m3": 0.0,
+        "consumed_kwh": 1.8978140972253472
+      }
+    ]
+  },
+  {
+    "preset": "demo",
+    "idle_digging": true,
+    "landing_slots": 4,
+    "state": "COMPLETED",
+    "reason": "",
+    "time_seconds": 1132.0,
+    "wall_seconds": 1.1199367479999864,
+    "mass_error_kg": 0.0,
+    "energy_error_j": 1.1641532182693481e-07,
+    "initial_excavation_m3": 0.775265992929053,
+    "remaining_m3": 0.04781257225549699,
+    "consumed_kwh": 10.43717509038692,
+    "container_cycles": 6,
+    "excavator_swaps": 0,
+    "drone_swaps": 0,
+    "direct_diggers": [
+      1,
+      2,
+      3
+    ],
+    "excavator_waiting_seconds": 39.0,
+    "all_grounded": true,
+    "drones": [
+      {
+        "serial": 1,
+        "volume_m3": 0.19392892603904854,
+        "consumed_kwh": 2.3848988667579167
+      },
+      {
+        "serial": 2,
+        "volume_m3": 0.1541187300746416,
+        "consumed_kwh": 2.469167921732238
+      },
+      {
+        "serial": 3,
+        "volume_m3": 0.0831457611129503,
+        "consumed_kwh": 1.5374212267832026
+      },
+      {
+        "serial": 4,
+        "volume_m3": 0.29626000344691544,
+        "consumed_kwh": 3.339870408446895
+      }
+    ]
+  },
+  {
+    "preset": "demo",
+    "idle_digging": true,
+    "landing_slots": 1,
+    "state": "COMPLETED",
+    "reason": "",
+    "time_seconds": 1162.0,
+    "wall_seconds": 1.0360648650000712,
+    "mass_error_kg": 0.0,
+    "energy_error_j": 4.423782229423523e-08,
+    "initial_excavation_m3": 0.775265992929053,
+    "remaining_m3": 0.038796423210945216,
+    "consumed_kwh": 9.54120604500929,
+    "container_cycles": 6,
+    "excavator_swaps": 0,
+    "drone_swaps": 0,
+    "direct_diggers": [
+      1,
+      3,
+      4
+    ],
+    "excavator_waiting_seconds": 39.0,
+    "all_grounded": true,
+    "drones": [
+      {
+        "serial": 1,
+        "volume_m3": 0.26169508195640523,
+        "consumed_kwh": 2.6803840085733093
+      },
+      {
+        "serial": 2,
+        "volume_m3": 0.310625,
+        "consumed_kwh": 3.137033198524016
+      },
+      {
+        "serial": 3,
+        "volume_m3": 0.14012916279867643,
+        "consumed_kwh": 1.951582329990957
+      },
+      {
+        "serial": 4,
+        "volume_m3": 0.024020324963026023,
+        "consumed_kwh": 1.0407398412543416
+      }
+    ]
+  },
+  {
+    "preset": "medium",
+    "idle_digging": false,
+    "landing_slots": 4,
+    "state": "COMPLETED",
+    "reason": "",
+    "time_seconds": 171654.0,
+    "wall_seconds": 61.928432671999985,
+    "mass_error_kg": 0.0,
+    "energy_error_j": 2.384185791015625e-06,
+    "initial_excavation_m3": 6.32954690401561,
+    "remaining_m3": 0.04608148138843102,
+    "consumed_kwh": 102.21605741664467,
+    "container_cycles": 121,
+    "excavator_swaps": 12,
+    "drone_swaps": 19,
+    "direct_diggers": [],
+    "excavator_waiting_seconds": 139905.0,
+    "all_grounded": true,
+    "drones": [
+      {
+        "serial": 1,
+        "volume_m3": 5.45127349268099,
+        "consumed_kwh": 52.65933242011082
+      },
+      {
+        "serial": 2,
+        "volume_m3": 0.5080844236639891,
+        "consumed_kwh": 16.344989577391935
+      },
+      {
+        "serial": 3,
+        "volume_m3": 0.27098250628219017,
+        "consumed_kwh": 6.610512525129717
+      },
+      {
+        "serial": 4,
+        "volume_m3": 0.053125,
+        "consumed_kwh": 5.413669313765289
+      }
+    ]
+  },
+  {
+    "preset": "medium",
+    "idle_digging": true,
+    "landing_slots": 4,
+    "state": "COMPLETED",
+    "reason": "",
+    "time_seconds": 17656.0,
+    "wall_seconds": 22.087417545999983,
+    "mass_error_kg": 0.0,
+    "energy_error_j": 6.034970283508301e-07,
+    "initial_excavation_m3": 6.32954690401561,
+    "remaining_m3": 0.02569172542399184,
+    "consumed_kwh": 59.12378406549454,
+    "container_cycles": 21,
+    "excavator_swaps": 1,
+    "drone_swaps": 12,
+    "direct_diggers": [
+      1,
+      2,
+      3
+    ],
+    "excavator_waiting_seconds": 13049.0,
+    "all_grounded": true,
+    "drones": [
+      {
+        "serial": 1,
+        "volume_m3": 2.143009067266209,
+        "consumed_kwh": 18.252587147750827
+      },
+      {
+        "serial": 2,
+        "volume_m3": 1.6880649171376432,
+        "consumed_kwh": 14.594554890528876
+      },
+      {
+        "serial": 3,
+        "volume_m3": 1.3900349331161468,
+        "consumed_kwh": 11.154343678616163
+      },
+      {
+        "serial": 4,
+        "volume_m3": 1.0827462610716214,
+        "consumed_kwh": 11.976542793043112
+      }
+    ]
+  },
+  {
+    "preset": "medium",
+    "idle_digging": true,
+    "landing_slots": 1,
+    "state": "COMPLETED",
+    "reason": "",
+    "time_seconds": 20537.0,
+    "wall_seconds": 17.081231196999966,
+    "mass_error_kg": 0.0,
+    "energy_error_j": 8.195638656616211e-07,
+    "initial_excavation_m3": 6.32954690401561,
+    "remaining_m3": 0.0005165259416639889,
+    "consumed_kwh": 61.832480595153314,
+    "container_cycles": 22,
+    "excavator_swaps": 1,
+    "drone_swaps": 13,
+    "direct_diggers": [
+      1,
+      3,
+      4
+    ],
+    "excavator_waiting_seconds": 15319.0,
+    "all_grounded": true,
+    "drones": [
+      {
+        "serial": 1,
+        "volume_m3": 2.18540766648975,
+        "consumed_kwh": 18.192579503658393
+      },
+      {
+        "serial": 2,
+        "volume_m3": 1.1136428598106067,
+        "consumed_kwh": 11.249570299328866
+      },
+      {
+        "serial": 3,
+        "volume_m3": 1.5451023595994615,
+        "consumed_kwh": 14.24345073892004
+      },
+      {
+        "serial": 4,
+        "volume_m3": 1.4848774921741303,
+        "consumed_kwh": 14.607424497690458
+      }
+    ]
+  }
+]

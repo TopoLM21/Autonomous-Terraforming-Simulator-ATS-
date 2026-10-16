@@ -25,6 +25,7 @@ def main():
     parser.add_argument("--equipment", help="Load an equipment inventory JSON exported from the equipment editor")
     parser.add_argument("--compare-fleet", help="Compare fleet sizes, e.g. 1,2,3, with the same scenario")
     parser.add_argument("--json", dest="json_path", help="Save the headless report")
+    parser.add_argument('--no-idle-digging',action='store_true',help='Keep transport drones on container/battery service only')
     parser.add_argument('--mode',choices=('legacy','logistics','hybrid'),default='legacy')
     parser.add_argument('--containers',type=int,default=8)
     parser.add_argument('--battery-modules',type=int,choices=(1,2),help='Explicit drone battery variant; otherwise preserve equipment')
@@ -68,6 +69,7 @@ def main():
         if args.configuration:
             from .experiments import load_configuration
             config=load_configuration(args.configuration)
+        if args.no_idle_digging and config.logistics is not None:config.logistics.idle_digging=False
         if args.save_configuration:
             from .experiments import save_configuration
             save_configuration(args.save_configuration,config)

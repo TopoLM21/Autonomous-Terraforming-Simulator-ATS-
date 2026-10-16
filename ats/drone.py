@@ -7,6 +7,8 @@ from .productivity import Productivity
 class DroneState(str, Enum):
     DOCKED = "DOCKED"
     CHARGING = "CHARGING"
+    SWAPPING_BATTERIES = "SWAPPING_BATTERIES"
+    CHANGING_TOOL = "CHANGING_TOOL"
     TAKEOFF = "TAKEOFF"
     TO_DIG = "TO_DIG"
     LOWER_GRABBER = "LOWER_GRABBER"
@@ -77,7 +79,8 @@ class Drone:
 
     @property
     def docked(self):
-        return self.state in (DroneState.DOCKED, DroneState.CHARGING)
+        return self.state in (DroneState.DOCKED, DroneState.CHARGING,
+                              DroneState.SWAPPING_BATTERIES, DroneState.CHANGING_TOOL)
 
     @property
     def grounded(self):

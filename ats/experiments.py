@@ -11,7 +11,7 @@ from .plan import PlanConfig,PlanSegment
 
 
 def experiment_config(config, mode='logistics',drones=4,containers=8,ports=4,
-                      battery_modules=None,robot_slots=2,panel_area=None,laser='laser_off',landing_slots=None):
+                      battery_modules=None,robot_slots=2,panel_area=None,laser='laser_off',landing_slots=None,idle_digging=True):
     c=deepcopy(config);resolve_config(c)
     models=c.drone_models();c.fleet.count=drones
     c.fleet.models=[deepcopy(models[i%len(models)]) for i in range(drones)]
@@ -23,7 +23,7 @@ def experiment_config(config, mode='logistics',drones=4,containers=8,ports=4,
         for p in c.base.equipment.panels:
             factor=panel_area/old_area if old_area else 1.
             p.area_m2*=factor;p.mass_kg*=factor
-    c.logistics=None if mode=='legacy' else LogisticsConfig(direct_allowed=mode=='hybrid',
+    c.logistics=None if mode=='legacy' else LogisticsConfig(direct_allowed=mode=='hybrid',idle_digging=idle_digging,
         container_count=containers,charger_ports=ports,excavator_battery_slots=robot_slots,
         excavator_battery_count=max(4,robot_slots*2),laser_profile=laser)
     c=with_laser_profile(c,laser);c.validate();return c

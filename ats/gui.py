@@ -419,11 +419,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def closeEvent(self,event):
         self.timer.stop();self.running=False
+        if hasattr(self,'logistics_window'):self.logistics_window.close()
         super().closeEvent(event)
 
     def show_logistics(self):
         from .logistics_ui import LogisticsWindow
-        self.logistics_window=LogisticsWindow(self);self.logistics_window.show()
+        if not hasattr(self,'logistics_window'):
+            self.logistics_window=LogisticsWindow(self)
+        self.logistics_window.show();self.logistics_window.raise_();self.logistics_window.activateWindow()
 
     def show_experiments(self):
         from .logistics_ui import ExperimentDialog
@@ -619,7 +622,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.route.setData(points[:, 0], points[:, 1])
         else:
             self.route.setData([], [])
-        report = s.report()
+        report = s.report(full=False)
         beams=[]
         for link in s.laser_links:
             if link.received_w>0:beams.extend([link.source[:2],link.drone.position[:2],(np.nan,np.nan)])
@@ -630,7 +633,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for row,o in enumerate(report['drones']):
             values=[f"{o['serial']} · {o['name']}",o['state'],f"{o['battery_percent']:.0f}%",f"{o['cargo_kg']:.1f}",str(o['trips']),f"{o['excavated_mass_kg']:.0f} / {o['filled_mass_kg']:.0f}",f"{o['consumed_kwh']:.3f}",f"{o['waiting_seconds']/60:.1f}",f"{o['charging_seconds']/60:.1f}",str(o['traffic_yields']),f"{o['last24_volume_m3']:.4f}",f"{o['laser_power_w']/1000:.2f}"]
             for col,value in enumerate(values):self.fleet_table.setItem(row,col,QtWidgets.QTableWidgetItem(value))
-            if 'task' in o:self.fleet_table.item(row,1).setToolTip(f"{o['task']} · {o['attachment']}\nБатареи: {', '.join(o['battery_ids'])}\nГрузовой лимит: {o['transport_payload_kg']:.1f} кг")
+            if 'task' in o:self.fleet_table.item(row,1).setToolTip(f"{o['task']} · {o['attachment']}\nБатареи: {', '.join(o['battery_ids'])}\nЗамен комплектов: {o['battery_swaps']}; до завершения замены: {o['battery_swap_remaining_seconds']:.0f} с\nГрузовой лимит: {o['transport_payload_kg']:.1f} кг")
             self.fleet_table.item(row,2).setToolTip(f"Порог зарядки {o['charge_threshold_percent']:.0f}%; полных зарядок: {o['charge_cycles']}. Полёт сейчас: {o['current_flight_seconds']:.0f} с; самый длинный: {o['longest_flight_seconds']:.0f} с; в воздухе всего: {o['airborne_seconds']:.0f} с.")
             self.fleet_table.item(row,10).setToolTip(f"За текущие солнечные сутки: {o['today_volume_m3']:.4f} м³ / {o['today_mass_kg']:.2f} кг. Всего доставлено: {o['transported_volume_m3']:.4f} м³. Подробности — «По суткам».")
             self.fleet_table.item(row,11).setToolTip(f"{o['laser_status']}\nПолучено за миссию: {o['laser_received_kwh']:.3f} кВт·ч. Потребление двигателей и лебёдки за последний шаг: {o['flight_power_w']/1000:.2f} кВт. Показана фактическая мощность за последнюю физическую секунду.")

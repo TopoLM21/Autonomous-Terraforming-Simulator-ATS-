@@ -30,6 +30,7 @@ class BatteryService:
         self.robot_swap=None
         self.drone_swaps={}
         self.drone_swap_count=0
+        self.drone_swap_counts={}
 
     def ready(self, compatibility, location=L.BASE_STORAGE, minimum_soc=.999999):
         return [b for b in self.world.inventory.select(BatteryModule,location)
@@ -121,6 +122,7 @@ class BatteryService:
             w.progress_at=w.sim.time
 
     def tick_drone_swaps(self):
+        from .drone import DroneState as DS
         w=self.world;c=w.config;inv=w.inventory
         if not c.swap_station or c.inverter_power_w<200.:return
         for d in w.sim.drones:
@@ -135,9 +137,11 @@ class BatteryService:
                     if match is None:break
                     ids.append(match.id)
                 if len(ids)==len(mounted) and inv.reserve(ids+d.battery_ids,owner):
-                    self.drone_swaps[d.serial]={'ids':ids,'elapsed':0.}
+                    self.drone_swaps[d.serial]={'ids':ids,'old_ids':list(d.battery_ids),'elapsed':0.}
+                    w.sim.drone_event(d,f'смена батарей: {", ".join(d.battery_ids)} → {", ".join(ids)}; {c.drone_swap_seconds:g} с')
             swap=self.drone_swaps.get(d.serial)
             if swap is None:continue
+            d.state=DS.SWAPPING_BATTERIES
             # Mechanical dock uses finite base energy, separately from charging.
             power=200.
             if not w.use_station(power):continue
@@ -149,13 +153,16 @@ class BatteryService:
                 inv.move(id,L.DRONE_MOUNT,f'drone_{d.serial}',d.position,'INSTALLED',owner)
                 inv.items[id].swaps+=1
             d.battery_ids=swap['ids'];d.battery=sum(inv.items[id].energy_j for id in d.battery_ids)
-            d.charge_requested=False;d.charge_cycles+=1
+            d.charge_requested=False;d.charge_cycles+=1;d.state=DS.DOCKED
             inv.release(owner);del self.drone_swaps[d.serial];self.drone_swap_count+=1
+            self.drone_swap_counts[d.serial]=self.drone_swap_counts.get(d.serial,0)+1
             w.sim.drone_event(d,'роботизированная смена батарей завершена')
             w.progress_at=w.sim.time
 
     def snapshot(self):
         return dict(ports=list(self.ports),queue=list(self.queue),
-                    capacity=self.world.config.charger_ports,robot_swap=self.robot_swap,
-                    drone_swaps=self.drone_swaps,drone_swap_count=self.drone_swap_count,
-                    dock_charging_drones=[d.serial for d in self.world.sim.drones if d.docked and d.charge_requested])
+                    capacity=self.world.config.charger_ports,robot_swap=dict(self.robot_swap) if self.robot_swap else None,
+                    drone_swaps={serial:dict(swap,remaining_seconds=max(0.,self.world.config.drone_swap_seconds-swap['elapsed']))
+                                 for serial,swap in self.drone_swaps.items()},drone_swap_count=self.drone_swap_count,drone_swap_counts=dict(self.drone_swap_counts),
+                    dock_charging_drones=[d.serial for d in self.world.sim.drones
+                                         if d.docked and d.charge_requested and d.serial not in self.drone_swaps])

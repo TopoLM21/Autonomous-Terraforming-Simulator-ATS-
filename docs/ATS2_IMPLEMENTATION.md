@@ -73,6 +73,27 @@ to the carrying drone. Brush fill deliveries accept only available target capaci
 the remainder stays in the container and is delivered to the dump. Landing for a
 plan change finishes the bucket/container chain before pausing.
 
+Idle carrier work sharing is enabled by `LogisticsConfig.idle_digging`. After
+30 idle seconds a carrier may request its stored grabber; exchange takes 45 s
+and 100 W at a real landing/service pad, with both tool IDs reserved. Ground
+waiting positions are not service stations: aircraft fly to a free pad and
+idle occupants yield occupied pads through an energy-budgeted flight. One hook
+carrier is retained when several drones serve the excavator. If no hooks remain,
+queued cargo recalls one digger after its current soil delivery; it physically
+returns and remounts the hook. Relocation recalls direct sorties. Charging and
+mechanical battery reservations prevent concurrent dispatch. Direct and transport
+jobs cannot own the same aircraft. Disable idle digging for strict historical
+logistics comparisons; `direct_allowed` still controls initially dedicated diggers.
+
+`Simulation.report(full=False)` computes live balances and fleet telemetry without
+serializing inventory or historical jobs. Main GUI refresh uses this path; the
+inventory dialog reads items only on its inventory tab, and the dispatcher slices
+the last 200 jobs before formatting. Table cells update in place; user column widths
+and scroll positions persist. The default report remains complete for CLI exports.
+The modeless dialog is reused and its timer stops on close. Mechanical drone swaps
+have a grounded `SWAPPING_BATTERIES` state, pack IDs, remaining time, and per-aircraft
+counters; removed packs still queue on the finite universal charging ports.
+
 ## Model defaults
 
 | Parameter | Value | Status |

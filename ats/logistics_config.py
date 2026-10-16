@@ -8,6 +8,8 @@ class LogisticsConfig:
     version: int = 2
     excavator_enabled: bool = True
     direct_allowed: bool = False
+    idle_digging: bool = True  # idle transport drones may fit their stored grabber
+    idle_dig_delay_s: float = 30.
     container_count: int = 8
     container_tare_kg: float = 5.
     container_volume_m3: float = .055
@@ -78,7 +80,7 @@ class LogisticsConfig:
         for name in ('pack_capacity_kwh','pack_mass_kg','container_tare_kg','container_volume_m3',
                      'reach_m','local_depth_m','cycle_seconds','excavator_speed','battery_swap_seconds',
                      'drone_swap_seconds','attachment_seconds','handling_seconds','rigging_mass_kg',
-                     'support_half_width_m','tipping_margin','lift_margin','stall_timeout_s'):
+                     'idle_dig_delay_s','support_half_width_m','tipping_margin','lift_margin','stall_timeout_s'):
             if values[name] <= 0:
                 raise ValueError(f'{name}: positive value required')
         if not 0 < self.bucket_fill_factor <= 1 or not 0 <= self.excavator_initial_soc <= 1:

@@ -203,14 +203,18 @@ def test_logistics_inventory_and_experiments_ui(tmp_path):
     clone=load_configuration(path)
     assert Simulation(c).run(50)==Simulation(clone).run(50)
     w=MainWindow(clone);w.timer.stop();w.sim.run(90);w.refresh(True)
-    view=LogisticsWindow(w);view.timer.stop();view.refresh()
+    view=LogisticsWindow(w);view.timer.stop();view.tabs.setCurrentIndex(1);view.refresh()
     assert view.inventory.rowCount()==len(w.sim.logistics.inventory.items)
+    view.tabs.setCurrentIndex(2)
     assert view.jobs.rowCount()>0 and 'Крот:' in view.status.text()
+    view.tabs.setCurrentIndex(1)
     assert w.excavator_marker.data.size>0 and w.container_markers.data.size==8
     view.filter.setText('excavator_battery')
     assert view.inventory.rowCount()==4
     dialog=ExperimentDialog(w);dialog.mode.setCurrentIndex(2)
     assert dialog.candidate().logistics.direct_allowed
+    dialog.idle_digging.setChecked(False)
+    assert not dialog.candidate().logistics.idle_digging
     from ats.equipment_ui import EquipmentDialog
     gear=EquipmentDialog(w.config,w);gear.save()
     assert gear.result_config.base.equipment.emitters[0].profile=='realistic_reference'
@@ -220,3 +224,28 @@ def test_logistics_inventory_and_experiments_ui(tmp_path):
     assert not w.sim.config.base.equipment.emitters[0].enabled
     gear.close()
     dialog.close();view.close();w.close();app.processEvents()
+
+
+def test_inventory_refresh_does_not_walk_archive_and_dialog_is_reused():
+    from PySide6 import QtWidgets
+    from ats.gui import MainWindow
+    from ats.experiments import experiment_config
+    from ats.logistics import TransportJob
+    class Archive(list):
+        def __iter__(self):
+            raise AssertionError('GUI traversed the full task archive')
+    app=QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    w=MainWindow(experiment_config(Config()));w.timer.stop()
+    job=TransportJob('historic','DELIVER_EMPTY_CONTAINER',[],(0,0,0),(0,0,0),4,0,status='COMPLETED')
+    w.sim.logistics.jobs=Archive([job]*100000)
+    w.refresh();w.show_logistics();view=w.logistics_window
+    view.tabs.setCurrentIndex(1);app.processEvents()
+    assert view.inventory.rowCount()==len(w.sim.logistics.inventory.items)
+    original=view.inventory.item(0,0)
+    view.refresh()
+    assert view.inventory.item(0,0) is original
+    view.tabs.setCurrentIndex(2);app.processEvents()
+    assert view.jobs.rowCount()==200
+    view.close();assert not view.timer.isActive()
+    w.show_logistics();assert w.logistics_window is view and view.timer.isActive()
+    view.close();w.close();app.processEvents()

@@ -8,6 +8,9 @@ from ats.inventory import Inventory, BatteryModule, SoilContainer, Location as L
 
 
 def logistics_config(count=1, **values):
+    # Strict logistics fixtures isolate Krot/container physics. Work sharing has
+    # dedicated integration coverage below and is enabled in the application.
+    values.setdefault('idle_digging',False)
     c=Config(logistics=LogisticsConfig(**values))
     c.fleet.count=count
     return c
@@ -267,9 +270,10 @@ def test_dock_preserves_legacy_charge_bus_without_spare_ports():
     assert abs(s.report()['energy_error_j'])<1e-4
 
 
-def test_container_brush_fill_and_leftover_mass():
+@pytest.mark.parametrize('idle_digging',[False,True])
+def test_container_brush_fill_and_leftover_mass(idle_digging):
     from ats.plan import PlanConfig,PlanSegment
-    c=logistics_config(count=4);c.fleet.charge_slots=4
+    c=logistics_config(count=4,idle_digging=idle_digging);c.fleet.charge_slots=4
     c.plan=PlanConfig([PlanSegment([[15,16],[17,16]],width=1.,height=-.25),
                        PlanSegment([[12,12]],mode='fill',width=.5,height=.1)])
     s=Simulation(c);r=s.run(20000)
@@ -299,3 +303,91 @@ def test_mechanical_dock_can_use_sun_without_base_storage():
     assert s.logistics.battery_service.drone_swap_count==1
     assert s.base.battery==0 and s.logistics.station_consumed>=12000
     assert abs(r['energy_error_j'])<1e-4
+
+
+def test_swap_is_visible_atomic_and_removed_modules_use_real_ports():
+    from ats.drone import DroneState as DS
+    c=logistics_config(drone_swap_seconds=10.,charger_ports=1)
+    c.drone.initial_charge=.25
+    s=Simulation(c);w=s.logistics;d=s.drone;old=list(d.battery_ids)
+    initial=[w.inventory.items[id].energy_j for id in old]
+    identities=set(w.inventory.items)
+    for second in range(1,10):
+        s.step();r=s.report(full=False)
+        assert d.state==DS.SWAPPING_BATTERIES and d.grounded
+        swap=r['battery_service']['drone_swaps'][d.serial]
+        assert swap['remaining_seconds']==10-second
+        assert r['battery_service']['dock_charging_drones']==[]
+        assert d.battery_ids==old
+        assert [w.inventory.items[id].energy_j for id in old]==initial
+        assert abs(r['energy_error_j'])<1e-4
+    s.step()
+    assert w.battery_service.drone_swap_count==1
+    assert w.battery_service.drone_swap_counts=={d.serial:1}
+    assert set(d.battery_ids).isdisjoint(old) and set(w.inventory.items)==identities
+    assert not d.charge_requested and not w.battery_service.drone_swaps
+    # Dispatch may already spend the first second of winch preparation.
+    assert sum(w.inventory.items[id].energy_j for id in d.battery_ids)+d.consumed==pytest.approx(d.config.battery)
+    # Both removed packs persist; only one gets a port and input energy.
+    before=[w.inventory.items[id].energy_j for id in old]
+    s.step()
+    after=[w.inventory.items[id].energy_j for id in old]
+    assert sum(a>b for a,b in zip(after,before))==1
+    assert abs(s.report()['energy_error_j'])<1e-4
+
+
+def test_idle_carriers_dig_after_physical_tool_change_with_one_service_pad():
+    from ats.experiments import experiment_config
+    c=experiment_config(Config(),drones=4,landing_slots=1)
+    s=Simulation(c);w=s.logistics;ids=set(w.inventory.items)
+    changed=set();diggers=set();saw_tool_change=False
+    for _ in range(6000):
+        s.step()
+        for d in s.drones:
+            if d.state.value=='CHANGING_TOOL':
+                saw_tool_change=True
+                assert d.slot is not None and s.slots[d.slot]==d.identifier
+                assert w.inventory.items[f'grabber_{d.serial}'].reserved_by==f'tool_{d.serial}'
+            if d.attachment=='GRABBER':
+                changed.add(d.serial)
+                assert w.inventory.items[f'grabber_{d.serial}'].location==L.DRONE_MOUNT
+                assert w.inventory.items[f'hook_{d.serial}'].location==L.BASE_STORAGE
+            if d.productivity.total_mass>0 and d.attachment=='GRABBER':diggers.add(d.serial)
+        assert not w.direct_ids.intersection(w.active)
+        assert set(w.inventory.items)==ids
+        r=s.report(full=False)
+        assert abs(r['mass_error_kg'])<1e-7 and abs(r['energy_error_j'])<1e-4
+        if s.state.value!='RUNNING':break
+    assert s.state.value=='COMPLETED',s.reason
+    assert saw_tool_change and len(changed)>=2 and len(diggers)>=2
+    assert w.delivered_mass>0 and w.excavator.excavated_kg>0
+    assert not w.tool_targets and not any(o.reserved_by for o in w.inventory.items.values())
+
+
+def test_only_carrier_returns_to_hook_when_a_load_becomes_ready():
+    from ats.drone import DroneState as DS
+    c=logistics_config(direct_allowed=True,excavator_enabled=False,container_count=1,
+                       attachment_seconds=3.)
+    c.trench.length=6
+    s=Simulation(c);w=s.logistics;d=s.drone
+    s.run(15)
+    assert d.identifier in w.direct_ids and not d.grounded
+    # A new physical load is announced while the sole carrier is digging.
+    container=w.containers[0]
+    container.soil_kg=s.terrain.scoop(17,16,30)
+    w.inventory.move(container.id,L.FILLED_QUEUE,'worksite',(17,16,0),'FULL_READY')
+    w.generate_jobs()
+    job=next(j for j in w.jobs if j.kind=='PICKUP_FULL_CONTAINER')
+    saw_return=False;saw_change=False
+    for _ in range(1500):
+        s.step()
+        saw_return |= d.state in (DS.RETURN,DS.LANDING)
+        saw_change |= d.state==DS.CHANGING_TOOL
+        assert not w.direct_ids.intersection(w.active)
+        r=s.report(full=False)
+        assert abs(r['mass_error_kg'])<1e-7 and abs(r['energy_error_j'])<1e-4
+        if job.status=='COMPLETED':break
+    assert job.status=='COMPLETED' and saw_return and saw_change
+    assert d.attachment=='CONTAINER_HOOK'
+    assert w.inventory.items[f'grabber_{d.serial}'].location==L.BASE_STORAGE
+    assert w.inventory.items[f'hook_{d.serial}'].location==L.DRONE_MOUNT

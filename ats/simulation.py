@@ -507,7 +507,8 @@ class Simulation:
     def _continue_or_return(self, d):
         d.trip = None
         d.dump_released = False
-        if not self.landing_requested and self.terrain.remaining > self.config.terrain.completion_volume:
+        if (not self.landing_requested and self.terrain.remaining > self.config.terrain.completion_volume
+                and (self.logistics is None or not self.logistics.direct_should_return(d))):
             if not self._charging_needed(d):
                 trip = self._choose_trip(d, airborne=True)
                 if trip is not None:
@@ -779,7 +780,7 @@ class Simulation:
             self.step()
         return self.report()
 
-    def report(self):
+    def report(self, *, full=True):
         t,b = self.terrain,self.base
         cargo = sum(d.cargo for d in self.drones)
         consumed = sum(d.consumed for d in self.drones+self.retired_drones)
@@ -799,4 +800,4 @@ class Simulation:
         extra.update(lasers=[link.report() for link in self.laser_links],laser_input_power_w=b.laser_input_power,laser_received_power_w=sum(d.laser_power_w for d in self.drones),laser_input_kwh=b.laser_input/KWH,laser_received_kwh=sum(d.laser_received for d in self.drones+self.retired_drones)/KWH,laser_losses_kwh=b.laser_losses/KWH)
         extra['laser_receiver_heat_kwh']=sum(d.receiver_heat_j for d in self.drones+self.retired_drones)/KWH
         result = {**extra,"state":self.state.value,"reason":self.reason,"time_seconds":self.time,"elapsed_display":elapsed_text(self.time),"solar_clock":self.clock_text,"date":self.date_text,"day_of_year":self.day_of_year,"latitude_deg":b.config.latitude_deg,"base_mass_kg":b.config.mass,"panel_area_m2":b.config.panel_area,"irradiance_w_m2":sun.irradiance,"sun_elevation_deg":sun.elevation_deg,"daylight_hours":sun.daylight_hours,"sunrise_hour":sun.sunrise_hour,"sunset_hour":sun.sunset_hour,"base_motion_power_w":b.motion_power(self.drones) if b.destination is not None else 0.0,"cable_length_m":drone_rows[0]["cable_length_m"],"hour":self.hour,"trips":self.trips,"relocations":b.relocations,"initial_excavation_m3":t.initial_excavation,"remaining_m3":remaining,"completion_percent":max(0,min(100,100*(1-remaining/max(t.initial_excavation,1e-12)))),"excavated_m3":self.excavated_mass/self.config.terrain.density,"excavated_mass_kg":self.excavated_mass,"cargo_kg":cargo,"drone_state":self.drone.state.value,"base_state":b.state.value,"drone_kwh":batteries/KWH,"base_kwh":b.battery/KWH,"solar_power_w":b.solar_power,"solar_generated_kwh":b.generated/KWH,"solar_curtailed_kwh":b.curtailed/KWH,"consumed_kwh":(consumed+b.consumed)/KWH,"charging_losses_kwh":b.charging_losses/KWH,"mass_error_kg":ground_error,"energy_error_j":energy_error,"minimum_drone_kwh":min(d.minimum_charge/KWH for d in self.drones),"initial_energy_kwh":self._initial_energy/KWH,"drone_count":len(self.drones),"charge_slots":len(self.slots),"slot_occupants":[v+1 if v is not None else None for v in self.slots],"queue":[i+1 for i in self.queue],"wait_mode":self.config.fleet.wait_mode,"drones":drone_rows}
-        return self.logistics.update_report(result) if self.logistics is not None else result
+        return self.logistics.update_report(result, full=full) if self.logistics is not None else result

@@ -30,8 +30,12 @@ jobs:
       - name: ATS 2.0 logistics smoke test
         run: |
           python -m ats --headless --mode logistics --drones 4 --steps 20000 --json ats2-ci.json > ats2-ci-stdout.json
-          python -c "import json; r=json.load(open('ats2-ci.json',encoding='utf-8')); assert r['state']=='COMPLETED'; assert r['excavator']['swaps']>=1; assert abs(r['mass_error_kg'])<1e-7; assert abs(r['energy_error_j'])<0.002"
+          python -c "import json; r=json.load(open('ats2-ci.json',encoding='utf-8')); assert r['state']=='COMPLETED'; assert len({j['executor'] for j in r['jobs'] if j['kind']=='EXCAVATE_DIRECT'})>=2; assert abs(r['mass_error_kg'])<1e-7; assert abs(r['energy_error_j'])<0.002"
+          python -m ats --headless --mode logistics --no-idle-digging --steps 20000 --json ats2-strict-ci.json > ats2-strict-stdout.json
+          python -c "import json; r=json.load(open('ats2-strict-ci.json',encoding='utf-8')); assert r['state']=='COMPLETED'; assert r['excavator']['swaps']>=1; assert r['battery_service']['drone_swap_count']>=1; assert abs(r['mass_error_kg'])<1e-7; assert abs(r['energy_error_j'])<0.002"
       - uses: actions/upload-artifact@v4
         with:
           name: ats2-${{ matrix.os }}-${{ matrix.python }}
-          path: ats2-ci.json
+          path: |
+            ats2-ci.json
+            ats2-strict-ci.json
