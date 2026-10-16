@@ -82,6 +82,20 @@ python -m ats --configuration experiment.json --drone-spare-sets 3
 [JUnit](ats2/spares-tests-312.xml). После дополнительной проверки сохранения роли
 выделенного копателя также повторены все новые проверки и связанные сценарии.
 
+
+GitHub Actions также прошёл на **Ubuntu и Windows / Python 3.11 и 3.12**: в каждом
+задании **168 тестов**, затем legacy CLI, автоматическое копание и строгая логистика
+со сменами батарей. [CI run](https://github.com/TopoLM21/Autonomous-Terraforming-Simulator-ATS-/actions/runs/38874083502),
+код `049b3b39d799b077a48dc6e6816169eea21d478b`, [протокол](ats2/spares-ci-results.json).
+
+| CI | Тесты | Время тестов, с |
+| --- | ---: | ---: |
+| windows-latest, 3.11 | 168 passed | 103.18 |
+| windows-latest, 3.12 | 168 passed | 205.38 |
+| ubuntu-latest, 3.12 | 168 passed | 205.09 |
+| ubuntu-latest, 3.11 | 168 passed | 193.79 |
+
+
 Новые проверки покрывают запас, физические количества, массу базы на нулевом шаге,
 начальную энергию, сохранение/загрузку JSON, CLI-переопределения, ограничения ввода,
 параллельное копание при заряжающемся перевозчике, запрос зарядки по бюджету рейса,
