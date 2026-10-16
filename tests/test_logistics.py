@@ -391,3 +391,11 @@ def test_only_carrier_returns_to_hook_when_a_load_becomes_ready():
     assert d.attachment=='CONTAINER_HOOK'
     assert w.inventory.items[f'grabber_{d.serial}'].location==L.BASE_STORAGE
     assert w.inventory.items[f'hook_{d.serial}'].location==L.DRONE_MOUNT
+    # A dedicated digger returns to its original role after urgent cargo duty,
+    # even when opportunistic digging by ordinary carriers is disabled.
+    before=sum(j.kind=='EXCAVATE_DIRECT' for j in w.jobs)
+    for _ in range(150):
+        s.step()
+        if sum(j.kind=='EXCAVATE_DIRECT' for j in w.jobs)>before:break
+    assert d.attachment=='GRABBER' and d.identifier in w.direct_ids
+    assert abs(s.report()['mass_error_kg'])<1e-7 and abs(s.report()['energy_error_j'])<1e-4

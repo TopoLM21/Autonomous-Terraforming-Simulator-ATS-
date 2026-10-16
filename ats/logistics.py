@@ -47,10 +47,12 @@ class Logistics:
         self.group=None
         self.lift_count=0
         self.direct_ids=set()
+        self.dedicated_ids=set()
         self.tool_changes={}
         self.tool_targets={}
         self.idle_since={}
         self.parking=set()
+        self.wait_reasons={}
         self._bus_used=0.
         self._pending_station_energy=0.
         self._solar_ticked=False
@@ -127,6 +129,7 @@ class Logistics:
                 self.inventory.move(f'hook_{d.serial}',L.BASE_STORAGE,'base',sim.base.position,'STORED_READY')
                 self.inventory.move(f'grabber_{d.serial}',L.DRONE_MOUNT,f'drone_{d.serial}',d.position,'INSTALLED')
                 d.attachment='GRABBER';self._tool_mass(d,d.config.equipment.bucket.mass_kg)
+                self.dedicated_ids.add(d.identifier)
         self.inventory.add(Rigging('group_rig',self.config.rigging_mass_kg,
                                    position=tuple(sim.base.position),kind='HEAVY_LIFT_RIG'))
         if self.config.excavator_enabled:
@@ -162,6 +165,12 @@ class Logistics:
                     self.inventory.add(b);self.initial_extra_energy+=b.energy_j
         from .batteries import BatteryService
         self.battery_service=BatteryService(self)
+        self.update_base_mass()
+
+    def update_base_mass(self):
+        self.sim.base.config.mass=self.sim.base.config.equipment.mass+sum(
+            o.gross_mass for o in self.inventory.items.values()
+            if o.holder_id=='base' and o.location in (L.BASE_STORAGE,L.BASE_CHARGER))
 
     def _tool_mass(self, d, tool_mass):
         e=d.config.equipment
@@ -292,7 +301,8 @@ class Logistics:
             e.reason=check['reason']
             if check['reason']=='BLOCKED_INSUFFICIENT_LIFT':s.block(check['reason'])
             else:
-                for d in s.drones:s._request_charge(d,'запас для коллективного подъёма')
+                for d in s.drones:
+                    if d.serial in check['waiting_drones']:s._request_charge(d,'запас для коллективного подъёма')
             return
         self.group=CollectiveLift(self,e.destination.copy(),list(s.drones))
         s.event('Команда зарезервирована: снятие батарей и перенос сухого Крота')
@@ -311,17 +321,35 @@ class Logistics:
     def service_tools(self):
         """Return to an actual pad, then exchange two physical attachments."""
         s=self.sim
-        queued=any(j.status=='QUEUED' for j in self.jobs)
+        pending=sorted((j for j in self.jobs if j.status=='QUEUED'),
+                       key=lambda j:(j.priority-(s.time-j.created_at)/600,j.created_at,j.id))
         relocating=self.excavator is not None and self.excavator.state.value=='WAITING_RELOCATION'
-        if queued or relocating:
+        if relocating:
             for d in s.drones:
                 if self.tool_targets.get(d.identifier)=='GRABBER':self.request_tool(d,'CONTAINER_HOOK')
-        if queued:
-            # Keep a carrier available; recall one digger if all hooks are away.
-            if not any(d.attachment=='CONTAINER_HOOK' for d in s.drones):
-                if not any(target=='CONTAINER_HOOK' for target in self.tool_targets.values()):
-                    candidates=[d for d in s.drones if d.identifier not in self.active]
-                    if candidates:self.request_tool(min(candidates,key=lambda d:(not d.grounded,d.identifier)),'CONTAINER_HOOK')
+        # A charging carrier cannot cover a waiting job. Match actual ready
+        # aircraft (including pending tool exchanges) before recalling diggers.
+        from copy import copy
+        candidates=sorted(s.drones,key=lambda d:(d.attachment!='CONTAINER_HOOK',d.identifier))
+        for d in candidates:
+            if not pending:break
+            if d.charge_requested or d.serial in self.battery_service.drone_swaps:continue
+            if d.identifier in self.active or d.identifier in self.direct_ids:continue
+            if not d.grounded and self.tool_targets.get(d.identifier)!='CONTAINER_HOOK':continue
+            if d.attachment=='GRABBER' and not self.config.idle_digging:
+                if any(o.attachment=='CONTAINER_HOOK' and not o.charge_requested for o in s.drones):continue
+            preview=copy(d);preview.config=copy(d.config);self._tool_mass(preview,2.)
+            job=next((j for j in pending if self.estimate(preview,j)[0]<=d.battery-d.config.battery*d.config.reserve),None)
+            if job is None:continue
+            self.request_tool(d,'CONTAINER_HOOK')
+            pending.remove(job)
+        if pending and not any(d.attachment=='CONTAINER_HOOK' and not d.charge_requested
+                               or self.tool_targets.get(d.identifier)=='CONTAINER_HOOK'
+                               for d in s.drones):
+            # All ready diggers may currently be in flight. Finish one delivery
+            # and bring its hook back instead of waiting for a charging carrier.
+            recall=next((d for d in s.drones if d.identifier in self.direct_ids and not d.charge_requested),None)
+            if recall is not None:self.request_tool(recall,'CONTAINER_HOOK')
         for d in s.drones:
             if d.identifier not in self.tool_targets or d.identifier in self.direct_ids:continue
             if d.charge_requested or s.landing_requested:continue
@@ -375,15 +403,15 @@ class Logistics:
         s=self.sim
         if s.base.destination is not None:return
         if self.excavator is not None and self.excavator.state.value=='WAITING_RELOCATION':return
-        # A standing transport reserve avoids a tool exchange for each new load.
-        queued=any(j.status=='QUEUED' for j in self.jobs)
+        # Transport assignments and necessary tool changes have already been
+        # selected; unrelated queued cargo must not serialize the whole fleet.
         for d in s.drones:
             if (d.identifier in self.active or d.identifier in self.direct_ids or not d.grounded
-                    or d.charge_requested or s.landing_requested or queued):
+                    or d.charge_requested or s.landing_requested):
                 self.idle_since.pop(d.identifier,None);continue
             if d.identifier in self.tool_targets:continue
             if d.attachment!='GRABBER':
-                if not self.config.idle_digging:continue
+                if not self.config.idle_digging and d.identifier not in self.dedicated_ids:continue
                 hooks=sum(o.attachment=='CONTAINER_HOOK' and self.tool_targets.get(o.identifier)!='GRABBER' for o in s.drones)
                 if self.excavator is not None and hooks<=1 and len(s.drones)>1:continue
                 since=self.idle_since.setdefault(d.identifier,s.time)
@@ -392,16 +420,46 @@ class Logistics:
                 from copy import copy
                 preview=copy(d);preview.config=copy(d.config)
                 self._tool_mass(preview,self.inventory.items[f'grabber_{d.serial}'].mass_kg)
-                if s._choose_trip(preview) is None:continue
+                if self.direct_trip(d,preview) is None:continue
                 self.request_tool(d,'GRABBER');continue
-            trip=s._choose_trip(d)
+            trip=self.direct_trip(d)
             if trip is None:continue
-            d.trip=trip;self.direct_ids.add(d.identifier)
+            job_id=f'job_{self._serial+1:05}'
+            resources=[f'grabber_{d.serial}']
+            if not self.inventory.reserve(resources,job_id):
+                self.wait_reasons[d.identifier]='Грейфер занят другим заданием'
+                continue
             self._serial+=1
-            job=TransportJob(f'job_{self._serial:05}','EXCAVATE_DIRECT',[f'grabber_{d.serial}'],
+            job=TransportJob(job_id,'EXCAVATE_DIRECT',resources,
                 trip.dig,trip.dump,5,s.time,status='ACTIVE',executor=d.serial)
-            self.inventory.reserve(job.resource_ids,job.id);self.jobs.append(job)
+            self.jobs.append(job);d.trip=trip;self.direct_ids.add(d.identifier)
             d.transition(DS.TAKEOFF)
+
+    def direct_trip(self, d, preview=None):
+        actor=preview if preview is not None else d
+        trip=self.sim._choose_trip(actor)
+        if trip is None:
+            if self.sim._choose_trip(actor,battery=actor.config.battery) is not None:
+                self.sim._request_charge(d,'недостаточно энергии на грейферный рейс с резервом')
+                if d.docked:d.state=DS.CHARGING
+                else:self.sim._enqueue(d)
+            else:self.wait_reasons[d.identifier]='Нет свободного доступного участка'
+        return trip
+
+    def idle_reason(self, d):
+        if not d.grounded:return ''
+        if d.serial in self.battery_service.drone_swaps:return 'Замена батарей'
+        if d.charge_requested:
+            return 'Зарядка до 100%' if d.docked else 'Очередь к зарядному доку'
+        if d.identifier in self.tool_targets:
+            return 'Смена инструмента' if d.docked else 'Очередь к станции смены инструмента'
+        if self.group is not None:return 'Подготовка совместного переноса'
+        if self.excavator is not None and self.excavator.state.value=='WAITING_RELOCATION':
+            return 'Сбор команды для переноса Крота'
+        if self.sim.landing_requested:return 'Посадка флота запрошена'
+        if self.sim.terrain.remaining<=self.sim.config.terrain.completion_volume:return 'Завершение миссии'
+        if d.identifier in self.active:return ''
+        return self.wait_reasons.get(d.identifier,'Ожидание готового груза' if d.attachment=='CONTAINER_HOOK' else 'Ожидание участка')
 
     def use_station(self, energy):
         b=self.sim.base;s=self.sim
@@ -601,6 +659,7 @@ class Logistics:
 
     def step(self):
         s=self.sim
+        self.wait_reasons.clear()
         self._bus_used=0.
         self._pending_station_energy=0.;self._solar_ticked=False;self._step_curtailed=0.
         before_bus=s.base.consumed+s.base.charging_input+s.base.laser_input
@@ -681,8 +740,7 @@ class Logistics:
             s._terrain_active=s.terrain.relax()>s.config.terrain.avalanche_stop_volume
         s.dust.tick(1.,s.drone.position,0.,1.,False)
         self.sync_batteries()
-        s.base.config.mass=s.base.config.equipment.mass+sum(o.gross_mass for o in self.inventory.items.values()
-            if o.holder_id=='base' and o.location in (L.BASE_STORAGE,L.BASE_CHARGER))
+        self.update_base_mass()
         self.detect_stall()
         if (s.terrain.remaining<=s.config.terrain.completion_volume and not s._terrain_active
                 and not self.active and all(c.soil_kg==0 for c in self.containers)
@@ -760,7 +818,8 @@ class Logistics:
         for row,d in zip(report['drones'],s.drones):
             job=self.active.get(d.identifier)
             row.update(task=job.kind if job else '',attachment=d.attachment,
-                       transport_payload_kg=self.payload_limit(d),battery_ids=list(d.battery_ids))
+                       transport_payload_kg=self.payload_limit(d),battery_ids=list(d.battery_ids),
+                       wait_reason=self.idle_reason(d))
             if d.identifier in self.direct_ids:row['task']='EXCAVATE_DIRECT'
             if d.identifier in self.tool_targets:
                 row['task']='CHANGE_TOOL → '+self.tool_targets[d.identifier]

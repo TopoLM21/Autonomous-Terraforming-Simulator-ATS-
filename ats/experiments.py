@@ -11,8 +11,19 @@ from .plan import PlanConfig,PlanSegment
 
 
 def experiment_config(config, mode='logistics',drones=4,containers=8,ports=4,
-                      battery_modules=None,robot_slots=2,panel_area=None,laser='laser_off',landing_slots=None,idle_digging=True):
+                      battery_modules=None,robot_slots=2,panel_area=None,laser='laser_off',landing_slots=None,idle_digging=True,
+                      drone_spare_sets=None,excavator_spare_batteries=None):
     c=deepcopy(config);resolve_config(c)
+    previous=c.logistics
+    if drone_spare_sets is None:
+        drone_spare_sets=previous.drone_spare_sets if previous else 1
+    if excavator_spare_batteries is None:
+        excavator_spare_batteries=(previous.excavator_battery_count-previous.excavator_battery_slots
+                                   if previous else max(4,robot_slots*2)-robot_slots)
+    for name,value,maximum in [('drone_spare_sets',drone_spare_sets,64),
+                               ('excavator_spare_batteries',excavator_spare_batteries,128)]:
+        if not isinstance(value,int) or isinstance(value,bool) or not 0<=value<=maximum:
+            raise ValueError(f'{name}: integer in 0..{maximum} required')
     models=c.drone_models();c.fleet.count=drones
     c.fleet.models=[deepcopy(models[i%len(models)]) for i in range(drones)]
     for d in c.fleet.models:
@@ -25,7 +36,8 @@ def experiment_config(config, mode='logistics',drones=4,containers=8,ports=4,
             p.area_m2*=factor;p.mass_kg*=factor
     c.logistics=None if mode=='legacy' else LogisticsConfig(direct_allowed=mode=='hybrid',idle_digging=idle_digging,
         container_count=containers,charger_ports=ports,excavator_battery_slots=robot_slots,
-        excavator_battery_count=max(4,robot_slots*2),laser_profile=laser)
+        excavator_battery_count=robot_slots+excavator_spare_batteries,
+        drone_spare_sets=drone_spare_sets,laser_profile=laser)
     c=with_laser_profile(c,laser);c.validate();return c
 
 

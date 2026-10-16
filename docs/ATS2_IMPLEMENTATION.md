@@ -78,9 +78,12 @@ Idle carrier work sharing is enabled by `LogisticsConfig.idle_digging`. After
 and 100 W at a real landing/service pad, with both tool IDs reserved. Ground
 waiting positions are not service stations: aircraft fly to a free pad and
 idle occupants yield occupied pads through an energy-budgeted flight. One hook
-carrier is retained when several drones serve the excavator. If no hooks remain,
-queued cargo recalls one digger after its current soil delivery; it physically
-returns and remounts the hook. Relocation recalls direct sorties. Charging and
+carrier is retained when several drones serve the excavator. Queued demand is matched against ready aircraft; charging carriers do not cover
+waiting jobs. Available diggers may remount their hooks for cargo while the other
+diggers work independently. Queued transport never globally disables excavation.
+If the available diggers are airborne, one can finish its soil delivery and return
+for a physical tool change. In strict hybrid mode, the dedicated digger is retained
+while a non-charging hook carrier is available. Relocation recalls direct sorties. Charging and
 mechanical battery reservations prevent concurrent dispatch. Direct and transport
 jobs cannot own the same aircraft. Disable idle digging for strict historical
 logistics comparisons; `direct_allowed` still controls initially dedicated diggers.
@@ -90,7 +93,12 @@ serializing inventory or historical jobs. Main GUI refresh uses this path; the
 inventory dialog reads items only on its inventory tab, and the dispatcher slices
 the last 200 jobs before formatting. Table cells update in place; user column widths
 and scroll positions persist. The default report remains complete for CLI exports.
-The modeless dialog is reused and its timer stops on close. Mechanical drone swaps
+The modeless dialog is reused and its timer stops on close. Grounded drones report
+the reason for waiting on the map and in their fleet-state tooltip. An unaffordable
+direct sortie requests a full charging cycle even just above the low-SOC threshold;
+this also applies to a preview of a heavier grabber before mounting it. A collective
+lift requests charge only from deficient participants and never interrupts an
+existing request before 100%. A foreign grabber reservation prevents direct launch. Mechanical drone swaps
 have a grounded `SWAPPING_BATTERIES` state, pack IDs, remaining time, and per-aircraft
 counters; removed packs still queue on the finite universal charging ports.
 
@@ -113,6 +121,13 @@ counters; removed packs still queue on the finite universal charging ports.
 | Common rig / cable angle / lift margin | 12 kg / 30° / 1.2 | Model |
 | Container tare / volume / gross | 5 kg / 55 L / 90 kg | Model |
 | Large field | 200 m², mass from panel recipes, 300 s deployment at 200 W | Separate stationary scenario |
+
+Initial spare counts are exposed in the experiment dialog, `experiment_config`,
+and CLI `--drone-spare-sets` / `--excavator-spare-batteries`. Drone reserves count
+complete sets per aircraft; excavator reserves count individual offboard modules.
+Explicit CLI counts override loaded configuration, omitted flags retain saved
+values. Every additional pack has finite mass and initial energy, without a runtime
+energy import. Base mass includes the warehouse before the first physical step.
 
 All settings are in `LogisticsConfig` or existing equipment/configuration classes.
 Internal states use seconds, metres, kilograms, joules and watts; user-facing

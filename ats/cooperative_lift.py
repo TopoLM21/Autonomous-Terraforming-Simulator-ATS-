@@ -11,7 +11,7 @@ def lift_check(excavator, inventory, drones, config, distance=0.):
     mass=excavator.mass(inventory)+config.rigging_mass_kg
     if not drones:return dict(feasible=False,reason='BLOCKED_INSUFFICIENT_LIFT',mass_kg=mass)
     equivalent=mass/(len(drones)*math.cos(math.radians(config.cable_angle_deg)))
-    energies=[]
+    energies=[];waiting=[]
     for d in drones:
         from .equipment import physical_payload_limit
         limit=physical_payload_limit(d)
@@ -20,8 +20,11 @@ def lift_check(excavator, inventory, drones, config, distance=0.):
         seconds=math.ceil(distance/d.config.loaded_speed)+120.
         energy=d.power(moving=True,cargo=equivalent)*seconds*d.config.budget_margin
         energies.append(energy)
-        if d.battery-energy<d.config.battery*d.config.reserve:
-            return dict(feasible=False,reason='WAITING_GROUP_SOC',mass_kg=mass,equivalent_kg=equivalent)
+        if d.charge_requested or d.battery-energy<d.config.battery*d.config.reserve:
+            waiting.append(d.serial)
+    if waiting:
+        return dict(feasible=False,reason='WAITING_GROUP_SOC',mass_kg=mass,equivalent_kg=equivalent,
+                    energies_j=energies,waiting_drones=waiting)
     return dict(feasible=True,reason='',mass_kg=mass,equivalent_kg=equivalent,energies_j=energies)
 
 

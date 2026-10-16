@@ -89,24 +89,38 @@ class LogisticsWindow(QtWidgets.QDialog):
 class ExperimentDialog(QtWidgets.QDialog):
     def __init__(self,parent):
         super().__init__(parent);self.host=parent
-        self.setWindowTitle('ATS 2.0 · Новый эксперимент');self.resize(520,520)
+        self.setWindowTitle('ATS 2.0 · Новый эксперимент');self.resize(620,620)
+        config=parent.config;logistics=config.logistics
         layout=QtWidgets.QFormLayout(self)
         self.mode=QtWidgets.QComboBox();self.mode.addItems(['Старый грейфер','Крот и контейнеры','Смешанная команда'])
         self.mode.setCurrentIndex(2 if parent.config.logistics is not None and parent.config.logistics.direct_allowed else 1)
         self.laser=QtWidgets.QComboBox();self.laser.addItems(['laser_off','existing_legacy','realistic_reference'])
-        self.drones=QtWidgets.QSpinBox();self.drones.setRange(1,6);self.drones.setValue(4)
-        self.containers=QtWidgets.QSpinBox();self.containers.setRange(0,64);self.containers.setValue(8)
-        self.ports=QtWidgets.QSpinBox();self.ports.setRange(1,16);self.ports.setValue(4)
-        self.packs=QtWidgets.QComboBox();self.packs.addItems(['two_batteries','one_battery'])
+        if logistics:self.laser.setCurrentText(logistics.laser_profile)
+        self.drones=QtWidgets.QSpinBox();self.drones.setRange(1,6);self.drones.setValue(config.fleet.count if logistics else 4)
+        self.containers=QtWidgets.QSpinBox();self.containers.setRange(0,64);self.containers.setValue(logistics.container_count if logistics else 8)
+        self.ports=QtWidgets.QSpinBox();self.ports.setRange(1,64);self.ports.setValue(logistics.charger_ports if logistics else 4)
+        self.packs=QtWidgets.QComboBox();self.packs.addItems(['2 установленных модуля','1 установленный модуль'])
+        models=config.drone_models()
+        if models[0].equipment and sum(b.quantity for b in models[0].equipment.batteries)==1:self.packs.setCurrentIndex(1)
+        self.drone_spares=QtWidgets.QSpinBox();self.drone_spares.setRange(0,64)
+        self.drone_spares.setValue(logistics.drone_spare_sets if logistics else 1)
+        self.drone_spares.setToolTip('На каждого дрона. Один запасной комплект содержит столько же модулей, сколько установлено на дроне.')
         self.robot_slots=QtWidgets.QComboBox();self.robot_slots.addItems(['two_slot_krot_160','four_slot_experimental'])
+        if logistics and logistics.excavator_battery_slots==4:self.robot_slots.setCurrentIndex(1)
+        self.robot_spares=QtWidgets.QSpinBox();self.robot_spares.setRange(0,128)
+        self.robot_spares.setValue(logistics.excavator_battery_count-logistics.excavator_battery_slots if logistics else 2)
+        self.robot_spares.setToolTip('Только запасные модули на складе; установленные батареи Крота считаются отдельно.')
         self.idle_digging=QtWidgets.QCheckBox('Свободные транспортные дроны копают')
         self.idle_digging.setChecked(parent.config.logistics.idle_digging if parent.config.logistics else True)
         layout.addRow(self.idle_digging)
         self.solar=QtWidgets.QComboBox();self.solar.addItems(['20 м² · исходная база','200 м² · solar_field_large'])
+        if logistics and config.base.panel_area>=200:self.solar.setCurrentIndex(1)
         for label,widget in [('Режим',self.mode),('Лазер',self.laser),('Дроны',self.drones),('Контейнеры',self.containers),
-                             ('Зарядные порты модулей',self.ports),('Батареи дрона',self.packs),('Слоты Крота',self.robot_slots),('Панели',self.solar)]:
+                             ('Зарядные порты модулей',self.ports),('Батареи на дроне',self.packs),
+                             ('Запасных комплектов на дрона',self.drone_spares),('Слоты Крота',self.robot_slots),
+                             ('Запасных модулей Крота',self.robot_spares),('Панели',self.solar)]:
             layout.addRow(label,widget)
-        note=QtWidgets.QLabel('Создаёт новый прогон с текущими настройками рельефа и проекта.\nПараметры Крота и наземного лазера — модельные допущения.\nБольшое поле имеет дополнительную массу и время развёртывания.')
+        note=QtWidgets.QLabel('Создаёт новый прогон с текущими настройками рельефа и проекта.\nЗапасные батареи начинают на складе заряженными; их масса и начальная энергия учитываются в балансе.\nПараметры Крота и наземного лазера — модельные допущения.\nБольшое поле имеет дополнительную массу и время развёртывания.')
         note.setWordWrap(True);layout.addRow(note)
         button=QtWidgets.QPushButton('Начать новый эксперимент');button.clicked.connect(self.apply);layout.addRow(button)
         save=QtWidgets.QPushButton('Сохранить конфигурацию');save.clicked.connect(self.save);layout.addRow(save)
@@ -118,7 +132,8 @@ class ExperimentDialog(QtWidgets.QDialog):
             drones=self.drones.value(),containers=self.containers.value(),ports=self.ports.value(),
             battery_modules=2-self.packs.currentIndex(),robot_slots=2 if self.robot_slots.currentIndex()==0 else 4,
             panel_area=20 if self.solar.currentIndex()==0 else 200,laser=self.laser.currentText(),
-            idle_digging=self.idle_digging.isChecked())
+            idle_digging=self.idle_digging.isChecked(),drone_spare_sets=self.drone_spares.value(),
+            excavator_spare_batteries=self.robot_spares.value())
 
     def apply(self):
         try:self.host.replace_simulation(self.candidate());self.accept()

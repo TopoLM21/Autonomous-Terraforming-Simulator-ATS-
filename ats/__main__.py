@@ -29,6 +29,10 @@ def main():
     parser.add_argument('--mode',choices=('legacy','logistics','hybrid'),default='legacy')
     parser.add_argument('--containers',type=int,default=8)
     parser.add_argument('--battery-modules',type=int,choices=(1,2),help='Explicit drone battery variant; otherwise preserve equipment')
+    parser.add_argument('--drone-spare-sets',type=int,
+                        help='Initial spare battery sets per drone, 0..64; one set matches its installed modules')
+    parser.add_argument('--excavator-spare-batteries',type=int,
+                        help='Initial spare Krot battery modules, 0..128; installed modules are additional')
     parser.add_argument('--module-charge-ports',type=int,default=4)
     parser.add_argument('--laser-profile',choices=('laser_off','existing_legacy','realistic_reference'))
     parser.add_argument('--configuration',help='Load version 2 experiment JSON')
@@ -69,6 +73,16 @@ def main():
         if args.configuration:
             from .experiments import load_configuration
             config=load_configuration(args.configuration)
+        # Apply explicit inventory overrides after loading. Omitting these flags
+        # preserves the saved physical inventory rather than replacing defaults.
+        for flag,maximum in [('drone_spare_sets',64),('excavator_spare_batteries',128)]:
+            value=getattr(args,flag)
+            if value is not None:
+                if not 0<=value<=maximum:raise ValueError(f'--{flag.replace("_","-")}: 0..{maximum} required')
+                if config.logistics is None:raise ValueError('Spare battery inventory requires --mode logistics or a logistics configuration')
+        if args.drone_spare_sets is not None:config.logistics.drone_spare_sets=args.drone_spare_sets
+        if args.excavator_spare_batteries is not None:
+            config.logistics.excavator_battery_count=config.logistics.excavator_battery_slots+args.excavator_spare_batteries
         if args.no_idle_digging and config.logistics is not None:config.logistics.idle_digging=False
         if args.save_configuration:
             from .experiments import save_configuration
