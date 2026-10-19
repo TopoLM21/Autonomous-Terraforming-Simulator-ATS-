@@ -45,7 +45,18 @@ python -m ats --mode logistics --module-charge-mode shared --module-charge-ports
 
 **191 тест прошёл за 145,16 с**: Linux, Python 3.12.14, NumPy 2.5.4,
 PySide6-Essentials 6.12.0. [JUnit](ats2/charging-map-tests-312.xml).
-Проверки GitHub Actions на Windows/Ubuntu для этого изменения пока не запускались.
+GitHub Actions также прошёл на **Windows и Ubuntu / Python 3.11 и 3.12**:
+по **191 тесту**, затем старый CLI и два режима логистики с проверкой балансов,
+ID слотов и реальных замен батарей. Код `86543ff6b6f58a9dc671f6f9760b37def650b751`.
+[Запуск CI](https://github.com/TopoLM21/Autonomous-Terraforming-Simulator-ATS-/actions/runs/39254804835),
+[протокол](ats2/charging-map-ci-results.json).
+
+| Окружение | Тесты | Время тестов, с |
+| --- | ---: | ---: |
+| Windows, Python 3.12 | 191 passed | 100,25 |
+| Windows, Python 3.11 | 191 passed | 151,29 |
+| Ubuntu, Python 3.12 | 191 passed | 205,05 |
+| Ubuntu, Python 3.11 | 191 passed | 197,29 |
 
 Новые проверки покрывают:
 
