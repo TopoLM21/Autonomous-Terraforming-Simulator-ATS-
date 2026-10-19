@@ -84,6 +84,21 @@ sim.set_panel_area(100)
 
 **215 тестов прошли за 174,60 с** на Linux / Python 3.12.14 / PySide6-Essentials
 6.12.0. [JUnit](ats2/primary-strategy-tests-312.xml).
+
+GitHub Actions прошёл на **Ubuntu и Windows с Python 3.11 и 3.12**:
+в каждом задании **215 тестов**, затем прежний CLI, запуск ATS 2.0 по умолчанию
+и строгая логистика с реальными заменами батарей и проверкой балансов.
+Код `4a6e1ee0f2132de38a968c1bb945f347f2ef061d`.
+[CI](https://github.com/TopoLM21/Autonomous-Terraforming-Simulator-ATS-/actions/runs/39264643893),
+[протокол](ats2/primary-strategy-ci-results.json).
+
+| Окружение | Тесты | Время, с |
+| --- | ---: | ---: |
+| Ubuntu, Python 3.12 | 215 passed | 145,55 |
+| Ubuntu, Python 3.11 | 215 passed | 202,72 |
+| Windows, Python 3.12 | 215 passed | 222,22 |
+| Windows, Python 3.11 | 215 passed | 217,50 |
+
 Набор включает 24 новые проверки: запуск по умолчанию,
 четыре работающих копателя до порога, ровно один курьер при 6/8 и SOC <10%,
 реальные смены инструмента и батарей, возврат к копанию, завершение неполной партии,

@@ -1,0 +1,244 @@
+{
+  "date": "2026-10-19",
+  "source_commit": "4a6e1ee0f2132de38a968c1bb945f347f2ef061d",
+  "run_id": 39264643893,
+  "run_url": "https://github.com/TopoLM21/Autonomous-Terraforming-Simulator-ATS-/actions/runs/39264643893",
+  "jobs": [
+    {
+      "id": 118100929463,
+      "name": "test (ubuntu-latest, 3.12)",
+      "conclusion": "success",
+      "tests": {
+        "passed": 215,
+        "seconds": 145.55
+      },
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install Qt runtime libraries on Ubuntu",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python -m pip install -e \".[test]\"",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python -m pytest -q",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python -m ats --headless --mode legacy --steps 10000 --seed 42",
+          "conclusion": "success"
+        },
+        {
+          "name": "ATS 2.0 logistics smoke test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-python@v5",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 118100928834,
+      "name": "test (windows-latest, 3.12)",
+      "conclusion": "success",
+      "tests": {
+        "passed": 215,
+        "seconds": 222.22
+      },
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install Qt runtime libraries on Ubuntu",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Run python -m pip install -e \".[test]\"",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python -m pytest -q",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python -m ats --headless --mode legacy --steps 10000 --seed 42",
+          "conclusion": "success"
+        },
+        {
+          "name": "ATS 2.0 logistics smoke test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-python@v5",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 118100929247,
+      "name": "test (ubuntu-latest, 3.11)",
+      "conclusion": "success",
+      "tests": {
+        "passed": 215,
+        "seconds": 202.72
+      },
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install Qt runtime libraries on Ubuntu",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python -m pip install -e \".[test]\"",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python -m pytest -q",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python -m ats --headless --mode legacy --steps 10000 --seed 42",
+          "conclusion": "success"
+        },
+        {
+          "name": "ATS 2.0 logistics smoke test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-python@v5",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 118100929331,
+      "name": "test (windows-latest, 3.11)",
+      "conclusion": "success",
+      "tests": {
+        "passed": 215,
+        "seconds": 217.5
+      },
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install Qt runtime libraries on Ubuntu",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Run python -m pip install -e \".[test]\"",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python -m pytest -q",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python -m ats --headless --mode legacy --steps 10000 --seed 42",
+          "conclusion": "success"
+        },
+        {
+          "name": "ATS 2.0 logistics smoke test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-python@v5",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ]
+}
