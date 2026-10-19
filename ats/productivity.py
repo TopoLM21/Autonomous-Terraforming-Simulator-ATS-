@@ -14,7 +14,8 @@ class Productivity:
         if mass<=0:return
         volume=mass/density
         row=self.days.setdefault(day,{"mass_kg":0.,"volume_m3":0.,"fill_mass_kg":0.,"dump_mass_kg":0.,"deliveries":0})
-        row["mass_kg"]+=mass;row["volume_m3"]+=volume;row[destination+"_mass_kg"]+=mass;row["deliveries"]+=1
+        row["mass_kg"]+=mass;row["volume_m3"]+=volume
+        key=destination+"_mass_kg";row[key]=row.get(key,0.)+mass;row["deliveries"]+=1
         self.recent.append((time,mass,volume));self.total_mass+=mass;self.total_volume+=volume
         while self.recent and self.recent[0][0]<=time-86400:self.recent.popleft()
 

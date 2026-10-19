@@ -32,6 +32,7 @@ jobs:
           python -m ats --headless --drones 4 --steps 20000 --json ats2-ci.json > ats2-ci-stdout.json
           python -c "import json; r=json.load(open('ats2-ci.json',encoding='utf-8')); assert r['state']=='COMPLETED'; assert len({j['executor'] for j in r['jobs'] if j['kind']=='EXCAVATE_DIRECT'})>=2; assert abs(r['mass_error_kg'])<1e-7; assert abs(r['energy_error_j'])<0.002"
           python -c "import json; r=json.load(open('ats2-ci.json',encoding='utf-8')); s=r['battery_service']; assert r['map_side_m']==64; assert s['mode']=='individual'; assert s['capacity']==len(s['slots']); assert len({p['module_id'] for p in s['slots']})==s['capacity']; assert all(p['input_power_w']<=p['rated_w']+1e-7 for p in s['slots'])"
+          python -c "import json; r=json.load(open('ats2-ci.json',encoding='utf-8')); e=r['excavator']; assert all(d['activity']['total_seconds']==r['time_seconds'] for d in r['drones']); assert e['activity']['total_seconds']==r['time_seconds']; assert abs(sum(d['mass_kg'] for d in e['daily_excavation'])-e['excavated_kg'])<1e-7"
           python -m ats --headless --mode logistics --no-idle-digging --steps 20000 --json ats2-strict-ci.json > ats2-strict-stdout.json
           python -c "import json; r=json.load(open('ats2-strict-ci.json',encoding='utf-8')); assert r['state']=='COMPLETED'; assert r['excavator']['swaps']>=1; assert r['battery_service']['drone_swap_count']>=1; assert abs(r['mass_error_kg'])<1e-7; assert abs(r['energy_error_j'])<0.002"
       - uses: actions/upload-artifact@v4

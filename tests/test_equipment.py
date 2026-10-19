@@ -52,8 +52,8 @@ def test_live_base_inventory_preserves_simulation_while_drone_flies():
     np.testing.assert_array_equal(height,s.terrain.height);np.testing.assert_array_equal(target,s.terrain.target)
     np.testing.assert_array_equal(position,s.drone.position);np.testing.assert_array_equal(pad,s.slot_position(0))
     assert s.base.battery==battery and s.drone.battery==drone_battery
-    assert s.config.base.battery==35*KWH and s.config.base.panel_area==30
-    assert s.config.base.mass==1110  # 50 battery + 40 panels + 20 pad
+    assert s.config.base.battery==35*KWH and s.config.base.panel_area==25
+    assert s.config.base.mass==1090  # 50 battery + five 4 kg panels + 20 pad
     s.step();assert s.base.generated>generated
     balanced(s)
 

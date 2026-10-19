@@ -734,6 +734,7 @@ class Simulation:
             return
         if self.logistics is not None:
             self.logistics.step()
+            self.record_activities(dt)
             return
         self._starts = {d.identifier:d.position.copy() for d in self.drones}
         moving = self.base.destination is not None
@@ -784,6 +785,7 @@ class Simulation:
                 self.dust.emit(dt,d.position,d.position[2]-self.terrain.sample(*d.position[:2]),d.power()/d.config.hover_power)
             self._finish_or_block()
         self.time += dt
+        self.record_activities(dt)
         if self.pending_equipment is not None and self.base.destination is None and all(d.grounded and d.cargo==0 for d in self.drones):
             try:self._install_equipment(self.pending_equipment)
             except ValueError as error:
@@ -795,6 +797,15 @@ class Simulation:
                 break
             self.step()
         return self.report()
+
+    def record_activities(self, dt):
+        from .activity import drone_activity,excavator_activity
+        start=self.config.start_hour*3600+self.time-dt
+        for drone in self.drones:
+            drone.activity.record(drone_activity(drone,self.logistics),start,dt)
+        if self.logistics is not None and self.logistics.excavator is not None:
+            robot=self.logistics.excavator
+            robot.activity.record(excavator_activity(robot),start,dt)
 
     def report(self, *, full=True):
         t,b = self.terrain,self.base
@@ -810,11 +821,13 @@ class Simulation:
             drone_rows.append({"id":d.identifier+1,"name":d.config.name,"state":d.state.value,"position":d.position.tolist(),"battery_kwh":d.battery/KWH,"battery_percent":100*d.battery/d.config.battery,"capacity_kwh":d.config.battery/KWH,"cargo_kg":d.cargo,"payload_kg":d.config.payload,"empty_mass_kg":d.config.empty_mass,"trips":d.trips,"excavated_mass_kg":d.excavated_mass,"consumed_kwh":d.consumed/KWH,"waiting_seconds":d.waiting_seconds,"charging_seconds":d.charging_seconds,"traffic_yields":d.traffic_yields,"slot":d.slot+1 if d.slot is not None else None,"minimum_kwh":d.minimum_charge/KWH,"cable_length_m":d.cable_length(t.sample(*d.position[:2]))})
             drone_rows[-1].update(charge_threshold_percent=100*d.config.charge_threshold,charge_requested=d.charge_requested,charge_cycles=d.charge_cycles,filled_mass_kg=d.filled_mass,reclaimed_mass_kg=d.reclaimed_mass)
             drone_rows[-1].update(serial=d.serial,created_at_seconds=d.created_at,equipment=d.config.equipment.breakdown(),**d.productivity.report(self.time,int((self.config.start_hour*3600+self.time)//86400)))
+            drone_rows[-1]['activity']=d.activity.report()
             drone_rows[-1].update(laser_received_kwh=d.laser_received/KWH,laser_power_w=d.laser_power_w,laser_status=d.laser_status,flight_power_w=d.last_flight_power_w,airborne_seconds=d.airborne_seconds,current_flight_seconds=d.flight_seconds,last_flight_seconds=d.last_flight_seconds,longest_flight_seconds=d.longest_flight_seconds)
         extra = {"remaining_cut_m3":t.remaining_cut,"remaining_fill_m3":t.remaining_fill,"stockpile_m3":t.stockpile_volume,"filled_mass_kg":self.filled_mass,"filled_m3":self.filled_mass/self.config.terrain.density,"plan_segments":len(self.config.plan.segments) if self.config.plan is not None else 1,"landing_requested":self.landing_requested}
         extra.update(map_side_m=t.cell*t.height.shape[0],grid_cells=t.height.shape[0],cell_size_m=t.cell)
         extra.update(base_equipment=b.config.equipment.breakdown(),equipment_imported_kwh=self.equipment_imported_energy/KWH,equipment_exported_kwh=self.equipment_exported_energy/KWH,equipment_pending=self.pending_equipment is not None,laser_transfer_enabled=True,retired_drones=[{"serial":d.serial,"name":d.config.name,"created_at_seconds":d.created_at,"retired_at_seconds":d.retired_at,"consumed_kwh":d.consumed/KWH,"laser_received_kwh":d.laser_received/KWH,"airborne_seconds":d.airborne_seconds,"longest_flight_seconds":d.longest_flight_seconds,**d.productivity.report(self.time,int((self.config.start_hour*3600+self.time)//86400))} for d in self.retired_drones])
         extra.update(lasers=[link.report() for link in self.laser_links],laser_input_power_w=b.laser_input_power,laser_received_power_w=sum(d.laser_power_w for d in self.drones),laser_input_kwh=b.laser_input/KWH,laser_received_kwh=sum(d.laser_received for d in self.drones+self.retired_drones)/KWH,laser_losses_kwh=b.laser_losses/KWH)
         extra['laser_receiver_heat_kwh']=sum(d.receiver_heat_j for d in self.drones+self.retired_drones)/KWH
+        for row,drone in zip(extra['retired_drones'],self.retired_drones):row['activity']=drone.activity.report()
         result = {**extra,"state":self.state.value,"reason":self.reason,"time_seconds":self.time,"elapsed_display":elapsed_text(self.time),"solar_clock":self.clock_text,"date":self.date_text,"day_of_year":self.day_of_year,"latitude_deg":b.config.latitude_deg,"base_mass_kg":b.config.mass,"panel_area_m2":b.config.panel_area,"irradiance_w_m2":sun.irradiance,"sun_elevation_deg":sun.elevation_deg,"daylight_hours":sun.daylight_hours,"sunrise_hour":sun.sunrise_hour,"sunset_hour":sun.sunset_hour,"base_motion_power_w":b.motion_power(self.drones) if b.destination is not None else 0.0,"cable_length_m":drone_rows[0]["cable_length_m"],"hour":self.hour,"trips":self.trips,"relocations":b.relocations,"initial_excavation_m3":t.initial_excavation,"remaining_m3":remaining,"completion_percent":max(0,min(100,100*(1-remaining/max(t.initial_excavation,1e-12)))),"excavated_m3":self.excavated_mass/self.config.terrain.density,"excavated_mass_kg":self.excavated_mass,"cargo_kg":cargo,"drone_state":self.drone.state.value,"base_state":b.state.value,"drone_kwh":batteries/KWH,"base_kwh":b.battery/KWH,"solar_power_w":b.solar_power,"solar_generated_kwh":b.generated/KWH,"solar_curtailed_kwh":b.curtailed/KWH,"consumed_kwh":(consumed+b.consumed)/KWH,"charging_losses_kwh":b.charging_losses/KWH,"mass_error_kg":ground_error,"energy_error_j":energy_error,"minimum_drone_kwh":min(d.minimum_charge/KWH for d in self.drones),"initial_energy_kwh":self._initial_energy/KWH,"drone_count":len(self.drones),"charge_slots":len(self.slots),"slot_occupants":[v+1 if v is not None else None for v in self.slots],"queue":[i+1 for i in self.queue],"wait_mode":self.config.fleet.wait_mode,"drones":drone_rows}
         return self.logistics.update_report(result, full=full) if self.logistics is not None else result

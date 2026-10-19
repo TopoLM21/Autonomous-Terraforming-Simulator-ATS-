@@ -31,12 +31,16 @@ def set_panel_area(equipment, area, efficiency=.20):
     previous=equipment.panel_area
     if area==0:
         equipment.panels=[]
+    elif len(equipment.panels)==1 and abs(area/equipment.panels[0].area_m2-round(area/equipment.panels[0].area_m2))<1e-8 and 1<=round(area/equipment.panels[0].area_m2)<=1000:
+        # Whole standard panels change in count, retaining their physical size.
+        equipment.panels[0].quantity=round(area/equipment.panels[0].area_m2)
     elif previous>0:
         factor=area/previous
         for panel in equipment.panels:
             panel.area_m2*=factor;panel.mass_kg*=factor
     else:
-        equipment.panels=[PanelModule(quantity=1,area_m2=area,mass_kg=area*4,efficiency=efficiency or .20)]
+        count=round(area) if abs(area-round(area))<1e-8 and 1<=round(area)<=1000 else 1
+        equipment.panels=[PanelModule(quantity=count,area_m2=area/count,mass_kg=area*4/count,efficiency=efficiency or .20)]
 
 
 @dataclass
@@ -54,9 +58,9 @@ class BatteryModule:
 @dataclass
 class PanelModule:
     name: str="Солнечная панель"
-    quantity: int=10
-    area_m2: float=2.0
-    mass_kg: float=8.0
+    quantity: int=20
+    area_m2: float=1.0
+    mass_kg: float=4.0
     efficiency: float=.20
 
     def validate(self):
@@ -166,7 +170,7 @@ class BaseEquipment:
     def from_legacy(cls,b,slots=1):
         battery_count=max(1,math.ceil(b.battery/KWH/5)) if b.battery else 0
         batteries=[BatteryModule(quantity=battery_count,capacity_kwh=b.battery/KWH/battery_count,mass_kg=b.battery/KWH*10/battery_count)] if battery_count else []
-        panel_count=max(1,math.ceil(b.panel_area/2)) if b.panel_area else 0
+        panel_count=max(1,math.ceil(b.panel_area)) if b.panel_area else 0
         panels=[PanelModule(quantity=panel_count,area_m2=b.panel_area/panel_count,mass_kg=b.panel_area*4/panel_count,efficiency=b.panel_efficiency)] if panel_count else []
         chassis=b.mass-sum(v.quantity*v.mass_kg for v in batteries+panels)-20-15
         return cls(chassis,batteries,panels,slots,20,15,b.charge_power/1000,b.charge_efficiency)

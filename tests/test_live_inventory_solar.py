@@ -136,6 +136,7 @@ def test_real_gui_controls_apply_panels_and_deliver_batteries_without_reset():
     assert w.sim is original and w.sim.time==time and w.running
     assert w.sim.base.config.panel_area==73.5
     view=LogisticsWindow(w);view.timer.stop();view.tabs.setCurrentIndex(1)
+    view.show_inventory_details.setChecked(True);view.detail_scope.setCurrentIndex(1)
     count=len(original.logistics.inventory.items)
     view.delivery_count.setValue(2);view.delivery_soc.setValue(25);view.replenish_button.click()
     assert w.sim is original and original.time==time and w.running

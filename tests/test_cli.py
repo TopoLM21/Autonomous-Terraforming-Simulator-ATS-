@@ -22,7 +22,7 @@ def test_equipment_profile_cli_uses_inventory_and_reports_production(tmp_path):
     from ats.simulation import Simulation
     from ats.equipment import equipment_data
     s=Simulation();c=s.config
-    c.base.equipment.panels[0].quantity=15
+    c.base.equipment.panels[0].quantity=30
     c.fleet.models[0].equipment.bucket.volume_m3=.075
     path=tmp_path/'equipment.json';path.write_text(json.dumps(equipment_data(c)),encoding='utf-8')
     result=subprocess.run([sys.executable,'-m','ats','--headless','--mode','legacy','--equipment',str(path),'--steps','500'],capture_output=True,check=True)

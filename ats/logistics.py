@@ -947,7 +947,8 @@ class Logistics:
                          if b.location not in (L.DRONE_MOUNT,L.BASE_MOUNT))
         if self.excavator is not None:
             extra_energy+=self.excavator.buffer_j+self.excavator.consumed_j
-            report['excavator']=self.excavator.report(self.inventory)
+            report['excavator']=self.excavator.report(self.inventory,s.time,
+                int((s.config.start_hour*3600+s.time)//86400),s.config.terrain.density)
             report['consumed_kwh']+=self.excavator.consumed_j/KWH
         report['energy_error_j']+=extra_energy-self.initial_extra_energy
         report['initial_energy_kwh']+=self.initial_extra_energy/KWH

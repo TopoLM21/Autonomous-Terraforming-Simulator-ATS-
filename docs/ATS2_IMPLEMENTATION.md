@@ -178,6 +178,38 @@ capacity inputs marked kWh are converted into joules on instantiation.
 
 ## Field extent and camera
 
+Equipment setup defaults to quantity controls. `ModuleQuantities` and the detailed
+`ModuleTable` share the same recipes; neither opening nor hiding details merges
+types or resets hidden fields. Fresh panels use 1 m² / 4 kg, keeping the original
+20 m² / 80 kg total. Saved recipes retain their own unit specifications. A whole
+number of panels of one type changes quantity when area is edited. The fleet is
+one overview plus a selected-drone card. ATS 2.0 exposes a separate explicit new-run
+action for changes outside its supported live hardware/control edits.
+
+`Inventory.grouped` partitions instances by kind, battery compatibility/capacity,
+SOC and location scope. Aggregate counts, reservations, free storage, mass, soil
+and energy are computed directly from instances. Group membership never changes
+ownership. The default inventory view does not serialize or build all instance
+rows; selected/all instance detail remains available on demand.
+
+Each drone and the Krot has `ActivityStats`: one exclusive state-derived activity
+per fixed step, with an exact split of midnight-crossing intervals. Paused/blocked
+calls add no time; retired drone history remains available. These are end-of-step
+state samples, not subsecond actuator measurements. Drone digging includes the
+whole digging sortie; charging includes time in charging mode awaiting source
+power. The Krot records actual scoop mass into daily/24-hour productivity at the
+same point where terrain mass leaves the heightfield. Its excavation statistics
+are distinct from subsequent drone transport statistics.
+
+GUI pacing now separates computation frequency from refresh frequency. Fast
+compute batches use a 30 ms budget and can run back-to-back; refresh is limited
+to approximately 10 Hz at 200× and 5 Hz at 1000×/2000×. All operations remain on
+the Qt thread between fixed physical steps, avoiding concurrent world edits.
+Displayed target speed is accompanied by measured simulation seconds per real
+second. No time or physics step is skipped to meet a target. The engine remains
+sequential; whole-machine CPU percentage does not measure saturation of its
+single calculation thread. Measurements: `ATS2_COMPACT_UI_VALIDATION.md`.
+
 Fresh CLI/GUI launches use a 64 m square; `--map-size` and new-scenario controls
 accept 32–256 m at unchanged SI coordinates and cell size. With the original
 0.25 m resolution this is 128–1024 cells per side. `Config()` and loaded files

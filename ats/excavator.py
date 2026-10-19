@@ -5,6 +5,8 @@ import math
 import numpy as np
 from .inventory import BatteryModule, SoilContainer, Location as L
 from .config import KWH
+from .activity import ActivityStats
+from .productivity import Productivity
 
 
 class ExcavatorState(str, Enum):
@@ -48,6 +50,8 @@ class Excavator:
     cycles: int = 0
     swaps: int = 0
     relocations: int = 0
+    activity: ActivityStats = field(default_factory=ActivityStats)
+    productivity: Productivity = field(default_factory=Productivity)
 
     def batteries(self, inventory):
         return [inventory.items[id] for id in self.battery_ids]
@@ -251,13 +255,20 @@ class Excavator:
             self.bucket_kg=t.scoop(*self.target,max_mass,radius=.5,
                 allowed_mask=self.reachable_mask(t,inv),minimum_height=self.position[2]-c.local_depth_m)
             self.excavated_kg+=self.bucket_kg;s.excavated_mass+=self.bucket_kg
+            self.productivity.record(s.time,int((s.config.start_hour*3600+s.time)//86400),
+                                     self.bucket_kg,s.config.terrain.density,'excavated')
             s._terrain_active=True
             s.dust.emit(1.,self.position,0.,.15)
             if self.bucket_kg<=1e-8:
                 inv.release('excavator_cycle');self.active_container=None;self.elapsed=0.
 
-    def report(self, inv):
+    def report(self, inv, time=0.,day=0,density=1600.):
+        production=self.productivity.report(time,day)
         return dict(state=self.state.value,position=self.position.tolist(),reason=self.reason,
+                    excavated_m3=self.excavated_kg/density,activity=self.activity.report(),
+                    today_excavated_kg=production['today_mass_kg'],today_excavated_m3=production['today_volume_m3'],
+                    last24_excavated_kg=production['last24_mass_kg'],last24_excavated_m3=production['last24_volume_m3'],
+                    daily_excavation=production['daily'],
                     battery_ids=list(self.battery_ids),energy_kwh=self.energy(inv)/KWH,
                     capacity_kwh=self.capacity(inv)/KWH,buffer_kwh=self.buffer_j/KWH,
                     buffer_charge_losses_kwh=self.buffer_charge_losses_j/KWH,

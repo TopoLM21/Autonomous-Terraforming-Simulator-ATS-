@@ -152,3 +152,37 @@ class Inventory:
     def snapshot(self):
         return [dict(asdict(o), type=type(o).__name__, gross_mass_kg=o.gross_mass)
                 for o in self.items.values()]
+
+    def grouped(self, query=''):
+        """Read-only overview; all instances belong to exactly one group."""
+        query=query.casefold().strip();groups={}
+        names={'GRABBER':'Грейферы / ковши','CONTAINER_HOOK':'Контейнерные подвесы','HOIST':'Лебёдки',
+               'HEAVY_LIFT_RIG':'Стропа коллективного подъёма','MODULE_CHARGING_SLOT':'Зарядные слоты модулей',
+               'SOLAR_PANEL':'Солнечные панели','LANDING_PAD':'Посадочные места','CHASSIS':'Шасси базы',
+               'CHARGER_AND_AUTOMATION':'Зарядное оборудование','LASER_TRANSMITTER':'Передатчики лазера',
+               'LASER_RECEIVER':'Приёмники лазера'}
+        for item in self.items.values():
+            scope=('На складе / зарядке' if item.location in (Location.BASE_STORAGE,Location.BASE_CHARGER) else
+                   'Установлены' if item.location in (Location.BASE_MOUNT,Location.DRONE_MOUNT,Location.EXCAVATOR_SLOT) else
+                   'На участке / в пути')
+            status='';unit=''
+            if isinstance(item,BatteryModule):
+                name='Аккумуляторы базы' if item.compatibility=='base' else 'Батареи Крота' if item.compatibility=='excavator' else 'Батареи дронов'
+                status='Полные' if item.soc>=1-1e-6 else 'Разряженные (≤10%)' if item.soc<=.1 else 'Частично заряженные'
+                unit=f'{item.capacity_j/3600000:g} кВт·ч / {item.mass_kg:g} кг'
+                kind=(item.compatibility,item.capacity_j,item.mass_kg)
+            elif isinstance(item,SoilContainer):
+                name='Ёмкости';kind='container'
+                status='Пустые' if item.soil_kg<=1e-8 else 'Заполненные' if item.location==Location.FILLED_QUEUE or item.state=='FULL_IN_TRANSIT' else 'С грунтом'
+            else:name=names.get(item.kind,item.kind);kind=item.kind
+            label=' · '.join(part for part in (name,status,scope,unit) if part)
+            searchable=f'{label} {item.id} {type(item).__name__} {item.location.value} {item.state} {item.holder_id} {item.reserved_by or ""}'
+            if query and query not in searchable.casefold():continue
+            key=(kind,status,scope)
+            row=groups.setdefault(key,dict(key=key,label=label,count=0,available=0,reserved=0,mass_kg=0.,soil_kg=0.,energy_j=0.,member_ids=[]))
+            row['count']+=1;row['reserved']+=bool(item.reserved_by);row['mass_kg']+=item.gross_mass
+            row['available']+=bool(item.location==Location.BASE_STORAGE and not item.reserved_by
+                and (not isinstance(item,BatteryModule) or item.soc>=1-1e-6))
+            row['soil_kg']+=getattr(item,'soil_kg',0.);row['energy_j']+=getattr(item,'energy_j',0.)
+            row['member_ids'].append(item.id)
+        return sorted(groups.values(),key=lambda row:row['label'])

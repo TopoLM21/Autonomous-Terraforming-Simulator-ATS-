@@ -65,7 +65,7 @@ def test_equipment_editor_live_apply_and_daily_history():
     w=MainWindow(Config());w.timer.stop();w.sim.run(90);w.refresh(True)
     sim=w.sim;time=sim.time;height=sim.terrain.height.copy();logs=w.log.toPlainText()
     dialog=EquipmentDialog(w.config,w)
-    dialog.base.panels.table.item(0,1).setText('15');dialog.base.slots.setValue(2)
+    dialog.base.panels.table.item(0,1).setText('30');dialog.base.slots.setValue(2)
     dialog.buttons.button(QtWidgets.QDialogButtonBox.StandardButton.Ok).click()
     assert dialog.result()==QtWidgets.QDialog.DialogCode.Accepted
     assert w.apply_equipment(dialog.result_config)=='applied'
@@ -204,6 +204,7 @@ def test_logistics_inventory_and_experiments_ui(tmp_path):
     assert Simulation(c).run(50)==Simulation(clone).run(50)
     w=MainWindow(clone);w.timer.stop();w.sim.run(90);w.refresh(True)
     view=LogisticsWindow(w);view.timer.stop();view.tabs.setCurrentIndex(1);view.refresh()
+    view.show_inventory_details.setChecked(True);view.detail_scope.setCurrentIndex(1)
     assert view.inventory.rowCount()==len(w.sim.logistics.inventory.items)
     view.tabs.setCurrentIndex(2)
     assert view.jobs.rowCount()>0 and 'Крот:' in view.status.text()
@@ -240,6 +241,7 @@ def test_inventory_refresh_does_not_walk_archive_and_dialog_is_reused():
     w.sim.logistics.jobs=Archive([job]*100000)
     w.refresh();w.show_logistics();view=w.logistics_window
     view.tabs.setCurrentIndex(1);app.processEvents()
+    view.show_inventory_details.setChecked(True);view.detail_scope.setCurrentIndex(1)
     assert view.inventory.rowCount()==len(w.sim.logistics.inventory.items)
     original=view.inventory.item(0,0)
     view.refresh()

@@ -22,12 +22,30 @@ class LogisticsWindow(QtWidgets.QDialog):
         box.addWidget(QtWidgets.QLabel('Внешняя поставка без сброса времени: масса, энергия и индивидуальные зарядные слоты учитываются.'))
         self._battery_world=None
         self.filter=QtWidgets.QLineEdit();self.filter.setPlaceholderText('Фильтр: ID, место, состояние, исполнитель');box.addWidget(self.filter)
+        self.inventory_totals=QtWidgets.QLabel();box.addWidget(self.inventory_totals)
+        self.inventory_groups=QtWidgets.QTableWidget(0,7);box.addWidget(self.inventory_groups,1)
+        self.inventory_groups.setHorizontalHeaderLabels(['Оборудование / состояние','Всего, шт.','Свободно на базе','В резерве','Масса, кг','Энергия, кВт·ч','Грунт, кг'])
+        self.inventory_groups.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.inventory_groups.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+        self.inventory_groups.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
+        self.inventory_groups.setColumnWidth(0,490)
+        for col,width in enumerate((490,80,130,90,95,115,95)):self.inventory_groups.setColumnWidth(col,width)
+        self.show_inventory_details=QtWidgets.QCheckBox('Показать отдельные экземпляры');box.addWidget(self.show_inventory_details)
+        self.detail_scope=QtWidgets.QComboBox();self.detail_scope.addItems(['Выбранная группа','Все экземпляры']);box.addWidget(self.detail_scope)
+        self.detail_scope.hide();self._groups=[];self._updating_groups=False
         self.inventory=QtWidgets.QTableWidget(0,10);box.addWidget(self.inventory)
+        self.inventory.hide()
         self.inventory.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
         self.inventory.setHorizontalHeaderLabels(['ID','Тип','Место','Состояние','Держатель','Масса, кг','Грунт, кг','SOC / энергия','Резерв','Слот зарядки'])
         self.inventory.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
         for col,width in enumerate((190,150,150,170,100,90,90,150,130)):self.inventory.setColumnWidth(col,width)
         tabs.addTab(inventory_page,'Инвентарь')
+        self.show_inventory_details.toggled.connect(self.inventory.setVisible)
+        self.show_inventory_details.toggled.connect(self.detail_scope.setVisible)
+        self.show_inventory_details.toggled.connect(self.refresh)
+        self.detail_scope.currentIndexChanged.connect(self.refresh)
+        self.inventory_groups.itemSelectionChanged.connect(self.refresh_inventory_selection)
+        self.inventory_groups.cellDoubleClicked.connect(lambda row,col:self.show_inventory_details.setChecked(True))
         self.jobs=QtWidgets.QTableWidget(0,8)
         self.jobs.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
         self.jobs.setHorizontalHeaderLabels(['ID','Задание','Приоритет','Статус / этап','Ресурсы','Дрон','ETA, с','Причина'])
@@ -39,6 +57,7 @@ class LogisticsWindow(QtWidgets.QDialog):
         self.charging.setHorizontalHeaderLabels(['Слот','Модуль','Состояние слота','Место модуля','SOC','Вход, Вт','Предел, Вт'])
         for col,width in enumerate((260,210,150,155,80,95,100)):self.charging.setColumnWidth(col,width)
         tabs.addTab(self.charging,'Зарядные слоты')
+        tabs.setCurrentIndex(1)
         self.timer=QtCore.QTimer(self);self.timer.timeout.connect(self.refresh);self.timer.start(500)
         self.filter.textChanged.connect(self.refresh)
         self.tabs.currentChanged.connect(self.refresh);self.refresh()
@@ -58,12 +77,15 @@ class LogisticsWindow(QtWidgets.QDialog):
         except ValueError as error:
             QtWidgets.QMessageBox.warning(self,'Поставка батарей',str(error))
 
+    def refresh_inventory_selection(self):
+        if not self._updating_groups and self.show_inventory_details.isChecked():self.refresh()
+
     def refresh(self):
         s=self.host.sim;l=s.logistics
         self.replenish_button.setEnabled(l is not None)
         if l is None:
             self.status.setText('Режим совместимости. Для ATS 2.0 выберите «Новый эксперимент».')
-            self.inventory.setRowCount(0);self.jobs.setRowCount(0);self.charging.setRowCount(0);return
+            self.inventory.setRowCount(0);self.inventory_groups.setRowCount(0);self.jobs.setRowCount(0);self.charging.setRowCount(0);return
         if self._battery_world is not l:
             from .inventory import BatteryModule
             self._battery_world=l;self.battery_type.clear();seen=set()
@@ -79,6 +101,7 @@ class LogisticsWindow(QtWidgets.QDialog):
         robot=(f"Крот: {e['state']} · {e['reason']}\nПозиция: {e['position']} · масса {e['mass_kg']:.1f} кг\n"
                f"Батареи: {', '.join(e['battery_ids'])} · {e['energy_kwh']:.3f}/{e['capacity_kwh']:.3f} кВт·ч\n"
                f"Ковш: {e['bucket_kg']:.2f} кг · контейнер: {e['container']}\n"
+               f"Добыто Кротом: {e['excavated_kg']:.2f} кг / {e['excavated_m3']:.4f} м³ · сегодня {e['today_excavated_kg']:.2f} кг\n"
                f"Циклы: {e['cycles']} · смены батарей: {e['swaps']} · ожидание {e['waiting_seconds']/60:.1f} мин\n") if e else 'Крот отключён\n'
         self.status.setText(robot+f"\nКонтейнерные рейсы: {r['container_cycles']} · групповые переносы: {r['collective_lift_count']}\n"
             f"Стратегия: {r['courier_strategy']} · курьер {courier} · {r['courier']['reason']}\n"
@@ -95,14 +118,26 @@ class LogisticsWindow(QtWidgets.QDialog):
             f"Баланс грунта {r['mass_error_kg']:+.2e} кг · энергии {r['energy_error_j']:+.2e} Дж")
         # Build only the visible table. Telemetry never serializes the archive.
         if self.tabs.currentIndex()==1:
-            query=self.filter.text().casefold()
-            rows=[i for i in l.inventory.snapshot() if query in str(i).casefold()]
+            index=self.inventory_groups.currentRow()
+            selected=self._groups[index]['key'] if 0<=index<len(self._groups) else None
+            self._groups=l.inventory.grouped(self.filter.text())
+            self.inventory_totals.setText(f"Показано {sum(g['count'] for g in self._groups)} предметов в {len(self._groups)} группах · двойной щелчок раскрывает группу")
+            self._updating_groups=True
+            try:
+                self.update_table(self.inventory_groups,[[g['label'],g['count'],g['available'],g['reserved'],
+                    f"{g['mass_kg']:.2f}",f"{g['energy_j']/3600000:.3f}",f"{g['soil_kg']:.2f}"] for g in self._groups])
+                row=next((i for i,g in enumerate(self._groups) if g['key']==selected),0)
+                if self._groups:self.inventory_groups.selectRow(row)
+            finally:self._updating_groups=False
+            if not self.show_inventory_details.isChecked():return
+            groups=self._groups if self.detail_scope.currentIndex()==1 else self._groups[row:row+1]
+            rows=[l.inventory.items[id] for group in groups for id in group['member_ids']]
             values=[]
             for item in rows:
-                energy=f"{100*item['energy_j']/item['capacity_j']:.1f}% / {item['energy_j']/3600000:.3f}" if 'energy_j' in item else ''
-                values.append([item['id'],item['kind'] if item['type']=='Item' else item['type'],item['location'].value,
-                    item['state'],item['holder_id'],f"{item['gross_mass_kg']:.2f}",f"{item.get('soil_kg',0):.2f}",energy,item['reserved_by'] or '',
-                    l.battery_service.slots[item['id']].id if item['id'] in l.battery_service.slots else item['id'] if item['type']=='ChargingSlot' else ''])
+                energy=f"{100*item.soc:.1f}% / {item.energy_j/3600000:.3f}" if hasattr(item,'energy_j') else ''
+                values.append([item.id,item.kind if type(item).__name__=='Item' else type(item).__name__,item.location.value,
+                    item.state,item.holder_id,f"{item.gross_mass:.2f}",f"{getattr(item,'soil_kg',0):.2f}",energy,item.reserved_by or '',
+                    l.battery_service.slots[item.id].id if item.id in l.battery_service.slots else item.id if type(item).__name__=='ChargingSlot' else ''])
             self.update_table(self.inventory,values)
         elif self.tabs.currentIndex()==2:
             # Slice before conversion, so opening is independent of archive length.
@@ -124,6 +159,7 @@ class LogisticsWindow(QtWidgets.QDialog):
                     value=str(value);item=table.item(row,col)
                     if item is None:table.setItem(row,col,QtWidgets.QTableWidgetItem(value))
                     elif item.text()!=value:item.setText(value)
+                    if col==0:table.item(row,col).setToolTip(value)
         finally:table.setUpdatesEnabled(True)
 
 

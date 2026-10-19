@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 import numpy as np
 from .productivity import Productivity
+from .activity import ActivityStats
 
 
 class DroneState(str, Enum):
@@ -71,6 +72,7 @@ class Drone:
     last_flight_seconds: float = 0.0
     longest_flight_seconds: float = 0.0
     productivity: Productivity = field(default_factory=Productivity)
+    activity: ActivityStats = field(default_factory=ActivityStats)
 
     def __post_init__(self):
         self.battery = self.config.battery*self.config.initial_charge

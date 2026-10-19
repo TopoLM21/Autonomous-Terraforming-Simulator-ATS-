@@ -1,6 +1,7 @@
 """Qt presentation. Fixed engine steps are bounded by a per-frame time budget."""
 from copy import deepcopy
 import time
+import math
 import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
@@ -35,6 +36,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self._equipment_resume = None
         self.credit = 0.0
         self.last_wall = time.perf_counter()
+        self.last_render_wall=-float('inf')
+        self.actual_speed=0.;self.actual_render_hz=0.
+        self.performance_wall=self.last_wall;self.performance_sim=self.sim.time;self.performance_renders=0
         self.last_terrain_wall = -1.0
         self.last_revision = -1
         self.last_event = 0
@@ -67,7 +71,7 @@ class MainWindow(QtWidgets.QMainWindow):
         header.addWidget(self.reset_button)
         fleet_button=QtWidgets.QPushButton("Оборудование")
         fleet_button.clicked.connect(self.edit_fleet);header.addWidget(fleet_button)
-        daily_button=QtWidgets.QPushButton("По суткам")
+        daily_button=QtWidgets.QPushButton("Статистика")
         daily_button.clicked.connect(self.show_daily_stats);header.addWidget(daily_button)
         self.cancel_equipment_button=QtWidgets.QPushButton("Отменить установку")
         self.cancel_equipment_button.clicked.connect(self.cancel_equipment);header.addWidget(self.cancel_equipment_button)
@@ -85,7 +89,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.speed.addItem(f"{factor}×", factor)
         self.speed.setCurrentIndex(2)
         self.speed.setToolTip("Целевая скорость виртуального времени. Физический шаг остаётся 1 с; доступное ускорение зависит от производительности компьютера.")
-        self.speed.currentIndexChanged.connect(lambda: setattr(self, "credit", 0.0))
+        self.speed.currentIndexChanged.connect(self.speed_changed)
         header.addWidget(self.speed)
         layout.addLayout(header)
         split = QtWidgets.QSplitter()
@@ -299,7 +303,11 @@ class MainWindow(QtWidgets.QMainWindow):
         split.addWidget(right)
         split.setSizes([1030, 370])
         self.statusBar().showMessage("Колесо мыши — масштаб; перетаскивание — панорама. Размеры сценария применяются кнопкой создания.")
+        self.speed_status=QtWidgets.QLabel('Факт: 0×')
+        self.speed_status.setToolTip('Фактически прошедшие секунды симуляции за одну реальную секунду. Физический шаг всегда 1 с. Высокая цель может ограничиваться скоростью расчёта.')
+        self.statusBar().addPermanentWidget(self.speed_status)
         self.timer = QtCore.QTimer(self)
+        self.timer.setTimerType(QtCore.Qt.TimerType.PreciseTimer)
         self.timer.timeout.connect(self.on_frame)
         self.timer.start(config.display_interval_ms)
         self.setup_map()
@@ -502,7 +510,9 @@ class MainWindow(QtWidgets.QMainWindow):
         previous=self.running;self.running=False;self.credit=0
         dialog=FleetDialog(self.sim.pending_equipment or self.config,self)
         if dialog.exec()==QtWidgets.QDialog.DialogCode.Accepted:
-            try:self.apply_equipment(dialog.result_config,previous)
+            try:
+                if dialog.start_new_run:self.replace_simulation(dialog.result_config)
+                else:self.apply_equipment(dialog.result_config,previous)
             except ValueError as error:
                 self.running=previous;QtWidgets.QMessageBox.warning(self,"Неверная комплектация",str(error))
         else:self.running=previous
@@ -620,15 +630,29 @@ class MainWindow(QtWidgets.QMainWindow):
             self.plan_editor.enabled.setChecked(False)
         self.credit = 0
         self.last_wall = time.perf_counter()
+        self.reset_performance()
+        self.timer.setInterval(0 if self.running else self.config.display_interval_ms)
         self.play.setText("⏸ Pause" if self.running else "▶ Start")
 
+    def reset_performance(self):
+        self.performance_wall=time.perf_counter();self.performance_sim=self.sim.time
+        self.performance_renders=0;self.actual_speed=0.;self.actual_render_hz=0.
+
+    def speed_changed(self):
+        self.credit=0.;self.last_wall=time.perf_counter();self.reset_performance()
+        if hasattr(self,'timer'):self.timer.setInterval(0 if self.running else self.config.display_interval_ms)
+
     def on_frame(self):
+        was_running=self.running
         now = time.perf_counter()
         elapsed = min(now-self.last_wall, 0.25)
         self.last_wall = now
         if self.running:
             self.credit = min(self.credit+elapsed*self.speed.currentData(), self.config.max_frame_steps)
-            deadline = now+self.config.frame_budget_ms/1000
+            # Long but bounded compute slices run independently of rendering.
+            # All edits remain on the same Qt thread, between physical steps.
+            budget=max(self.config.frame_budget_ms,30 if self.speed.currentData()>=200 else 0)
+            deadline = now+budget/1000
             steps = 0
             while self.credit >= 1 and steps < self.config.max_frame_steps and time.perf_counter() < deadline:
                 self.sim.step()
@@ -642,7 +666,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 logistics=self.sim.logistics
                 robot=logistics.excavator if logistics is not None else None
                 robot_ready=(robot is None or robot.bucket_kg==0 and robot.active_container is None)
-                if logistics is not None:robot_ready=robot_ready and all(c.soil_kg==0 for c in logistics.containers)
+                if self.sim.landing_requested and logistics is not None:robot_ready=robot_ready and all(c.soil_kg==0 for c in logistics.containers)
                 if self.sim.landing_requested and robot_ready and all(d.grounded and d.cargo==0 for d in self.sim.drones):
                     self.running=False;self.credit=0;self.play.setText("▶ Start")
                     self.plan_editor.info.setText("Флот приземлён. Можно применить нарисованный план.")
@@ -651,7 +675,20 @@ class MainWindow(QtWidgets.QMainWindow):
                     self.running = False
                     self.play.setText("Завершено" if self.sim.state == MissionState.COMPLETED else "Заблокировано")
                     break
-        self.refresh()
+        stamp=time.perf_counter()
+        interval=(.2 if self.speed.currentData()>=1000 else .1 if self.speed.currentData()>=200
+                  else self.config.display_interval_ms/1000) if self.running else .25
+        if stamp-self.last_render_wall>=interval or was_running and not self.running:
+            self.refresh();self.last_render_wall=time.perf_counter();self.performance_renders+=1
+        span=stamp-self.performance_wall
+        if span>=.5:
+            self.actual_speed=max(0.,(self.sim.time-self.performance_sim)/span)
+            self.actual_render_hz=self.performance_renders/span
+            self.speed_status.setText(f'Цель: {self.speed.currentData()}× · факт: {self.actual_speed:.1f}× · обновление: {self.actual_render_hz:.1f}/с')
+            self.performance_wall=stamp;self.performance_sim=self.sim.time;self.performance_renders=0
+        delay=(min(self.config.display_interval_ms,max(0,math.ceil((1-self.credit)/self.speed.currentData()*1000)))
+               if self.running else self.config.display_interval_ms)
+        self.timer.setInterval(delay)
 
     def refresh(self, force=False):
         s, t, d, b = self.sim, self.sim.terrain, self.sim.drone, self.sim.base
@@ -751,7 +788,9 @@ class MainWindow(QtWidgets.QMainWindow):
         ]
         if s.logistics is not None:
             courier=report['courier'];robot=report.get('excavator')
-            if robot:rows.insert(3,('Крот',f"{robot['state']} · {robot['energy_kwh']:.2f}/{robot['capacity_kwh']:.2f} кВт·ч"))
+            if robot:
+                rows.insert(3,('Крот',f"{robot['state']} · {robot['energy_kwh']:.2f}/{robot['capacity_kwh']:.2f} кВт·ч"))
+                rows.insert(4,('Добыто Кротом',f"{robot['excavated_kg']:.1f} кг / {robot['excavated_m3']:.3f} м³"))
             rows.insert(4,('Партия / курьер',f"{courier['filled_containers']}/{courier['threshold']} · "+
                 ((f"Д{courier['drone_serial']} · {courier['reason']}" if courier['drone_serial'] is not None
                   else 'ожидание готового дрона') if courier['active'] else 'все копают')))
