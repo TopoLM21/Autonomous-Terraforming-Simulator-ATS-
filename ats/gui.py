@@ -38,7 +38,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.last_terrain_wall = -1.0
         self.last_revision = -1
         self.last_event = 0
-        self.setWindowTitle("ATS · Автономные земляные работы")
+        self.setWindowTitle("ATS 2.0 · Автономные земляные работы")
         self.resize(1450, 940)
         self.setStyleSheet("""
             QMainWindow, QWidget { background: #101a27; color: #dbe6ef; font-size: 13px; }
@@ -56,7 +56,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(central)
         layout = QtWidgets.QVBoxLayout(central)
         header = QtWidgets.QHBoxLayout()
-        title = QtWidgets.QLabel("<b style='font-size:22px'>ATS</b>  /  Autonomous Terraforming Simulator")
+        title = QtWidgets.QLabel("<b style='font-size:22px'>ATS 2.0</b>  /  Autonomous Terraforming Simulator")
         header.addWidget(title, 1)
         self.play = QtWidgets.QPushButton("▶ Start")
         self.play.setObjectName("play")
@@ -76,7 +76,7 @@ class MainWindow(QtWidgets.QMainWindow):
         compare_button.clicked.connect(self.compare_fleet);header.addWidget(compare_button)
         logistics_button=QtWidgets.QPushButton('Склад / диспетчер')
         logistics_button.clicked.connect(self.show_logistics);header.addWidget(logistics_button)
-        experiments_button=QtWidgets.QPushButton('ATS 2.0')
+        experiments_button=QtWidgets.QPushButton('Новый эксперимент')
         experiments_button.clicked.connect(self.show_experiments);header.addWidget(experiments_button)
         self.brush_button=QtWidgets.QPushButton("Кисть / план")
         self.brush_button.setCheckable(True);header.addWidget(self.brush_button)
@@ -237,11 +237,11 @@ class MainWindow(QtWidgets.QMainWindow):
             form.addRow(label, widget)
         form.addRow('Сторона новой карты',self.map_size);form.addRow(self.grid_info)
         self.map_size.valueChanged.connect(self.update_map_size_controls);self.update_map_size_controls()
-        solar_group = QtWidgets.QGroupBox("База и солнце · для нового сценария")
+        solar_group = QtWidgets.QGroupBox("База и солнце")
         solar_form = QtWidgets.QFormLayout(solar_group)
         self.panels = self.spin(0, 10000000, self.config.base.panel_area, 1)
         self.base_mass = self.spin(0, 10000000, self.config.base.mass, 100, 1)
-        for widget in [self.panels,self.base_mass]:
+        for widget in [self.base_mass]:
             widget.setReadOnly(True);widget.setButtonSymbols(QtWidgets.QAbstractSpinBox.ButtonSymbols.NoButtons)
             widget.setToolTip("Рассчитывается по установленным модулям. Измените состав кнопкой «Оборудование».")
         self.latitude = self.spin(-90, 90, config.base.latitude_deg, 1)
@@ -260,6 +260,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.panel_info = QtWidgets.QLabel()
         self.panel_info.setWordWrap(True)
         solar_form.addRow(self.panel_info)
+        self.apply_panels_button=QtWidgets.QPushButton('Применить площадь панелей сейчас')
+        self.apply_panels_button.clicked.connect(self.apply_panel_area);solar_form.addRow(self.apply_panels_button)
         self.season.currentIndexChanged.connect(lambda index: self.calendar.setDate(QtCore.QDate(2025, 1, 1).addDays(self.season.currentData()-1)) if index >= 0 else None)
         for widget in [self.panels, self.latitude]:
             widget.valueChanged.connect(self.update_solar_preview)
@@ -526,6 +528,13 @@ class MainWindow(QtWidgets.QMainWindow):
         for index,label in enumerate(self.drone_labels):label.setVisible(index<len(self.sim.drones))
         self.fleet_table.setRowCount(len(self.sim.drones))
 
+    def apply_panel_area(self):
+        try:
+            self.sim.set_panel_area(self.panels.value())
+            self.sync_equipment();self.refresh(True)
+        except ValueError as error:
+            QtWidgets.QMessageBox.warning(self,'Площадь панелей',str(error))
+
     def cancel_equipment(self):
         self.sim.cancel_equipment()
         if self._equipment_resume is not None:self.running=self._equipment_resume
@@ -592,6 +601,8 @@ class MainWindow(QtWidgets.QMainWindow):
         config.base.start_day_of_year = self.calendar.date().dayOfYear()
         try:
             from .maps import with_map_size
+            from .equipment import set_panel_area
+            set_panel_area(config.base.equipment,self.panels.value(),config.base.panel_efficiency)
             config=with_map_size(config,self.map_size.value())
             self.replace_simulation(config)
         except ValueError as error:
@@ -681,7 +692,8 @@ class MainWindow(QtWidgets.QMainWindow):
             operation=" · грейфер вниз" if o.state==DroneState.DUMP and not o.dump_released else " · грейфер вверх" if o.state==DroneState.DUMP else ""
             laser=f" · лазер {o.laser_power_w/1000:.1f} кВт" if o.laser_power_w>0 else ""
             waiting='\n'+s.logistics.idle_reason(o) if s.logistics is not None and o.grounded else ''
-            label.setText(f"Д{o.serial} · {o.cargo:.0f} кг · z {o.position[2]:.1f} м{operation}{laser}{waiting}")
+            role=(' · курьер' if s.logistics.courier_id==o.identifier else ' · копатель' if o.attachment=='GRABBER' else '') if s.logistics is not None else ''
+            label.setText(f"Д{o.serial}{role} · {o.cargo:.0f} кг · z {o.position[2]:.1f} м{operation}{laser}{waiting}")
             label.setPos(o.position[0]+.4,o.position[1]+.4+o.identifier*.3)
         self.base_label.setPos(b.position[0]+0.6, b.position[1]-0.4)
         routes=[p for o in s.drones if o.trip for p in [b.position[:2],o.trip.dig,o.trip.dump,b.position[:2],(np.nan,np.nan)]]
@@ -737,6 +749,12 @@ class MainWindow(QtWidgets.QMainWindow):
             ("Баланс массы", f"{report['mass_error_kg']:+.2e} кг"),
             ("Баланс энергии", f"{report['energy_error_j']:+.2e} Дж"),
         ]
+        if s.logistics is not None:
+            courier=report['courier'];robot=report.get('excavator')
+            if robot:rows.insert(3,('Крот',f"{robot['state']} · {robot['energy_kwh']:.2f}/{robot['capacity_kwh']:.2f} кВт·ч"))
+            rows.insert(4,('Партия / курьер',f"{courier['filled_containers']}/{courier['threshold']} · "+
+                ((f"Д{courier['drone_serial']} · {courier['reason']}" if courier['drone_serial'] is not None
+                  else 'ожидание готового дрона') if courier['active'] else 'все копают')))
         self.telemetry.setText("<table cellspacing='4'>"+"".join(f"<tr><td style='color:#94abbf'>{label}</td><td>{value}</td></tr>" for label, value in rows)+"</table>")
         for serial, timestamp, message in s.events:
             if serial > self.last_event:

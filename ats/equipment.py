@@ -25,6 +25,20 @@ def positive(value,label,zero=False):
         raise ValueError(f"{label}: требуется {'неотрицательное' if zero else 'положительное'} конечное число")
 
 
+def set_panel_area(equipment, area, efficiency=.20):
+    """Resize panel recipes, preserving their efficiency and mass per square metre."""
+    positive(area,'Площадь панелей',True)
+    previous=equipment.panel_area
+    if area==0:
+        equipment.panels=[]
+    elif previous>0:
+        factor=area/previous
+        for panel in equipment.panels:
+            panel.area_m2*=factor;panel.mass_kg*=factor
+    else:
+        equipment.panels=[PanelModule(quantity=1,area_m2=area,mass_kg=area*4,efficiency=efficiency or .20)]
+
+
 @dataclass
 class BatteryModule:
     name: str="Аккумулятор"

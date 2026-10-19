@@ -5,16 +5,17 @@ from pathlib import Path
 import json
 from .config import Config,TrenchConfig,TerrainConfig,DroneConfig,BaseConfig,DustConfig,FleetConfig
 from .logistics_config import LogisticsConfig
-from .equipment import resolve_config,load_equipment_data,equipment_data
+from .equipment import resolve_config,load_equipment_data,equipment_data,set_panel_area
 from .laser_profiles import with_laser_profile
 from .plan import PlanConfig,PlanSegment
 
 
 def experiment_config(config, mode='logistics',drones=4,containers=8,ports=4,
                       battery_modules=None,robot_slots=2,panel_area=None,laser='laser_off',landing_slots=None,idle_digging=True,
-                      drone_spare_sets=None,excavator_spare_batteries=None,individual_chargers=None):
+                      drone_spare_sets=None,excavator_spare_batteries=None,individual_chargers=None,batch_courier=None):
     c=deepcopy(config);resolve_config(c)
     previous=c.logistics
+    if batch_courier is None:batch_courier=previous.batch_courier if previous else True
     if individual_chargers is None:individual_chargers=previous.individual_chargers if previous else True
     if drone_spare_sets is None:
         drone_spare_sets=previous.drone_spare_sets if previous else 1
@@ -30,15 +31,11 @@ def experiment_config(config, mode='logistics',drones=4,containers=8,ports=4,
     for d in c.fleet.models:
         if battery_modules is not None and len(d.equipment.batteries)==1:d.equipment.batteries[0].quantity=battery_modules
     c.base.equipment.landing_slots=min(4,drones) if landing_slots is None else landing_slots
-    if panel_area is not None and c.base.equipment.panels:
-        old_area=c.base.equipment.panel_area
-        for p in c.base.equipment.panels:
-            factor=panel_area/old_area if old_area else 1.
-            p.area_m2*=factor;p.mass_kg*=factor
+    if panel_area is not None:set_panel_area(c.base.equipment,panel_area,c.base.panel_efficiency)
     c.logistics=None if mode=='legacy' else LogisticsConfig(direct_allowed=mode=='hybrid',idle_digging=idle_digging,
         container_count=containers,charger_ports=ports,excavator_battery_slots=robot_slots,
         excavator_battery_count=robot_slots+excavator_spare_batteries,
-        drone_spare_sets=drone_spare_sets,laser_profile=laser,individual_chargers=individual_chargers)
+        drone_spare_sets=drone_spare_sets,laser_profile=laser,individual_chargers=individual_chargers,batch_courier=batch_courier)
     c=with_laser_profile(c,laser);c.validate();return c
 
 

@@ -1,8 +1,10 @@
 # ATS 2.0: implementation and assumptions
 
+ATS 2.0 is the default CLI/GUI launch, with four drones and batch courier service.
 The extension uses the existing `Simulation`, `Terrain`, `Drone`, `SolarBase`,
 `Planner`, `Dust`, laser links and PySide6 GUI. `Config.logistics=None` retains
-the original engine and JSON equipment/brush-plan formats.
+the original engine for regression/programmatic compatibility and the JSON
+equipment/brush-plan formats. The old engine is hidden from the experiment GUI.
 
 | Existing class | Extension |
 | --- | --- |
@@ -80,7 +82,24 @@ to the carrying drone. Brush fill deliveries accept only available target capaci
 the remainder stays in the container and is delivered to the dump. Landing for a
 plan change finishes the bucket/container chain before pausing.
 
-Idle carrier work sharing is enabled by `LogisticsConfig.idle_digging`. After
+The default `batch_courier` policy starts all drones with real mounted grabbers
+and containers already staged at the initial worksite. No permanent carrier is
+reserved. Six of eight filled containers (ceil of `courier_fill_fraction * count`)
+or Krot SOC below `courier_low_soc` (10%) latches a service batch. One aircraft
+finishes its soil sortie, returns, physically changes to its hook and sequentially
+services the queued containers and batteries. Other aircraft keep digging. The
+batch drains before that courier returns to its grabber. A charging courier can
+be relieved without concurrent transport ownership. Final partial batches,
+landing requests and necessary worksite/relocation service bypass the fill quota.
+The Krot's new-cycle energy floor is max(10% capacity, one complete cycle), so it
+can reach the new trigger safely instead of stopping above 20%. Battery deliveries
+are not prequeued above 10% while no batch is active. Collective relocation keeps
+its full-team and energy checks. An unavailable Krot does not stop independent
+diggers merely because no spare Krot batteries exist.
+
+The previous responsive policy is retained with `batch_courier=False`; strict
+`idle_digging=False` also keeps transport-only logistics. In responsive mode,
+idle carrier work sharing is enabled by `LogisticsConfig.idle_digging`. After
 30 idle seconds a carrier may request its stored grabber; exchange takes 45 s
 and 100 W at a real landing/service pad, with both tool IDs reserved. Ground
 waiting positions are not service stations: aircraft fly to a free pad and
@@ -137,6 +156,22 @@ Explicit CLI counts override loaded configuration, omitted flags retain saved
 values. Every additional pack has finite mass and initial energy, without a runtime
 energy import. Base mass includes the warehouse before the first physical step.
 
+Runtime `Logistics.replenish_batteries(template_id, count, soc)` creates 1–128
+compatible modules per shipment, with monotonic IDs and their own slot hardware.
+`Inventory.add_many` validates the complete shipment once and rolls it back on
+failure. Delivered energy is added to `equipment_imported_energy`, never to the
+initial energy baseline; mass includes packs and controllers. Runtime delivery
+records are exported separately from starting reserve settings. Existing flights,
+jobs and reservations remain intact. The inventory tab exposes the same API.
+
+`Simulation.set_panel_area` resizes real panel recipes, retaining area density
+and efficiency. A zero-area installation can be equipped again (default new panels
+4 kg/m², 20% efficiency). Logistics validates a field site and inventory before
+committing changes. All other inventory objects retain identity. Large fields pay
+300 s deployment at 200 W and cannot generate before deployment. Changes while
+the base moves or when the field cannot fit are refused without altering the world.
+Neither resizing panels nor adding their hardware creates stored electrical energy.
+
 All settings are in `LogisticsConfig` or existing equipment/configuration classes.
 Internal states use seconds, metres, kilograms, joules and watts; user-facing
 capacity inputs marked kWh are converted into joules on instantiation.
@@ -183,7 +218,7 @@ motor aerodynamics, real DEM ingestion, hydrology or water erosion.
 
 Large solar-field siting has a reserved rectangular footprint and timed deployment;
 the deployed large field stays stationary. There is no detailed rack/cable transport
-or panel shading model. Inventory quantities and physical specifications are set
-before a logistics run; arbitrary live hardware shipments are unsupported. Legacy
-live editing is preserved. Configuration files restart a scenario; full simulation
+or panel shading model. Starting inventory and most physical specifications are set
+before a logistics run; runtime battery shipments and panel changes are supported.
+Legacy live editing is preserved. Configuration files restart a scenario; full simulation
 checkpoints are not implemented.

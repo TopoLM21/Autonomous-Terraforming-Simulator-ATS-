@@ -86,14 +86,21 @@ class Inventory:
     items: dict = field(default_factory=dict)
 
     def add(self, item):
-        if item.id in self.items:
-            raise ValueError(f'Duplicate inventory ID: {item.id}')
-        self.items[item.id] = item
+        self.add_many([item])
+        return item
+
+    def add_many(self, items):
+        """One atomic delivery, validating once even for a large module shipment."""
+        added={}
+        for item in items:
+            if item.id in self.items or item.id in added:
+                raise ValueError(f'Duplicate inventory ID: {item.id}')
+            added[item.id]=item
+        self.items.update(added)
         try:self.validate()
         except Exception:
-            del self.items[item.id]
+            for id in added:del self.items[id]
             raise
-        return item
 
     def reserve(self, ids, owner):
         objects = [self.items[i] for i in ids]

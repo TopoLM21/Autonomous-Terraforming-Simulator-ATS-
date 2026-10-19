@@ -6,7 +6,7 @@ from .simulation import Simulation
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Autonomous Terraforming Simulator")
+    parser = argparse.ArgumentParser(description="ATS 2.0 · Autonomous Terraforming Simulator")
     parser.add_argument("--headless", action="store_true")
     parser.add_argument("--steps", type=int, default=10000)
     parser.add_argument("--seed", type=int, default=42)
@@ -26,7 +26,10 @@ def main():
     parser.add_argument("--compare-fleet", help="Compare fleet sizes, e.g. 1,2,3, with the same scenario")
     parser.add_argument("--json", dest="json_path", help="Save the headless report")
     parser.add_argument('--no-idle-digging',action='store_true',help='Keep transport drones on container/battery service only')
-    parser.add_argument('--mode',choices=('legacy','logistics','hybrid'),default='legacy')
+    # The old engine remains an explicit compatibility switch, outside the GUI.
+    parser.add_argument('--mode',choices=('legacy','logistics','hybrid'),metavar='{logistics,hybrid}',
+                        help='ATS 2.0 mode; default logistics')
+    parser.add_argument('--courier-strategy',choices=('batch','responsive'),help='Batch at 75%% full / Krot below 10%% SOC (default) or immediate transport')
     parser.add_argument('--containers',type=int,default=8)
     parser.add_argument('--battery-modules',type=int,choices=(1,2),help='Explicit drone battery variant; otherwise preserve equipment')
     parser.add_argument('--drone-spare-sets',type=int,
@@ -41,6 +44,7 @@ def main():
     parser.add_argument('--save-configuration',help='Save version 2 experiment JSON')
     parser.add_argument('--batch-experiments',action='store_true',help='Run S0–S9 with the same terrain/seed')
     args = parser.parse_args()
+    mode=args.mode or 'logistics'
     if args.steps < 0:
         parser.error("--steps must be nonnegative")
     config = scenario(args.preset, args.seed)
@@ -48,9 +52,10 @@ def main():
     config.terrain.roughness = args.roughness
     config.base.latitude_deg = args.latitude
     config.base.start_day_of_year = args.day_of_year
-    config.base.panel_area = 20 if args.panel_area is None else args.panel_area
+    # Resolve the original hardware before resizing panels; extra area adds mass.
+    config.base.panel_area = 20
     config.base.mass = args.base_mass
-    config.fleet.count = args.drones if args.drones is not None else (1 if args.mode=='legacy' else 4)
+    config.fleet.count = args.drones if args.drones is not None else (1 if mode=='legacy' else 4)
     config.fleet.charge_slots = 1 if args.charge_slots is None else args.charge_slots
     config.fleet.wait_mode = args.wait_mode
     config.drone.charge_threshold = args.charge_threshold/100
@@ -65,19 +70,25 @@ def main():
             from pathlib import Path
             from .equipment import load_equipment_data
             config=load_equipment_data(json.loads(Path(args.equipment).read_text(encoding="utf-8")),config)
-        if args.mode!='legacy':
-            from .experiments import experiment_config
-            profile=args.laser_profile or ('existing_legacy' if config.base.equipment and any(e.enabled for e in config.base.equipment.emitters) else 'laser_off')
-            landing=args.charge_slots if args.charge_slots is not None else (config.base.equipment.landing_slots if args.equipment else None)
-            config=experiment_config(config,mode=args.mode,drones=config.fleet.count,containers=args.containers,
-                ports=args.module_charge_ports,panel_area=args.panel_area,laser=profile,
-                battery_modules=args.battery_modules,landing_slots=landing)
-        elif args.laser_profile:
-            from .laser_profiles import with_laser_profile
-            config=with_laser_profile(config,args.laser_profile)
         if args.configuration:
             from .experiments import load_configuration
             config=load_configuration(args.configuration)
+        if mode!='legacy' and (not args.configuration or config.logistics is None or args.mode is not None):
+            from .experiments import experiment_config
+            profile=args.laser_profile or ('existing_legacy' if config.base.equipment and any(e.enabled for e in config.base.equipment.emitters) else 'laser_off')
+            landing=args.charge_slots if args.charge_slots is not None else (config.base.equipment.landing_slots if args.equipment else None)
+            config=experiment_config(config,mode=mode,drones=config.fleet.count,containers=args.containers,
+                ports=args.module_charge_ports,laser=profile,
+                battery_modules=args.battery_modules,landing_slots=landing)
+        elif mode=='legacy':
+            config.logistics=None
+        if args.laser_profile and mode=='legacy':
+            from .laser_profiles import with_laser_profile
+            config=with_laser_profile(config,args.laser_profile)
+        if args.panel_area is not None:
+            from .equipment import resolve_config,set_panel_area
+            resolve_config(config);set_panel_area(config.base.equipment,args.panel_area,config.base.panel_efficiency)
+            resolve_config(config)
         if args.map_size is not None:config=with_map_size(config,args.map_size)
         if args.module_charge_mode is not None:
             if config.logistics is None:raise ValueError('Module charging mode requires logistics configuration')
@@ -93,6 +104,9 @@ def main():
         if args.excavator_spare_batteries is not None:
             config.logistics.excavator_battery_count=config.logistics.excavator_battery_slots+args.excavator_spare_batteries
         if args.no_idle_digging and config.logistics is not None:config.logistics.idle_digging=False
+        if args.courier_strategy is not None:
+            if config.logistics is None:raise ValueError('Courier strategy requires ATS 2.0')
+            config.logistics.batch_courier=args.courier_strategy=='batch'
         if args.save_configuration:
             from .experiments import save_configuration
             save_configuration(args.save_configuration,config)

@@ -1,0 +1,137 @@
+{
+  "date": "2026-10-19",
+  "seed": 42,
+  "step_seconds": 1,
+  "cell_size_m": 0.25,
+  "cases": [
+    {
+      "preset": "demo",
+      "map_side_m": 32.0,
+      "batch": true,
+      "panel_area_m2": 20,
+      "hot_shipment": false,
+      "state": "COMPLETED",
+      "reason": "",
+      "time_seconds": 1259.0,
+      "wall_seconds": 2.5476483839993307,
+      "consumed_kwh": 7.894157075585434,
+      "imported_kwh": 0.0,
+      "mass_error_kg": 0.0,
+      "energy_error_j": -4.6100467443466187e-08,
+      "drone_swaps": 0,
+      "krot_swaps": 0,
+      "direct_diggers": 4,
+      "max_simultaneous_couriers": 1,
+      "service_batches": [
+        {
+          "time": 857.0,
+          "reason": "FINISH_BATCH",
+          "filled": 4
+        }
+      ]
+    },
+    {
+      "preset": "medium",
+      "map_side_m": 32.0,
+      "batch": true,
+      "panel_area_m2": 20,
+      "hot_shipment": false,
+      "state": "COMPLETED",
+      "reason": "",
+      "time_seconds": 19183.0,
+      "wall_seconds": 21.376755747998686,
+      "consumed_kwh": 57.23913487201222,
+      "imported_kwh": 0.0,
+      "mass_error_kg": 0.0,
+      "energy_error_j": -2.3096799850463867e-07,
+      "drone_swaps": 10,
+      "krot_swaps": 1,
+      "direct_diggers": 4,
+      "max_simultaneous_couriers": 1,
+      "service_batches": [
+        {
+          "time": 1090.0,
+          "reason": "FILLED_THRESHOLD",
+          "filled": 6
+        },
+        {
+          "time": 18443.0,
+          "reason": "RELOCATION",
+          "filled": 0
+        }
+      ]
+    },
+    {
+      "preset": "medium",
+      "map_side_m": 32.0,
+      "batch": true,
+      "panel_area_m2": 200,
+      "hot_shipment": false,
+      "state": "COMPLETED",
+      "reason": "",
+      "time_seconds": 8144.0,
+      "wall_seconds": 17.051534962000005,
+      "consumed_kwh": 57.11638343727938,
+      "imported_kwh": 0.0,
+      "mass_error_kg": 0.0,
+      "energy_error_j": -1.5050172805786133e-06,
+      "drone_swaps": 12,
+      "krot_swaps": 0,
+      "direct_diggers": 4,
+      "max_simultaneous_couriers": 1,
+      "service_batches": [
+        {
+          "time": 1090.0,
+          "reason": "FILLED_THRESHOLD",
+          "filled": 6
+        }
+      ]
+    },
+    {
+      "preset": "medium",
+      "map_side_m": 32.0,
+      "batch": false,
+      "panel_area_m2": 20,
+      "hot_shipment": false,
+      "state": "COMPLETED",
+      "reason": "",
+      "time_seconds": 26368.0,
+      "wall_seconds": 22.923963075998472,
+      "consumed_kwh": 61.48658917813478,
+      "imported_kwh": 0.0,
+      "mass_error_kg": 0.0,
+      "energy_error_j": -3.5762786865234375e-07,
+      "drone_swaps": 11,
+      "krot_swaps": 2,
+      "direct_diggers": 3,
+      "max_simultaneous_couriers": 4,
+      "service_batches": []
+    },
+    {
+      "preset": "medium",
+      "map_side_m": 32.0,
+      "batch": true,
+      "panel_area_m2": 100,
+      "hot_shipment": true,
+      "state": "COMPLETED",
+      "reason": "",
+      "time_seconds": 6096.0,
+      "wall_seconds": 10.68231621400264,
+      "consumed_kwh": 56.79437443501682,
+      "imported_kwh": 23.0,
+      "mass_error_kg": 0.0,
+      "energy_error_j": 1.4901161193847656e-07,
+      "drone_swaps": 12,
+      "krot_swaps": 0,
+      "direct_diggers": 4,
+      "max_simultaneous_couriers": 1,
+      "service_batches": [
+        {
+          "time": 1090.0,
+          "reason": "FILLED_THRESHOLD",
+          "filled": 6
+        }
+      ]
+    }
+  ]
+}

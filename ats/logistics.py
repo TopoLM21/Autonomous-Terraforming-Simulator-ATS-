@@ -60,6 +60,14 @@ class Logistics:
         self.wait_reason=''
         self.base_move_job=None
         self.base_battery_ids=[]
+        self.courier_id=None
+        self.courier_active=False
+        self.courier_reason=''
+        self.courier_batches=0
+        self.deliveries=[]
+        self._delivery_serial=0
+        self.imported_mass_kg=0.
+        self.exported_mass_kg=0.
         self.field_elapsed=0.
         self.field_ready=sim.base.config.panel_area<=20.
         self.field_rect=None
@@ -84,20 +92,8 @@ class Logistics:
         for i,emitter in enumerate(eq.emitters):
             self.inventory.add(Item(f'laser_channel_{i+1}',emitter.mass_kg,L.BASE_MOUNT,'INSTALLED','base',position=tuple(sim.base.position),kind='LASER_TRANSMITTER'))
         if not self.field_ready:
-            area=sim.base.config.panel_area;side=sim.terrain.cell*sim.terrain.height.shape[0]
-            width=min(20.,side-2*sim.terrain.cell);height=area/width
-            margin=sim.terrain.cell
-            pads=[sim.slot_position(i) for i in range(len(sim.slots))]+[sim.wait_position(i) for i in range(len(sim.drones))]
-            sites=[]
-            for x in np.linspace(margin,max(margin,side-margin-width),5):
-                for y in np.linspace(margin,max(margin,side-margin-height),5):
-                    mask=(sim.terrain.x>=x)&(sim.terrain.x<x+width)&(sim.terrain.y>=y)&(sim.terrain.y<y+height)
-                    if height>side-2*margin or np.any(mask&(sim.terrain.work_mask|sim.terrain.dump_mask)):continue
-                    if any(x-margin<=p[0]<=x+width+margin and y-margin<=p[1]<=y+height+margin for p in pads):continue
-                    sites.append((np.linalg.norm(np.array([x+width/2,y+height/2])-sim.base.position[:2]),(float(x),float(y),width,height)))
-            if sites:
-                self.field_rect=min(sites,key=lambda s:(s[0],s[1]))[1]
-            else:sim.block('BLOCKED_SOLAR_FIELD_SITE: поле панелей не помещается вне рабочих и посадочных площадок')
+            try:self.field_rect=self.solar_field_site(sim.base.config.panel_area)
+            except ValueError as error:sim.block(str(error))
         for i in range(self.config.container_count):
             self.inventory.add(SoilContainer(f'container_{i+1:02}',self.config.container_tare_kg,
                 state='EMPTY_AT_BASE',position=tuple(sim.base.position),
@@ -125,11 +121,11 @@ class Logistics:
             # Actual mounted hook replaces the grabber. Legacy configurations stay intact.
             d.attachment = 'CONTAINER_HOOK'
             self._tool_mass(d, 2.)
-            if self.config.direct_allowed and (not self.config.excavator_enabled or d is sim.drones[-1]):
+            if self.batch_enabled or self.config.direct_allowed and (not self.config.excavator_enabled or d is sim.drones[-1]):
                 self.inventory.move(f'hook_{d.serial}',L.BASE_STORAGE,'base',sim.base.position,'STORED_READY')
                 self.inventory.move(f'grabber_{d.serial}',L.DRONE_MOUNT,f'drone_{d.serial}',d.position,'INSTALLED')
                 d.attachment='GRABBER';self._tool_mass(d,d.config.equipment.bucket.mass_kg)
-                self.dedicated_ids.add(d.identifier)
+                if self.config.direct_allowed:self.dedicated_ids.add(d.identifier)
         self.inventory.add(Rigging('group_rig',self.config.rigging_mass_kg,
                                    position=tuple(sim.base.position),kind='HEAVY_LIFT_RIG'))
         if self.config.excavator_enabled:
@@ -154,6 +150,8 @@ class Logistics:
             for container in self.containers:
                 container.assigned_limit_kg=max(container.capacity_for(self.payload_limit(d),c.hoist_mass_kg,
                     sim.config.terrain.density) for d in sim.drones)
+                if self.batch_enabled:
+                    self.inventory.move(container.id,L.WORKSITE_RACK,'worksite',self.rack,'EMPTY_AT_EXCAVATOR')
         for d in sim.drones:
             for set_index in range(self.config.drone_spare_sets):
                 for slot,id in enumerate(d.battery_ids):
@@ -166,6 +164,84 @@ class Logistics:
         from .batteries import BatteryService
         self.battery_service=BatteryService(self)
         self.update_base_mass()
+
+    @property
+    def batch_enabled(self):
+        return self.config.batch_courier and self.config.idle_digging and self.config.excavator_enabled
+
+    def solar_field_site(self, area):
+        if area<=20:return None
+        s=self.sim;margin=s.terrain.cell;side=margin*s.terrain.height.shape[0]
+        width=min(max(20.,math.sqrt(area)),side-2*margin);height=area/width
+        pads=[s.slot_position(i) for i in range(len(s.slots))]+[s.wait_position(i) for i in range(len(s.drones))]
+        pads += [d.position for d in s.drones if d.grounded]
+        if self.excavator is not None:pads.append(self.excavator.position)
+        sites=[]
+        for x in np.linspace(margin,max(margin,side-margin-width),5):
+            for y in np.linspace(margin,max(margin,side-margin-height),5):
+                mask=(s.terrain.x>=x)&(s.terrain.x<x+width)&(s.terrain.y>=y)&(s.terrain.y<y+height)
+                if height>side-2*margin or np.any(mask&(s.terrain.work_mask|s.terrain.dump_mask)):continue
+                if any(x-margin<=p[0]<=x+width+margin and y-margin<=p[1]<=y+height+margin for p in pads):continue
+                sites.append((np.linalg.norm(np.array([x+width/2,y+height/2])-s.base.position[:2]),
+                              (float(x),float(y),width,height)))
+        if not sites:raise ValueError('BLOCKED_SOLAR_FIELD_SITE: поле панелей не помещается вне рабочих и посадочных площадок')
+        return min(sites,key=lambda site:(site[0],site[1]))[1]
+
+    def configure_panels(self, panels):
+        """Apply a validated external panel installation without recreating the world."""
+        from copy import deepcopy
+        s=self.sim
+        if s.base.destination is not None:raise ValueError('Дождитесь остановки базы перед изменением панелей')
+        equipment=deepcopy(s.base.config.equipment);equipment.panels=deepcopy(panels);equipment.validate()
+        rect=self.solar_field_site(equipment.panel_area)
+        items={id:item for id,item in self.inventory.items.items() if item.kind!='SOLAR_PANEL'}
+        index=0
+        for recipe in equipment.panels:
+            for _ in range(recipe.quantity):
+                index+=1;id=f'solar_panel_{index:03}'
+                items[id]=Item(id,recipe.mass_kg,L.BASE_MOUNT,'INSTALLED','base',
+                               position=tuple(s.base.position),kind='SOLAR_PANEL')
+        Inventory(items).validate()
+        old_mass=sum(o.mass_kg for o in self.inventory.items.values() if o.kind=='SOLAR_PANEL')
+        new_mass=sum(p.quantity*p.mass_kg for p in equipment.panels)
+        self.imported_mass_kg+=max(0.,new_mass-old_mass);self.exported_mass_kg+=max(0.,old_mass-new_mass)
+        self.inventory.items=items
+        s.base.config.equipment=equipment;equipment.resolve(s.base.config,s.config.fleet)
+        self.field_rect=rect;self.field_ready=rect is None;self.field_elapsed=0.
+        self.update_base_mass()
+        s.event(f'Панели изменены без сброса: {equipment.panel_area:g} м², {new_mass:g} кг; '+
+                ('развёртывание поля' if rect else 'компактная установка'))
+
+    def replenish_batteries(self, template_id, count, soc=1.):
+        """External shipment: new IDs, slot hardware and explicitly imported energy."""
+        template=self.inventory.items.get(template_id)
+        if not isinstance(template,BatteryModule) or template.compatibility=='base':
+            raise ValueError('Выберите тип сменной батареи дрона или Крота')
+        if not isinstance(count,int) or isinstance(count,bool) or not 1<=count<=128:
+            raise ValueError('Поставка: от 1 до 128 модулей за операцию')
+        if not isinstance(soc,(int,float)) or not math.isfinite(soc) or not 0<=soc<=1:
+            raise ValueError('Заряд поставки: от 0 до 100%')
+        packs=[]
+        for i in range(count):
+            id=f'delivered_battery_{self._delivery_serial+i+1:05}'
+            packs.append(BatteryModule(id,template.mass_kg,position=tuple(self.sim.base.position),
+                compatibility=template.compatibility,capacity_j=template.capacity_j,energy_j=template.capacity_j*soc,
+                max_charge_w=template.max_charge_w,max_discharge_w=template.max_discharge_w))
+        slots=self.battery_service.make_slots(packs)
+        self.inventory.add_many([*packs,*slots])
+        self.battery_service.slots.update((slot.module_id,slot) for slot in slots)
+        self._delivery_serial+=count
+        energy=sum(b.energy_j for b in packs);mass=sum(item.mass_kg for item in [*packs,*slots])
+        self.sim.equipment_imported_energy+=energy;self.imported_mass_kg+=mass
+        self.deliveries.append(dict(time_seconds=self.sim.time,module_ids=[b.id for b in packs],
+            compatibility=template.compatibility,soc=soc,energy_j=energy,mass_kg=mass))
+        self.battery_service.update_slot_states();self.update_base_mass()
+        self.progress_at=self.sim.time
+        if self.sim.state==MissionState.BLOCKED and any(reason in self.sim.reason for reason in ('NO_SPARE_BATTERIES','NO_ENERGY')):
+            self.sim.state=MissionState.RUNNING;self.sim.reason=''
+        self.sim.event(f'Поставка: {count} батарей {template.compatibility}, SOC {soc:.0%}; '+
+                       f'ввоз {energy/KWH:.3f} кВт·ч и {mass:g} кг вместе со слотами')
+        return [b.id for b in packs]
 
     def update_base_mass(self):
         self.sim.base.config.mass=self.sim.base.config.equipment.mass+sum(
@@ -256,6 +332,7 @@ class Logistics:
                     or self.group is not None or d.identifier in self.direct_ids
                     or d.serial in self.battery_service.drone_swaps):
                 continue
+            if self.batch_enabled and (not self.courier_active or d.identifier!=self.courier_id):continue
             if d.attachment!='CONTAINER_HOOK' or d.identifier in self.tool_targets:continue
             if s._charging_needed(d):
                 if d.docked:d.state=DS.CHARGING
@@ -318,19 +395,63 @@ class Logistics:
             if d.state==DS.CHANGING_TOOL:d.state=DS.DOCKED
         else:self.tool_targets[d.identifier]=target
 
+    def batch_tool_requests(self, pending, relocating):
+        """Latch a service batch, assigning exactly one courier until it is drained."""
+        s=self.sim;e=self.excavator
+        filled=sum(c.location==L.FILLED_QUEUE and c.soil_kg>1e-8 for c in self.containers)
+        threshold=max(1,math.ceil(len(self.containers)*self.config.courier_fill_fraction))
+        capacity=e.capacity(self.inventory)
+        low=(not e.battery_ids or e.energy(self.inventory)<capacity*self.config.courier_low_soc)
+        finishing=s.terrain.remaining_cut<=s.config.terrain.completion_volume or s.landing_requested
+        stranded=e.state.value in ('WAITING_TRANSPORT','WAITING_EMPTY_CONTAINER','LOW_BATTERY')
+        reason=('LOW_SOC' if low else 'FILLED_THRESHOLD' if filled>=threshold else
+                'FINISH_BATCH' if finishing and filled else 'RELOCATION' if relocating and pending else
+                'CLEAR_WORKSITE' if stranded and pending else '')
+        if not self.courier_active and reason:
+            self.courier_active=True;self.courier_reason=reason;self.courier_batches+=1
+            s.event(f'Партия курьера: {reason}; готово ёмкостей {filled}/{len(self.containers)}')
+        if (self.courier_active and not reason and not pending and not self.active
+                and self.battery_service.robot_swap is None):
+            self.courier_active=False;self.courier_reason=''
+            s.event('Партия курьера завершена: возвращается к копанию')
+        if not self.courier_active:
+            if self.courier_id is not None:
+                self.request_tool(s.drones[self.courier_id],'GRABBER')
+            self.courier_id=None
+            return
+        previous=s.drones[self.courier_id] if self.courier_id is not None else None
+        # Never hand an airborne transport job to another aircraft. A grounded
+        # courier that needs its own full recharge may be relieved by a ready digger.
+        if previous is not None and (previous.identifier in self.active or not previous.charge_requested):
+            self.request_tool(previous,'CONTAINER_HOOK');return
+        from copy import copy
+        choices=[]
+        for d in s.drones:
+            if d.charge_requested or d.identifier in self.active or d.serial in self.battery_service.drone_swaps:continue
+            preview=copy(d);preview.config=copy(d.config);self._tool_mass(preview,2.)
+            if pending and not any(self.estimate(preview,j)[0]<=d.battery-d.config.battery*d.config.reserve for j in pending):continue
+            choices.append(d)
+        if choices:
+            selected=min(choices,key=lambda d:(not d.grounded,d.attachment!='CONTAINER_HOOK',-d.battery/d.config.battery,d.identifier))
+            if previous is not None and previous is not selected:self.request_tool(previous,'GRABBER')
+            self.courier_id=selected.identifier;self.request_tool(selected,'CONTAINER_HOOK')
+            s.drone_event(selected,'назначен единственным курьером партии')
+
     def service_tools(self):
         """Return to an actual pad, then exchange two physical attachments."""
         s=self.sim
         pending=sorted((j for j in self.jobs if j.status=='QUEUED'),
                        key=lambda j:(j.priority-(s.time-j.created_at)/600,j.created_at,j.id))
         relocating=self.excavator is not None and self.excavator.state.value=='WAITING_RELOCATION'
-        if relocating:
+        if self.batch_enabled:
+            self.batch_tool_requests(pending,relocating)
+        elif relocating:
             for d in s.drones:
                 if self.tool_targets.get(d.identifier)=='GRABBER':self.request_tool(d,'CONTAINER_HOOK')
         # A charging carrier cannot cover a waiting job. Match actual ready
         # aircraft (including pending tool exchanges) before recalling diggers.
         from copy import copy
-        candidates=sorted(s.drones,key=lambda d:(d.attachment!='CONTAINER_HOOK',d.identifier))
+        candidates=[] if self.batch_enabled else sorted(s.drones,key=lambda d:(d.attachment!='CONTAINER_HOOK',d.identifier))
         for d in candidates:
             if not pending:break
             if d.charge_requested or d.serial in self.battery_service.drone_swaps:continue
@@ -343,7 +464,7 @@ class Logistics:
             if job is None:continue
             self.request_tool(d,'CONTAINER_HOOK')
             pending.remove(job)
-        if pending and not any(d.attachment=='CONTAINER_HOOK' and not d.charge_requested
+        if not self.batch_enabled and pending and not any(d.attachment=='CONTAINER_HOOK' and not d.charge_requested
                                or self.tool_targets.get(d.identifier)=='CONTAINER_HOOK'
                                for d in s.drones):
             # All ready diggers may currently be in flight. Finish one delivery
@@ -352,7 +473,7 @@ class Logistics:
             if recall is not None:self.request_tool(recall,'CONTAINER_HOOK')
         for d in s.drones:
             if d.identifier not in self.tool_targets or d.identifier in self.direct_ids:continue
-            if d.charge_requested or s.landing_requested:continue
+            if d.charge_requested or s.landing_requested and self.tool_targets[d.identifier]!='CONTAINER_HOOK':continue
             if d.state==DS.WAIT_GROUND and s.base.destination is None:
                 slot=next((i for i,v in enumerate(s.slots) if v is None),None)
                 if slot is None:continue
@@ -410,12 +531,13 @@ class Logistics:
                     or d.charge_requested or s.landing_requested):
                 self.idle_since.pop(d.identifier,None);continue
             if d.identifier in self.tool_targets:continue
+            if self.batch_enabled and self.courier_active and d.identifier==self.courier_id:continue
             if d.attachment!='GRABBER':
                 if not self.config.idle_digging and d.identifier not in self.dedicated_ids:continue
                 hooks=sum(o.attachment=='CONTAINER_HOOK' and self.tool_targets.get(o.identifier)!='GRABBER' for o in s.drones)
-                if self.excavator is not None and hooks<=1 and len(s.drones)>1:continue
+                if not self.batch_enabled and self.excavator is not None and hooks<=1 and len(s.drones)>1:continue
                 since=self.idle_since.setdefault(d.identifier,s.time)
-                if s.time-since<self.config.idle_dig_delay_s:continue
+                if not self.batch_enabled and s.time-since<self.config.idle_dig_delay_s:continue
                 # Preview with the real grabber mass, without changing hardware.
                 from copy import copy
                 preview=copy(d);preview.config=copy(d.config)
@@ -756,6 +878,7 @@ class Logistics:
                 self.inventory.release(f'tool_{d.serial}')
                 if d.state==DS.CHANGING_TOOL:d.state=DS.DOCKED
             self.tool_targets.clear();self.tool_changes.clear()
+            self.courier_active=False;self.courier_id=None;self.courier_reason=''
         s.time+=1.
 
     def detect_stall(self):
@@ -767,7 +890,9 @@ class Logistics:
             if e.state.value=='BLOCKED':s.block('BLOCKED_EXCAVATOR: '+e.reason)
             elif not self.containers and not (self.config.direct_allowed or self.config.idle_digging):
                 s.block('BLOCKED_NO_CONTAINERS: запас тары равен нулю')
-            elif e.state.value=='LOW_BATTERY' and self.config.excavator_battery_count<=self.config.excavator_battery_slots:
+            elif e.state.value=='LOW_BATTERY' and len([b for b in self.inventory.select(BatteryModule)
+                    if b.compatibility=='excavator'])<=self.config.excavator_battery_slots and not (
+                    self.config.direct_allowed or self.config.idle_digging):
                 s.block('BLOCKED_NO_SPARE_BATTERIES: физическая смена невозможна')
         no_source=(s.base.battery<=1e-8 and s.config.base.panel_area*s.config.base.panel_efficiency*s.config.base.peak_irradiance==0)
         if no_source and any(d.charge_requested for d in s.drones):
@@ -794,6 +919,15 @@ class Logistics:
         report['mass_error_kg']=s.terrain.mass+soil-s.terrain.initial_volume*s.config.terrain.density
         if full:report['inventory']=self.inventory.snapshot()
         report['logistics_version']=2
+        report['courier_strategy']='batch' if self.batch_enabled else 'responsive'
+        report['courier']=dict(active=self.courier_active,reason=self.courier_reason,
+            drone_serial=s.drones[self.courier_id].serial if self.courier_id is not None else None,
+            batches=self.courier_batches,filled_containers=sum(c.location==L.FILLED_QUEUE and c.soil_kg>1e-8 for c in self.containers),
+            threshold=max(1,math.ceil(len(self.containers)*self.config.courier_fill_fraction)))
+        report['inventory_imported_mass_kg']=self.imported_mass_kg
+        report['inventory_exported_mass_kg']=self.exported_mass_kg
+        report['battery_deliveries_count']=len(self.deliveries)
+        if full:report['battery_deliveries']=list(self.deliveries)
         if full:report['jobs']=[asdict(j) for j in self.jobs]
         report['container_cycles']=sum(c.cycles for c in self.containers)
         report['battery_service']=self.battery_service.snapshot(include_slots=full)
@@ -820,6 +954,7 @@ class Logistics:
         for row,d in zip(report['drones'],s.drones):
             job=self.active.get(d.identifier)
             row.update(task=job.kind if job else '',attachment=d.attachment,
+                       role='COURIER' if self.batch_enabled and d.identifier==self.courier_id else 'DIGGER' if d.attachment=='GRABBER' else 'CARRIER',
                        transport_payload_kg=self.payload_limit(d),battery_ids=list(d.battery_ids),
                        wait_reason=self.idle_reason(d))
             if d.identifier in self.direct_ids:row['task']='EXCAVATE_DIRECT'

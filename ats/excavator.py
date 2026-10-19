@@ -206,7 +206,10 @@ class Excavator:
                 if container.location==L.WORKSITE_RACK and container.soil_kg>0 and not container.reserved_by:
                     container.location=L.FILLED_QUEUE;container.state='FULL_READY'
             self.state=ExcavatorState.IDLE;self.reason='PAUSED_FOR_PLAN_OR_MAINTENANCE';return
-        if self.active_container is None and self.energy(inv)<=self.capacity(inv)*c.excavator_reserve+c.digging_power_w*c.cycle_seconds:
+        cycle_budget=c.digging_power_w*c.cycle_seconds
+        stop_energy=(max(self.capacity(inv)*c.courier_low_soc,cycle_budget) if logistics.batch_enabled else
+                     self.capacity(inv)*c.excavator_reserve+cycle_budget)
+        if self.active_container is None and self.energy(inv)<=stop_energy:
             self.state=ExcavatorState.LOW_BATTERY;self.reason='WAITING_CHARGED_BATTERY_PAIR';self.waiting_seconds+=1.;return
         point=self.work_point(t,inv)
         if point is None:
@@ -216,7 +219,8 @@ class Excavator:
                     container.location=L.FILLED_QUEUE;container.state='FULL_READY'
             if t.remaining_cut<=s.config.terrain.completion_volume:
                 self.state=ExcavatorState.IDLE;self.reason='LOCAL_WORK_COMPLETE';return
-            if any(j.status in ('ACTIVE','QUEUED') for j in logistics.jobs):
+            if any(j.status in ('ACTIVE','QUEUED') and (j.kind!='EXCAVATE_DIRECT' or not logistics.batch_enabled)
+                   for j in logistics.jobs):
                 self.state=ExcavatorState.WAITING_TRANSPORT;self.reason='CLEAR_WORKSITE_BEFORE_MOVE';self.waiting_seconds+=1.;return
             site=self.find_site(t,inv)
             if site is None:

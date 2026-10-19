@@ -11,6 +11,16 @@ class LogisticsWindow(QtWidgets.QDialog):
         self.status=QtWidgets.QLabel();self.status.setWordWrap(True)
         tabs.addTab(self.status,'Крот / энергетика')
         inventory_page=QtWidgets.QWidget();box=QtWidgets.QVBoxLayout(inventory_page)
+        delivery=QtWidgets.QHBoxLayout();box.addLayout(delivery)
+        self.battery_type=QtWidgets.QComboBox();delivery.addWidget(self.battery_type,1)
+        self.delivery_count=QtWidgets.QSpinBox();self.delivery_count.setRange(1,128);self.delivery_count.setValue(2)
+        self.delivery_count.setSuffix(' шт.');delivery.addWidget(self.delivery_count)
+        self.delivery_soc=QtWidgets.QDoubleSpinBox();self.delivery_soc.setRange(0,100);self.delivery_soc.setValue(100)
+        self.delivery_soc.setSuffix(' % SOC');delivery.addWidget(self.delivery_soc)
+        self.replenish_button=QtWidgets.QPushButton('Добавить батареи на базу')
+        self.replenish_button.clicked.connect(self.replenish);delivery.addWidget(self.replenish_button)
+        box.addWidget(QtWidgets.QLabel('Внешняя поставка без сброса времени: масса, энергия и индивидуальные зарядные слоты учитываются.'))
+        self._battery_world=None
         self.filter=QtWidgets.QLineEdit();self.filter.setPlaceholderText('Фильтр: ID, место, состояние, исполнитель');box.addWidget(self.filter)
         self.inventory=QtWidgets.QTableWidget(0,10);box.addWidget(self.inventory)
         self.inventory.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
@@ -39,12 +49,31 @@ class LogisticsWindow(QtWidgets.QDialog):
     def closeEvent(self,event):
         self.timer.stop();super().closeEvent(event)
 
+    def replenish(self):
+        if self.host.sim.logistics is None:return
+        try:
+            self.host.sim.logistics.replenish_batteries(self.battery_type.currentData(),
+                self.delivery_count.value(),self.delivery_soc.value()/100)
+            self.host.sync_equipment();self.host.refresh(True);self.refresh()
+        except ValueError as error:
+            QtWidgets.QMessageBox.warning(self,'Поставка батарей',str(error))
+
     def refresh(self):
         s=self.host.sim;l=s.logistics
+        self.replenish_button.setEnabled(l is not None)
         if l is None:
-            self.status.setText('Старый режим: физический склад ATS 2.0 отключён. Выберите «Эксперименты ATS 2.0».')
+            self.status.setText('Режим совместимости. Для ATS 2.0 выберите «Новый эксперимент».')
             self.inventory.setRowCount(0);self.jobs.setRowCount(0);self.charging.setRowCount(0);return
+        if self._battery_world is not l:
+            from .inventory import BatteryModule
+            self._battery_world=l;self.battery_type.clear();seen=set()
+            for pack in l.inventory.select(BatteryModule):
+                key=(pack.compatibility,pack.capacity_j,pack.mass_kg)
+                if pack.compatibility=='base' or key in seen:continue
+                seen.add(key);name='Крот' if pack.compatibility=='excavator' else 'Дрон'
+                self.battery_type.addItem(f'{name} · {pack.capacity_j/3600000:g} кВт·ч / {pack.mass_kg:g} кг',pack.id)
         r=s.report(full=False);e=r.get('excavator');service=r['battery_service']
+        courier=r['courier']['drone_serial'] or ('ожидание готового дрона' if r['courier']['active'] else 'не нужен')
         swaps='; '.join(f"дрон {serial}: {swap['remaining_seconds']:.0f} с · {', '.join(swap['old_ids'])} → {', '.join(swap['ids'])}"
                        for serial,swap in service['drone_swaps'].items()) or 'нет'
         robot=(f"Крот: {e['state']} · {e['reason']}\nПозиция: {e['position']} · масса {e['mass_kg']:.1f} кг\n"
@@ -52,6 +81,9 @@ class LogisticsWindow(QtWidgets.QDialog):
                f"Ковш: {e['bucket_kg']:.2f} кг · контейнер: {e['container']}\n"
                f"Циклы: {e['cycles']} · смены батарей: {e['swaps']} · ожидание {e['waiting_seconds']/60:.1f} мин\n") if e else 'Крот отключён\n'
         self.status.setText(robot+f"\nКонтейнерные рейсы: {r['container_cycles']} · групповые переносы: {r['collective_lift_count']}\n"
+            f"Стратегия: {r['courier_strategy']} · курьер {courier} · {r['courier']['reason']}\n"
+            f"Готовых ёмкостей {r['courier']['filled_containers']} · порог партии {r['courier']['threshold']}\n"
+            f"Поставок батарей: {r['battery_deliveries_count']} · ввоз оборудования {r['inventory_imported_mass_kg']:.1f} кг\n"
             f"Группа: {r['collective_lift'] or 'нет'}\n"
             f"Зарядные слоты ({service['mode']}): {len(service['ports'])}/{service['capacity']} · вход {service['module_input_power_w']/1000:.2f} кВт\n"
             f"Замена батарей дронов: {swaps} · завершено {service['drone_swap_count']}\n"
@@ -102,8 +134,8 @@ class ExperimentDialog(QtWidgets.QDialog):
         self.setWindowTitle('ATS 2.0 · Новый эксперимент');self.resize(680,780)
         config=parent.config;logistics=config.logistics
         layout=QtWidgets.QFormLayout(self)
-        self.mode=QtWidgets.QComboBox();self.mode.addItems(['Старый грейфер','Крот и контейнеры','Смешанная команда'])
-        self.mode.setCurrentIndex(2 if parent.config.logistics is not None and parent.config.logistics.direct_allowed else 1)
+        self.mode=QtWidgets.QComboBox();self.mode.addItems(['Крот и дроны · ATS 2.0','Смешанная команда · ATS 2.0'])
+        self.mode.setCurrentIndex(1 if parent.config.logistics is not None and parent.config.logistics.direct_allowed else 0)
         self.laser=QtWidgets.QComboBox();self.laser.addItems(['laser_off','existing_legacy','realistic_reference'])
         if logistics:self.laser.setCurrentText(logistics.laser_profile)
         self.drones=QtWidgets.QSpinBox();self.drones.setRange(1,6);self.drones.setValue(config.fleet.count if logistics else 4)
@@ -131,8 +163,10 @@ class ExperimentDialog(QtWidgets.QDialog):
         self.idle_digging=QtWidgets.QCheckBox('Свободные транспортные дроны копают')
         self.idle_digging.setChecked(parent.config.logistics.idle_digging if parent.config.logistics else True)
         layout.addRow(self.idle_digging)
-        self.solar=QtWidgets.QComboBox();self.solar.addItems(['20 м² · исходная база','200 м² · solar_field_large'])
-        if logistics and config.base.panel_area>=200:self.solar.setCurrentIndex(1)
+        self.batch_courier=QtWidgets.QCheckBox('Все копают; один курьер при ¾ ёмкостей / SOC Крота <10%')
+        self.batch_courier.setChecked(logistics.batch_courier if logistics else True);layout.addRow(self.batch_courier)
+        self.solar=QtWidgets.QDoubleSpinBox();self.solar.setRange(0,10000000);self.solar.setDecimals(2)
+        self.solar.setSingleStep(10);self.solar.setSuffix(' м²');self.solar.setValue(config.base.panel_area)
         for label,widget in [('Режим',self.mode),('Лазер',self.laser),('Дроны',self.drones),('Контейнеры',self.containers),
                              ('Сторона карты',self.map_size),('Зарядка модулей',self.charge_mode),
                              ('Портов общей очереди',self.ports),('Батареи на дроне',self.packs),
@@ -149,10 +183,10 @@ class ExperimentDialog(QtWidgets.QDialog):
         from .experiments import experiment_config
         from .maps import with_map_size
         config=with_map_size(self.host.config,self.map_size.value())
-        return experiment_config(config,mode=('legacy','logistics','hybrid')[self.mode.currentIndex()],
+        return experiment_config(config,mode=('logistics','hybrid')[self.mode.currentIndex()],
             drones=self.drones.value(),containers=self.containers.value(),ports=self.ports.value(),
             battery_modules=2-self.packs.currentIndex(),robot_slots=2 if self.robot_slots.currentIndex()==0 else 4,
-            panel_area=20 if self.solar.currentIndex()==0 else 200,laser=self.laser.currentText(),
+            panel_area=self.solar.value(),laser=self.laser.currentText(),batch_courier=self.batch_courier.isChecked(),
             idle_digging=self.idle_digging.isChecked(),drone_spare_sets=self.drone_spares.value(),
             excavator_spare_batteries=self.robot_spares.value(),individual_chargers=self.charge_mode.currentData())
 

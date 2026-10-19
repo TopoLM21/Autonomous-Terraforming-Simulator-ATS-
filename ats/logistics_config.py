@@ -64,6 +64,9 @@ class LogisticsConfig:
     field_deployment_seconds: float = 300.
     individual_chargers: bool = True
     charger_slot_mass_kg: float = 1.  # model: socket, wiring and local charge controller
+    batch_courier: bool = True
+    courier_fill_fraction: float = .75
+    courier_low_soc: float = .10
 
     def validate(self):
         from dataclasses import asdict
@@ -81,6 +84,9 @@ class LogisticsConfig:
             raise ValueError('Charging ports: 1..64')
         if not isinstance(self.individual_chargers,bool) or self.charger_slot_mass_kg<=0:
             raise ValueError('Invalid individual charging slot configuration')
+        if (not isinstance(self.batch_courier,bool) or not 0<self.courier_fill_fraction<=1
+                or not 0<self.courier_low_soc<1):
+            raise ValueError('Invalid batch courier thresholds')
         for name in ('pack_capacity_kwh','pack_mass_kg','container_tare_kg','container_volume_m3',
                      'reach_m','local_depth_m','cycle_seconds','excavator_speed','battery_swap_seconds',
                      'drone_swap_seconds','attachment_seconds','handling_seconds','rigging_mass_kg',

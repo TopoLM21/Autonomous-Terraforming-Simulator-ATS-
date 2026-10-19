@@ -339,7 +339,7 @@ def test_swap_is_visible_atomic_and_removed_modules_use_real_ports():
 
 def test_idle_carriers_dig_after_physical_tool_change_with_one_service_pad():
     from ats.experiments import experiment_config
-    c=experiment_config(Config(),drones=4,landing_slots=1)
+    c=experiment_config(Config(),drones=4,landing_slots=1,batch_courier=False)
     s=Simulation(c);w=s.logistics;ids=set(w.inventory.items)
     changed=set();diggers=set();saw_tool_change=False
     for _ in range(6000):

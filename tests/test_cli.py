@@ -25,7 +25,7 @@ def test_equipment_profile_cli_uses_inventory_and_reports_production(tmp_path):
     c.base.equipment.panels[0].quantity=15
     c.fleet.models[0].equipment.bucket.volume_m3=.075
     path=tmp_path/'equipment.json';path.write_text(json.dumps(equipment_data(c)),encoding='utf-8')
-    result=subprocess.run([sys.executable,'-m','ats','--headless','--equipment',str(path),'--steps','500'],capture_output=True,check=True)
+    result=subprocess.run([sys.executable,'-m','ats','--headless','--mode','legacy','--equipment',str(path),'--steps','500'],capture_output=True,check=True)
     r=json.loads(result.stdout)
     assert r['base_mass_kg']==1040 and r['panel_area_m2']==30
     assert r['drones'][0]['payload_kg']==120

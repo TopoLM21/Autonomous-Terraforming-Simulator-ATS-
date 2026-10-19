@@ -27,7 +27,7 @@ def test_offscreen_window_start_pause_reset_and_new_scenario():
     assert window.sim.dust.config.wind_x == 2
     window.latitude.setValue(-35)
     window.season.setCurrentIndex(3)
-    assert window.panels.isReadOnly() and window.base_mass.isReadOnly()
+    assert not window.panels.isReadOnly() and window.base_mass.isReadOnly()
     window.new_scenario()
     assert window.sim.config.base.latitude_deg == -35
     assert window.sim.config.base.start_day_of_year == 355
@@ -211,7 +211,7 @@ def test_logistics_inventory_and_experiments_ui(tmp_path):
     assert w.excavator_marker.data.size>0 and w.container_markers.data.size==8
     view.filter.setText('excavator_battery')
     assert view.inventory.rowCount()==8  # four modules and their four physical slots
-    dialog=ExperimentDialog(w);dialog.mode.setCurrentIndex(2)
+    dialog=ExperimentDialog(w);dialog.mode.setCurrentIndex(1)
     assert dialog.candidate().logistics.direct_allowed
     dialog.idle_digging.setChecked(False)
     assert not dialog.candidate().logistics.idle_digging

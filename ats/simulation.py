@@ -165,6 +165,18 @@ class Simulation:
         self.landing_requested = True
         self.event("Запрошена посадка флота: завершение текущих переносов, без новых рейсов")
 
+    def set_panel_area(self, area):
+        from copy import deepcopy
+        from .equipment import set_panel_area,resolve_config
+        if area==self.base.config.panel_area:return 'applied'
+        candidate=deepcopy(self.config)
+        set_panel_area(candidate.base.equipment,area,self.base.config.panel_efficiency)
+        resolve_config(candidate);candidate.validate()
+        if self.logistics is not None:
+            self.logistics.configure_panels(candidate.base.equipment.panels)
+            return 'applied'
+        return self.request_equipment(candidate)
+
     def request_equipment(self,proposed):
         """Apply stationary base changes now; airborne workshop work waits for landing."""
         from copy import deepcopy
@@ -179,13 +191,17 @@ class Simulation:
                 raise ValueError('ATS 2.0: скорости, операции и стартовый заряд меняются в новом эксперименте; порог зарядки и мощность лазера доступны сразу')
             for values in (old,new):
                 values.pop('charge_power_kw');values.pop('charge_efficiency')
+                values.pop('panels')
                 for emitter in values['emitters']:
                     emitter.pop('enabled');emitter.pop('input_power_kw')
             if old!=new or [asdict(d.config.equipment) for d in self.drones]!=[asdict(d.equipment) for d in proposed.drone_models()]:
                 raise ValueError('ATS 2.0: изменение физических предметов требует нового эксперимента; зарядка, смена готовых батарей и перевозки выполняются автоматически')
+            if asdict(self.config.base.equipment)['panels']!=asdict(proposed.base.equipment)['panels']:
+                self.logistics.configure_panels(proposed.base.equipment.panels)
             self.config.base.equipment=deepcopy(proposed.base.equipment)
             self.config.base.charge_power=proposed.base.equipment.charge_power_kw*1000
             self.config.base.charge_efficiency=proposed.base.equipment.charge_efficiency
+            self.logistics.update_base_mass()
             for d,model,saved in zip(self.drones,proposed.drone_models(),self.config.fleet.models):
                 d.config.name=saved.name=model.name
                 d.config.charge_threshold=saved.charge_threshold=model.charge_threshold

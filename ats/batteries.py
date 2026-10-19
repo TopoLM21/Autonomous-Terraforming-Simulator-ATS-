@@ -34,14 +34,18 @@ class BatteryService:
         self.slots={}
         self._charge_before={}
         self._module_power={}
-        if logistics.config.individual_chargers:
-            for pack in logistics.inventory.select(BatteryModule):
-                if pack.compatibility=='base':continue
-                slot=ChargingSlot(f'charge_slot_{pack.id}',logistics.config.charger_slot_mass_kg,
-                    L.BASE_MOUNT,'EMPTY','base',position=tuple(logistics.sim.base.position),
-                    module_id=pack.id,rated_w=min(logistics.config.port_power_w,pack.max_charge_w))
-                logistics.inventory.add(slot);self.slots[pack.id]=slot
+        slots=self.make_slots(logistics.inventory.select(BatteryModule))
+        logistics.inventory.add_many(slots)
+        self.slots.update((slot.module_id,slot) for slot in slots)
         self.after_charging()
+
+    def make_slots(self, packs):
+        w=self.world
+        if not w.config.individual_chargers:return []
+        return [ChargingSlot(f'charge_slot_{pack.id}',w.config.charger_slot_mass_kg,
+                L.BASE_MOUNT,'EMPTY','base',position=tuple(w.sim.base.position),module_id=pack.id,
+                rated_w=min(w.config.port_power_w,pack.max_charge_w))
+                for pack in packs if pack.compatibility!='base']
 
     @property
     def capacity(self):
@@ -59,7 +63,11 @@ class BatteryService:
         distance=float(((e.position[:2]-w.sim.base.position[:2])**2).sum()**.5)
         lead=2*distance/min(d.config.loaded_speed for d in w.sim.drones)+2*c.battery_swap_seconds+90.
         threshold=capacity*c.excavator_reserve+c.digging_power_w*lead
-        if e.energy(w.inventory)<=threshold or len(e.battery_ids)<c.excavator_battery_slots:
+        due=e.energy(w.inventory)<=threshold or len(e.battery_ids)<c.excavator_battery_slots
+        if w.batch_enabled and not w.courier_active:
+            due=(len(e.battery_ids)<c.excavator_battery_slots or
+                 e.energy(w.inventory)<capacity*c.courier_low_soc or e.state.value=='LOW_BATTERY')
+        if due:
             rack=self.ready('excavator',L.WORKSITE_RACK)
             incoming=[j for j in w.jobs if j.kind=='DELIVER_EXCAVATOR_BATTERY' and j.status in ('QUEUED','ACTIVE')]
             needed=c.excavator_battery_slots-len(rack)-len(incoming)

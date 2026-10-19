@@ -95,7 +95,7 @@ def test_cli_new_experiment_accepts_spare_inventory_and_rejects_legacy():
     report=json.loads(result.stdout)
     assert len([b for b in report['inventory'] if b['type']=='BatteryModule' and '_spare_' in b['id']])==4
     assert len([b for b in report['inventory'] if b.get('compatibility')=='excavator'])==7
-    legacy=subprocess.run([sys.executable,'-m','ats','--headless','--steps','0',*flags],
+    legacy=subprocess.run([sys.executable,'-m','ats','--headless','--mode','legacy','--steps','0',*flags],
                           capture_output=True,text=True,timeout=30)
     assert legacy.returncode==2 and 'requires --mode logistics' in legacy.stderr
 

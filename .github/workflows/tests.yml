@@ -26,10 +26,10 @@ jobs:
           sudo apt-get install -y libegl1 libopengl0 libxcb-cursor0 libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0
       - run: python -m pip install -e ".[test]"
       - run: python -m pytest -q
-      - run: python -m ats --headless --steps 10000 --seed 42
+      - run: python -m ats --headless --mode legacy --steps 10000 --seed 42
       - name: ATS 2.0 logistics smoke test
         run: |
-          python -m ats --headless --mode logistics --drones 4 --steps 20000 --json ats2-ci.json > ats2-ci-stdout.json
+          python -m ats --headless --drones 4 --steps 20000 --json ats2-ci.json > ats2-ci-stdout.json
           python -c "import json; r=json.load(open('ats2-ci.json',encoding='utf-8')); assert r['state']=='COMPLETED'; assert len({j['executor'] for j in r['jobs'] if j['kind']=='EXCAVATE_DIRECT'})>=2; assert abs(r['mass_error_kg'])<1e-7; assert abs(r['energy_error_j'])<0.002"
           python -c "import json; r=json.load(open('ats2-ci.json',encoding='utf-8')); s=r['battery_service']; assert r['map_side_m']==64; assert s['mode']=='individual'; assert s['capacity']==len(s['slots']); assert len({p['module_id'] for p in s['slots']})==s['capacity']; assert all(p['input_power_w']<=p['rated_w']+1e-7 for p in s['slots'])"
           python -m ats --headless --mode logistics --no-idle-digging --steps 20000 --json ats2-strict-ci.json > ats2-strict-stdout.json
