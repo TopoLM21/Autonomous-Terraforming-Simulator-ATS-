@@ -1,7 +1,7 @@
 """Physical charging ports adapt to the existing shared solar bus."""
 from dataclasses import dataclass
 from types import SimpleNamespace
-from .inventory import BatteryModule, Location as L
+from .inventory import BatteryModule, ChargingSlot, Location as L
 
 
 class ChargePort:
@@ -31,6 +31,21 @@ class BatteryService:
         self.drone_swaps={}
         self.drone_swap_count=0
         self.drone_swap_counts={}
+        self.slots={}
+        self._charge_before={}
+        self._module_power={}
+        if logistics.config.individual_chargers:
+            for pack in logistics.inventory.select(BatteryModule):
+                if pack.compatibility=='base':continue
+                slot=ChargingSlot(f'charge_slot_{pack.id}',logistics.config.charger_slot_mass_kg,
+                    L.BASE_MOUNT,'EMPTY','base',position=tuple(logistics.sim.base.position),
+                    module_id=pack.id,rated_w=min(logistics.config.port_power_w,pack.max_charge_w))
+                logistics.inventory.add(slot);self.slots[pack.id]=slot
+        self.after_charging()
+
+    @property
+    def capacity(self):
+        return len(self.slots) if self.world.config.individual_chargers else self.world.config.charger_ports
 
     def ready(self, compatibility, location=L.BASE_STORAGE, minimum_soc=.999999):
         return [b for b in self.world.inventory.select(BatteryModule,location)
@@ -65,7 +80,12 @@ class BatteryService:
             if id not in eligible:self.queue.remove(id)
         for id in eligible:
             if id not in self.queue:self.queue.append(id)
-        self.ports=self.queue[:c.charger_ports]
+        self.ports=list(self.queue) if c.individual_chargers else self.queue[:c.charger_ports]
+        if c.individual_chargers and any(id not in self.slots for id in self.ports):
+            raise ValueError('Battery has no assigned physical charging slot')
+        self._charge_before={id:inv.items[id].charged_energy for id in self.ports}
+        self._module_power={}
+        for slot in self.slots.values():slot.input_power_w=0.
         for b in inv.select(BatteryModule):
             if b.location==L.BASE_CHARGER and b.id not in self.ports:
                 b.location=L.BASE_STORAGE;b.state='QUEUED_FOR_CHARGE'
@@ -79,10 +99,22 @@ class BatteryService:
 
     def after_charging(self):
         w=self.world
+        self._module_power={id:max(0.,w.inventory.items[id].charged_energy-before)/w.sim.base.config.charge_efficiency
+                            for id,before in self._charge_before.items()}
         for b in w.inventory.select(BatteryModule):
             if b.state=='CHARGING' and b.soc>=1-1e-12:
                 b.state='INSTALLED' if b.location==L.DRONE_MOUNT else 'STORED_READY'
                 if b.location==L.BASE_CHARGER:b.location=L.BASE_STORAGE
+        self.update_slot_states()
+
+    def update_slot_states(self):
+        w=self.world
+        for id,slot in self.slots.items():
+            pack=w.inventory.items[id]
+            slot.input_power_w=self._module_power.get(id,0.)
+            slot.state=('EMPTY' if pack.location not in (L.BASE_STORAGE,L.BASE_CHARGER) else
+                        'RESERVED' if pack.reserved_by else 'FULL' if pack.soc>=1-1e-12 else
+                        'CHARGING' if slot.input_power_w>0 else 'WAITING_POWER')
 
     def tick_robot_swap(self):
         from .excavator import ExcavatorState as ES
@@ -159,10 +191,26 @@ class BatteryService:
             w.sim.drone_event(d,'роботизированная смена батарей завершена')
             w.progress_at=w.sim.time
 
-    def snapshot(self):
-        return dict(ports=list(self.ports),queue=list(self.queue),
-                    capacity=self.world.config.charger_ports,robot_swap=dict(self.robot_swap) if self.robot_swap else None,
+    def slot_snapshot(self):
+        inv=self.world.inventory
+        if self.world.config.individual_chargers:
+            return [dict(id=slot.id,module_id=id,state=slot.state,location=inv.items[id].location.value,
+                         soc=inv.items[id].soc,rated_w=slot.rated_w,input_power_w=slot.input_power_w)
+                    for id,slot in self.slots.items()]
+        return [dict(id=f'shared_charge_slot_{i+1}',module_id=id or '',
+                     state='CHARGING' if id and self._module_power.get(id,0)>0 else 'WAITING_POWER' if id else 'EMPTY',
+                     location=inv.items[id].location.value if id else '',soc=inv.items[id].soc if id else 0.,
+                     rated_w=self.world.config.port_power_w,input_power_w=self._module_power.get(id,0.))
+                for i in range(self.capacity) for id in [self.ports[i] if i<len(self.ports) else None]]
+
+    def snapshot(self, *, include_slots=False):
+        report=dict(ports=list(self.ports),queue=[] if self.world.config.individual_chargers else list(self.queue),
+                    mode='individual' if self.world.config.individual_chargers else 'shared',
+                    capacity=self.capacity,module_input_power_w=sum(self._module_power.values()),
+                    robot_swap=dict(self.robot_swap) if self.robot_swap else None,
                     drone_swaps={serial:dict(swap,remaining_seconds=max(0.,self.world.config.drone_swap_seconds-swap['elapsed']))
                                  for serial,swap in self.drone_swaps.items()},drone_swap_count=self.drone_swap_count,drone_swap_counts=dict(self.drone_swap_counts),
                     dock_charging_drones=[d.serial for d in self.world.sim.drones
                                          if d.docked and d.charge_requested and d.serial not in self.drone_swaps])
+        if include_slots:report['slots']=self.slot_snapshot()
+        return report

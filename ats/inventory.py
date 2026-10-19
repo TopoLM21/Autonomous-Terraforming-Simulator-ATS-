@@ -74,6 +74,14 @@ class Rigging(Item):
 
 
 @dataclass
+class ChargingSlot(Item):
+    kind: str = 'MODULE_CHARGING_SLOT'
+    module_id: str = ''
+    rated_w: float = 1500.
+    input_power_w: float = 0.
+
+
+@dataclass
 class Inventory:
     items: dict = field(default_factory=dict)
 
@@ -81,7 +89,10 @@ class Inventory:
         if item.id in self.items:
             raise ValueError(f'Duplicate inventory ID: {item.id}')
         self.items[item.id] = item
-        self.validate()
+        try:self.validate()
+        except Exception:
+            del self.items[item.id]
+            raise
         return item
 
     def reserve(self, ids, owner):
@@ -109,6 +120,7 @@ class Inventory:
                 and (location is None or o.location == location)]
 
     def validate(self):
+        slot_modules=set()
         for key, o in self.items.items():
             if key != o.id or not o.holder_id or not isinstance(o.location, Location):
                 raise ValueError('Invalid inventory identity/location')
@@ -122,6 +134,13 @@ class Inventory:
             if isinstance(o, SoilContainer):
                 if o.soil_kg < -1e-8 or o.gross_mass > o.max_gross_kg+1e-7:
                     raise ValueError('Container overloaded')
+            if isinstance(o, ChargingSlot):
+                if (not isinstance(self.items.get(o.module_id),BatteryModule) or o.module_id in slot_modules
+                        or o.location!=Location.BASE_MOUNT or o.holder_id!='base'
+                        or not math.isfinite(o.rated_w) or o.rated_w<0
+                        or not math.isfinite(o.input_power_w) or not 0<=o.input_power_w<=o.rated_w+1e-7):
+                    raise ValueError('Invalid individual battery charging slot')
+                slot_modules.add(o.module_id)
 
     def snapshot(self):
         return [dict(asdict(o), type=type(o).__name__, gross_mass_kg=o.gross_mass)

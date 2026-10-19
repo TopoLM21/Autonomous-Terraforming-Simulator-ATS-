@@ -11,6 +11,7 @@ def logistics_config(count=1, **values):
     # Strict logistics fixtures isolate Krot/container physics. Work sharing has
     # dedicated integration coverage below and is enabled in the application.
     values.setdefault('idle_digging',False)
+    values.setdefault('individual_chargers',False)  # retained shared-port scenarios
     c=Config(logistics=LogisticsConfig(**values))
     c.fleet.count=count
     return c

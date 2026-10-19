@@ -48,12 +48,19 @@ air lift; absence of a viable site is explicit. While batteries are unavailable,
 60 W control idle changes to modelled 1 W sleep below 10% SOC. The 0.1 kWh buffer
 only powers control, never mining; recharging it from installed packs pays 10% loss.
 
-`batteries.py` runs timed sequential side-dock swaps and base drone swaps. Universal
-ports charge **removed** modules, one ID per port; a fifth waits. Mounted drone
-banks use the preserved landing-dock circuit. Their BMS shares accepted dock input
-between mounted packs. An unported removed pack never receives a share of another
-pack's charge. Contact docks, universal ports, mechanics, electronics and optical
-links share finite generation/storage and the inverter limit. Mechanical docks
+`batteries.py` runs timed sequential side-dock swaps and base drone swaps. Each
+replaceable physical module has a permanent `ChargingSlot` with its own controller
+and ID. This includes initially mounted packs, so a removed pack always has a home
+slot. Away/mounted packs leave empty slots; reserved packs cannot charge. Base-bank
+batteries use their original storage circuit. Every slot adds its configured
+hardware mass (model default 1 kg) to the base, with no extra stored energy.
+Offboard packs can charge concurrently at up to 1.5 kW each; mounted drone banks
+use the preserved aggregate 8 kW landing circuit, which has priority. Remaining
+source power is shared equally across incomplete modules, redistributing unused
+power when a module reaches full charge or its local limit. Both branches,
+mechanics, electronics and optical links share finite generation/storage and the
+100 kW inverter limit. `individual_chargers=False` preserves the previous finite
+port queue and common 8 kW charge limit for historical comparisons. Mechanical docks
 can use current sunlight even without a base storage battery. A delivered pack can
 power the side-dock service connector if the control buffer is empty.
 
@@ -100,7 +107,7 @@ this also applies to a preview of a heavier grabber before mounting it. A collec
 lift requests charge only from deficient participants and never interrupts an
 existing request before 100%. A foreign grabber reservation prevents direct launch. Mechanical drone swaps
 have a grounded `SWAPPING_BATTERIES` state, pack IDs, remaining time, and per-aircraft
-counters; removed packs still queue on the finite universal charging ports.
+counters; removed packs return to their own base charging slots.
 
 ## Model defaults
 
@@ -114,10 +121,11 @@ counters; removed packs still queue on the finite universal charging ports.
 | Grade / support half-width / tipping margin | 10° / 0.6 m / 1.5 | Model |
 | Ordinary idle / sleep | 60 W / 1 W | Model |
 | Side-dock swap / drone swap / tool change | 60 / 60 / 45 s | Model |
-| Removed-pack ports / input limit | 4 / 1.5 kW each | Model, shared base budget |
+| Removed-pack slots / input limit | One per replaceable physical module / 1.5 kW each | Model, shared finite source |
+| Slot hardware mass | 1 kg each | Model, included in base mass |
 | Drone pack input / discharge rating | 4 / 60 kW | Compatibility assumptions for existing heavy flight model |
 | Base bank charge / discharge rating | 2C / 10C | Model, also constrained by inverter |
-| Base inverter / common charge input | 100 / 8 kW | Model / existing charge input preserved |
+| Base inverter / landing charge input | 100 / 8 kW | Model / existing dock charge input preserved |
 | Common rig / cable angle / lift margin | 12 kg / 30° / 1.2 | Model |
 | Container tare / volume / gross | 5 kg / 55 L / 90 kg | Model |
 | Large field | 200 m², mass from panel recipes, 300 s deployment at 200 W | Separate stationary scenario |
@@ -132,6 +140,21 @@ energy import. Base mass includes the warehouse before the first physical step.
 All settings are in `LogisticsConfig` or existing equipment/configuration classes.
 Internal states use seconds, metres, kilograms, joules and watts; user-facing
 capacity inputs marked kWh are converted into joules on instantiation.
+
+## Field extent and camera
+
+Fresh CLI/GUI launches use a 64 m square; `--map-size` and new-scenario controls
+accept 32–256 m at unchanged SI coordinates and cell size. With the original
+0.25 m resolution this is 128–1024 cells per side. `Config()` and loaded files
+retain their original extent unless explicitly overridden. `maps.with_map_size`
+clones and validates the configuration, requires an integer cell count and refuses
+to resize a stored height grid. Saved plans/configurations retain their field size.
+
+Zoom buttons and the wheel change only the camera. Full-screen mode reparents the
+same plot/frame to a dialog, keeping the simulation, brush and view state. F11/Esc
+restore that frame; no second simulator is created. Main-window close also closes
+the full-screen dialog. Inventory slot details are built only on their visible
+tab, not during every main-window telemetry refresh.
 
 ## Laser profiles
 

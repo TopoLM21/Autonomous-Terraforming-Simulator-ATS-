@@ -2,7 +2,7 @@
 from dataclasses import dataclass, field, asdict
 import math
 import numpy as np
-from .inventory import Inventory, Item, BatteryModule, SoilContainer, Rigging, Location as L
+from .inventory import Inventory, Item, BatteryModule, SoilContainer, Rigging, ChargingSlot, Location as L
 from .config import KWH
 from .drone import DroneState as DS
 from .simulation import MissionState
@@ -170,7 +170,7 @@ class Logistics:
     def update_base_mass(self):
         self.sim.base.config.mass=self.sim.base.config.equipment.mass+sum(
             o.gross_mass for o in self.inventory.items.values()
-            if o.holder_id=='base' and o.location in (L.BASE_STORAGE,L.BASE_CHARGER))
+            if o.holder_id=='base' and (o.location in (L.BASE_STORAGE,L.BASE_CHARGER) or isinstance(o,ChargingSlot)))
 
     def _tool_mass(self, d, tool_mass):
         e=d.config.equipment
@@ -645,6 +645,7 @@ class Logistics:
                 elif difference>0 and room>0:
                     b.energy_j=min(b.capacity_j,b.energy_j+difference*(b.capacity_j-b.energy_j)/room)
                 b.position=tuple(d.position)
+        self.battery_service.update_slot_states()
         self.inventory.validate()
         mounted=set()
         for d in self.sim.drones:
@@ -691,7 +692,8 @@ class Logistics:
                     s.laser_links,modules=consumers,bus_limit_w=self.config.inverter_power_w,
                     storage_charge_w=sum(self.inventory.items[id].max_charge_w for id in self.base_battery_ids),
                     storage_discharge_w=sum(self.inventory.items[id].max_discharge_w for id in self.base_battery_ids),
-                    auxiliary_w=self._pending_station_energy)
+                    auxiliary_w=self._pending_station_energy,
+                    module_bus_limit_w=sum(power for _,power in consumers) if self.config.individual_chargers else None)
         self._solar_ticked=True;self._step_curtailed=max(0.,s.base.curtailed-before_curtailed)
         s.base.config.charge_power=charge_power
         self._bus_used=s.base.consumed+s.base.charging_input+s.base.laser_input-before_bus
@@ -794,7 +796,7 @@ class Logistics:
         report['logistics_version']=2
         if full:report['jobs']=[asdict(j) for j in self.jobs]
         report['container_cycles']=sum(c.cycles for c in self.containers)
-        report['battery_service']=self.battery_service.snapshot()
+        report['battery_service']=self.battery_service.snapshot(include_slots=full)
         report['collective_lift']=self.group.report() if self.group else None
         report['collective_lift_count']=self.lift_count
         report['delivered_mass_kg']=self.delivered_mass

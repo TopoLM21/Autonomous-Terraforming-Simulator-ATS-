@@ -92,6 +92,7 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.addWidget(split, 1)
         left = QtWidgets.QWidget()
         left_layout = QtWidgets.QVBoxLayout(left)
+        self.left_layout=left_layout
         left_layout.setContentsMargins(0, 0, 4, 0)
         legend = QtWidgets.QLabel("Рельеф: синий — выемка, песочный — исходный уровень, светлый — насыпь | План: голубой — выемка, зелёный — засыпка, оранжевый — отвал; розовый — профиль")
         legend.setWordWrap(True)
@@ -99,12 +100,29 @@ class MainWindow(QtWidgets.QMainWindow):
         self.plan_editor=PlanEditor(config,self)
         left_layout.addWidget(self.plan_editor);self.plan_editor.hide()
         self.view_box=BrushViewBox()
+        self.map_frame=QtWidgets.QWidget()
+        map_layout=QtWidgets.QVBoxLayout(self.map_frame);map_layout.setContentsMargins(0,0,0,0)
+        map_tools=QtWidgets.QHBoxLayout()
+        self.zoom_in=QtWidgets.QPushButton('+');self.zoom_out=QtWidgets.QPushButton('−')
+        self.zoom_fit=QtWidgets.QPushButton('Вся карта')
+        self.map_fullscreen=QtWidgets.QPushButton('Развернуть карту · F11');self.map_fullscreen.setCheckable(True)
+        self.map_shortcut=QtGui.QShortcut(QtGui.QKeySequence('F11'),self)
+        self.map_shortcut.activated.connect(lambda:self.map_fullscreen.toggle())
+        self.zoom_label=QtWidgets.QLabel('100%')
+        for widget in (self.zoom_out,self.zoom_label,self.zoom_in,self.zoom_fit,self.map_fullscreen):map_tools.addWidget(widget)
+        map_tools.addStretch();map_layout.addLayout(map_tools)
+        self.map_dialog=None
         self.map = pg.PlotWidget(viewBox=self.view_box)
         self.map.setAspectLocked(True)
         self.map.setLabel("bottom", "X", units="m")
         self.map.setLabel("left", "Y", units="m")
         self.map.showGrid(x=True, y=True, alpha=0.12)
-        left_layout.addWidget(self.map, 5)
+        map_layout.addWidget(self.map,1);left_layout.addWidget(self.map_frame,7)
+        self.zoom_in.clicked.connect(lambda:self.zoom_map(1.25))
+        self.zoom_out.clicked.connect(lambda:self.zoom_map(1/1.25))
+        self.zoom_fit.clicked.connect(self.fit_map)
+        self.map_fullscreen.toggled.connect(self.toggle_map_fullscreen)
+        self.view_box.sigRangeChanged.connect(self.update_zoom_label)
         self.image = pg.ImageItem()
         self.map.addItem(self.image)
         self.design_overlay = pg.ImageItem()
@@ -204,8 +222,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.length = self.spin(0.25, 25, config.trench.length, 0.25)
         self.width = self.spin(0.25, 15, config.trench.width, 0.25)
         self.depth = self.spin(0.05, 2, config.trench.depth, 0.05)
-        self.cx = self.spin(0.5, 31.5, config.trench.x, 0.25)
-        self.cy = self.spin(0.5, 31.5, config.trench.y, 0.25)
+        side=config.terrain.n*config.terrain.cell_size
+        self.map_size=self.spin(32,256,side,16,2);self.map_size.setSuffix(' м')
+        self.grid_info=QtWidgets.QLabel()
+        self.cx = self.spin(0.5, side-.5, config.trench.x, 0.25)
+        self.cy = self.spin(0.5, side-.5, config.trench.y, 0.25)
         self.angle = self.spin(5, 55, config.trench.angle_deg, 1)
         self.start_hour = self.spin(0, 23.99, config.start_hour, 0.5)
         self.roughness = self.spin(0, 0.03, config.terrain.roughness, 0.005, 3)
@@ -214,6 +235,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.seed.setValue(config.seed)
         for label, widget in [("Длина дна", self.length), ("Ширина дна", self.width), ("Глубина", self.depth), ("Центр X", self.cx), ("Центр Y", self.cy), ("Откос, °", self.angle), ("Стартовый час", self.start_hour), ("Неровности, ±м", self.roughness), ("Seed", self.seed)]:
             form.addRow(label, widget)
+        form.addRow('Сторона новой карты',self.map_size);form.addRow(self.grid_info)
+        self.map_size.valueChanged.connect(self.update_map_size_controls);self.update_map_size_controls()
         solar_group = QtWidgets.QGroupBox("База и солнце · для нового сценария")
         solar_form = QtWidgets.QFormLayout(solar_group)
         self.panels = self.spin(0, 10000000, self.config.base.panel_area, 1)
@@ -308,7 +331,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dust_image.setRect(rect)
         self.brush_overlay.clear()
         self.brush_overlay.setRect(rect)
-        self.map.setRange(xRange=(0, side), yRange=(0, side), padding=0.015)
+        self.fit_map()
         self.profile_segment.blockSignals(True)
         self.profile_segment.clear();self.profile_segment.addItem("Все сегменты",None)
         for index,segment in enumerate(segments_for(self.config)):self.profile_segment.addItem(segment.name,index)
@@ -319,6 +342,46 @@ class MainWindow(QtWidgets.QMainWindow):
             label=pg.TextItem(color=self.palette[len(self.drone_labels)],anchor=(0,1));self.map.addItem(label);self.drone_labels.append(label)
         for index,label in enumerate(self.drone_labels):label.setVisible(index<len(self.sim.drones))
         self.fleet_table.setRowCount(len(self.sim.drones))
+
+    def update_map_size_controls(self):
+        side=self.map_size.value();cell=self.config.terrain.cell_size
+        self.cx.setMaximum(side-.5);self.cy.setMaximum(side-.5)
+        self.length.setMaximum(side-2*cell);self.width.setMaximum(side-2*cell)
+        n=round(side/cell);self.grid_info.setText(f'Сетка {n}×{n} · ячейка {cell:g} м')
+
+    def fit_map(self):
+        side=self.sim.config.terrain.n*self.sim.config.terrain.cell_size
+        self.map.setRange(xRange=(0,side),yRange=(0,side),padding=0)
+
+    def update_zoom_label(self,*args):
+        side=self.sim.config.terrain.n*self.sim.config.terrain.cell_size
+        ranges=self.map.viewRange();span=min(ranges[0][1]-ranges[0][0],ranges[1][1]-ranges[1][0])
+        self.zoom_label.setText(f'{100*side/max(span,1e-9):.0f}%')
+
+    def zoom_map(self,factor):
+        ranges=self.map.viewRange();side=self.sim.config.terrain.n*self.sim.config.terrain.cell_size
+        span=min(b-a for a,b in ranges)
+        target=max(2*self.sim.terrain.cell,min(4*side,span/factor))
+        self.view_box.scaleBy((target/span,target/span))
+
+    def toggle_map_fullscreen(self,enabled):
+        if not enabled:
+            if self.map_dialog is not None:self.map_dialog.close()
+            return
+        self._map_home_index=self.left_layout.indexOf(self.map_frame)
+        dialog=QtWidgets.QDialog(self);dialog.setWindowTitle('ATS · Карта · Esc / F11 — вернуть')
+        box=QtWidgets.QVBoxLayout(dialog);box.setContentsMargins(0,0,0,0);box.addWidget(self.map_frame)
+        self.map_dialog=dialog;dialog.finished.connect(self.restore_map)
+        dialog.shortcut=QtGui.QShortcut(QtGui.QKeySequence('F11'),dialog)
+        dialog.shortcut.activated.connect(dialog.close)
+        self.map_fullscreen.setText('Вернуть карту · F11 / Esc');dialog.showFullScreen()
+
+    def restore_map(self,*args):
+        if self.map_dialog is None:return
+        dialog=self.map_dialog;self.map_dialog=None
+        self.left_layout.insertWidget(self._map_home_index,self.map_frame,7);self.map_frame.show()
+        self.map_fullscreen.blockSignals(True);self.map_fullscreen.setChecked(False);self.map_fullscreen.blockSignals(False)
+        self.map_fullscreen.setText('Развернуть карту · F11');dialog.deleteLater()
 
     def toggle_brush_panel(self,visible):
         self.plan_editor.setVisible(visible)
@@ -419,6 +482,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def closeEvent(self,event):
         self.timer.stop();self.running=False
+        if self.map_dialog is not None:self.map_dialog.close()
         if hasattr(self,'logistics_window'):self.logistics_window.close()
         super().closeEvent(event)
 
@@ -502,6 +566,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.credit = 0
         self.config = config
         self.sim = sim
+        self.map_size.setValue(config.terrain.n*config.terrain.cell_size)
+        self.update_map_size_controls()
+        self.cx.setValue(config.trench.x);self.cy.setValue(config.trench.y)
         self.sync_equipment()
         self.plan_editor.segments=deepcopy(config.plan.segments) if config.plan is not None else []
         self.plan_editor.dirty=False;self.plan_editor.rebuild()
@@ -524,6 +591,8 @@ class MainWindow(QtWidgets.QMainWindow):
         config.base.latitude_deg = self.latitude.value()
         config.base.start_day_of_year = self.calendar.date().dayOfYear()
         try:
+            from .maps import with_map_size
+            config=with_map_size(config,self.map_size.value())
             self.replace_simulation(config)
         except ValueError as error:
             QtWidgets.QMessageBox.warning(self, "Неверный сценарий", str(error))

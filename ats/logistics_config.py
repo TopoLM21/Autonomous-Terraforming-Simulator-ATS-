@@ -62,6 +62,8 @@ class LogisticsConfig:
     stall_timeout_s: float = 1800.
     # Large solar field is a separate scenario, not a hidden default bonus.
     field_deployment_seconds: float = 300.
+    individual_chargers: bool = True
+    charger_slot_mass_kg: float = 1.  # model: socket, wiring and local charge controller
 
     def validate(self):
         from dataclasses import asdict
@@ -77,6 +79,8 @@ class LogisticsConfig:
             raise ValueError('Fewer physical batteries than active excavator slots')
         if not 1 <= self.charger_ports <= 64:
             raise ValueError('Charging ports: 1..64')
+        if not isinstance(self.individual_chargers,bool) or self.charger_slot_mass_kg<=0:
+            raise ValueError('Invalid individual charging slot configuration')
         for name in ('pack_capacity_kwh','pack_mass_kg','container_tare_kg','container_volume_m3',
                      'reach_m','local_depth_m','cycle_seconds','excavator_speed','battery_swap_seconds',
                      'drone_swap_seconds','attachment_seconds','handling_seconds','rigging_mass_kg',

@@ -12,9 +12,10 @@ from .plan import PlanConfig,PlanSegment
 
 def experiment_config(config, mode='logistics',drones=4,containers=8,ports=4,
                       battery_modules=None,robot_slots=2,panel_area=None,laser='laser_off',landing_slots=None,idle_digging=True,
-                      drone_spare_sets=None,excavator_spare_batteries=None):
+                      drone_spare_sets=None,excavator_spare_batteries=None,individual_chargers=None):
     c=deepcopy(config);resolve_config(c)
     previous=c.logistics
+    if individual_chargers is None:individual_chargers=previous.individual_chargers if previous else True
     if drone_spare_sets is None:
         drone_spare_sets=previous.drone_spare_sets if previous else 1
     if excavator_spare_batteries is None:
@@ -37,7 +38,7 @@ def experiment_config(config, mode='logistics',drones=4,containers=8,ports=4,
     c.logistics=None if mode=='legacy' else LogisticsConfig(direct_allowed=mode=='hybrid',idle_digging=idle_digging,
         container_count=containers,charger_ports=ports,excavator_battery_slots=robot_slots,
         excavator_battery_count=robot_slots+excavator_spare_batteries,
-        drone_spare_sets=drone_spare_sets,laser_profile=laser)
+        drone_spare_sets=drone_spare_sets,laser_profile=laser,individual_chargers=individual_chargers)
     c=with_laser_profile(c,laser);c.validate();return c
 
 
@@ -66,7 +67,7 @@ def benchmark_configs(config):
            ('S2',dict(drones=2)),('S3',dict(drones=4)),('S4',dict(mode='hybrid',drones=4)),
            ('S5',dict(drones=4,laser='existing_legacy')),
            ('S6',dict(drones=4,laser='realistic_reference'))]
-    specs += [(f'S7_ports_{n}',dict(drones=4,ports=n)) for n in (1,2,4)]
+    specs += [(f'S7_ports_{n}',dict(drones=4,ports=n,individual_chargers=False)) for n in (1,2,4)]
     specs += [(f'S8_containers_{n}',dict(drones=4,containers=n)) for n in (4,8,12)]
     specs += [(f'S9_panels_{n}',dict(drones=4,panel_area=n)) for n in (20,200)]
     return [(name,experiment_config(config,**values)) for name,values in specs]

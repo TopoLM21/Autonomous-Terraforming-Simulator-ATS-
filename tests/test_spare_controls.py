@@ -38,7 +38,9 @@ def test_extra_spares_are_physical_items_with_initial_mass_and_energy():
     added_mass=sum(b.mass_kg for b in drone_spares+robot_spares)
     assert inventory_mass(sim)-inventory_mass(original)==pytest.approx(added_mass)
     assert sim.time==original.time==0
-    assert sim.base.config.mass-original.base.config.mass==pytest.approx(added_mass)
+    added_slots=len(drone_spares)+len(robot_spares)
+    assert sim.base.config.mass-original.base.config.mass==pytest.approx(
+        added_mass+added_slots*configured.logistics.charger_slot_mass_kg)
     assert sim.equipment_imported_energy==sim.equipment_exported_energy==0
     for _ in range(60):sim.step()
     assert sim.equipment_imported_energy==sim.equipment_exported_energy==0
@@ -76,7 +78,7 @@ def test_cli_explicit_reserve_flags_override_loaded_configuration(tmp_path,flags
     assert result.returncode==0,result.stderr
     report=json.loads(result.stdout)
     physical=report['inventory']
-    assert len([b for b in physical if '_spare_' in b['id']])==2*2*sets
+    assert len([b for b in physical if b['type']=='BatteryModule' and '_spare_' in b['id']])==2*2*sets
     assert len([b for b in physical if b.get('compatibility')=='excavator'])==4+spares
     assert abs(report['energy_error_j'])<1e-4
     assert report['equipment_imported_kwh']==report['equipment_exported_kwh']==0
@@ -91,7 +93,7 @@ def test_cli_new_experiment_accepts_spare_inventory_and_rejects_legacy():
         '--mode','logistics','--drones','1',*flags],capture_output=True,text=True,timeout=30)
     assert result.returncode==0,result.stderr
     report=json.loads(result.stdout)
-    assert len([b for b in report['inventory'] if '_spare_' in b['id']])==4
+    assert len([b for b in report['inventory'] if b['type']=='BatteryModule' and '_spare_' in b['id']])==4
     assert len([b for b in report['inventory'] if b.get('compatibility')=='excavator'])==7
     legacy=subprocess.run([sys.executable,'-m','ats','--headless','--steps','0',*flags],
                           capture_output=True,text=True,timeout=30)

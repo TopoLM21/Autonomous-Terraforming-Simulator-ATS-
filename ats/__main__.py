@@ -34,6 +34,8 @@ def main():
     parser.add_argument('--excavator-spare-batteries',type=int,
                         help='Initial spare Krot battery modules, 0..128; installed modules are additional')
     parser.add_argument('--module-charge-ports',type=int,default=4)
+    parser.add_argument('--module-charge-mode',choices=('individual','shared'),help='One physical slot per module (default) or shared FIFO ports')
+    parser.add_argument('--map-size',type=float,help='Square field side in metres, 32..256; new scenarios default to 64 m')
     parser.add_argument('--laser-profile',choices=('laser_off','existing_legacy','realistic_reference'))
     parser.add_argument('--configuration',help='Load version 2 experiment JSON')
     parser.add_argument('--save-configuration',help='Save version 2 experiment JSON')
@@ -53,6 +55,9 @@ def main():
     config.fleet.wait_mode = args.wait_mode
     config.drone.charge_threshold = args.charge_threshold/100
     try:
+        from .maps import with_map_size
+        if not args.plan and not args.configuration:
+            config=with_map_size(config,args.map_size if args.map_size is not None else 64.)
         if args.plan:
             from .plan import load_plan
             config = load_plan(args.plan, config)
@@ -73,6 +78,10 @@ def main():
         if args.configuration:
             from .experiments import load_configuration
             config=load_configuration(args.configuration)
+        if args.map_size is not None:config=with_map_size(config,args.map_size)
+        if args.module_charge_mode is not None:
+            if config.logistics is None:raise ValueError('Module charging mode requires logistics configuration')
+            config.logistics.individual_chargers=args.module_charge_mode=='individual'
         # Apply explicit inventory overrides after loading. Omitting these flags
         # preserves the saved physical inventory rather than replacing defaults.
         for flag,maximum in [('drone_spare_sets',64),('excavator_spare_batteries',128)]:

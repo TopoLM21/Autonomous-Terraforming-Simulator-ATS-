@@ -210,7 +210,7 @@ def test_logistics_inventory_and_experiments_ui(tmp_path):
     view.tabs.setCurrentIndex(1)
     assert w.excavator_marker.data.size>0 and w.container_markers.data.size==8
     view.filter.setText('excavator_battery')
-    assert view.inventory.rowCount()==4
+    assert view.inventory.rowCount()==8  # four modules and their four physical slots
     dialog=ExperimentDialog(w);dialog.mode.setCurrentIndex(2)
     assert dialog.candidate().logistics.direct_allowed
     dialog.idle_digging.setChecked(False)
