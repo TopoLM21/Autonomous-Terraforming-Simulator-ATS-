@@ -140,5 +140,19 @@
     "time": "199.337"
   },
   "wheel_contains_bundled_dem": true,
-  "new_focused_gui_tests": "2 passed after latitude-control synchronization"
+  "new_focused_gui_tests": "2 passed after latitude-control synchronization",
+  "real_dem_case": {
+    "state": "COMPLETED",
+    "reason": "",
+    "time_seconds": 4773.0,
+    "mass_error_kg": -1.8474111129762605e-11,
+    "energy_error_j": 5.494803190231323e-07,
+    "excavated_m3": 0.9903001677951707,
+    "source_lon_lat": [
+      28.3,
+      31.0
+    ],
+    "target_msl": 58.71544602649476,
+    "landscape_soil_delta_m3": -1.1546319456101628e-14
+  }
 }
