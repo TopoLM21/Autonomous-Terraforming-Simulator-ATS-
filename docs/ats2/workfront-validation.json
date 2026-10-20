@@ -148,5 +148,50 @@
     "Physical base relocation is within one active window; inter-window setup remains a separate run",
     "No global shortest-path solver for base or air traffic",
     "No hydrology or water erosion"
-  ]
+  ],
+  "code_commit": "092d7b9a3425fdf228bf84434a7f6b12780f20b3",
+  "one_hour_standard_energy": {
+    "state": "RUNNING",
+    "reason": "",
+    "time_seconds": 3600.0,
+    "trips": 85,
+    "excavated_m3": 3.463399807595067,
+    "mass_error_kg": 5.684341886080801e-13,
+    "energy_error_j": 4.991888999938965e-07,
+    "consumed_kwh": 30.452240024217005,
+    "solar_generated_kwh": 3.3078454173585876,
+    "workfront": {
+      "chainage_m": 0.031230978453987795,
+      "start_m": 0.013771791065162742,
+      "end_m": 415.6445207865511,
+      "length_m": 32.0,
+      "setback_m": 23.0
+    },
+    "excavator_state": "WAITING_EMPTY_CONTAINER",
+    "excavator_cycles": 40
+  },
+  "local_validation": {
+    "full_suite": {
+      "passed": 272,
+      "seconds": 225.97
+    },
+    "latest_targeted_suite": {
+      "passed": 33,
+      "seconds": 41.7
+    },
+    "manual_landing_regression": {
+      "passed": 1,
+      "seconds": 1.19
+    },
+    "release_checks": {
+      "passed": 21,
+      "seconds": 34.77
+    },
+    "panel_checks": {
+      "passed": 2,
+      "seconds": 7.65
+    },
+    "gui": "Offscreen 1500x950 preview rendered the 512 m project after 180 model seconds",
+    "benchmark_script": "scripts/benchmark_canal.py --trials 1 --steps 1"
+  }
 }
