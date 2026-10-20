@@ -1,0 +1,82 @@
+{
+  "python": "3.12.14",
+  "platform": "Linux",
+  "route": {
+    "length_m": 84716.08142285519,
+    "start_lon_lat": [
+      28.24276236434566,
+      31.078370024234523
+    ],
+    "end_lon_lat": [
+      27.91074918528171,
+      30.372842018723635
+    ],
+    "start_msl": 0.18702330285738,
+    "end_msl": -0.004531521630070756,
+    "depth_m": 5.0,
+    "width_m": 20.0,
+    "shore_offset_m": 10.0,
+    "estimated_cut_m3": 2762587157.1486826
+  },
+  "maps": [
+    {
+      "side_m": 256,
+      "cell_size_m": 0.25,
+      "cells": 1024,
+      "setup_seconds": 5.444539276999421,
+      "state": "RUNNING",
+      "reason": "",
+      "local_cut_m3": 42896.86229918539,
+      "dump_capacity_m3": 60341.68042679712,
+      "latitude_deg": 31.077836261111766,
+      "initial_fine_storage_bytes": 0,
+      "sections": 662
+    },
+    {
+      "side_m": 512,
+      "cell_size_m": 0.5,
+      "cells": 1024,
+      "setup_seconds": 3.8805152159993668,
+      "state": "RUNNING",
+      "reason": "",
+      "local_cut_m3": 121111.96361687082,
+      "dump_capacity_m3": 424790.6410202646,
+      "latitude_deg": 31.077303413796262,
+      "initial_fine_storage_bytes": 0,
+      "sections": 331
+    },
+    {
+      "side_m": 1024,
+      "cell_size_m": 1.0,
+      "cells": 1024,
+      "setup_seconds": 4.167392213999847,
+      "state": "RUNNING",
+      "reason": "",
+      "local_cut_m3": 414203.99170896306,
+      "dump_capacity_m3": 2168495.352460392,
+      "latitude_deg": 31.075124810215137,
+      "initial_fine_storage_bytes": 0,
+      "sections": 166
+    }
+  ],
+  "real_ats2_run": {
+    "wall_seconds": 4.265660516000025,
+    "state": "RUNNING",
+    "reason": "",
+    "time_seconds": 180.0,
+    "excavated_m3": 0.203125,
+    "trips": 4,
+    "mass_error_kg": 2.4300561562995426e-12,
+    "energy_error_j": 2.1024607121944427e-07,
+    "solar_generated_kwh": 0.15291771842910967,
+    "latitude_deg": 31.077303413796262
+  },
+  "focused_checks": "21 passed, including completed ATS 2.0 channel and project continuation",
+  "tests": {
+    "tests": "265",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "time": "175.735"
+  }
+}

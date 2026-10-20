@@ -43,6 +43,7 @@ class Terrain:
             self.set_plan(config.plan)
         self.initial_volume = self.volume
         self._initial_surface = self.height.copy()
+        self._relax_dirty=np.zeros(self.height.shape,dtype=bool)
         self.initial_excavation = self.remaining
         self._pairs = []
         grid = np.arange(t.n*t.n).reshape(t.n, t.n)
@@ -116,7 +117,7 @@ class Terrain:
         work = cutting | filling
         if np.any(work & self.dump_mask):
             raise ValueError("План пересекает отвал: он используется как запас грунта")
-        if np.any(work[[0,-1], :]) or np.any(work[:, [0,-1]]):
+        if plan.channel is None and (np.any(work[[0,-1], :]) or np.any(work[:, [0,-1]])):
             raise ValueError("План с откосами касается границы карты")
         for oy, ox in [(0,1),(1,0),(1,1),(1,-1)]:
             ya, yb = slice(0,target.shape[0]-oy),slice(oy,target.shape[0])
@@ -150,20 +151,35 @@ class Terrain:
         mask = (excess > 0) & ((self.x-x)**2+(self.y-y)**2 <= radius**2)
         return mask, np.where(mask, excess, 0)
 
+    def _available_patch(self,x,y,source,radius):
+        radius=self.config.terrain.grab_radius if radius is None else radius
+        n=self.height.shape[0]
+        left=max(0,math.floor((x-radius)/self.cell));right=min(n,math.floor((x+radius)/self.cell)+1)
+        bottom=max(0,math.floor((y-radius)/self.cell));top=min(n,math.floor((y+radius)/self.cell)+1)
+        patch=(slice(bottom,top),slice(left,right))
+        mask,surface=(self.dump_mask,self.reference) if source=='stockpile' else (self.excavation,self.target)
+        footprint=(self.x[patch]-x)**2+(self.y[patch]-y)**2<=radius**2
+        return patch,np.where(mask[patch]&footprint,np.maximum(self.height[patch]-surface[patch],0),0)
+
+    def available_mass(self,x,y,source='cut',radius=None):
+        _,excess=self._available_patch(x,y,source,radius)
+        return float(excess.sum()*self.area*self.config.terrain.density)
+
     def scoop(self, x, y, max_mass, source="cut", radius=None, allowed_mask=None, minimum_height=None):
         if not math.isfinite(max_mass) or max_mass < 0:
             raise ValueError("Неверная масса захвата")
-        _, excess = self.local_available(x, y, source, radius)
+        patch, excess = self._available_patch(x, y, source, radius)
         if minimum_height is not None:
-            excess=np.minimum(excess,np.maximum(self.height-minimum_height,0.))
+            excess=np.minimum(excess,np.maximum(self.height[patch]-minimum_height,0.))
         if allowed_mask is not None:
-            excess=np.where(allowed_mask,excess,0.)
+            excess=np.where(allowed_mask[patch],excess,0.)
         available = float(excess.sum()*self.area)
         volume = min(max_mass/self.config.terrain.density, available)
         if available <= 0:
             return 0.0
         # Proportional removal never digs below the design and changes many cells.
-        self.height -= excess*(volume/available)
+        self.height[patch] -= excess*(volume/available)
+        self._relax_dirty[patch] |= excess>0
         self.revision += 1
         return volume*self.config.terrain.density
 
@@ -224,6 +240,7 @@ class Terrain:
         total = float(local_cap.sum()*self.area)
         if volume > 0:
             self.height += local_cap*(volume/total)
+            self._relax_dirty |= local_cap>0
             self.revision += 1
 
     def relax(self, sweeps=None):
@@ -233,6 +250,11 @@ class Terrain:
         for _ in range(t.avalanche_sweeps if sweeps is None else sweeps):
             sweep_moved = 0.0
             for a, b, limit in self._pairs:
+                if self.config.reference_height is not None:
+                    touched=self._relax_dirty.ravel()
+                    near=touched[a]|touched[b]
+                    a,b=a[near],b[near]
+                    if not len(a):continue
                 difference = height[a]-height[b]
                 active = np.abs(difference) > limit+t.avalanche_epsilon
                 if self.config.reference_height is not None:
@@ -246,9 +268,11 @@ class Terrain:
                 transfer = np.sign(difference)*(np.abs(difference)-limit-t.avalanche_epsilon)*t.relaxation
                 height[a] -= transfer
                 height[b] += transfer
+                self._relax_dirty.ravel()[a]=True;self._relax_dirty.ravel()[b]=True
                 sweep_moved += float(np.abs(transfer).sum())*self.area
             moved += sweep_moved
             if sweep_moved == 0:
+                self._relax_dirty[:]=False
                 break
         if moved > 0:
             self.revision += 1

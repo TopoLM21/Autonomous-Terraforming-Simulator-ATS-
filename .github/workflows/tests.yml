@@ -35,13 +35,19 @@ jobs:
           python -c "import json; r=json.load(open('ats2-ci.json',encoding='utf-8')); e=r['excavator']; assert all(d['activity']['total_seconds']==r['time_seconds'] for d in r['drones']); assert e['activity']['total_seconds']==r['time_seconds']; assert abs(sum(d['mass_kg'] for d in e['daily_excavation'])-e['excavated_kg'])<1e-7"
           python -m ats --headless --mode logistics --no-idle-digging --steps 20000 --json ats2-strict-ci.json > ats2-strict-stdout.json
           python -c "import json; r=json.load(open('ats2-strict-ci.json',encoding='utf-8')); assert r['state']=='COMPLETED'; assert r['excavator']['swaps']>=1; assert r['battery_service']['drone_swap_count']>=1; assert abs(r['mass_error_kg'])<1e-7; assert abs(r['energy_error_j'])<0.002"
+      - name: Offline real DEM smoke test
+        run: |
+          python -m ats --headless --qattara --steps 0 --json dem-ci.json > dem-ci-stdout.json
+          python -c "import json; r=json.load(open('dem-ci.json',encoding='utf-8')); assert r['georeference']['vertical_datum']=='MSL'; assert r['landscape']['modified_tiles']==0; assert r['landscape']['fine_storage_bytes']==0; assert r['remaining_m3']==0; assert r['panel_area_m2']==20"
+      - name: Prepared Qattara channel smoke test
+        run: |
+          python -m ats --headless --qattara --channel-route docs/ats2/qattara-channel.json --steps 0 --json channel-ci.json > channel-ci-stdout.json
+          python -c "import json; r=json.load(open('channel-ci.json',encoding='utf-8')); assert r['state']=='RUNNING'; assert r['remaining_cut_m3']>0; assert r['plan_segments']>0; assert r['map_side_m']==512 and r['cell_size_m']==0.5; assert 31<r['latitude_deg']<32; assert r['landscape']['channel']['target_msl']==-5; assert r['landscape']['fine_storage_bytes']==0; assert abs(r['mass_error_kg'])<1e-7"
       - uses: actions/upload-artifact@v4
         with:
           name: ats2-${{ matrix.os }}-${{ matrix.python }}
           path: |
             ats2-ci.json
             ats2-strict-ci.json
-      - name: Offline real DEM smoke test
-        run: |
-          python -m ats --headless --qattara --steps 0 --json dem-ci.json > dem-ci-stdout.json
-          python -c "import json; r=json.load(open('dem-ci.json',encoding='utf-8')); assert r['georeference']['vertical_datum']=='MSL'; assert r['landscape']['modified_tiles']==0; assert r['landscape']['fine_storage_bytes']==0; assert r['remaining_m3']==0; assert r['panel_area_m2']==20"
+            dem-ci.json
+            channel-ci.json

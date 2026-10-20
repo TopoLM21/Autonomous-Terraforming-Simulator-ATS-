@@ -55,7 +55,15 @@ def main():
     parser.add_argument('--goal-msl',type=float,help='Absolute local trench bottom in metres MSL; DEM starts with no work if omitted')
     parser.add_argument('--save-landscape',help='Save DEM and sparse edits after headless run; requires unloaded and landed machinery')
     parser.add_argument('--dig-rate',type=float,help='Drone soil intake limit, kg/s; standard loose-sand estimate 6')
+    parser.add_argument('--channel',action='store_true',help='Excavate the saved channel project in --landscape')
+    parser.add_argument('--channel-route',help='Channel route JSON: points, coordinates=source/metres and optional dimensions')
+    parser.add_argument('--channel-section',type=int,default=1,help='Prepared local channel section, starting at 1')
+    parser.add_argument('--channel-width',type=float,help='Flat channel bottom width in metres')
+    parser.add_argument('--channel-depth',type=float,help='Positive depth below MSL, e.g. 5 means bottom -5 m MSL')
+    parser.add_argument('--shore-offset',type=float,help='Dry start offset along alignment from sea coastline, default 10 m')
     args = parser.parse_args()
+    if (args.channel_width is not None or args.channel_depth is not None or args.shore_offset is not None or args.channel_section!=1) and not (args.channel or args.channel_route):
+        parser.error('Параметры канала требуют --channel или --channel-route')
     mode=args.mode or 'logistics'
     if args.steps < 0:
         parser.error("--steps must be nonnegative")
@@ -126,19 +134,43 @@ def main():
             from .landscape import Landscape,load_dem,qattara_dem,workspace_config
             region=(Landscape.load(args.landscape) if args.landscape else
                     Landscape(qattara_dem() if args.qattara else load_dem(args.dem,crs=args.dem_crs,vertical_datum=args.dem_datum)))
-            origin=args.work_origin
-            if args.work_lon_lat:
-                if region.raster.metadata['crs']!='EPSG:4326':raise ValueError('--work-lon-lat requires a WGS84 DEM')
-                origin=region.raster.to_metres(*args.work_lon_lat)
-            if origin is None:
-                origin=[v/2 for v in region.raster.extent_m]
-            origin=[round(v/region.cell_size)*region.cell_size for v in origin]
-            config=workspace_config(region,config,origin,args.map_size or 64.)
-            if args.goal_msl is not None:
-                from .plan import PlanConfig,PlanSegment
-                q=config.trench
-                config.plan=PlanConfig([PlanSegment([[q.x-q.length/2,q.y],[q.x+q.length/2,q.y]],'dig',q.width,args.goal_msl,'Канава MSL')])
-        elif args.work_origin or args.work_lon_lat or args.goal_msl is not None or args.save_landscape:
+            if args.channel or args.channel_route:
+                if args.work_origin or args.work_lon_lat or args.goal_msl is not None:
+                    raise ValueError('Для проекта используйте --channel-section/--channel-depth вместо --work-origin/--goal-msl')
+                from .channel import ChannelProject
+                if args.channel_route:
+                    from pathlib import Path
+                    route=json.loads(Path(args.channel_route).read_text(encoding='utf-8'))
+                    points=route['points']
+                    if route.get('coordinates','source')=='source':
+                        points=[[float(v) for v in region.raster.to_metres(*p)] for p in points]
+                    elif route.get('coordinates')!='metres':raise ValueError('Channel coordinates: source or metres required')
+                    parameters={key:route[key] for key in ('width_m','depth_m','shore_offset_m','angle_deg','side_m','spoil_height_m') if key in route}
+                elif region.channel_project:
+                    old=ChannelProject.from_data(region.channel_project);points=old.raw_points
+                    parameters={key:getattr(old,key) for key in ('width_m','depth_m','shore_offset_m','angle_deg','side_m','spoil_height_m')}
+                else:raise ValueError('Сначала сохраните размеченный канал или укажите --channel-route')
+                for key,value in [('width_m',args.channel_width),('depth_m',args.channel_depth),('shore_offset_m',args.shore_offset),('side_m',args.map_size)]:
+                    if value is not None:parameters[key]=value
+                project=ChannelProject.create(region.raster,points,**parameters)
+                if region.channel_project:
+                    old=ChannelProject.from_data(region.channel_project)
+                    if old.identity==project.identity:project=old
+                project.active_section=args.channel_section-1;project.validate()
+                config=project.configuration(region,config);region.channel_project=project.to_data()
+            else:
+                origin=args.work_origin
+                if args.work_lon_lat:
+                    if region.raster.metadata['crs']!='EPSG:4326':raise ValueError('--work-lon-lat requires a WGS84 DEM')
+                    origin=region.raster.to_metres(*args.work_lon_lat)
+                if origin is None:origin=[v/2 for v in region.raster.extent_m]
+                origin=[round(v/region.cell_size)*region.cell_size for v in origin]
+                config=workspace_config(region,config,origin,args.map_size or 64.)
+                if args.goal_msl is not None:
+                    from .plan import PlanConfig,PlanSegment
+                    q=config.trench
+                    config.plan=PlanConfig([PlanSegment([[q.x-q.length/2,q.y],[q.x+q.length/2,q.y]],'dig',q.width,args.goal_msl,'Канава MSL')])
+        elif args.work_origin or args.work_lon_lat or args.goal_msl is not None or args.save_landscape or args.channel or args.channel_route:
             raise ValueError('Нужен --dem, --qattara или --landscape')
         if args.dig_rate is not None:
             config.drone.dig_rate_kg_s=args.dig_rate
@@ -162,8 +194,11 @@ def main():
                         w=sim.logistics;e=w.excavator if w else None
                         if any(not d.grounded or d.cargo>0 for d in sim.drones) or w and (w.active or w.group is not None or any(c.soil_kg>0 for c in w.containers) or e and (e.bucket_kg>0 or e.active_container is not None)):
                             raise ValueError('Ландшафт не сохранён: завершите рейсы/выгрузку (увеличьте --steps); грунт ещё в оборудовании')
-                        region.commit_window(config.georeference['origin_m'],sim.terrain.height)
-                        region.save(args.save_landscape)
+                    region.commit_window(config.georeference['origin_m'],sim.terrain.height,cell_size=sim.terrain.cell)
+                    if region.channel_project:
+                        from .channel import ChannelProject
+                        project=ChannelProject.from_data(region.channel_project);project.record(report);region.channel_project=project.to_data()
+                    if args.save_landscape:region.save(args.save_landscape)
                     report['landscape']=region.report()
             result = json.dumps(report, ensure_ascii=False, indent=2)
             # Windows redirected consoles can use cp1252. Escape Unicode only

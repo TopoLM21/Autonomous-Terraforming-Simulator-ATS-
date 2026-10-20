@@ -173,19 +173,24 @@ class Landscape:
         self.raster, self.cell_size, self.tile_cells = raster, cell_size, tile_cells
         self.tiles = {}
         self.corridors = []
+        self.channel_project = None
 
-    def _window(self, origin, n):
+    def _window(self, origin, n, cell_size=None):
         if len(origin) != 2 or not all(math.isfinite(v) for v in origin) or not isinstance(n,int) or not 16 <= n <= 1024:
             raise ValueError('Неверный рабочий участок; максимум 1024×1024')
+        cell=self.cell_size if cell_size is None else cell_size
+        factor=round(cell/self.cell_size)
+        if factor not in (1,2,4) or abs(factor*self.cell_size-cell)>1e-9:
+            raise ValueError('Рабочая ячейка должна совпадать с сеткой хранения или быть в 2/4 раза крупнее')
         index = np.rint(np.asarray(origin)/self.cell_size).astype(np.int64)
         if np.any(np.abs(index*self.cell_size-origin) > 1e-7):
             raise ValueError('Начало участка должно быть кратно мелкой ячейке')
-        maximum = np.asarray(origin)+n*self.cell_size
+        maximum = np.asarray(origin)+n*cell
         if np.any(index < 0) or np.any(maximum > self.raster.extent_m):
             raise ValueError('Участок выходит за границы DEM')
-        axis = (np.arange(n)+.5)*self.cell_size
+        axis = (np.arange(n)+.5)*cell
         x, y = np.meshgrid(axis+origin[0],axis+origin[1])
-        return index, self.raster.sample(x,y)
+        return index, self.raster.sample(x,y),factor
 
     def _overlaps(self, index, n):
         size = self.tile_cells
@@ -197,41 +202,61 @@ class Landscape:
                 tile = (slice(lo[1]-ty*size,hi[1]-ty*size),slice(lo[0]-tx*size,hi[0]-tx*size))
                 yield (tx,ty), local, tile
 
-    def read_window(self, origin, n=256):
-        index, baseline = self._window(origin,n)
+    def read_window(self, origin, n=256, *, cell_size=None):
+        index, baseline,factor = self._window(origin,n,cell_size)
         current = baseline.copy()
-        for key, local, tile in self._overlaps(index,n):
+        changes=np.zeros_like(current) if factor>1 else None
+        for key, local, tile in self._overlaps(index,n*factor):
             if key in self.tiles:
-                current[local] += self.tiles[key][tile]
+                if factor==1:current[local] += self.tiles[key][tile]
+                else:
+                    rows=np.arange(local[0].start,local[0].stop)//factor
+                    cols=np.arange(local[1].start,local[1].stop)//factor
+                    np.add.at(changes,(rows[:,None],cols[None,:]),self.tiles[key][tile]/factor**2)
+        if factor>1:current+=changes
         return baseline, current
 
-    def commit_window(self, origin, height):
+    def commit_window(self, origin, height, *, cell_size=None):
         height = np.asarray(height,dtype=float)
         if height.ndim != 2 or height.shape[0] != height.shape[1] or not np.all(np.isfinite(height)):
             raise ValueError('Неверные высоты рабочего участка')
         n = height.shape[0]
-        index, baseline = self._window(origin,n)
+        index, baseline,factor = self._window(origin,n,cell_size)
         delta = height-baseline
-        for key, local, tile in self._overlaps(index,n):
-            values = delta[local]
+        _,previous=self.read_window(origin,n,cell_size=cell_size)
+        increments=height-previous
+        for key, local, tile in self._overlaps(index,n*factor):
+            if factor==1:values = delta[local]
+            else:
+                rows=np.arange(local[0].start,local[0].stop)//factor
+                cols=np.arange(local[1].start,local[1].stop)//factor
+                values=increments[rows[:,None],cols[None,:]]
             if key not in self.tiles and not np.any(values != 0):
                 continue
             block = self.tiles.get(key, np.zeros((self.tile_cells,self.tile_cells))).copy()
-            block[tile] = values
+            if factor==1:block[tile] = values
+            else:block[tile] += values
             if np.any(block != 0):
                 self.tiles[key] = block
             else:
                 self.tiles.pop(key,None)
 
     def report(self):
-        return dict(source=self.raster.metadata,vertical_datum='MSL', extent_m=list(self.raster.extent_m),
+        report=dict(source=self.raster.metadata,vertical_datum='MSL', extent_m=list(self.raster.extent_m),
                     source_resolution_m=list(self.raster.resolution_m),fine_cell_size_m=self.cell_size,
                     modified_tiles=len(self.tiles),fine_storage_bytes=sum(t.nbytes for t in self.tiles.values()),
                     dem_storage_bytes=self.raster.height.nbytes,
                     soil_delta_m3=math.fsum(float(t.sum(dtype=np.float64))*self.cell_size**2 for t in self.tiles.values()))
+        if self.channel_project:
+            from .channel import ChannelProject
+            p=ChannelProject.from_data(self.channel_project)
+            report['channel']=dict(project_id=p.identity,length_m=p.length,width_m=p.width_m,depth_m=p.depth_m,
+                target_msl=-p.depth_m,shore_offset_m=p.shore_offset_m,sections=p.section_count,
+                active_section=p.active_section,completed=list(p.completed))
+        return report
 
     def save(self, path):
-        metadata = dict(version=1,raster=self.raster.metadata,cell_size=self.cell_size,tile_cells=self.tile_cells,corridors=self.corridors)
+        metadata = dict(version=1,raster=self.raster.metadata,cell_size=self.cell_size,tile_cells=self.tile_cells,corridors=self.corridors,channel_project=self.channel_project)
         arrays = {f'tile_{x}_{y}':t for (x,y),t in self.tiles.items()}
         with open(path,'wb') as f:
             np.savez_compressed(f,height=self.raster.height,metadata=json.dumps(metadata,ensure_ascii=False),**arrays)
@@ -244,6 +269,7 @@ class Landscape:
                 raise ValueError('Неизвестная версия ландшафта')
             result = cls(ElevationRaster(data['height'],m['raster']),m['cell_size'],m['tile_cells'])
             result.corridors = m.get('corridors',[])
+            result.channel_project = m.get('channel_project')
             for name in data.files:
                 if name.startswith('tile_'):
                     _,x,y = name.split('_')
@@ -258,19 +284,20 @@ class Landscape:
 def workspace_config(landscape, config, origin, side_m=64.):
     """Start a local SI workspace without flattening or rebasing the DEM to zero."""
     from .plan import PlanConfig
+    from .maps import workspace_cell
     c = deepcopy(config)
-    cell = landscape.cell_size
+    cell = workspace_cell(side_m,landscape.cell_size)
     n = round(side_m/cell)
-    if not 32 <= side_m <= 256 or abs(n*cell-side_m) > 1e-8:
-        raise ValueError('Рабочий участок: 32…256 м, кратно ячейке')
-    baseline, current = landscape.read_window(origin,n)
+    if not 32 <= side_m <= 1024 or abs(n*cell-side_m) > 1e-8:
+        raise ValueError('Рабочий участок: 32…1024 м, кратно ячейке')
+    baseline, current = landscape.read_window(origin,n,cell_size=cell)
     c.terrain.n, c.terrain.cell_size = n, cell
     c.terrain.roughness = 0.
     c.terrain.floor = min(-1000.,float(current.min())-100.,float(baseline.min())-100.)
     c.terrain.grab_radius = max(c.terrain.grab_radius,cell)
     c.terrain.dump_rect = (side_m*.6875, side_m*.59375, side_m*.28125, side_m*.375)
     c.trench.x = c.trench.y = side_m/2
-    c.trench.length, c.trench.width, c.trench.depth = 2.,1.,.25
+    c.trench.length, c.trench.width, c.trench.depth = max(2.,cell),max(1.,cell),.25
     c.base.x, c.base.y = min(10.,side_m*.15625),side_m/2
     c.plan = PlanConfig([])
     c.reference_height, c.initial_height = baseline.tolist(),current.tolist()
@@ -280,7 +307,7 @@ def workspace_config(landscape, config, origin, side_m=64.):
                           source_origin=anchor,source_resolution_m=list(source.resolution_m),
                           projection='local equirectangular' if source.metadata['crs']=='EPSG:4326' else source.metadata['crs'])
     if source.metadata['crs']=='EPSG:4326':
-        c.base.latitude_deg = anchor[1]
+        c.base.latitude_deg = float(source.to_source(origin[0]+c.base.x,origin[1]+c.base.y)[1])
     elif 'latitude_deg' in source.metadata:
         c.base.latitude_deg = source.metadata['latitude_deg']
     c.validate()

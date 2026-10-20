@@ -151,6 +151,9 @@ class Simulation:
         t.revision += 1
         t.initial_excavation = t.remaining
         self.config.plan = deepcopy(plan)
+        if self.config.georeference and self.config.georeference.get('channel'):
+            if (plan.channel or {}).get('project_id')!=self.config.georeference['channel']['project_id']:
+                self.config.georeference.pop('channel')
         self.config.initial_height = t.height.tolist()
         self.config.base.x,self.config.base.y = map(float,self.base.position[:2])
         self.state, self.reason = MissionState.RUNNING, ""
@@ -372,8 +375,7 @@ class Simulation:
         trip,c=d.trip,d.config
         duration=c.scoop_duration(trip.mass)
         request=min(max(0.,trip.mass-d.cargo),trip.mass/duration*min(dt,max(0.,duration-elapsed)))
-        _,available=self.terrain.local_available(*trip.dig,trip.source,c.grab_radius)
-        return min(request,float(available.sum()*self.terrain.area*self.config.terrain.density))
+        return min(request,self.terrain.available_mass(*trip.dig,trip.source,c.grab_radius))
 
     def _clear_slot(self, d):
         if d.slot is not None and self.slots[d.slot] == d.identifier:
@@ -747,6 +749,13 @@ class Simulation:
             raise ValueError("Передавайте фиксированный шаг 1 с; ускорение = число шагов")
         if self.state != MissionState.RUNNING:
             return
+        if self.config.georeference is not None:
+            from .channel import latitude_at
+            key=tuple(self.base.position[:2])
+            if getattr(self,'_latitude_position',None)!=key:
+                self._latitude_value=latitude_at(self.config.georeference,*key,self.base.config.latitude_deg)
+                self._latitude_position=key
+            self.base.config.latitude_deg=self._latitude_value
         if self.logistics is not None:
             self.logistics.step()
             self.record_activities(dt)

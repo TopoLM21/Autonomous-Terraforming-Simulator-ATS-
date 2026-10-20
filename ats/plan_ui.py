@@ -75,11 +75,18 @@ class PlanEditor(QtWidgets.QWidget):
         self.configure_elevation(config)
 
     def configure_elevation(self,config):
+        self.channel=deepcopy(config.plan.channel) if config.plan is not None else None
+        self.width.setMinimum(config.terrain.cell_size)
+        if self.channel and config.plan.segments:
+            segment=config.plan.segments[0]
+            self.width.setMaximum(max(8.,segment.width));self.width.setValue(segment.width)
+            self.default_depth=-segment.height
         upper=config.terrain.dump_max_height
         if config.reference_height is not None:
             upper=max(10000.,max(max(row) for row in config.reference_height)+upper)
         self.height.setRange(config.terrain.floor+.01,upper)
         self.height.setSuffix(' м MSL' if config.georeference else ' м')
+        if self.channel and config.plan.segments:self.height.setValue(config.plan.segments[0].height)
         self.info.setText('Кисть задаёт абсолютную отметку поверхности в метрах над уровнем моря (MSL). Отрицательная отметка — ниже моря, а не глубина от местной поверхности. Рельеф меняется только при выполнении работ.' if config.georeference else 'Кисть задаёт высоту поверхности, не меняя грунт сразу. Высота 0 м — исходный уровень; засыпка берёт грунт из отвала или выемки.')
 
     def rebuild(self):
@@ -98,7 +105,10 @@ class PlanEditor(QtWidgets.QWidget):
             self.segments.pop(index);self.dirty=True;self.rebuild();self.planChanged.emit()
 
     def clear(self):
-        self.segments=[];self.dirty=True;self.rebuild();self.planChanged.emit()
+        self.segments=[];self.channel=None;self.dirty=True;self.rebuild();self.planChanged.emit()
 
     def plan(self):
-        return PlanConfig(deepcopy(self.segments))
+        channel=deepcopy(self.channel)
+        if channel and self.dirty:
+            for key in ('project_id','chainage_starts','first_edges'):channel.pop(key,None)
+        return PlanConfig(deepcopy(self.segments),channel=channel)

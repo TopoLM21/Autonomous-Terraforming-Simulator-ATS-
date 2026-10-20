@@ -17,6 +17,15 @@ class Profile:
 
 def segments_for(config):
     if config.plan is not None:
+        if config.plan.channel is not None:
+            from .channel import _clip_edge
+            side=config.terrain.n*config.terrain.cell_size
+            result=[]
+            for s in config.plan.segments:
+                clipped=_clip_edge(np.asarray(s.points[0]),np.asarray(s.points[-1]),0,side)
+                if clipped is not None:
+                    result.append(PlanSegment([p.tolist() for p in clipped],s.mode,s.width,s.height,s.name))
+            return result
         return config.plan.segments
     q = config.trench
     return [PlanSegment([[q.x-q.length/2,q.y],[q.x+q.length/2,q.y]],"dig",q.width,-q.depth,"Канава")]

@@ -55,7 +55,7 @@ def load_configuration(path):
         raw[key]=cls(**values)
     f=dict(raw['fleet']);f['models']=[];raw['fleet']=FleetConfig(**f)
     if raw.get('logistics') is not None:raw['logistics']=LogisticsConfig(**raw['logistics'])
-    if raw.get('plan') is not None:raw['plan']=PlanConfig([PlanSegment(**s) for s in raw['plan']['segments']])
+    if raw.get('plan') is not None:raw['plan']=PlanConfig([PlanSegment(**s) for s in raw['plan']['segments']],channel=raw['plan'].get('channel'))
     return load_equipment_data(data['equipment'],Config(**raw))
 
 

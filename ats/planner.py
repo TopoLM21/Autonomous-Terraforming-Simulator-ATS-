@@ -73,8 +73,7 @@ class Planner:
         altitude += (drone.identifier if drone is not None else 0)*self.config.fleet.altitude_spacing
         for index in candidates[order]:
             dig = (float(terrain.x.ravel()[index]), float(terrain.y.ravel()[index]))
-            _, available = terrain.local_available(*dig, source, d.grab_radius)
-            mass = min(d.payload, float(available.sum()*terrain.area*t.density))
+            mass = min(d.payload, terrain.available_mass(*dig,source,d.grab_radius))
             if fill_point is not None:
                 mass = min(mass, fill_mass)
             if mass <= 1e-9:

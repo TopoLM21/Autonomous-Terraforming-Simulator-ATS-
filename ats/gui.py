@@ -209,6 +209,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.status = QtWidgets.QLabel()
         self.status.setWordWrap(True)
         right_layout.addWidget(self.status)
+        self.channel_status=QtWidgets.QLabel();self.channel_status.setWordWrap(True)
+        self.channel_status.setStyleSheet('color: #83e3dc; padding: 5px;')
+        right_layout.addWidget(self.channel_status)
         self.progress = QtWidgets.QProgressBar()
         self.progress.setRange(0, 1000)
         right_layout.addWidget(self.progress)
@@ -230,7 +233,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.width = self.spin(0.25, 15, config.trench.width, 0.25)
         self.depth = self.spin(0.05, 2, config.trench.depth, 0.05)
         side=config.terrain.n*config.terrain.cell_size
-        self.map_size=self.spin(32,256,side,16,2);self.map_size.setSuffix(' м')
+        self.map_size=self.spin(32,1024,side,16,2);self.map_size.setSuffix(' м')
         self.grid_info=QtWidgets.QLabel()
         self.cx = self.spin(0.5, side-.5, config.trench.x, 0.25)
         self.cy = self.spin(0.5, side-.5, config.trench.y, 0.25)
@@ -251,7 +254,9 @@ class MainWindow(QtWidgets.QMainWindow):
         for widget in [self.base_mass]:
             widget.setReadOnly(True);widget.setButtonSymbols(QtWidgets.QAbstractSpinBox.ButtonSymbols.NoButtons)
             widget.setToolTip("Рассчитывается по установленным модулям. Измените состав кнопкой «Оборудование».")
-        self.latitude = self.spin(-90, 90, config.base.latitude_deg, 1)
+        self.latitude = self.spin(-90, 90, config.base.latitude_deg, 1,4)
+        self.latitude.setEnabled(not bool(config.georeference and config.georeference['source'].get('crs')=='EPSG:4326'))
+        self.latitude.setToolTip('На географической карте широта берётся из координат базы и участвует в расчёте солнечной генерации.')
         self.season = QtWidgets.QComboBox()
         for label, day in [("21 марта · равноденствие", 80), ("21 июня · солнцестояние", 172), ("21 сентября · равноденствие", 264), ("21 декабря · солнцестояние", 355)]:
             self.season.addItem(label, day)
@@ -358,6 +363,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def update_map_size_controls(self):
         side=self.map_size.value();cell=self.config.terrain.cell_size
+        from .maps import workspace_cell
+        cell=workspace_cell(side,cell)
         self.cx.setMaximum(side-.5);self.cy.setMaximum(side-.5)
         self.length.setMaximum(side-2*cell);self.width.setMaximum(side-2*cell)
         n=round(side/cell);self.grid_info.setText(f'Сетка {n}×{n} · ячейка {cell:g} м')
@@ -523,7 +530,11 @@ class MainWindow(QtWidgets.QMainWindow):
             if w.group is not None or w.active or any(c.soil_kg>0 for c in w.containers) or e is not None and (e.bucket_kg>0 or e.active_container is not None):
                 raise ValueError('Завершите переносы и выгрузите контейнеры командой «Посадить флот»')
         if self.landscape is not None and self.config.georeference:
-            self.landscape.commit_window(self.config.georeference['origin_m'],s.terrain.height)
+            self.landscape.commit_window(self.config.georeference['origin_m'],s.terrain.height,cell_size=s.terrain.cell)
+            if self.landscape.channel_project:
+                from .channel import ChannelProject
+                project=ChannelProject.from_data(self.landscape.channel_project);project.record(s.report())
+                self.landscape.channel_project=project.to_data()
 
     def edit_fleet(self):
         previous=self.running;self.running=False;self.credit=0
@@ -610,6 +621,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.update_map_size_controls()
         self.cx.setValue(config.trench.x);self.cy.setValue(config.trench.y)
         self.latitude.setValue(config.base.latitude_deg)
+        self.latitude.setEnabled(not bool(config.georeference and config.georeference['source'].get('crs')=='EPSG:4326'))
         self.sync_equipment()
         self.plan_editor.segments=deepcopy(config.plan.segments) if config.plan is not None else []
         self.plan_editor.dirty=False;self.plan_editor.rebuild()
@@ -697,6 +709,8 @@ class MainWindow(QtWidgets.QMainWindow):
                     self.plan_editor.info.setText("Флот приземлён. Можно применить нарисованный план.")
                     break
                 if self.sim.state != MissionState.RUNNING:
+                    if self.sim.state==MissionState.COMPLETED and self.landscape is not None and self.config.georeference.get('channel'):
+                        self.commit_landscape()
                     self.running = False
                     self.play.setText("Завершено" if self.sim.state == MissionState.COMPLETED else "Заблокировано")
                     break
@@ -717,6 +731,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def refresh(self, force=False):
         s, t, d, b = self.sim, self.sim.terrain, self.sim.drone, self.sim.base
+        channel=(self.config.georeference or {}).get('channel')
+        self.channel_status.setVisible(channel is not None)
+        if channel:
+            self.channel_status.setText(f"Канал: дно {channel['width_m']:g} м × −{channel['depth_m']:g} м MSL\nУчасток {channel['section']+1}/{channel['sections']} · маршрут {channel['length_m']/1000:.2f} км · береговой отступ {channel['shore_offset_m']:g} м\nКарта {t.cell*t.height.shape[0]:g} м · ячейка {t.cell:g} м")
+        if self.config.georeference:
+            self.latitude.blockSignals(True);self.latitude.setValue(b.config.latitude_deg);self.latitude.blockSignals(False)
         now = time.perf_counter()
         if force or (t.revision != self.last_revision and now-self.last_terrain_wall >= self.config.terrain_display_seconds):
             self.image.setImage(terrain_rgb(t.height, t.cell, self.config.trench.depth, max(0.5, float(t.height.max()))), autoLevels=False)

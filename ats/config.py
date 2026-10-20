@@ -199,7 +199,7 @@ class Config:
         require(b.battery>=0,"Ёмкость базы не может быть отрицательной")
         if b.equipment is not None:b.equipment.validate()
         if d.equipment is not None:d.equipment.validate()
-        if d.grab_radius is not None:require(t.cell_size<=d.grab_radius<=f.separation/2,"Радиус ковша должен помещаться в расстояние между дронами")
+        if d.grab_radius is not None:require(min(t.cell_size,.25)<=d.grab_radius<=f.separation/2,"Радиус ковша должен помещаться в расстояние между дронами")
         if self.initial_height is not None:
             require(len(self.initial_height) == t.n and all(len(row) == t.n for row in self.initial_height), "Размер исходного рельефа не совпадает с сеткой")
             require(all(value >= t.floor for row in self.initial_height for value in row), "Исходный рельеф ниже неподвижного основания")

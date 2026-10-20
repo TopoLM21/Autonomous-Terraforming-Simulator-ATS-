@@ -20,7 +20,7 @@ def test_map_extent_preserves_resolution_and_equipment_coordinates(side,cells):
     assert changed.trench==original.trench and changed.terrain.dump_rect==original.terrain.dump_rect
 
 
-@pytest.mark.parametrize('side',[0,31,257,64.1,float('nan'),float('inf')])
+@pytest.mark.parametrize('side',[0,31,1025,64.1,float('nan'),float('inf')])
 def test_invalid_map_size_does_not_mutate_config(side):
     c=Config()
     with pytest.raises(ValueError):with_map_size(c,side)
