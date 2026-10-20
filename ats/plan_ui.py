@@ -110,5 +110,5 @@ class PlanEditor(QtWidgets.QWidget):
     def plan(self):
         channel=deepcopy(self.channel)
         if channel and self.dirty:
-            for key in ('project_id','chainage_starts','first_edges'):channel.pop(key,None)
+            for key in ('project_id','chainage_starts','first_edges','operations'):channel.pop(key,None)
         return PlanConfig(deepcopy(self.segments),channel=channel)

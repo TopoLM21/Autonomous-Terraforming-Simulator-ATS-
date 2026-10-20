@@ -59,6 +59,8 @@ class Logistics:
         self._step_curtailed=0.
         self.wait_reason=''
         self.base_move_job=None
+        self.base_pack_elapsed=0.
+        self._base_moving_step=False
         self.base_battery_ids=[]
         self.courier_id=None
         self.courier_active=False
@@ -180,7 +182,7 @@ class Logistics:
         for x in np.linspace(margin,max(margin,side-margin-width),5):
             for y in np.linspace(margin,max(margin,side-margin-height),5):
                 mask=(s.terrain.x>=x)&(s.terrain.x<x+width)&(s.terrain.y>=y)&(s.terrain.y<y+height)
-                if height>side-2*margin or np.any(mask&(s.terrain.work_mask|s.terrain.dump_mask)):continue
+                if height>side-2*margin or np.any(mask&(s.terrain.design_work|s.terrain.dump_mask)):continue
                 if any(x-margin<=p[0]<=x+width+margin and y-margin<=p[1]<=y+height+margin for p in pads):continue
                 sites.append((np.linalg.norm(np.array([x+width/2,y+height/2])-s.base.position[:2]),
                               (float(x),float(y),width,height)))
@@ -286,7 +288,8 @@ class Logistics:
                 incoming=sum(self.inventory.items[j.resource_ids[0]].soil_kg for j in self.jobs
                     if j.kind=='PICKUP_FULL_CONTAINER' and j.soil_destination=='fill' and j.status in ('QUEUED','ACTIVE'))
                 fill=s.terrain.fill_location() if s.terrain.remaining_fill*s.config.terrain.density>incoming+1e-8 else None
-                dump=fill if fill is not None else s.terrain.dump_location(c.soil_kg/s.config.terrain.density)
+                dump=fill if fill is not None else s.terrain.dump_location(c.soil_kg/s.config.terrain.density,
+                    s._reserved_dump(None),s.config.fleet.separation,near=c.position)
                 if dump is not None:
                     job=self.new_job('PICKUP_FULL_CONTAINER',c,c.position,(*dump,s.terrain.sample(*dump)),3)
                     if job is not None:job.soil_destination='fill' if fill is not None else 'dump'
@@ -324,7 +327,7 @@ class Logistics:
 
     def dispatch(self):
         s=self.sim
-        if s.base.destination is not None:return
+        if self._base_moving_step or s.base.destination is not None or s.relocation_pending is not None:return
         pending=sorted((j for j in self.jobs if j.status=='QUEUED'),
                        key=lambda j:(j.priority-(s.time-j.created_at)/600,j.created_at,j.id))
         for d in s.drones:
@@ -362,7 +365,7 @@ class Logistics:
         from .cooperative_lift import CollectiveLift,lift_check
         from copy import copy
         e=self.excavator;s=self.sim
-        if e is None or e.state.value!='WAITING_RELOCATION' or self.group is not None or s.base.destination is not None:return
+        if e is None or e.state.value!='WAITING_RELOCATION' or self.group is not None or self._base_moving_step or s.base.destination is not None or s.relocation_pending is not None:return
         if (self.active or self.direct_ids or self.tool_targets or self.battery_service.drone_swaps
                 or any(not d.grounded for d in s.drones)):return
         rig=self.inventory.items['group_rig']
@@ -385,7 +388,7 @@ class Logistics:
         s.event('Команда зарезервирована: снятие батарей и перенос сухого Крота')
 
     def direct_should_return(self, d):
-        return (d.identifier in self.tool_targets or
+        return (self.sim.relocation_pending is not None or d.identifier in self.tool_targets or
                 self.excavator is not None and self.excavator.state.value=='WAITING_RELOCATION')
 
     def request_tool(self, d, target):
@@ -505,7 +508,7 @@ class Logistics:
         s=self.sim
         if self.group is not None:return
         waiting=bool(s.queue or any(s.drones[i].state==DS.WAIT_GROUND for i in self.tool_targets))
-        if not waiting or s.base.destination is not None or s.landing_requested:return
+        if not waiting or s.base.destination is not None or s.landing_requested or s.relocation_pending is not None:return
         if any(slot is None for slot in s.slots):return
         if self.parking:return
         for d in s.drones:
@@ -522,7 +525,7 @@ class Logistics:
     def direct_dispatch(self):
         if not (self.config.direct_allowed or self.config.idle_digging) or self.group is not None:return
         s=self.sim
-        if s.base.destination is not None:return
+        if self._base_moving_step or s.base.destination is not None or s.relocation_pending is not None:return
         if self.excavator is not None and self.excavator.state.value=='WAITING_RELOCATION':return
         # Transport assignments and necessary tool changes have already been
         # selected; unrelated queued cargo must not serialize the whole fleet.
@@ -603,16 +606,28 @@ class Logistics:
 
     def try_base_move(self):
         s=self.sim
-        if self.field_rect is not None:return  # deployed large field is stationary
+        channel=s.terrain.front is not None
+        if self.field_rect is not None and not channel:return
         if s.base.motion_power(s.drones)>min(self.config.inverter_power_w,
                 sum(self.inventory.items[id].max_discharge_w for id in self.base_battery_ids)):
             return
         if (self.active or self.group or self.direct_ids or s.base.destination is not None
                 or self.battery_service.robot_swap or self.battery_service.drone_swaps
-                or any(j.status=='QUEUED' for j in self.jobs)
-                or not all(d.docked for d in s.drones) or s.landing_requested):return
+                or not channel and any(j.status=='QUEUED' for j in self.jobs)
+                or not all(d.grounded if channel else d.docked for d in s.drones) or s.landing_requested):return
+        if channel and s.relocation_pending is None:return
+        if channel and self.field_rect is not None:
+            cost=s.base.route_energy(s.relocation_pending,s.terrain,s.drones)
+            if s.base.battery<cost*1.3+200*self.config.field_deployment_seconds:
+                s.base_move_wait='WAITING_BASE_ENERGY';return
+            if self.use_station(200.):self.base_pack_elapsed+=1.
+            if self.base_pack_elapsed<self.config.field_deployment_seconds:
+                s.base_move_wait='FOLDING_SOLAR_FIELD';return
+            self.field_rect=None;self.field_ready=False;self.field_elapsed=0.;self.base_pack_elapsed=0.
         before=s.base.position.copy();s._maybe_relocate()
         if s.base.destination is not None:
+            for job in self.jobs:
+                if job.status=='QUEUED':self.cancel_job(job.id)
             self._serial+=1
             job=TransportJob(f'job_{self._serial:05}','RELOCATE_BASE',['base_chassis'],tuple(before),
                 tuple([*s.base.destination,before[2]]),7,s.time,status='ACTIVE')
@@ -704,10 +719,17 @@ class Logistics:
         elif phase=='DROP':
             if job.elapsed>=self.config.handling_seconds:
                 if job.kind=='PICKUP_FULL_CONTAINER':
+                    item=self.inventory.items[job.resource_ids[0]]
+                    if (job.soil_destination=='dump' and s.terrain.front is not None and
+                            s.terrain.local_dump_space(*job.destination[:2])<item.soil_kg/s.config.terrain.density-1e-12):
+                        dump=s.terrain.dump_location(item.soil_kg/s.config.terrain.density,
+                            s._reserved_dump(None),s.config.fleet.separation,near=d.position)
+                        if dump is None:s.block('BLOCKED_DUMP_FULL: груз сохранён в контейнере');return
+                        job.destination=(*dump,s.terrain.sample(*dump));self.change_phase(d,job,'DESTINATION');return
                     self._unload_soil(d,job)
                     item=self.inventory.items[job.resource_ids[0]]
                     if item.soil_kg>1e-8:
-                        dump=s.terrain.dump_location(item.soil_kg/s.config.terrain.density)
+                        dump=s.terrain.dump_location(item.soil_kg/s.config.terrain.density,near=d.position)
                         if dump is None:s.block('BLOCKED_DUMP_FULL: остаток после засыпки сохранён в контейнере');return
                         job.destination=(*dump,s.terrain.sample(*dump));job.soil_destination='dump'
                         self.change_phase(d,job,'DESTINATION')
@@ -788,10 +810,11 @@ class Logistics:
         before_bus=s.base.consumed+s.base.charging_input+s.base.laser_input
         before_curtailed=s.base.curtailed
         self.try_base_move();base_before=s.base.position.copy()
+        self._base_moving_step=s.base.destination is not None
         s._starts={d.identifier:d.position.copy() for d in s.drones}
         for d in s.drones:
             if d.identifier not in self.active and s._charging_needed(d):
-                if d.docked:d.state=DS.CHARGING;d.charging_seconds+=1.
+                if d.docked and s.base.destination is None:d.state=DS.CHARGING;d.charging_seconds+=1.
                 elif d.state==DS.WAIT_GROUND:s._enqueue(d)
         s._assign_slots()
         if s.base.destination is None:self.battery_service.tick_drone_swaps()
@@ -803,9 +826,10 @@ class Logistics:
         s.laser_links=prepare_links(s.base,s.drones,s.terrain,1.,s.flight_power,s.config.fleet.separation/4,
             dust=s.dust,obstacles=[self.excavator] if self.excavator is not None else ())
         area=s.base.config.panel_area
+        if self.base_pack_elapsed>0:s.base.config.panel_area=0.
         if not self.field_ready:
             s.base.config.panel_area=0.
-            if self.use_station(200.):
+            if s.base.destination is None and s.relocation_pending is None and self.use_station(200.):
                 self.field_elapsed+=1.
             if self.field_elapsed>=self.config.field_deployment_seconds:self.field_ready=True
         charge_power=s.base.config.charge_power
@@ -815,7 +839,8 @@ class Logistics:
                     storage_charge_w=sum(self.inventory.items[id].max_charge_w for id in self.base_battery_ids),
                     storage_discharge_w=sum(self.inventory.items[id].max_discharge_w for id in self.base_battery_ids),
                     auxiliary_w=self._pending_station_energy,
-                    module_bus_limit_w=sum(power for _,power in consumers) if self.config.individual_chargers else None)
+                    module_bus_limit_w=sum(power for _,power in consumers) if self.config.individual_chargers else None,
+                    terrain=s.terrain)
         self._solar_ticked=True;self._step_curtailed=max(0.,s.base.curtailed-before_curtailed)
         s.base.config.charge_power=charge_power
         self._bus_used=s.base.consumed+s.base.charging_input+s.base.laser_input-before_bus
@@ -829,10 +854,14 @@ class Logistics:
         if self.base_move_job and s.base.destination is None:
             self.base_move_job.status='COMPLETED';self.inventory.release(self.base_move_job.id)
             self.base_move_job=None;self.progress_at=s.time
+            s.base_move_wait=''
+            if not self.field_ready and s.base.config.panel_area>20:
+                try:self.field_rect=self.solar_field_site(s.base.config.panel_area)
+                except ValueError as error:s.block(str(error))
         self.battery_service.after_charging()
         self.try_lift()
-        if self.group is None and s.base.destination is None:self.generate_jobs()
-        if self.group is None and s.base.destination is None:self.service_tools()
+        if self.group is None and s.base.destination is None and s.relocation_pending is None:self.generate_jobs()
+        if self.group is None and not self._base_moving_step and s.base.destination is None and s.relocation_pending is None:self.service_tools()
         self.dispatch()
         self.direct_dispatch()
         self.yield_service_pads()
@@ -883,6 +912,7 @@ class Logistics:
 
     def detect_stall(self):
         s=self.sim
+        if s.base.destination is not None or s.relocation_pending is not None:return
         if s.state!=MissionState.RUNNING or self.active or s.landing_requested:return
         if s.terrain.remaining<=s.config.terrain.completion_volume:return
         if self.excavator is not None:

@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "date_utc": "2026-10-20",
+  "baseline_commit": "9da87696bbbf7efef478d8f421f749637fcdc989",
+  "environment": {
+    "python": "3.12.14",
+    "numpy": "2.5.4",
+    "rendering": false
+  },
+  "scenario": {
+    "route": "docs/ats2/qattara-channel.json",
+    "map_side_m": 512,
+    "grid_cells": 1024,
+    "cell_size_m": 0.5,
+    "drones": 4,
+    "steps": 180,
+    "trials": 3,
+    "power_assumptions": "Standard production motor, battery, solar and Krot configuration"
+  },
+  "before": {
+    "trials": [
+      {
+        "layout_seconds": 1.6099198629999592,
+        "initialization_seconds": 2.3019448969971563,
+        "run_seconds": 4.259047563002241,
+        "actual_speed": 42.26297014469507,
+        "mean_planned_loaded_haul_m": 348.9587507060964,
+        "max_planned_loaded_haul_m": 351.9786925369205,
+        "state": "RUNNING",
+        "trips": 4,
+        "excavated_m3": 0.203125,
+        "mass_error_kg": 2.4300561562995426e-12,
+        "energy_error_j": 2.1024607121944427e-07
+      },
+      {
+        "layout_seconds": 1.6295585010011564,
+        "initialization_seconds": 2.4198833350019413,
+        "run_seconds": 4.515154005999648,
+        "actual_speed": 39.86574981956751,
+        "mean_planned_loaded_haul_m": 348.9587507060964,
+        "max_planned_loaded_haul_m": 351.9786925369205,
+        "state": "RUNNING",
+        "trips": 4,
+        "excavated_m3": 0.203125,
+        "mass_error_kg": 2.4300561562995426e-12,
+        "energy_error_j": 2.1024607121944427e-07
+      },
+      {
+        "layout_seconds": 1.6374843990015506,
+        "initialization_seconds": 2.283988089999184,
+        "run_seconds": 4.345148734999384,
+        "actual_speed": 41.42550945382668,
+        "mean_planned_loaded_haul_m": 348.9587507060964,
+        "max_planned_loaded_haul_m": 351.9786925369205,
+        "state": "RUNNING",
+        "trips": 4,
+        "excavated_m3": 0.203125,
+        "mass_error_kg": 2.4300561562995426e-12,
+        "energy_error_j": 2.1024607121944427e-07
+      }
+    ],
+    "median": {
+      "layout_seconds": 1.6295585010011564,
+      "initialization_seconds": 2.3019448969971563,
+      "run_seconds": 4.345148734999384,
+      "actual_speed": 41.42550945382668,
+      "mean_planned_loaded_haul_m": 348.9587507060964,
+      "max_planned_loaded_haul_m": 351.9786925369205,
+      "trips": 4,
+      "excavated_m3": 0.203125,
+      "mass_error_kg": 2.4300561562995426e-12,
+      "energy_error_j": 2.1024607121944427e-07,
+      "state": "RUNNING"
+    }
+  },
+  "after": {
+    "trials": [
+      {
+        "layout_seconds": 0.7708195230006822,
+        "initialization_seconds": 0.7702483869979915,
+        "run_seconds": 1.2898558849992696,
+        "actual_speed": 139.5504738888732,
+        "mean_planned_loaded_haul_m": 25.0,
+        "max_planned_loaded_haul_m": 25.5,
+        "state": "RUNNING",
+        "trips": 14,
+        "excavated_m3": 0.653125,
+        "mass_error_kg": -2.842170943040401e-14,
+        "energy_error_j": 3.282912075519562e-08
+      },
+      {
+        "layout_seconds": 0.7307796300010523,
+        "initialization_seconds": 0.7658074920000217,
+        "run_seconds": 1.2774853779992554,
+        "actual_speed": 140.90180842766947,
+        "mean_planned_loaded_haul_m": 25.0,
+        "max_planned_loaded_haul_m": 25.5,
+        "state": "RUNNING",
+        "trips": 14,
+        "excavated_m3": 0.653125,
+        "mass_error_kg": -2.842170943040401e-14,
+        "energy_error_j": 3.282912075519562e-08
+      },
+      {
+        "layout_seconds": 0.8915534329971706,
+        "initialization_seconds": 0.7146867970004678,
+        "run_seconds": 1.2598609830019996,
+        "actual_speed": 142.87290616072227,
+        "mean_planned_loaded_haul_m": 25.0,
+        "max_planned_loaded_haul_m": 25.5,
+        "state": "RUNNING",
+        "trips": 14,
+        "excavated_m3": 0.653125,
+        "mass_error_kg": -2.842170943040401e-14,
+        "energy_error_j": 3.282912075519562e-08
+      }
+    ],
+    "median": {
+      "layout_seconds": 0.7708195230006822,
+      "initialization_seconds": 0.7658074920000217,
+      "run_seconds": 1.2774853779992554,
+      "actual_speed": 140.90180842766947,
+      "mean_planned_loaded_haul_m": 25.0,
+      "max_planned_loaded_haul_m": 25.5,
+      "trips": 14,
+      "excavated_m3": 0.653125,
+      "mass_error_kg": -2.842170943040401e-14,
+      "energy_error_j": 3.282912075519562e-08,
+      "state": "RUNNING"
+    }
+  },
+  "speedup": 3.4013295258256306,
+  "loaded_haul_reduction_factor": 13.958350028243856,
+  "scheduling_test": {
+    "path": "tests/test_workfront.py",
+    "scenario": "Synthetic 70 m canal; 4 drones, 1 dock; 1000 W assumed hover power isolates scheduling from long recharge waits",
+    "requires": [
+      "mission completion",
+      "at least two finite-speed base relocations",
+      "all drones grounded while base moves",
+      "base inventory moves by the actual displacement",
+      "soil and energy conservation",
+      "no resource reservations left"
+    ]
+  },
+  "limitations": [
+    "Headless timing measures CPU calculation, not GUI redraw or sustained full-day speed",
+    "Physical base relocation is within one active window; inter-window setup remains a separate run",
+    "No global shortest-path solver for base or air traffic",
+    "No hydrology or water erosion"
+  ]
+}

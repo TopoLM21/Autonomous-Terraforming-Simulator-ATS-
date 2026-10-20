@@ -142,6 +142,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dust_image.setZValue(5)
         self.map.addItem(self.dust_image)
         self.base_marker = pg.ScatterPlotItem(size=22, symbol="s", brush="#f4b651", pen=pg.mkPen("#fff0c5", width=2))
+        self.workfront_outline=pg.PlotDataItem(pen=pg.mkPen('#92f3a2',width=2,style=QtCore.Qt.PenStyle.DashLine))
+        self.map.addItem(self.workfront_outline)
         self.drone_marker = pg.ScatterPlotItem(size=20, symbol="+", pen=pg.mkPen("#82f5db", width=3))
         self.base_marker.setZValue(10)
         self.drone_marker.setZValue(12)
@@ -735,6 +737,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.channel_status.setVisible(channel is not None)
         if channel:
             self.channel_status.setText(f"Канал: дно {channel['width_m']:g} м × −{channel['depth_m']:g} м MSL\nУчасток {channel['section']+1}/{channel['sections']} · маршрут {channel['length_m']/1000:.2f} км · береговой отступ {channel['shore_offset_m']:g} м\nКарта {t.cell*t.height.shape[0]:g} м · ячейка {t.cell:g} м")
+        if t.front is not None:
+            front=t.front;front.update();indices=front.active_indices
+            if len(indices):
+                xx,yy=t.x.ravel()[indices],t.y.ravel()[indices]
+                x0,x1,y0,y1=float(xx.min()-t.cell/2),float(xx.max()+t.cell/2),float(yy.min()-t.cell/2),float(yy.max()+t.cell/2)
+                self.workfront_outline.setData([x0,x1,x1,x0,x0],[y0,y0,y1,y1,y0])
+            else:self.workfront_outline.clear()
+            if channel:
+                state='переезжает' if b.destination is not None else 'ждёт посадки для переезда' if s.relocation_pending is not None else 'на рабочей позиции'
+                self.channel_status.setText(self.channel_status.text()+f"\nФронт {front.position/1000:.3f} км · рабочая зона {front.settings['front_length_m']:g} м · база {state}")
+        else:self.workfront_outline.clear()
         if self.config.georeference:
             self.latitude.blockSignals(True);self.latitude.setValue(b.config.latitude_deg);self.latitude.blockSignals(False)
         now = time.perf_counter()

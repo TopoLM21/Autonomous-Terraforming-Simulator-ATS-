@@ -68,6 +68,9 @@ class Simulation:
         self.equipment_exported_energy = 0.0
         self.equipment_imported_energy = 0.0
         self._relocation_attempt_time = -float("inf")
+        self.relocation_pending=None
+        self.base_move_wait=''
+        self._base_front_anchor=(self.terrain.front.settings['base_chainage_m'] if self.terrain.front is not None else 0.)
         self._terrain_active = self.config.terrain.roughness > 0
         self._initial_energy = sum(d.battery for d in self.drones)+self.base.battery
         self._starts = {d.identifier:d.position.copy() for d in self.drones}
@@ -120,8 +123,11 @@ class Simulation:
             return False
         ix, iy = int(p[0]/t.cell), int(p[1]/t.cell)
         margin = self.config.fleet.separation
-        near = (t.x-p[0])**2+(t.y-p[1])**2 < margin**2
-        return not np.any((t.work_mask|t.dump_mask)&near) and not t.work_mask[iy, ix]
+        patch=t.patch(*p[:2],margin)
+        near = (t.x[patch]-p[0])**2+(t.y[patch]-p[1])**2 < margin**2
+        blocked=t.design_work[patch]|t.dump_mask[patch]
+        if t.protected is not None:blocked |= t.protected[patch]
+        return not np.any(blocked&near) and not (t.excavation[iy,ix] or t.fill_mask[iy,ix])
 
     def apply_plan(self, plan):
         from copy import deepcopy
@@ -146,11 +152,16 @@ class Simulation:
             if np.any(candidate.work_mask & near):
                 raise ValueError("Кисть пересекает базу или посадочную площадку")
         t = self.terrain
-        for key in ("target", "segment_labels", "excavation", "fill_mask", "bottom"):
+        for key in ("target", "segment_labels", "excavation", "fill_mask", "bottom", "_cut_indices", "_fill_indices"):
             setattr(t, key, getattr(candidate, key))
         t.revision += 1
         t.initial_excavation = t.remaining
         self.config.plan = deepcopy(plan)
+        if not (plan.channel or {}).get('operations'):
+            t.front=None;self.relocation_pending=None;self.base_move_wait=''
+            t.design_work=t.work_mask
+        t.minimum_surface=float(min(t.reference.min(),t.target.min()))
+        t._clearance_surface=max(float(t.reference.max()),float(t.dump_cap.max()),float(t.height.max()),float(t.target.max()))
         if self.config.georeference and self.config.georeference.get('channel'):
             if (plan.channel or {}).get('project_id')!=self.config.georeference['channel']['project_id']:
                 self.config.georeference.pop('channel')
@@ -167,6 +178,11 @@ class Simulation:
 
     def request_landing(self):
         self.landing_requested = True
+        self.relocation_pending=None
+        if self.base.destination is None:self.base_move_wait=''
+        if self.logistics is not None and self.logistics.base_pack_elapsed>0:
+            self.logistics.base_pack_elapsed=0.
+            self.logistics.field_elapsed=0.;self.logistics.field_ready=False
         self.event("Запрошена посадка флота: завершение текущих переносов, без новых рейсов")
 
     def set_panel_area(self, area):
@@ -474,12 +490,16 @@ class Simulation:
         return points
 
     def _reserved_dump(self,d):
-        return [o.trip.dump for o in self.drones if o is not d and o.trip is not None and o.state not in (DS.RETURN,DS.LANDING)]
+        points=[o.trip.dump for o in self.drones if o is not d and o.trip is not None and o.state not in (DS.RETURN,DS.LANDING)]
+        if self.logistics is not None:
+            points += [j.destination[:2] for j in self.logistics.jobs
+                       if j.kind=='PICKUP_FULL_CONTAINER' and j.status in ('ACTIVE','QUEUED')]
+        return points
 
     def _choose_trip(self, d, battery=None, unreserved=False, airborne=False):
         incoming = sum(o.trip.mass for o in self.drones if o is not d and o.trip is not None and o.trip.destination == "fill" and not o.dump_released and o.state not in (DS.RETURN,DS.LANDING))
         home = self.slot_position(d.slot) if d.slot is not None else self.wait_position(d.identifier)
-        return self.planner.choose(self.terrain,self.base,d,() if unreserved else self._reserved_dig(d),home,() if unreserved else self._reserved_dump(d),0 if unreserved else incoming,battery,d.position if airborne else None)
+        return self.planner.choose(self.terrain,self.base,d,() if unreserved else self._reserved_dig(d),home,() if unreserved else self._reserved_dump(d),0 if unreserved else incoming,battery,d.position if airborne or self.terrain.front is not None else None)
 
     def _request_charge(self, d, reason):
         if not d.charge_requested:
@@ -496,7 +516,7 @@ class Simulation:
         return d.charge_requested
 
     def _docked(self,d):
-        if self.base.destination is not None:
+        if self.base.destination is not None or self.relocation_pending is not None:
             return
         if self.landing_requested or self.terrain.remaining <= self.config.terrain.completion_volume:
             return
@@ -518,7 +538,7 @@ class Simulation:
         self.drone_event(d,f"вылет с зарядом {100*d.battery/d.config.battery:.1f}%; план до {d.trip.mass:.1f} кг")
 
     def _ready_ground(self,d):
-        if self.landing_requested or self.terrain.remaining <= self.config.terrain.completion_volume:
+        if self.landing_requested or self.relocation_pending is not None or self.base.destination is not None or self.terrain.remaining <= self.config.terrain.completion_volume:
             return
         if self._charging_needed(d):
             self._enqueue(d)
@@ -536,7 +556,7 @@ class Simulation:
     def _continue_or_return(self, d):
         d.trip = None
         d.dump_released = False
-        if (not self.landing_requested and self.terrain.remaining > self.config.terrain.completion_volume
+        if (not self.landing_requested and self.relocation_pending is None and self.terrain.remaining > self.config.terrain.completion_volume
                 and (self.logistics is None or not self.logistics.direct_should_return(d))):
             if not self._charging_needed(d):
                 trip = self._choose_trip(d, airborne=True)
@@ -613,6 +633,12 @@ class Simulation:
                 self.drone_event(d,"завис над отвалом: опускает грейфер к поверхности")
         elif d.state == DS.DUMP:
             if not d.dump_released:
+                if (trip.destination=='dump' and self.terrain.front is not None and
+                        self.terrain.local_dump_space(*trip.dump)<d.cargo/self.config.terrain.density-1e-12):
+                    point=self.terrain.dump_location(d.cargo/self.config.terrain.density,
+                        self._reserved_dump(d),self.config.fleet.separation,near=d.position)
+                    if point is None:self.block('Нет локального места для груза в боковых отвалах');return
+                    trip.dump=point;d.transition(DS.TO_DUMP);return
                 d.grabber_extension = min(1,d.elapsed/c.winch_seconds)
                 if d.elapsed >= c.winch_seconds:
                     try:
@@ -640,7 +666,7 @@ class Simulation:
                         point = self.terrain.fill_location(self._reserved_dump(d),self.config.fleet.separation)
                         kind = "fill"
                         if point is None:
-                            point = self.terrain.dump_location(d.cargo/self.config.terrain.density,self._reserved_dump(d),self.config.fleet.separation)
+                            point = self.terrain.dump_location(d.cargo/self.config.terrain.density,self._reserved_dump(d),self.config.fleet.separation,near=d.position if self.terrain.front is not None else None)
                             kind = "dump"
                         if point is None:
                             self.block("Нет места для оставшегося груза после изменения объёма засыпки");return
@@ -651,7 +677,7 @@ class Simulation:
         elif d.state == DS.RETURN:
             self._move(d,[*d.destination[:2],self.cruise(d)],DS.LANDING,dt)
         elif d.state == DS.LANDING:
-            air_wait = d.slot is None and d.charge_requested and not self.landing_requested and self.config.fleet.wait_mode == "air" and self.terrain.remaining > self.config.terrain.completion_volume
+            air_wait = d.slot is None and d.charge_requested and not self.landing_requested and self.relocation_pending is None and self.config.fleet.wait_mode == "air" and self.terrain.remaining > self.config.terrain.completion_volume
             goal = [*d.destination[:2],self.cruise(d)] if air_wait else d.destination
             self._move(d,goal,DS.WAIT_HOVER if air_wait else DS.DOCKED if d.slot is not None else DS.WAIT_GROUND,dt)
             if d.grounded:
@@ -664,7 +690,7 @@ class Simulation:
             landing_seconds=math.ceil((d.position[2]-self.wait_position(d.identifier)[2])/c.vertical_speed)
             future_transfer=max(self._transfer_energy_from_ground(d,i) for i in range(len(self.slots)))
             landing_budget = d.power(True)*(landing_seconds+self.config.fleet.emergency_landing_seconds)+future_transfer
-            if self.landing_requested or self.terrain.remaining <= self.config.terrain.completion_volume or d.battery <= c.battery*c.reserve+landing_budget:
+            if self.landing_requested or self.relocation_pending is not None or self.terrain.remaining <= self.config.terrain.completion_volume or d.battery <= c.battery*c.reserve+landing_budget:
                 d.destination = self.wait_position(d.identifier)
                 d.transition(DS.WAIT_LANDING)
                 self.drone_event(d,"садится на площадку ожидания, чтобы сохранить резерв")
@@ -681,7 +707,47 @@ class Simulation:
             if d.docked:
                 self._landed(d)
 
+    def _update_workfront(self):
+        t=self.terrain;front=t.front
+        if front is None or self.base.destination is not None or self.relocation_pending is not None:return
+        front.update()
+        if self.landing_requested or t.remaining<=self.config.terrain.completion_volume:return
+        advance=front.position-self._base_front_anchor
+        if advance<max(4.,front.settings['front_length_m']/2):return
+        if self.time-self._relocation_attempt_time<30:return
+        self._relocation_attempt_time=self.time
+        points=[(0,station_offset(i,self.config.fleet.pad_spacing)) for i in range(max(len(self.slots),len(self.drones)))]
+        points += [(-self.config.fleet.waiting_offset,p[1]) for p in points.copy()]
+        sites=sorted(front.settings['base_sites'],key=lambda p:2*abs(p[0]-front.position)+.25*np.linalg.norm(np.asarray(p[1:])-self.base.position[:2]))
+        self.base_move_wait='NO_SAFE_FORWARD_BASE_ROUTE'
+        for along,x,y in sites:
+            target=np.array([x,y])
+            if along<self._base_front_anchor+2 or np.linalg.norm(target-self.base.position[:2])<3:continue
+            if all(self.base.safe_path(target,t,offset) for offset in points):
+                self.relocation_pending=target
+                self._pending_front_anchor=front.position
+                self.base_move_wait='LANDING_FLEET_FOR_BASE_MOVE'
+                self.event('Фронт продвинулся: завершаем рейсы и перемещаем базу вдоль канала')
+                return
+
+    def _start_front_move(self):
+        if self.relocation_pending is None or self.landing_requested or not all(d.grounded for d in self.drones):return False
+        if any(d.trip is not None or d.cargo>1e-8 for d in self.drones):return False
+        point=self.relocation_pending
+        cost=self.base.route_energy(point,self.terrain,self.drones)
+        if self.base.battery<cost*1.3:
+            self.base_move_wait='WAITING_BASE_ENERGY';return False
+        self.base.destination=point.copy();self.relocation_pending=None
+        for d in self.drones:
+            if d.state==DS.CHARGING:d.state=DS.DOCKED
+        self._base_front_anchor=self._pending_front_anchor
+        self.base.last_relocation=self.time;self.base.last_relocation_trip=self.trips;self.base.relocations+=1
+        self.base_move_wait='MOVING_WITH_WORKFRONT'
+        return True
+
     def _maybe_relocate(self):
+        if self.terrain.front is not None:
+            self._start_front_move();return
         if self.landing_requested or self.config.plan is not None or not all(d.docked for d in self.drones) or any(d.trip for d in self.drones):
             return
         b,q,f = self.config.base,self.config.trench,self.config.fleet
@@ -749,6 +815,7 @@ class Simulation:
             raise ValueError("Передавайте фиксированный шаг 1 с; ускорение = число шагов")
         if self.state != MissionState.RUNNING:
             return
+        self._update_workfront()
         if self.config.georeference is not None:
             from .channel import latitude_at
             key=tuple(self.base.position[:2])
@@ -773,7 +840,7 @@ class Simulation:
             self._assign_slots()  # predict optical demand in the actual flight state
         self.laser_links=prepare_links(self.base,self.drones,self.terrain,dt,self.flight_power,self.config.fleet.separation/4,dust=self.dust)
         for link in self.laser_links:link.drone.laser_status=link.status
-        message = self.base.tick(dt,(self.hour+dt/7200)%24,self.drones,flags,self.day_at(self.time+dt/2),self.laser_links)
+        message = self.base.tick(dt,(self.hour+dt/7200)%24,self.drones,flags,self.day_at(self.time+dt/2),self.laser_links,terrain=self.terrain)
         if message:
             self.event(message)
         if not moving:
@@ -851,6 +918,9 @@ class Simulation:
         extra = {"remaining_cut_m3":t.remaining_cut,"remaining_fill_m3":t.remaining_fill,"stockpile_m3":t.stockpile_volume,"filled_mass_kg":self.filled_mass,"filled_m3":self.filled_mass/self.config.terrain.density,"plan_segments":len(self.config.plan.segments) if self.config.plan is not None else 1,"landing_requested":self.landing_requested}
         extra.update(map_side_m=t.cell*t.height.shape[0],grid_cells=t.height.shape[0],cell_size_m=t.cell)
         extra['georeference']=self.config.georeference
+        extra.update(workfront=t.front.report() if t.front is not None else None,
+                     base_position_m=b.position.tolist(),base_move_wait=self.base_move_wait,
+                     base_move_pending=self.relocation_pending is not None)
         extra.update(base_equipment=b.config.equipment.breakdown(),equipment_imported_kwh=self.equipment_imported_energy/KWH,equipment_exported_kwh=self.equipment_exported_energy/KWH,equipment_pending=self.pending_equipment is not None,laser_transfer_enabled=True,retired_drones=[{"serial":d.serial,"name":d.config.name,"created_at_seconds":d.created_at,"retired_at_seconds":d.retired_at,"consumed_kwh":d.consumed/KWH,"laser_received_kwh":d.laser_received/KWH,"airborne_seconds":d.airborne_seconds,"longest_flight_seconds":d.longest_flight_seconds,**d.productivity.report(self.time,int((self.config.start_hour*3600+self.time)//86400))} for d in self.retired_drones])
         extra.update(lasers=[link.report() for link in self.laser_links],laser_input_power_w=b.laser_input_power,laser_received_power_w=sum(d.laser_power_w for d in self.drones),laser_input_kwh=b.laser_input/KWH,laser_received_kwh=sum(d.laser_received for d in self.drones+self.retired_drones)/KWH,laser_losses_kwh=b.laser_losses/KWH)
         extra['laser_receiver_heat_kwh']=sum(d.receiver_heat_j for d in self.drones+self.retired_drones)/KWH

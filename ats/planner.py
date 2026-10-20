@@ -57,15 +57,29 @@ class Planner:
 
     def _choose_source(self, terrain, base, drone, source, reserved, home, reserved_dump, fill_point, fill_mass, charge, start):
         d, t = (drone.config if drone is not None else self.config.drone), self.config.terrain
-        excess = terrain.source_excess(source)
-        for point in reserved:
-            excess[(terrain.x-point[0])**2+(terrain.y-point[1])**2 < self.config.fleet.separation**2] = 0
-        candidates = np.flatnonzero(excess.ravel() > 1e-12)
+        local=terrain.front is not None and source=='cut'
+        if local:
+            candidates=terrain.source_indices(source)
+            xx,yy=terrain.x.ravel()[candidates],terrain.y.ravel()[candidates]
+            useful=np.ones(len(candidates),dtype=bool)
+            for point in reserved:useful &= (xx-point[0])**2+(yy-point[1])**2>=self.config.fleet.separation**2
+            candidates=candidates[useful]
+        else:
+            excess = terrain.source_excess(source)
+            for point in reserved:
+                excess[(terrain.x-point[0])**2+(terrain.y-point[1])**2 < self.config.fleet.separation**2] = 0
+            candidates = np.flatnonzero(excess.ravel() > 1e-12)
         if not len(candidates):
             return None
         # First shortlist useful cells, then score actual grabber footprint volume.
-        heights = excess.ravel()[candidates]
-        order = np.argsort(-heights, kind="stable")[:32]
+        if local:
+            origin=np.asarray(start if start is not None else home if home is not None else base.position)
+            distance=(terrain.x.ravel()[candidates]-origin[0])**2+(terrain.y.ravel()[candidates]-origin[1])**2
+            # Sample the nearest useful footprints, rather than deepest far cells.
+            order=np.argsort(distance,kind='stable')[:32]
+        else:
+            heights = excess.ravel()[candidates]
+            order = np.argsort(-heights, kind="stable")[:32]
         best = None
         altitude = max(float(terrain.reference.max()), t.dump_max_height) + d.work_height + self.config.base.roof_height
         if self.config.reference_height is not None:
@@ -78,10 +92,10 @@ class Planner:
                 mass = min(mass, fill_mass)
             if mass <= 1e-9:
                 continue
-            dump = fill_point if fill_point is not None else terrain.dump_location(mass/t.density,reserved_dump,self.config.fleet.separation)
+            dump = fill_point if fill_point is not None else terrain.dump_location(mass/t.density,reserved_dump,self.config.fleet.separation,near=dig if local else None)
             if dump is None:
                 return None
-            min_surface = float(min(terrain.height.min(), terrain.target.min()))
+            min_surface = terrain.minimum_surface
             energy = self.estimate(base, dig, dump, altitude, mass, d, home, start, min_surface)
             usable = max(0, charge-d.battery*d.reserve)
             if energy > usable:
@@ -94,6 +108,7 @@ class Planner:
                         break
                 else:
                     continue
+            # Energy includes actual start, loaded haul and the return reserve.
             score = mass/energy
             if best is None or score > best[0]:
                 best = (score, Trip(dig, dump, mass, energy, altitude, source, "fill" if fill_point is not None else "dump"))

@@ -244,7 +244,8 @@ class ChannelProject:
         n,cell=c.terrain.n,c.terrain.cell_size
         axis=(np.arange(n)+.5)*cell;x,y=np.meshgrid(axis,axis,sparse=True)
         current=np.asarray(c.initial_height)
-        terrain=SimpleNamespace(height=current,reference=np.asarray(c.reference_height),x=x,y=y,slope=math.tan(math.radians(self.angle_deg)))
+        terrain=SimpleNamespace(height=current,reference=np.asarray(c.reference_height),x=x,y=y,
+            slope=math.tan(math.radians(self.angle_deg)),cell=cell,config=c)
         target,labels=target_surface(terrain,c.plan);work=labels>0
         if np.any(current!=terrain.reference):
             original=SimpleNamespace(height=terrain.reference,reference=terrain.reference,x=x,y=y,slope=terrain.slope)
@@ -252,36 +253,64 @@ class ChannelProject:
             work=design_labels>0
         protected,_=channel_shore(terrain,c.plan)
         margin=max(3.,3*cell)
-        # Store spoil outside the entire design, including currently empty banks.
-        choices=[]
-        for w,h in ((self.side_m*.28,self.side_m*.40),(self.side_m*.40,self.side_m*.28),(self.side_m*.20,self.side_m*.65)):
-            for dx in (margin,self.side_m-w-margin):
-                for dy in (margin,self.side_m-h-margin):
-                    mask=(x>=dx-margin)&(x<dx+w+margin)&(y>=dy-margin)&(y<dy+h+margin)
-                    if not np.any((work|protected)&mask):choices.append((w*h,(dx,dy,w,h)))
-        if not choices:raise ValueError('Канал с откосами не оставляет места для отвала. Увеличьте локальную карту или уменьшите ширину/глубину')
-        c.terrain.dump_rect=max(choices,key=lambda v:v[0])[1]
-        dx,dy,dw,dh=c.terrain.dump_rect;dump=(x>=dx)&(x<dx+dw)&(y>=dy)&(y<dy+dh)
+        from .workfront import bank_layout
+        pad_extent=math.ceil((max(c.fleet.count,c.fleet.charge_slots)-1)/2)*c.fleet.pad_spacing
+        service_width=2*(pad_extent+c.fleet.waiting_offset+c.fleet.separation+cell)
+        c.plan.channel['operations']=dict(front_length_m=min(32.,self.side_m/3),
+            setback_m=max(6.,min(24.,service_width,self.side_m*.23)),bank_width_m=max(4.,self.side_m*.22))
+        dump,cap,chainage,signed=bank_layout(terrain,c.plan,work,protected)
+        if not np.any(dump & (cap>terrain.reference)):
+            raise ValueError('Канал с откосами не оставляет места для боковых отвалов. Увеличьте локальную карту')
+        iy,ix=np.nonzero(dump)
+        # Compatibility bounding box; physical capacity is the two bank masks.
+        c.terrain.dump_rect=(float(ix.min()*cell),float(iy.min()*cell),
+                            float((ix.max()-ix.min()+1)*cell),float((iy.max()-iy.min()+1)*cell))
         pads=[(0.,0.)]+[(0.,(i+1)//2*(1 if i%2 else -1)*c.fleet.pad_spacing) for i in range(1,max(c.fleet.count,c.fleet.charge_slots))]
         pad_margin=margin+c.fleet.waiting_offset+2
         sites=[]
-        for bx in np.linspace(pad_margin,self.side_m-pad_margin,9):
-            for by in np.linspace(pad_margin+9,self.side_m-pad_margin-9,9):
-                safe=True
-                for px,py in pads+[(px-c.fleet.waiting_offset,py) for px,py in pads]:
-                    xx,yy=bx+px,by+py
-                    ix,iy=int(xx/cell),int(yy/cell);radius=math.ceil(c.fleet.separation/cell)+1
-                    row=slice(max(0,iy-radius),min(n,iy+radius+1));col=slice(max(0,ix-radius),min(n,ix+radius+1))
-                    near=(axis[col][None,:]-xx)**2+(axis[row][:,None]-yy)**2<(c.fleet.separation+cell)**2
-                    if np.any(near&(work[row,col]|dump[row,col])) or bool(is_ocean(landscape.raster,origin[0]+xx,origin[1]+yy)):
-                        safe=False;break
-                    region=current[max(0,iy-1):iy+2,max(0,ix-1):ix+2]
-                    if float(np.ptp(region))>c.base.max_slope*2*cell:safe=False;break
-                if safe:sites.append((math.hypot(bx-self.side_m/2,by-self.side_m/2),bx,by))
+        candidates=[(bx,by) for bx in np.linspace(pad_margin,self.side_m-pad_margin,13)
+                    for by in np.linspace(pad_margin,self.side_m-pad_margin,13)]
+        remaining=work & (current-target>1e-10)
+        first=float(chainage[remaining].min()) if np.any(remaining) else float(chainage[work].min()) if np.any(work) else 0.
+        work_along,work_side=chainage[work],signed[work]
+        # Include regular positions in the service lanes, on both banks.
+        for segment in c.plan.segments:
+            a,b=np.asarray(segment.points[0]),np.asarray(segment.points[-1]);v=b-a
+            length=float(np.linalg.norm(v));normal=np.array([-v[1],v[0]])/max(length,1e-12)
+            for u in np.linspace(0,1,max(2,math.ceil(length/max(3.,self.side_m/96)))):
+                p=a+u*v
+                if np.any(p<0) or np.any(p>=self.side_m):continue
+                local=np.abs(work_along-chainage[min(n-1,int(p[1]/cell)),min(n-1,int(p[0]/cell))])<max(3.,cell)
+                opening=max(segment.width/2,float(np.max(np.abs(work_side[local]))) if np.any(local) else 0.)
+                for sign in (-1,1):
+                    candidates.append(tuple(p+sign*normal*(opening+c.plan.channel['operations']['setback_m']/2)))
+        for bx,by in candidates:
+            if not (pad_margin<=bx<=self.side_m-pad_margin and margin<=by<=self.side_m-margin):continue
+            safe=True
+            for px,py in pads+[(px-c.fleet.waiting_offset,py) for px,py in pads]:
+                xx,yy=bx+px,by+py
+                ix,iy=int(xx/cell),int(yy/cell);radius=math.ceil(c.fleet.separation/cell)+1
+                row=slice(max(0,iy-radius),min(n,iy+radius+1));col=slice(max(0,ix-radius),min(n,ix+radius+1))
+                near=(axis[col][None,:]-xx)**2+(axis[row][:,None]-yy)**2<(c.fleet.separation+cell)**2
+                blocked=work[row,col]|dump[row,col]
+                if protected is not None:blocked |= protected[row,col]
+                if np.any(near&blocked) or bool(is_ocean(landscape.raster,origin[0]+xx,origin[1]+yy)):
+                    safe=False;break
+                region=current[max(0,iy-1):iy+2,max(0,ix-1):ix+2]
+                if float(np.ptp(region))>c.base.max_slope*2*cell:safe=False;break
+            if safe:
+                along=float(chainage[int(by/cell),int(bx/cell)])
+                sites.append((along,float(bx),float(by)))
         if not sites:raise ValueError('Не найдена сухая устойчивая площадка базы вне канала и отвала. Измените размер карты/маршрут')
-        _,c.base.x,c.base.y=min(sites)
+        first_cells=np.where(work & (np.abs(chainage-first)<=cell*2))
+        start=np.array([float(np.mean(np.broadcast_to(x,current.shape)[first_cells])),
+                        float(np.mean(np.broadcast_to(y,current.shape)[first_cells]))]) if np.any(work) else np.array([self.side_m/2]*2)
+        _,c.base.x,c.base.y=min(sites,key=lambda p:math.hypot(p[1]-start[0],p[2]-start[1]))
+        c.plan.channel['operations'].update(base_sites=[list(p) for p in sites],base_chainage_m=first)
         excess=current-target
-        iy,ix=np.unravel_index(int(np.argmax(excess)),excess.shape)
+        available=np.flatnonzero((excess>1e-10)&work)
+        cell_index=int(available[np.argmin(chainage.ravel()[available])]) if len(available) else int(np.argmax(excess))
+        iy,ix=np.unravel_index(cell_index,excess.shape)
         c.trench.x=float(np.clip(axis[ix],4+cell,self.side_m-4-cell))
         c.trench.y=float(np.clip(axis[iy],4+cell,self.side_m-4-cell))
         c.georeference['channel']=dict(project_id=self.identity,section=index,sections=self.section_count,

@@ -1,5 +1,5 @@
 """All model constants in SI units; electrical powers are estimates."""
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field, asdict,fields,is_dataclass
 import math
 from .equipment import KWH
 
@@ -156,12 +156,15 @@ class Config:
             if not condition:
                 raise ValueError(message)
         def finite_values(value):
+            if is_dataclass(value):
+                return all(finite_values(getattr(value,f.name)) for f in fields(value)
+                           if f.name not in ('initial_height','reference_height'))
             if isinstance(value, dict):
                 return all(finite_values(v) for v in value.values())
             if isinstance(value, (list, tuple)):
                 return all(finite_values(v) for v in value)
             return not isinstance(value, (int, float)) or math.isfinite(value)
-        require(finite_values(asdict(self)), "Все параметры должны быть конечными")
+        require(finite_values(self), "Все параметры должны быть конечными")
         t, q, d, b, dust = self.terrain, self.trench, self.drone, self.base, self.dust
         f = self.fleet
         require(isinstance(f.count, int) and 1 <= f.count <= 6 and isinstance(f.charge_slots, int) and 1 <= f.charge_slots <= 6, "Число дронов и зарядных слотов: от 1 до 6")
@@ -202,7 +205,10 @@ class Config:
         if d.grab_radius is not None:require(min(t.cell_size,.25)<=d.grab_radius<=f.separation/2,"Радиус ковша должен помещаться в расстояние между дронами")
         if self.initial_height is not None:
             require(len(self.initial_height) == t.n and all(len(row) == t.n for row in self.initial_height), "Размер исходного рельефа не совпадает с сеткой")
-            require(all(value >= t.floor for row in self.initial_height for value in row), "Исходный рельеф ниже неподвижного основания")
+            import numpy as np
+            h=np.asarray(self.initial_height,dtype=float)
+            require(bool(np.all(np.isfinite(h))), "Все параметры должны быть конечными")
+            require(bool(np.all(h>=t.floor)), "Исходный рельеф ниже неподвижного основания")
         if self.plan is not None:
             self.plan.validate(self)
         require(bool(d.name.strip()), "У дрона должно быть имя")
@@ -213,6 +219,9 @@ class Config:
         if self.reference_height is not None:
             require(self.georeference is not None and self.georeference.get('vertical_datum') == 'MSL', "DEM должен иметь высоты относительно уровня моря (MSL)")
             require(len(self.reference_height) == t.n and all(len(row) == t.n for row in self.reference_height), "Размер DEM не совпадает с сеткой")
-            require(all(value >= t.floor for row in self.reference_height for value in row), "DEM ниже неподвижного основания")
+            import numpy as np
+            h=np.asarray(self.reference_height,dtype=float)
+            require(bool(np.all(np.isfinite(h))), "Все параметры должны быть конечными")
+            require(bool(np.all(h>=t.floor)), "DEM ниже неподвижного основания")
         require(0 < d.winch_efficiency <= 1 and d.gravity > 0, "Неверные параметры лебёдки/гравитации")
         require(dust.downsample >= 1 and isinstance(dust.downsample, int) and dust.lifetime > 0 and dust.diffusion >= 0 and dust.strength >= 0 and dust.height_scale > 0 and dust.concentration_scale > 0, "Неверная модель пыли")

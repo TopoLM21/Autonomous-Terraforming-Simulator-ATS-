@@ -51,6 +51,20 @@ class PlanConfig:
                 starts=self.channel['chainage_starts'];first=self.channel.get('first_edges',[])
                 if len(starts)!=len(self.segments) or len(first)!=len(starts) or any(not math.isfinite(v) or v<0 for v in starts):
                     raise ValueError('Неверная разбивка маршрута по длине')
+            operations=self.channel.get('operations')
+            if operations is not None:
+                if not isinstance(operations,dict):raise ValueError('Неверные параметры фронта канала')
+                positive=('front_length_m','setback_m','bank_width_m')
+                if any(not isinstance(operations.get(key),(int,float)) or not math.isfinite(operations[key]) or operations[key]<=0 for key in positive):
+                    raise ValueError('Неверные параметры фронта канала')
+                anchor=operations.get('base_chainage_m')
+                if not isinstance(anchor,(int,float)) or not math.isfinite(anchor) or anchor<0:
+                    raise ValueError('Неверное начало движения базы')
+                sites=operations.get('base_sites',[])
+                extent=config.terrain.n*config.terrain.cell_size
+                if not sites or len(sites)>4096 or any(len(p)!=3 or not all(math.isfinite(v) for v in p) or
+                        p[0]<0 or not 0<p[1]<extent or not 0<p[2]<extent for p in sites):
+                    raise ValueError('Неверные площадки движения базы')
 
 
 def line_distance(x, y, points):

@@ -90,19 +90,24 @@ class Excavator:
                 return False
         return True
 
-    def reachable_mask(self, terrain, inventory, position=None):
+    def reachable_mask(self, terrain, inventory, position=None, patch=None):
         c=self.config;p=self.position if position is None else np.asarray(position)
-        distance=np.hypot(terrain.x-p[0],terrain.y-p[1])
+        patch=patch if patch is not None else np.s_[:,:]
+        distance=np.hypot(terrain.x[patch]-p[0],terrain.y[patch]-p[1])
         moment=(c.digging_force_n+c.bucket_volume_m3*c.bucket_fill_factor*terrain.config.terrain.density*9.80665)*distance
         restoring=(self.mass(inventory)-self.bucket_kg)*9.80665*c.support_half_width_m/c.tipping_margin
         return ((distance<=c.reach_m) & (distance>=c.support_half_width_m+terrain.cell/math.sqrt(2))
-                & (terrain.height>p[2]-c.local_depth_m+1e-9)
-                & (terrain.height<=p[2]+.5) & (moment<=restoring))
+                & (terrain.height[patch]>p[2]-c.local_depth_m+1e-9)
+                & (terrain.height[patch]<=p[2]+.5) & (moment<=restoring))
 
     def work_point(self, terrain, inventory):
         if not self.stable(self.position,terrain):return None
-        available=terrain.source_excess('cut')
-        available=np.where(self.reachable_mask(terrain,inventory),available,0.)
+        patch=terrain.patch(*self.position[:2],self.config.reach_m)
+        available=np.where(terrain.excavation[patch]&self.reachable_mask(terrain,inventory,patch=patch),
+                           np.maximum(terrain.height[patch]-terrain.target[patch],0),0.)
+        if terrain.front is not None:
+            terrain.front.update()
+            available=np.where(terrain.front.chainage[patch]<=terrain.front.position+terrain.front.settings['front_length_m'],available,0.)
         if float(available.sum()*terrain.area)<=min(.001,terrain.config.terrain.completion_volume/10):
             return None
         indices=np.flatnonzero(available.ravel()>1e-10)
@@ -110,16 +115,20 @@ class Excavator:
         # Stable tie-breaking, prefer deeper cells while retaining boom clearance.
         from .laser import visible
         for index in indices[np.argsort(-available.ravel()[indices],kind='stable')]:
-            p=np.array([terrain.x.ravel()[index],terrain.y.ravel()[index],terrain.height.ravel()[index]+.02])
+            p=np.array([terrain.x[patch].ravel()[index],terrain.y[patch].ravel()[index],terrain.height[patch].ravel()[index]+.02])
             if visible(self.position+[0,0,.8],p,terrain):return tuple(p[:2])
         return None
 
     def find_site(self, terrain, inventory):
-        excess=terrain.source_excess('cut');indices=np.flatnonzero(excess.ravel()>1e-10)
+        indices=terrain.source_indices('cut')
         if not len(indices):return None
         # Choose a flat supporting footprint next to real remaining work.
         candidates=[]
-        for index in indices[::max(1,len(indices)//64)]:
+        distances=(terrain.x.ravel()[indices]-self.position[0])**2+(terrain.y.ravel()[indices]-self.position[1])**2
+        nearest=indices[np.argsort(distances,kind='stable')[:64]]
+        sampled=indices[::max(1,len(indices)//64)]
+        shortlist=np.unique(np.r_[nearest,sampled]) if terrain.front is not None else sampled
+        for index in shortlist:
             x,y=terrain.x.ravel()[index],terrain.y.ravel()[index]
             for dx,dy in ((0,-1),(0,1),(-1,0),(1,0)):
                 p=np.array([x+dx*self.config.reach_m*.75,y+dy*self.config.reach_m*.75,0.])
@@ -127,13 +136,33 @@ class Excavator:
                 if self.stable(p,terrain):
                     distance=float(np.linalg.norm(p-self.position))
                     if distance<=terrain.cell:continue
-                    mask=self.reachable_mask(terrain,inventory,p)
+                    patch=terrain.patch(*p[:2],self.config.reach_m)
+                    excess=np.where(terrain.excavation[patch],np.maximum(terrain.height[patch]-terrain.target[patch],0),0.)
+                    if terrain.front is not None:
+                        excess=np.where(terrain.front.chainage[patch]<=terrain.front.position+terrain.front.settings['front_length_m'],excess,0.)
+                    mask=self.reachable_mask(terrain,inventory,p,patch)
                     volume=float(excess[mask].sum()*terrain.area)
-                    footprint=(terrain.x-p[0])**2+(terrain.y-p[1])**2<=self.config.support_half_width_m**2
+                    footprint=(terrain.x[patch]-p[0])**2+(terrain.y[patch]-p[1])**2<=self.config.support_half_width_m**2
                     under_tracks=float(excess[footprint].sum()*terrain.area)
                     if volume>min(.001,terrain.config.terrain.completion_volume/10):
                         candidates.append(((distance+.5+50*under_tracks)/(volume+.01),tuple(p)))
         return np.array(min(candidates,key=lambda v:(v[0],v[1]))[1]) if candidates else None
+
+    def park_clear_of_cut(self, terrain):
+        """Vacate the last soil under the tracks so aircraft can finish it."""
+        air_site=None
+        for radius in (self.config.reach_m*1.5,self.config.reach_m*2.5):
+            for angle in np.arange(8)*math.pi/4:
+                p=self.position.copy();p[:2]+=radius*np.array([math.cos(angle),math.sin(angle)])
+                patch=terrain.patch(*p[:2],self.config.support_half_width_m+terrain.cell)
+                if terrain.height[patch].size==0:continue
+                if np.any(terrain.excavation[patch]|terrain.dump_mask[patch]):continue
+                if terrain.protected is not None and np.any(terrain.protected[patch]):continue
+                p[2]=terrain.sample(*p[:2])
+                if self.stable(p,terrain):
+                    if self.can_drive(p,terrain):return p
+                    if air_site is None:air_site=p
+        return air_site
 
     def can_drive(self, destination, terrain):
         length=np.linalg.norm(destination[:2]-self.position[:2])
@@ -179,6 +208,9 @@ class Excavator:
             if length<=c.excavator_speed:
                 self.state=ExcavatorState.DEPLOYING_SUPPORTS;self.elapsed=0.;self.relocations+=1
             return
+        if (self.reason=='DRONES_FINISH_LOCAL_REMAINDER' and
+                s.time<getattr(self,'_site_retry_at',0)):
+            self.waiting_seconds+=1.;return
         if self.state==ExcavatorState.DEPLOYING_SUPPORTS:
             if not self.stable(self.position,t):
                 self.state=ExcavatorState.BLOCKED;self.reason='UNSTABLE_SUPPORT_FOOTPRINT';return
@@ -228,6 +260,17 @@ class Excavator:
                 self.state=ExcavatorState.WAITING_TRANSPORT;self.reason='CLEAR_WORKSITE_BEFORE_MOVE';self.waiting_seconds+=1.;return
             site=self.find_site(t,inv)
             if site is None:
+                if self.config.direct_allowed or self.config.idle_digging:
+                    parked=self.park_clear_of_cut(t)
+                    self._site_retry_at=s.time+30
+                    self.reason='DRONES_FINISH_LOCAL_REMAINDER'
+                    if parked is not None:
+                        self.destination=parked;self.supports=False
+                        if self.can_drive(parked,t):self.state=ExcavatorState.MOVING_LOCAL
+                        elif self.config.air_relocation:self.state=ExcavatorState.WAITING_RELOCATION
+                        else:self.state=ExcavatorState.IDLE
+                    else:self.state=ExcavatorState.IDLE
+                    self.waiting_seconds+=1.;return
                 self.state=ExcavatorState.BLOCKED;self.reason='NO_ACCESSIBLE_WORKSITE';return
             self.destination=site;self.supports=False
             if self.can_drive(site,t):self.state=ExcavatorState.MOVING_LOCAL

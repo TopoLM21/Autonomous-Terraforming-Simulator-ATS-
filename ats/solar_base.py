@@ -51,8 +51,16 @@ class SolarBase:
             total_mass += drone.config.empty_mass+drone.cargo
         return self.config.move_power*total_mass/self.config.reference_total_mass
 
+    def route_energy(self,target,terrain,drones):
+        distance=float(np.linalg.norm(np.asarray(target)-self.position[:2]))
+        points=np.linspace(self.position[:2],target,max(2,math.ceil(distance/(terrain.cell/2))+1))
+        heights=np.array([terrain.sample(*p) for p in points])
+        climb=float(np.maximum(np.diff(heights),0).sum())
+        mass=self.motion_power(drones)/self.config.move_power*self.config.reference_total_mass
+        return self.motion_power(drones)*distance/self.config.speed+mass*9.80665*climb/.8
+
     def tick(self, dt, hour, drone, charging, day_of_year=None,laser_links=(),modules=(),bus_limit_w=None,
-             storage_charge_w=None,storage_discharge_w=None,auxiliary_w=0.,module_bus_limit_w=None):
+             storage_charge_w=None,storage_discharge_w=None,auxiliary_w=0.,module_bus_limit_w=None,terrain=None):
         b = self.config
         drones = drone if isinstance(drone, list) else [drone]
         flags = charging if isinstance(charging, list) else [charging]*len(drones)
@@ -62,12 +70,17 @@ class SolarBase:
             self.solar_power = 0.0
             distance = float(np.linalg.norm(self.destination-self.position[:2]))
             needed = self.motion_power(drone)*min(dt, distance/b.speed)
+            fraction = min(1.0, b.speed*dt/max(distance, 1e-12))
+            point=self.position[:2]+(self.destination-self.position[:2])*fraction
+            ground=terrain.sample(*point) if terrain is not None else self.position[2]
+            mass=self.motion_power(drone)/b.move_power*b.reference_total_mass
+            needed+=mass*9.80665*max(0.,ground-self.position[2])/.8
             if self.battery < needed:
                 self.destination = None  # unfold panels at the actual stopping point
                 self.state = BaseState.WAITING_FOR_SUN
                 return "База остановилась: недостаточно энергии для движения"
-            fraction = min(1.0, b.speed*dt/max(distance, 1e-12))
-            self.position[:2] += (self.destination-self.position[:2])*fraction
+            self.position[:2] = point
+            self.position[2] = ground
             energy = needed
             self.battery -= energy
             self.consumed += energy
@@ -144,12 +157,17 @@ class SolarBase:
         for p in points:
             if np.any(p < b.radius+terrain.cell) or np.any(p > side-b.radius-terrain.cell):
                 return False
-            dx = max(abs(p[0]-q.x)-q.length/2, 0)
-            dy = max(abs(p[1]-q.y)-q.width/2, 0)
-            if math.hypot(dx, dy) < margin:
-                return False
-            if x-b.radius <= p[0] <= x+w+b.radius and y-b.radius <= p[1] <= y+h+b.radius:
-                return False
+            if terrain.front is not None:
+                patch=terrain.patch(*p,b.radius+terrain.cell)
+                near=(terrain.x[patch]-p[0])**2+(terrain.y[patch]-p[1])**2<(b.radius+terrain.cell)**2
+                blocked=terrain.design_work[patch]|terrain.dump_mask[patch]
+                if terrain.protected is not None:blocked |= terrain.protected[patch]
+                if np.any(blocked&near):return False
+            else:
+                dx = max(abs(p[0]-q.x)-q.length/2, 0)
+                dy = max(abs(p[1]-q.y)-q.width/2, 0)
+                if math.hypot(dx, dy) < margin:return False
+                if x-b.radius <= p[0] <= x+w+b.radius and y-b.radius <= p[1] <= y+h+b.radius:return False
             z = terrain.sample(*p)
             if previous is not None and abs(z-previous[2]) > b.max_slope*np.linalg.norm(p-previous[:2])+1e-9:
                 return False
