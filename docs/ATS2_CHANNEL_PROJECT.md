@@ -146,6 +146,12 @@ python -m ats --landscape canal.atsregion --channel --channel-section 2
 Локально: **265 тестов прошли**, 0 ошибок и пропусков, 175,73 с, Python 3.12.
 Включены запуск и завершение канала как в legacy, так и в основном ATS 2.0.
 
+CI: **265 тестов прошли на каждой из четырёх конфигураций** Ubuntu/Windows,
+Python 3.11/3.12. Также прошли обычная/строгая логистика и офлайн-запуск
+размеченного канала Каттары на сетке 1024×1024 с картой 512 м.
+[GitHub Actions](https://github.com/TopoLM21/Autonomous-Terraforming-Simulator-ATS-/actions/runs/39400674205),
+машинный отчёт — `docs/ats2/channel-project-ci-results.json`.
+
 Для включённой линии `docs/ats2/qattara-channel.json` по реальному ETOPO1:
 
 - Маршрут после берегового отступа и обрезки у впадины — **84,716 км**.
