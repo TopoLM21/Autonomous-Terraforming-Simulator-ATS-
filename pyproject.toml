@@ -17,12 +17,16 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest>=8,<10"]
+dem = ["rasterio>=1.3,<2"]
 
 [project.scripts]
 ats = "ats.__main__:main"
 
 [tool.setuptools.packages.find]
 include = ["ats*"]
+
+[tool.setuptools.package-data]
+ats = ["data/*.npz", "data/*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

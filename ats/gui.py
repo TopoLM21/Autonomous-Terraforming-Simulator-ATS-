@@ -32,6 +32,7 @@ class MainWindow(QtWidgets.QMainWindow):
         super().__init__()
         self.config = deepcopy(config)
         self.sim = Simulation(self.config)
+        self.landscape = None
         self.running = False
         self._equipment_resume = None
         self.credit = 0.0
@@ -115,6 +116,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.zoom_label=QtWidgets.QLabel('100%')
         for widget in (self.zoom_out,self.zoom_label,self.zoom_in,self.zoom_fit,self.map_fullscreen):map_tools.addWidget(widget)
         map_tools.addStretch();map_layout.addLayout(map_tools)
+        self.landscape_button=QtWidgets.QPushButton('Ландшафт / импорт DEM…')
+        map_tools.addWidget(self.landscape_button);self.landscape_button.clicked.connect(self.show_landscape)
         self.map_dialog=None
         self.map = pg.PlotWidget(viewBox=self.view_box)
         self.map.setAspectLocked(True)
@@ -506,6 +509,22 @@ class MainWindow(QtWidgets.QMainWindow):
         from .logistics_ui import ExperimentDialog
         dialog=ExperimentDialog(self);dialog.exec()
 
+    def show_landscape(self):
+        from .landscape_ui import LandscapeDialog
+        self.running=False;self.credit=0;self.play.setText('▶ Start')
+        dialog=LandscapeDialog(self);dialog.exec()
+
+    def commit_landscape(self):
+        s=self.sim
+        if not all(d.grounded and d.cargo==0 for d in s.drones):
+            raise ValueError('Сначала посадите флот и выгрузите грунт через «Кисть / план → Посадить флот»')
+        if s.logistics is not None:
+            w=s.logistics;e=w.excavator
+            if w.group is not None or w.active or any(c.soil_kg>0 for c in w.containers) or e is not None and (e.bucket_kg>0 or e.active_container is not None):
+                raise ValueError('Завершите переносы и выгрузите контейнеры командой «Посадить флот»')
+        if self.landscape is not None and self.config.georeference:
+            self.landscape.commit_window(self.config.georeference['origin_m'],s.terrain.height)
+
     def edit_fleet(self):
         previous=self.running;self.running=False;self.credit=0
         dialog=FleetDialog(self.sim.pending_equipment or self.config,self)
@@ -579,6 +598,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def replace_simulation(self, config):
         sim = Simulation(config)  # validate before discarding the current state
+        if self.landscape is not None and (not config.georeference or config.georeference.get('source')!=self.landscape.raster.metadata):
+            self.landscape=None
         self.running = False
         self._equipment_resume = None
         self.play.setText("▶ Start")
@@ -588,10 +609,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.map_size.setValue(config.terrain.n*config.terrain.cell_size)
         self.update_map_size_controls()
         self.cx.setValue(config.trench.x);self.cy.setValue(config.trench.y)
+        self.latitude.setValue(config.base.latitude_deg)
         self.sync_equipment()
         self.plan_editor.segments=deepcopy(config.plan.segments) if config.plan is not None else []
         self.plan_editor.dirty=False;self.plan_editor.rebuild()
         self.plan_editor.default_depth=config.trench.depth
+        self.plan_editor.configure_elevation(config)
+        self.profile.setLabel('left','Отметка MSL' if config.georeference else 'Высота',units='m')
         self.last_event = 0
         self.log.clear()
         self.setup_map()
@@ -601,6 +625,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def new_scenario(self):
         config = deepcopy(self.config)
         config.plan=None;config.initial_height=None
+        config.reference_height=None;config.georeference=None;config.terrain.floor=-3.
         q = config.trench
         q.length, q.width, q.depth = self.length.value(), self.width.value(), self.depth.value()
         q.x, q.y, q.angle_deg = self.cx.value(), self.cy.value(), self.angle.value()
@@ -805,9 +830,10 @@ class MainWindow(QtWidgets.QMainWindow):
             self.play.setEnabled(True)
 
 
-def launch(config):
+def launch(config,landscape=None):
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     app.setApplicationName("ATS")
     window = MainWindow(config)
+    window.landscape=landscape
     window.show()
     return app.exec()

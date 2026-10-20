@@ -24,7 +24,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libegl1 libopengl0 libxcb-cursor0 libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0
-      - run: python -m pip install -e ".[test]"
+      - run: python -m pip install -e ".[test,dem]"
       - run: python -m pytest -q
       - run: python -m ats --headless --mode legacy --steps 10000 --seed 42
       - name: ATS 2.0 logistics smoke test
@@ -41,3 +41,7 @@ jobs:
           path: |
             ats2-ci.json
             ats2-strict-ci.json
+      - name: Offline real DEM smoke test
+        run: |
+          python -m ats --headless --qattara --steps 0 --json dem-ci.json > dem-ci-stdout.json
+          python -c "import json; r=json.load(open('dem-ci.json',encoding='utf-8')); assert r['georeference']['vertical_datum']=='MSL'; assert r['landscape']['modified_tiles']==0; assert r['landscape']['fine_storage_bytes']==0; assert r['remaining_m3']==0; assert r['panel_area_m2']==20"

@@ -34,7 +34,7 @@ def profiles(terrain, segments, selection=None, direction="cross", fraction=.5):
     side = terrain.cell*terrain.height.shape[0]
     for segment in chosen:
         if direction == "cross":
-            depth = max(abs(segment.height),abs(float(terrain.height.min())))
+            depth = max(abs(float(terrain.height.min())-segment.height),abs(float(terrain.height.max())-segment.height))
             extent = min(side/2,segment.width/2+depth/terrain.slope+1)
             points, axis = cross_section(segment,fraction,extent,terrain.cell/2)
         else:

@@ -110,7 +110,8 @@ class Simulation:
         return np.array([x, y, self.terrain.sample(x, y)+f.ground_clearance])
 
     def cruise(self, d):
-        return max(float(self.terrain.reference.max()), self.config.terrain.dump_max_height)+d.config.work_height+self.config.base.roof_height+d.identifier*self.config.fleet.altitude_spacing
+        surface = self.terrain.clearance_surface if self.config.reference_height is not None else max(float(self.terrain.reference.max()), self.config.terrain.dump_max_height)
+        return surface+d.config.work_height+self.config.base.roof_height+d.identifier*self.config.fleet.altitude_spacing
 
     def _safe_pad(self, p):
         t = self.terrain
@@ -186,7 +187,7 @@ class Simulation:
             # ATS 2.0 cannot fabricate physical inventory through recipe editing.
             old,new=asdict(self.config.base.equipment),asdict(proposed.base.equipment)
             proposed.validate()
-            controls=('empty_speed','loaded_speed','reserve','work_height','scoop_seconds','dump_seconds','winch_seconds','initial_charge')
+            controls=('empty_speed','loaded_speed','reserve','work_height','scoop_seconds','dig_rate_kg_s','digging_j_m3','dump_seconds','winch_seconds','initial_charge')
             if any(any(getattr(d.config,key)!=getattr(m,key) for key in controls) for d,m in zip(self.drones,proposed.drone_models())):
                 raise ValueError('ATS 2.0: скорости, операции и стартовый заряд меняются в новом эксперименте; порог зарядки и мощность лазера доступны сразу')
             for values in (old,new):
@@ -362,7 +363,17 @@ class Simulation:
         movement=d.state in (DS.TAKEOFF,DS.TO_DIG,DS.TO_DUMP,DS.RETURN,DS.LANDING,DS.TRANSFER_TAKEOFF,DS.TO_SLOT,DS.SLOT_LANDING,DS.WAIT_LANDING)
         winching=d.state in (DS.LOWER_GRABBER,DS.LIFT_GRABBER,DS.DUMP)
         lift_height=max(0,d.position[2]-self.terrain.sample(*d.position[:2])-d.config.stowed_cable) if d.state==DS.LIFT_GRABBER else 0
-        return d.power(movement,winching,lift_height=lift_height)
+        digging=0.
+        if d.state==DS.SCOOP and d.trip is not None:
+            digging=self._scoop_request(d,d.elapsed,self.config.dt)/self.config.terrain.density*d.config.digging_j_m3/self.config.dt
+        return d.power(movement,winching,lift_height=lift_height)+digging
+
+    def _scoop_request(self,d,elapsed,dt):
+        trip,c=d.trip,d.config
+        duration=c.scoop_duration(trip.mass)
+        request=min(max(0.,trip.mass-d.cargo),trip.mass/duration*min(dt,max(0.,duration-elapsed)))
+        _,available=self.terrain.local_available(*trip.dig,trip.source,c.grab_radius)
+        return min(request,float(available.sum()*self.terrain.area*self.config.terrain.density))
 
     def _clear_slot(self, d):
         if d.slot is not None and self.slots[d.slot] == d.identifier:
@@ -385,7 +396,7 @@ class Simulation:
         d.detour = None
 
     def _assign_slots(self):
-        if self.landing_requested or not self.queue or self.base.destination is not None or self.terrain.remaining <= self.config.terrain.completion_volume:
+        if not self.queue or self.base.destination is not None or (self.logistics is None and (self.landing_requested or self.terrain.remaining <= self.config.terrain.completion_volume)):
             return
         for slot in range(len(self.slots)):
             if self.slots[slot] is not None:
@@ -574,16 +585,20 @@ class Simulation:
             d.grabber_extension = min(1,d.elapsed/c.winch_seconds)
             if d.elapsed >= c.winch_seconds:
                 d.transition(DS.SCOOP)
-        elif d.state == DS.SCOOP and d.elapsed >= c.scoop_seconds:
-            d.cargo = self.terrain.scoop(*trip.dig,trip.mass,trip.source,c.grab_radius)
+        elif d.state == DS.SCOOP:
+            duration=c.scoop_duration(trip.mass)
+            request=self._scoop_request(d,d.elapsed-dt,dt)
+            taken=self.terrain.scoop(*trip.dig,request,trip.source,c.grab_radius)
+            d.cargo += taken
             if trip.source == "cut":
-                d.excavated_mass += d.cargo
-                self.excavated_mass += d.cargo
+                d.excavated_mass += taken
+                self.excavated_mass += taken
             else:
-                d.reclaimed_mass += d.cargo
-            self._terrain_active = True
-            self.drone_event(d,f"{'Взято из отвала' if trip.source == 'stockpile' else 'Завершена выемка'}: {d.cargo:.1f} кг в грейфере")
-            d.transition(DS.LIFT_GRABBER)
+                d.reclaimed_mass += taken
+            if taken>0:self._terrain_active = True
+            if d.elapsed >= duration:
+                self.drone_event(d,f"{'Взято из отвала' if trip.source == 'stockpile' else 'Завершена выемка'}: {d.cargo:.1f} кг в грейфере за {d.elapsed:.0f} с")
+                d.transition(DS.LIFT_GRABBER)
         elif d.state == DS.LIFT_GRABBER:
             d.grabber_extension = max(0,1-d.elapsed/c.winch_seconds)
             if d.elapsed >= c.winch_seconds:
@@ -812,7 +827,7 @@ class Simulation:
         cargo = sum(d.cargo for d in self.drones)
         consumed = sum(d.consumed for d in self.drones+self.retired_drones)
         batteries = sum(d.battery for d in self.drones)
-        ground_error = t.mass+cargo-t.initial_volume*self.config.terrain.density
+        ground_error = t.mass_change+cargo
         energy_error = batteries+b.battery+consumed+b.consumed+b.charging_losses+b.laser_losses+b.curtailed+self.equipment_exported_energy-self._initial_energy-b.generated-self.equipment_imported_energy
         remaining = t.remaining
         sun = b.sun(self.hour,self.day_of_year)
@@ -822,9 +837,11 @@ class Simulation:
             drone_rows[-1].update(charge_threshold_percent=100*d.config.charge_threshold,charge_requested=d.charge_requested,charge_cycles=d.charge_cycles,filled_mass_kg=d.filled_mass,reclaimed_mass_kg=d.reclaimed_mass)
             drone_rows[-1].update(serial=d.serial,created_at_seconds=d.created_at,equipment=d.config.equipment.breakdown(),**d.productivity.report(self.time,int((self.config.start_hour*3600+self.time)//86400)))
             drone_rows[-1]['activity']=d.activity.report()
+            drone_rows[-1].update(dig_rate_kg_s=d.config.dig_rate_kg_s,full_scoop_seconds=d.config.scoop_duration(d.config.payload),digging_j_m3=d.config.digging_j_m3)
             drone_rows[-1].update(laser_received_kwh=d.laser_received/KWH,laser_power_w=d.laser_power_w,laser_status=d.laser_status,flight_power_w=d.last_flight_power_w,airborne_seconds=d.airborne_seconds,current_flight_seconds=d.flight_seconds,last_flight_seconds=d.last_flight_seconds,longest_flight_seconds=d.longest_flight_seconds)
         extra = {"remaining_cut_m3":t.remaining_cut,"remaining_fill_m3":t.remaining_fill,"stockpile_m3":t.stockpile_volume,"filled_mass_kg":self.filled_mass,"filled_m3":self.filled_mass/self.config.terrain.density,"plan_segments":len(self.config.plan.segments) if self.config.plan is not None else 1,"landing_requested":self.landing_requested}
         extra.update(map_side_m=t.cell*t.height.shape[0],grid_cells=t.height.shape[0],cell_size_m=t.cell)
+        extra['georeference']=self.config.georeference
         extra.update(base_equipment=b.config.equipment.breakdown(),equipment_imported_kwh=self.equipment_imported_energy/KWH,equipment_exported_kwh=self.equipment_exported_energy/KWH,equipment_pending=self.pending_equipment is not None,laser_transfer_enabled=True,retired_drones=[{"serial":d.serial,"name":d.config.name,"created_at_seconds":d.created_at,"retired_at_seconds":d.retired_at,"consumed_kwh":d.consumed/KWH,"laser_received_kwh":d.laser_received/KWH,"airborne_seconds":d.airborne_seconds,"longest_flight_seconds":d.longest_flight_seconds,**d.productivity.report(self.time,int((self.config.start_hour*3600+self.time)//86400))} for d in self.retired_drones])
         extra.update(lasers=[link.report() for link in self.laser_links],laser_input_power_w=b.laser_input_power,laser_received_power_w=sum(d.laser_power_w for d in self.drones),laser_input_kwh=b.laser_input/KWH,laser_received_kwh=sum(d.laser_received for d in self.drones+self.retired_drones)/KWH,laser_losses_kwh=b.laser_losses/KWH)
         extra['laser_receiver_heat_kwh']=sum(d.receiver_heat_j for d in self.drones+self.retired_drones)/KWH

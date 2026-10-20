@@ -19,7 +19,10 @@ class PlanSegment:
             raise ValueError("Неверный режим кисти или линия сегмента")
         if not isinstance(self.name,str) or not self.name.strip() or len(self.name)>80:
             raise ValueError("Имя сегмента должно содержать от 1 до 80 символов")
-        if not math.isfinite(self.width) or not math.isfinite(self.height) or self.width < config.terrain.cell_size or not config.terrain.floor < self.height <= config.terrain.dump_max_height:
+        upper = config.terrain.dump_max_height
+        if config.reference_height is not None:
+            upper = max(10000.,max(max(row) for row in config.reference_height)+upper)
+        if not math.isfinite(self.width) or not math.isfinite(self.height) or self.width < config.terrain.cell_size or not config.terrain.floor < self.height <= upper:
             raise ValueError("Неверная ширина или целевая высота кисти")
         if any(len(p) != 2 or any(not math.isfinite(v) or not 0 < v < side for v in p) for p in self.points):
             raise ValueError("Линия кисти выходит за карту")
@@ -96,6 +99,8 @@ def save_plan(path, config):
     data = {"version": 1, "segments": [asdict(s) for s in config.plan.segments], "initial_height": config.initial_height,
             "grid_size": config.terrain.n, "cell_size": config.terrain.cell_size, "seed": config.seed, "roughness": config.terrain.roughness,
             "angle_deg": config.trench.angle_deg, "base_position": [config.base.x,config.base.y]}
+    data.update(reference_height=config.reference_height,georeference=config.georeference,
+                floor=config.terrain.floor,dump_rect=config.terrain.dump_rect)
     from pathlib import Path
     Path(path).write_text(json.dumps(data, ensure_ascii=False, indent=2)+"\n", encoding="utf-8")
 
@@ -109,6 +114,10 @@ def load_plan(path, config):
     clone = deepcopy(config)
     clone.plan = PlanConfig([PlanSegment(**s) for s in data["segments"]])
     clone.initial_height = data.get("initial_height")
+    clone.reference_height = data.get('reference_height')
+    clone.georeference = data.get('georeference')
+    clone.terrain.floor = data.get('floor',clone.terrain.floor)
+    clone.terrain.dump_rect = tuple(data.get('dump_rect',clone.terrain.dump_rect))
     clone.seed, clone.terrain.roughness = data["seed"], data["roughness"]
     clone.trench.angle_deg = data.get("angle_deg",clone.trench.angle_deg)
     clone.base.x,clone.base.y = data.get("base_position",[clone.base.x,clone.base.y])

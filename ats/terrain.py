@@ -15,6 +15,9 @@ class Terrain:
         rng = np.random.default_rng(config.seed)
         self.height = rng.uniform(-t.roughness, t.roughness, (t.n, t.n)).astype(np.float64)
         self.reference = self.height.copy()
+        if config.reference_height is not None:
+            self.height = np.asarray(config.reference_height, dtype=np.float64).copy()
+            self.reference = self.height.copy()
         if config.initial_height is not None:
             self.height = np.asarray(config.initial_height, dtype=np.float64).copy()
         self.slope = math.tan(math.radians(q.angle_deg))
@@ -22,6 +25,8 @@ class Terrain:
         dy = np.maximum(np.abs(self.y-q.y)-q.width/2, 0)
         self.bottom = (dx == 0) & (dy == 0)
         self.target = np.minimum(self.reference, -q.depth + self.slope*np.hypot(dx, dy))
+        if config.reference_height is not None:
+            self.target = self.reference.copy()  # imported terrain starts without an implicit cut to zero
         self.excavation = self.target < self.reference - 1e-12
         self.fill_mask = np.zeros(self.height.shape, dtype=bool)
         self.segment_labels = np.zeros(self.height.shape, dtype=np.int16)
@@ -37,6 +42,7 @@ class Terrain:
         if config.plan is not None:
             self.set_plan(config.plan)
         self.initial_volume = self.volume
+        self._initial_surface = self.height.copy()
         self.initial_excavation = self.remaining
         self._pairs = []
         grid = np.arange(t.n*t.n).reshape(t.n, t.n)
@@ -59,6 +65,16 @@ class Terrain:
     @property
     def mass(self):
         return self.volume*self.config.terrain.density
+
+    @property
+    def mass_change(self):
+        # Difference first avoids subtracting huge bedrock columns at MSL.
+        return float(np.sum(self.height-self._initial_surface,dtype=np.float64)*self.area*self.config.terrain.density)
+
+    @property
+    def clearance_surface(self):
+        # Dump height is relative to the DEM, whereas flight Z is absolute.
+        return max(float(self.reference.max()), float(self.dump_cap.max()))
 
     @property
     def remaining(self):
@@ -219,6 +235,11 @@ class Terrain:
             for a, b, limit in self._pairs:
                 difference = height[a]-height[b]
                 active = np.abs(difference) > limit+t.avalanche_epsilon
+                if self.config.reference_height is not None:
+                    # Natural cliffs in the DEM are not freshly disturbed sand.
+                    # Only pairs touched by an edit/avalanche may relax.
+                    original = self.reference.ravel()
+                    active &= (np.abs(height[a]-original[a]) > 1e-10) | (np.abs(height[b]-original[b]) > 1e-10)
                 if not np.any(active):
                     continue
                 a, b, difference = a[active], b[active], difference[active]

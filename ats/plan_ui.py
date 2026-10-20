@@ -72,6 +72,15 @@ class PlanEditor(QtWidgets.QWidget):
         self.info.setWordWrap(True);layout.addWidget(self.info)
         self.mode.currentIndexChanged.connect(lambda:self.height.setValue(0 if self.mode.currentData()=="fill" else -self.default_depth))
         self.rebuild()
+        self.configure_elevation(config)
+
+    def configure_elevation(self,config):
+        upper=config.terrain.dump_max_height
+        if config.reference_height is not None:
+            upper=max(10000.,max(max(row) for row in config.reference_height)+upper)
+        self.height.setRange(config.terrain.floor+.01,upper)
+        self.height.setSuffix(' м MSL' if config.georeference else ' м')
+        self.info.setText('Кисть задаёт абсолютную отметку поверхности в метрах над уровнем моря (MSL). Отрицательная отметка — ниже моря, а не глубина от местной поверхности. Рельеф меняется только при выполнении работ.' if config.georeference else 'Кисть задаёт высоту поверхности, не меняя грунт сразу. Высота 0 м — исходный уровень; засыпка берёт грунт из отвала или выемки.')
 
     def rebuild(self):
         self.selection.clear()

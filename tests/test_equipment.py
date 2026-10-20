@@ -73,16 +73,18 @@ def test_added_cells_empty_removed_cells_export_charge_proportionally():
     assert retained_energy([BatteryModule(quantity=2)],[BatteryModule(quantity=1),BatteryModule(quantity=1)],100)==100
 
 
-def test_drone_changes_wait_for_cargo_delivery_and_keep_history():
+@pytest.mark.parametrize('during_scoop',[False,True])
+def test_drone_changes_wait_for_cargo_delivery_and_keep_history(during_scoop):
     s=Simulation()
     for _ in range(100):
         s.step()
-        if s.drone.cargo>0:break
-    assert s.drone.cargo==60
+        if s.drone.cargo>0 and (during_scoop or s.drone.cargo==60):break
+    initial_cargo=s.drone.cargo
+    assert 0<initial_cargo<=60
     c=deepcopy(s.config);c.fleet.models[0].equipment.bucket.volume_m3=.01875
     c.fleet.models[0].equipment.batteries[0].quantity=3
     assert s.request_equipment(c)=='pending'
-    assert s.drone.config.payload==60 and s.drone.cargo==60
+    assert s.drone.config.payload==60 and s.drone.cargo==initial_cargo
     for _ in range(1000):
         before=s.drone.battery
         s.step();balanced(s)

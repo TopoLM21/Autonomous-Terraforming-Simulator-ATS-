@@ -171,6 +171,9 @@ class DroneEditor(QtWidgets.QWidget):
         self.empty_speed=spin(model.empty_speed,.001,50);self.loaded_speed=spin(model.loaded_speed,.001,50)
         self.threshold=spin(model.charge_threshold*100,model.reserve*100,100)
         self.initial=spin(model.initial_charge*100,0,100)
+        self.dig_rate=spin(model.dig_rate_kg_s,.001,1000)
+        self.scoop_time=spin(model.scoop_seconds,.1,3600)
+        self.dig_energy=spin(model.digging_j_m3/1000,0,100000)
         for label,widget in [('Имя',self.name),('Скорость без груза, м/с',self.empty_speed),('Скорость с грузом, м/с',self.loaded_speed),
                              ('Заряжаться ниже, % → до 100%',self.threshold)]:form.addRow(label,widget)
         self.summary=QtWidgets.QLabel();self.summary.setWordWrap(True);layout.addWidget(self.summary)
@@ -194,6 +197,7 @@ class DroneEditor(QtWidgets.QWidget):
         for label,widget in [('Рама, двигатели и управление, кг',self.frame),('Предел груза рамы, кг',self.payload_limit),
                              ('Опорная масса, кг',self.reference_mass),('Висение при опорной массе, кВт',self.reference_power),
                              ('Начальный заряд нового дрона, %',self.initial)]:detail_form.addRow(label,widget)
+        for label,widget in [('Предел набора грунта, кг/с',self.dig_rate),('Минимальный цикл захвата, с',self.scoop_time),('Удельная работа копания, кДж/м³',self.dig_energy)]:detail_form.addRow(label,widget)
         self.module_tabs=QtWidgets.QTabWidget();advanced.addWidget(self.module_tabs)
         self.module_tabs.addTab(self.batteries,"Батареи");self.module_tabs.addTab(bucket,"Ковш / грейфер");self.module_tabs.addTab(receiver,"Лазерный приёмник")
         layout.addWidget(self.advanced);self.advanced.hide();self.details.toggled.connect(self.advanced.setVisible);layout.addStretch()
@@ -205,6 +209,7 @@ class DroneEditor(QtWidgets.QWidget):
         model=deepcopy(self.original);e=model.equipment
         model.name=self.name.text();model.empty_speed=self.empty_speed.value();model.loaded_speed=self.loaded_speed.value()
         model.charge_threshold=self.threshold.value()/100;model.initial_charge=self.initial.value()/100
+        model.dig_rate_kg_s=self.dig_rate.value();model.scoop_seconds=self.scoop_time.value();model.digging_j_m3=self.dig_energy.value()*1000
         e.frame_mass_kg=self.frame.value();e.payload_limit_kg=self.payload_limit.value()
         e.reference_mass_kg=self.reference_mass.value();e.reference_hover_power_kw=self.reference_power.value()
         e.batteries=self.batteries.modules();e.bucket=BucketModule(self.bucket_mass.value(),self.volume.value(),self.radius.value())
@@ -215,7 +220,7 @@ class DroneEditor(QtWidgets.QWidget):
 
     def update_summary(self):
         try:
-            m=self.value();self.summary.setText(f"Без груза: {m.empty_mass:.1f} кг · батарея: {m.battery/3_600_000:.2f} кВт·ч · груз: {m.payload:.1f} кг · висение: {m.hover_power/1000:.2f} кВт")
+            m=self.value();self.summary.setText(f"Без груза: {m.empty_mass:.1f} кг · батарея: {m.battery/3_600_000:.2f} кВт·ч · груз: {m.payload:.1f} кг · висение: {m.hover_power/1000:.2f} кВт\nПолный захват: {m.scoop_duration(m.payload):.1f} с · до {m.dig_rate_kg_s:g} кг/с, без перелёта и лебёдки")
         except ValueError as error:self.summary.setText(str(error))
         self.changed.emit()
 

@@ -56,7 +56,8 @@ def test_container_cycle_mass():
 def test_legacy_regression():
     s=Simulation();r=s.run(6000)
     assert s.logistics is None and r['state']=='COMPLETED'
-    assert r['time_seconds']==2662 and r['trips']==20
+    # Gradual intake changes avalanches and adds cutting work to the ledger.
+    assert r['time_seconds']==2678 and r['trips']==20
     assert abs(r['energy_error_j'])<1e-4
 
 

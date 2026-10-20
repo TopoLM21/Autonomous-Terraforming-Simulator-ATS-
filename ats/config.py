@@ -46,6 +46,8 @@ class DroneConfig:
     vertical_speed: float = 2.0
     work_height: float = 6.0
     scoop_seconds: float = 10.0
+    dig_rate_kg_s: float = 6.0
+    digging_j_m3: float = 100_000.0  # loose sand estimate, not rock cutting
     dump_seconds: float = 10.0
     winch_seconds: float = 5.0
     stowed_cable: float = 1.0
@@ -57,6 +59,9 @@ class DroneConfig:
     budget_margin: float = 1.25
     equipment: object = None
     grab_radius: float | None = None
+
+    def scoop_duration(self, mass):
+        return max(self.scoop_seconds, mass/self.dig_rate_kg_s)
 
 
 @dataclass
@@ -125,6 +130,8 @@ class Config:
     fleet: FleetConfig = field(default_factory=FleetConfig)
     plan: object = None  # PlanConfig, imported lazily to keep configuration simple
     initial_height: list | None = None
+    reference_height: list | None = None  # immutable imported DEM, metres above MSL
+    georeference: dict | None = None
     seed: int = 42
     dt: float = 1.0
     start_hour: float = 9.0
@@ -202,5 +209,10 @@ class Config:
         require(0 < b.charge_efficiency <= 1 and 0 <= b.panel_efficiency <= 1 and b.panel_area >= 0 and b.peak_irradiance >= 0 and b.charge_power >= 0, "Неверные параметры солнечной энергии/зарядки")
         require(0 <= self.start_hour < 24, "Неверный стартовый час")
         require(d.flight_factor >= 1 and d.budget_margin >= 1 and d.winch_power >= 0 and b.idle_power >= 0 and 0 <= b.relocation_min_gain < 1, "Неверные энергетические параметры")
+        require(d.dig_rate_kg_s > 0 and d.digging_j_m3 >= 0, "Неверная скорость или удельная энергия копания")
+        if self.reference_height is not None:
+            require(self.georeference is not None and self.georeference.get('vertical_datum') == 'MSL', "DEM должен иметь высоты относительно уровня моря (MSL)")
+            require(len(self.reference_height) == t.n and all(len(row) == t.n for row in self.reference_height), "Размер DEM не совпадает с сеткой")
+            require(all(value >= t.floor for row in self.reference_height for value in row), "DEM ниже неподвижного основания")
         require(0 < d.winch_efficiency <= 1 and d.gravity > 0, "Неверные параметры лебёдки/гравитации")
         require(dust.downsample >= 1 and isinstance(dust.downsample, int) and dust.lifetime > 0 and dust.diffusion >= 0 and dust.strength >= 0 and dust.height_scale > 0 and dust.concentration_scale > 0, "Неверная модель пыли")

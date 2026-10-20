@@ -511,7 +511,7 @@ class Logistics:
         for d in s.drones:
             if (not d.docked or d.charge_requested or d.identifier in self.active or
                     d.identifier in self.direct_ids or d.identifier in self.tool_targets):continue
-            energy=d.power(True)*(2*math.ceil(s.cruise(d)/d.config.vertical_speed)+
+            energy=d.power(True)*(2*math.ceil(max(0.,s.cruise(d)-d.position[2])/d.config.vertical_speed)+
                                   math.ceil(s.config.fleet.waiting_offset/d.config.empty_speed)+10)
             if d.battery-energy<d.config.battery*d.config.reserve:continue
             d.destination=s.wait_position(d.identifier);d.transition(DS.RETURN)
@@ -916,7 +916,7 @@ class Logistics:
         soil=sum(c.soil_kg for c in self.containers)
         soil+=sum(d.cargo for d in s.drones if d.identifier in self.direct_ids)
         if self.excavator is not None:soil+=self.excavator.bucket_kg
-        report['mass_error_kg']=s.terrain.mass+soil-s.terrain.initial_volume*s.config.terrain.density
+        report['mass_error_kg']=s.terrain.mass_change+soil
         if full:report['inventory']=self.inventory.snapshot()
         report['logistics_version']=2
         report['courier_strategy']='batch' if self.batch_enabled else 'responsive'

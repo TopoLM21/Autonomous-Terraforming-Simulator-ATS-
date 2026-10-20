@@ -1,0 +1,144 @@
+{
+  "python": "3.12.14",
+  "platform": "Linux",
+  "dem": {
+    "source": {
+      "crs": "EPSG:4326",
+      "units": "degrees",
+      "vertical_datum": "MSL",
+      "x0": 25.0,
+      "y0": 28.0,
+      "dx": 0.016666666666666666,
+      "dy": 0.016666666666666666,
+      "source": "NOAA ETOPO1 Ice Surface, grid/node registered; Qattara and Mediterranean subset",
+      "source_url": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/etopo180.csv?altitude[(28):1:(32)][(25):1:(30)]",
+      "citation": "Amante, C. and B. W. Eakins (2009), NOAA Technical Memorandum NESDIS NGDC-24; doi:10.7289/V5C8276M",
+      "retrieved_utc": "2026-10-20",
+      "raw_csv_sha256": "a9292479b0aeab6c5c434844e73f457aade6806f8bebe2ce974fdc8a6eb2b457",
+      "license": "NOAA: data may be used and redistributed for free; provided without warranty; not intended for legal use",
+      "registration": "nodes; sample at x0 + column*dx, y0 + row*dy; south-first"
+    },
+    "vertical_datum": "MSL",
+    "extent_m": [
+      481488.8212904421,
+      444780.3209341317
+    ],
+    "source_resolution_m": [
+      1604.962737634807,
+      1853.2513372255487
+    ],
+    "fine_cell_size_m": 0.25,
+    "modified_tiles": 0,
+    "fine_storage_bytes": 0,
+    "dem_storage_bytes": 580328,
+    "soil_delta_m3": 0.0
+  },
+  "read_window_256_ms": 8.413515000029292,
+  "after_two_edits": {
+    "source": {
+      "crs": "EPSG:4326",
+      "units": "degrees",
+      "vertical_datum": "MSL",
+      "x0": 25.0,
+      "y0": 28.0,
+      "dx": 0.016666666666666666,
+      "dy": 0.016666666666666666,
+      "source": "NOAA ETOPO1 Ice Surface, grid/node registered; Qattara and Mediterranean subset",
+      "source_url": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/etopo180.csv?altitude[(28):1:(32)][(25):1:(30)]",
+      "citation": "Amante, C. and B. W. Eakins (2009), NOAA Technical Memorandum NESDIS NGDC-24; doi:10.7289/V5C8276M",
+      "retrieved_utc": "2026-10-20",
+      "raw_csv_sha256": "a9292479b0aeab6c5c434844e73f457aade6806f8bebe2ce974fdc8a6eb2b457",
+      "license": "NOAA: data may be used and redistributed for free; provided without warranty; not intended for legal use",
+      "registration": "nodes; sample at x0 + column*dx, y0 + row*dy; south-first"
+    },
+    "vertical_datum": "MSL",
+    "extent_m": [
+      481488.8212904421,
+      444780.3209341317
+    ],
+    "source_resolution_m": [
+      1604.962737634807,
+      1853.2513372255487
+    ],
+    "fine_cell_size_m": 0.25,
+    "modified_tiles": 2,
+    "fine_storage_bytes": 65536,
+    "dem_storage_bytes": 580328,
+    "soil_delta_m3": 0.0
+  },
+  "dense_one_float64_array_bytes": 27412064314849,
+  "example_corridor": {
+    "target_msl": -5.0,
+    "estimated_cut_m3": 2765029346.2317915,
+    "length_m": 204127.0329369384,
+    "width_m": 20.0,
+    "source_resolution_m": [
+      1604.962737634807,
+      1853.2513372255487
+    ],
+    "method": "coarse constant-cross-slope screening"
+  },
+  "physics_cases": [
+    {
+      "level_msl": 120.0,
+      "mode": "legacy",
+      "wall_seconds": 0.7731049099998017,
+      "state": "COMPLETED",
+      "time_seconds": 4762.0,
+      "trips": 27,
+      "mass_error_kg": 1.3216094885137863e-10,
+      "energy_error_j": -2.2724270820617676e-07,
+      "excavated_m3": 0.9803702273339502,
+      "consumed_kwh": 7.761019714865481,
+      "region_soil_delta_m3": 8.260059303211165e-14
+    },
+    {
+      "level_msl": 120.0,
+      "mode": "logistics",
+      "wall_seconds": 2.848881490000167,
+      "state": "COMPLETED",
+      "time_seconds": 1572.0,
+      "trips": 42,
+      "mass_error_kg": 5.1159076974727213e-11,
+      "energy_error_j": 1.30385160446167e-07,
+      "excavated_m3": 0.983161299968831,
+      "consumed_kwh": 15.385785789004002,
+      "region_soil_delta_m3": 3.197442310920451e-14
+    },
+    {
+      "level_msl": -120.0,
+      "mode": "legacy",
+      "wall_seconds": 0.7267518329999803,
+      "state": "COMPLETED",
+      "time_seconds": 4762.0,
+      "trips": 27,
+      "mass_error_kg": 1.3216094885137863e-10,
+      "energy_error_j": -2.2724270820617676e-07,
+      "excavated_m3": 0.9803702273339502,
+      "consumed_kwh": 7.761019714865481,
+      "region_soil_delta_m3": 8.260059303211165e-14
+    },
+    {
+      "level_msl": -120.0,
+      "mode": "logistics",
+      "wall_seconds": 2.887316033999923,
+      "state": "COMPLETED",
+      "time_seconds": 1572.0,
+      "trips": 42,
+      "mass_error_kg": 5.1159076974727213e-11,
+      "energy_error_j": 1.30385160446167e-07,
+      "excavated_m3": 0.983161299968831,
+      "consumed_kwh": 15.385785789004002,
+      "region_soil_delta_m3": 3.197442310920451e-14
+    }
+  ],
+  "tests": {
+    "tests": "246",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "199.337"
+  },
+  "wheel_contains_bundled_dem": true,
+  "new_focused_gui_tests": "2 passed after latitude-control synchronization"
+}

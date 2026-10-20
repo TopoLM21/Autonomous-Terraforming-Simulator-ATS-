@@ -43,6 +43,18 @@ def main():
     parser.add_argument('--configuration',help='Load version 2 experiment JSON')
     parser.add_argument('--save-configuration',help='Save version 2 experiment JSON')
     parser.add_argument('--batch-experiments',action='store_true',help='Run S0–S9 with the same terrain/seed')
+    dem_source=parser.add_mutually_exclusive_group()
+    dem_source.add_argument('--dem',help='Offline DEM: NPZ, ESRI ASC or optional GeoTIFF')
+    dem_source.add_argument('--qattara',action='store_true',help='Bundled real NOAA ETOPO1: Qattara and Mediterranean, no internet')
+    dem_source.add_argument('--landscape',help='Resume terrain edits from an .atsregion file (local machinery starts a new run)')
+    parser.add_argument('--dem-crs',help='ASC CRS: EPSG:4326 or LOCAL_METRES (or use .json sidecar)')
+    parser.add_argument('--dem-datum',choices=('MSL',),help='Confirm that imported ASC/GeoTIFF elevations are metres above mean sea level')
+    location=parser.add_mutually_exclusive_group()
+    location.add_argument('--work-origin',nargs=2,type=float,metavar=('X','Y'),help='Fine work window southwest origin, metres from DEM southwest node')
+    location.add_argument('--work-lon-lat',nargs=2,type=float,metavar=('LON','LAT'),help='Fine window southwest origin in WGS84; snapped to fine cell')
+    parser.add_argument('--goal-msl',type=float,help='Absolute local trench bottom in metres MSL; DEM starts with no work if omitted')
+    parser.add_argument('--save-landscape',help='Save DEM and sparse edits after headless run; requires unloaded and landed machinery')
+    parser.add_argument('--dig-rate',type=float,help='Drone soil intake limit, kg/s; standard loose-sand estimate 6')
     args = parser.parse_args()
     mode=args.mode or 'logistics'
     if args.steps < 0:
@@ -107,6 +119,30 @@ def main():
         if args.courier_strategy is not None:
             if config.logistics is None:raise ValueError('Courier strategy requires ATS 2.0')
             config.logistics.batch_courier=args.courier_strategy=='batch'
+        region=None
+        if args.dem or args.qattara or args.landscape:
+            if args.plan or args.configuration or args.compare_fleet or args.batch_experiments:
+                raise ValueError('DEM: начните отдельный локальный запуск без --plan/--configuration/сравнения')
+            from .landscape import Landscape,load_dem,qattara_dem,workspace_config
+            region=(Landscape.load(args.landscape) if args.landscape else
+                    Landscape(qattara_dem() if args.qattara else load_dem(args.dem,crs=args.dem_crs,vertical_datum=args.dem_datum)))
+            origin=args.work_origin
+            if args.work_lon_lat:
+                if region.raster.metadata['crs']!='EPSG:4326':raise ValueError('--work-lon-lat requires a WGS84 DEM')
+                origin=region.raster.to_metres(*args.work_lon_lat)
+            if origin is None:
+                origin=[v/2 for v in region.raster.extent_m]
+            origin=[round(v/region.cell_size)*region.cell_size for v in origin]
+            config=workspace_config(region,config,origin,args.map_size or 64.)
+            if args.goal_msl is not None:
+                from .plan import PlanConfig,PlanSegment
+                q=config.trench
+                config.plan=PlanConfig([PlanSegment([[q.x-q.length/2,q.y],[q.x+q.length/2,q.y]],'dig',q.width,args.goal_msl,'Канава MSL')])
+        elif args.work_origin or args.work_lon_lat or args.goal_msl is not None or args.save_landscape:
+            raise ValueError('Нужен --dem, --qattara или --landscape')
+        if args.dig_rate is not None:
+            config.drone.dig_rate_kg_s=args.dig_rate
+            for model in config.fleet.models:model.dig_rate_kg_s=args.dig_rate
         if args.save_configuration:
             from .experiments import save_configuration
             save_configuration(args.save_configuration,config)
@@ -121,6 +157,14 @@ def main():
             else:
                 sim = Simulation(config)
                 report = sim.run(args.steps)
+                if region is not None:
+                    if args.save_landscape:
+                        w=sim.logistics;e=w.excavator if w else None
+                        if any(not d.grounded or d.cargo>0 for d in sim.drones) or w and (w.active or w.group is not None or any(c.soil_kg>0 for c in w.containers) or e and (e.bucket_kg>0 or e.active_container is not None)):
+                            raise ValueError('Ландшафт не сохранён: завершите рейсы/выгрузку (увеличьте --steps); грунт ещё в оборудовании')
+                        region.commit_window(config.georeference['origin_m'],sim.terrain.height)
+                        region.save(args.save_landscape)
+                    report['landscape']=region.report()
             result = json.dumps(report, ensure_ascii=False, indent=2)
             # Windows redirected consoles can use cp1252. Escape Unicode only
             # when the stream cannot encode it; JSON files always remain UTF-8.
@@ -137,7 +181,7 @@ def main():
             if args.batch_experiments:blocked=any(row['state']=='BLOCKED' for row in report)
             return 2 if blocked else 0
         from .gui import launch
-        return launch(config)
+        return launch(config,landscape=region)
     except (ValueError, OSError, KeyError, TypeError) as error:
         parser.error(str(error))
 

@@ -31,11 +31,12 @@ class Planner:
         haul = math.ceil(np.linalg.norm(np.asarray(dig)-dump)/d.loaded_speed)
         home = math.ceil(np.linalg.norm(np.asarray(dump)-home_position[:2])/d.empty_speed)
         lower = math.ceil(d.winch_seconds)
-        scoop = math.ceil(d.scoop_seconds)
+        scoop = math.ceil(d.scoop_duration(cargo))
         unload = math.ceil(d.dump_seconds)
-        # Scooping is charged at empty power, lifting/haul/unload at full load.
+        # Conservative full-load bound covers gradually filling the bucket.
         joules = empty*d.flight_factor*(up+down+out+home) + loaded*d.flight_factor*haul
-        joules += (empty+d.winch_power)*lower + empty*scoop + (loaded+d.winch_power)*lower + (loaded+d.winch_power)*unload
+        joules += (empty+d.winch_power)*lower + loaded*scoop + (loaded+d.winch_power)*lower + (loaded+d.winch_power)*unload
+        joules += cargo/self.config.terrain.density*d.digging_j_m3
         surface = -self.config.trench.depth-self.config.terrain.roughness if min_surface is None else min_surface
         joules += cargo*d.gravity*max(0, altitude-surface)/d.winch_efficiency
         if self.config.fleet.count > 1:
@@ -67,6 +68,8 @@ class Planner:
         order = np.argsort(-heights, kind="stable")[:32]
         best = None
         altitude = max(float(terrain.reference.max()), t.dump_max_height) + d.work_height + self.config.base.roof_height
+        if self.config.reference_height is not None:
+            altitude = terrain.clearance_surface+d.work_height+self.config.base.roof_height
         altitude += (drone.identifier if drone is not None else 0)*self.config.fleet.altitude_spacing
         for index in candidates[order]:
             dig = (float(terrain.x.ravel()[index]), float(terrain.y.ravel()[index]))
