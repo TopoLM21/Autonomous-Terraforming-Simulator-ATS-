@@ -117,7 +117,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for widget in (self.zoom_out,self.zoom_label,self.zoom_in,self.zoom_fit,self.map_fullscreen):map_tools.addWidget(widget)
         map_tools.addStretch();map_layout.addLayout(map_tools)
         self.landscape_button=QtWidgets.QPushButton('Ландшафт / импорт DEM…')
-        map_tools.addWidget(self.landscape_button);self.landscape_button.clicked.connect(self.show_landscape)
+        left_layout.addWidget(self.landscape_button);self.landscape_button.clicked.connect(self.show_landscape)
         self.map_dialog=None
         self.map = pg.PlotWidget(viewBox=self.view_box)
         self.map.setAspectLocked(True)
