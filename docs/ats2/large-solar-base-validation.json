@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "code_commit": null,
+  "code_commit": "1ed897ef0f9dcff5d2825f729198d0a3486f689d",
   "local_tests": {
     "full_passed": 336,
     "full_seconds": 222,
@@ -9,6 +9,10 @@
     "final_gui": {
       "passed": 19,
       "seconds": 12.64
+    },
+    "final_integrations": {
+      "passed": 67,
+      "seconds": 15.49
     }
   },
   "cli": {
@@ -52,5 +56,6 @@
     "Real Qt equipment quantities, live mass and passport, including map-disabled mode.",
     "Nominal body envelope uses the existing radius and roof height; no automatic body enlargement."
   ],
-  "old_checkpoint_loaded": true
+  "old_checkpoint_loaded": true,
+  "ci_results": "large-solar-base-ci-results.json"
 }
