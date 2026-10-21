@@ -106,6 +106,19 @@ class Simulation:
         offset = station_offset(slot,self.config.fleet.pad_spacing)
         return self.base.position+np.array([0, offset, self.config.base.roof_height])
 
+    def base_specification(self):
+        """Nominal envelope from existing geometry; live mass from actual equipment."""
+        b=self.base;diameter=2*b.config.radius
+        offsets=[station_offset(i,self.config.fleet.pad_spacing) for i in range(len(self.slots))]
+        docked=sum(d.config.empty_mass+d.cargo for d in self.drones if d.docked)
+        rect=self.logistics.field_rect if self.logistics is not None else None
+        return dict(body_dimensions_m=[diameter,diameter,b.config.roof_height],
+                    landing_zone_dimensions_m=[diameter,max(offsets)-min(offsets)+diameter],
+                    solar_field_dimensions_m=list(rect[2:]) if rect is not None else None,
+                    installed_equipment_mass_kg=b.config.equipment.mass,
+                    stored_items_mass_kg=b.config.mass-b.config.equipment.mass,
+                    docked_drones_mass_kg=docked,gross_mass_kg=b.config.mass+docked)
+
     def wait_position(self, index):
         f = self.config.fleet
         x = self.base.position[0]-f.waiting_offset
@@ -959,7 +972,8 @@ class Simulation:
         extra.update(map_side_m=t.cell*t.height.shape[0],grid_cells=t.height.shape[0],cell_size_m=t.cell)
         extra['georeference']=self.config.georeference
         extra.update(base_capacity_kwh=b.config.battery/KWH,
-                     base_battery_count=sum(pack.quantity for pack in b.config.equipment.batteries))
+                     base_battery_count=sum(pack.quantity for pack in b.config.equipment.batteries),
+                     base_specification=self.base_specification())
         extra.update(workfront=t.front.report() if t.front is not None else None,
                      base_position_m=b.position.tolist(),base_move_wait=self.base_move_wait,
                      base_move_pending=self.relocation_pending is not None,base_move_status=self.base_move_status)

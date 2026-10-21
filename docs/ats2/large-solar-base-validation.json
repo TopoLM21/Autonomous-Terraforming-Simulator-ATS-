@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "code_commit": null,
+  "local_tests": {
+    "full_passed": 336,
+    "full_seconds": 222,
+    "feature_passed": 9,
+    "feature_seconds": 9.66,
+    "final_gui": {
+      "passed": 19,
+      "seconds": 12.64
+    }
+  },
+  "cli": {
+    "command": "python -m ats --headless --map-size 256 --panel-area 10000 --steps 400",
+    "summary": {
+      "state": "RUNNING",
+      "time_seconds": 400.0,
+      "panel_area_m2": 10000.0,
+      "base_mass_kg": 41162.0,
+      "base_specification": {
+        "body_dimensions_m": [
+          1.5,
+          1.5,
+          1.5
+        ],
+        "landing_zone_dimensions_m": [
+          1.5,
+          10.5
+        ],
+        "solar_field_dimensions_m": [
+          100.0,
+          100.0
+        ],
+        "installed_equipment_mass_kg": 40980.0,
+        "stored_items_mass_kg": 182.0,
+        "docked_drones_mass_kg": 420.0,
+        "gross_mass_kg": 41582.0
+      },
+      "solar_generating_area_m2": 10000.0,
+      "solar_generated_kwh": 98.09770052324839,
+      "mass_error_kg": 1.4210854715202004e-13,
+      "energy_error_j": 5.960464477539063e-08,
+      "panel_count": 10000,
+      "panel_mass_kg": 40000.0
+    }
+  },
+  "coverage": [
+    "Live install of 10 000 individual 1 m² / 4 kg panels with airborne cargo and unchanged jobs.",
+    "Save/load of 10 000 panels and exact continuation.",
+    "Atomic refusal when no free solar field fits.",
+    "Real Qt equipment quantities, live mass and passport, including map-disabled mode.",
+    "Nominal body envelope uses the existing radius and roof height; no automatic body enlargement."
+  ],
+  "old_checkpoint_loaded": true
+}

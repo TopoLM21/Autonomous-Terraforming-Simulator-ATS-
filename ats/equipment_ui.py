@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from PySide6 import QtCore,QtWidgets
 from .config import DroneConfig
-from .equipment import (BatteryModule,PanelModule,LaserEmitter,LaserReceiver,BucketModule,BASE_BATTERY_LIMIT,
+from .equipment import (BatteryModule,PanelModule,LaserEmitter,LaserReceiver,BucketModule,BASE_BATTERY_LIMIT,PANEL_QUANTITY_LIMIT,
                         DroneEquipment,resolve_config,equipment_data,load_equipment_data)
 
 
@@ -20,7 +20,7 @@ class ModuleTable(QtWidgets.QWidget):
 
     def __init__(self,kind,columns,modules,parent=None,quantity_limit=None):
         super().__init__(parent);self.kind=kind;self.columns=columns
-        self.quantity_limit=quantity_limit if quantity_limit is not None else 1000 if kind is PanelModule else 64
+        self.quantity_limit=quantity_limit if quantity_limit is not None else PANEL_QUANTITY_LIMIT if kind is PanelModule else 64
         self.sources=[]
         layout=QtWidgets.QVBoxLayout(self);layout.setContentsMargins(0,0,0,0)
         self.table=QtWidgets.QTableWidget(0,len(columns))

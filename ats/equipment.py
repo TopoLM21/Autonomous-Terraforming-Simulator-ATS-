@@ -19,6 +19,7 @@ def station_offset(index,spacing):
 
 KWH=3_600_000.0
 BASE_BATTERY_LIMIT=1000
+PANEL_QUANTITY_LIMIT=10000
 
 
 def positive(value,label,zero=False):
@@ -32,7 +33,7 @@ def set_panel_area(equipment, area, efficiency=.20):
     previous=equipment.panel_area
     if area==0:
         equipment.panels=[]
-    elif len(equipment.panels)==1 and abs(area/equipment.panels[0].area_m2-round(area/equipment.panels[0].area_m2))<1e-8 and 1<=round(area/equipment.panels[0].area_m2)<=1000:
+    elif len(equipment.panels)==1 and abs(area/equipment.panels[0].area_m2-round(area/equipment.panels[0].area_m2))<1e-8 and 1<=round(area/equipment.panels[0].area_m2)<=PANEL_QUANTITY_LIMIT:
         # Whole standard panels change in count, retaining their physical size.
         equipment.panels[0].quantity=round(area/equipment.panels[0].area_m2)
     elif previous>0:
@@ -40,7 +41,7 @@ def set_panel_area(equipment, area, efficiency=.20):
         for panel in equipment.panels:
             panel.area_m2*=factor;panel.mass_kg*=factor
     else:
-        count=round(area) if abs(area-round(area))<1e-8 and 1<=round(area)<=1000 else 1
+        count=round(area) if abs(area-round(area))<1e-8 and 1<=round(area)<=PANEL_QUANTITY_LIMIT else 1
         equipment.panels=[PanelModule(quantity=count,area_m2=area/count,mass_kg=area*4/count,efficiency=efficiency or .20)]
 
 
@@ -65,7 +66,8 @@ class PanelModule:
     efficiency: float=.20
 
     def validate(self):
-        if not isinstance(self.quantity,int) or not 0<=self.quantity<=1000:raise ValueError("Количество панелей: 0–1000")
+        if type(self.quantity) is not int or not 0<=self.quantity<=PANEL_QUANTITY_LIMIT:
+            raise ValueError(f"Количество панелей: 0–{PANEL_QUANTITY_LIMIT}")
         positive(self.area_m2,"Площадь панели");positive(self.mass_kg,"Масса панели")
         if not 0<=self.efficiency<=1:raise ValueError("КПД панели: 0–100%")
 
@@ -173,7 +175,7 @@ class BaseEquipment:
     def from_legacy(cls,b,slots=1):
         battery_count=max(1,math.ceil(b.battery/KWH/5)) if b.battery else 0
         batteries=[BatteryModule(quantity=battery_count,capacity_kwh=b.battery/KWH/battery_count,mass_kg=b.battery/KWH*10/battery_count)] if battery_count else []
-        panel_count=max(1,math.ceil(b.panel_area)) if b.panel_area else 0
+        panel_count=min(PANEL_QUANTITY_LIMIT,max(1,math.ceil(b.panel_area))) if b.panel_area else 0
         panels=[PanelModule(quantity=panel_count,area_m2=b.panel_area/panel_count,mass_kg=b.panel_area*4/panel_count,efficiency=b.panel_efficiency)] if panel_count else []
         chassis=b.mass-sum(v.quantity*v.mass_kg for v in batteries+panels)-20-15
         return cls(chassis,batteries,panels,slots,20,15,b.charge_power/1000,b.charge_efficiency)

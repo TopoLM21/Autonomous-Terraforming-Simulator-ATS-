@@ -170,6 +170,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dust_image.setZValue(5)
         self.map.addItem(self.dust_image)
         self.base_marker = pg.ScatterPlotItem(size=22, symbol="s", brush="#f4b651", pen=pg.mkPen("#fff0c5", width=2))
+        self.base_outline=pg.PlotDataItem(pen=pg.mkPen('#ffdb8a',width=2))
+        self.map.addItem(self.base_outline)
         self.workfront_outline=pg.PlotDataItem(pen=pg.mkPen('#92f3a2',width=2,style=QtCore.Qt.PenStyle.DashLine))
         self.map.addItem(self.workfront_outline)
         self.drone_marker = pg.ScatterPlotItem(size=20, symbol="+", pen=pg.mkPen("#82f5db", width=3))
@@ -247,9 +249,12 @@ class MainWindow(QtWidgets.QMainWindow):
         right_layout.addWidget(self.progress)
         self.telemetry = QtWidgets.QLabel()
         self.telemetry.setTextFormat(QtCore.Qt.TextFormat.RichText)
-        right_layout.addWidget(self.telemetry)
+        self.telemetry.setWordWrap(True);self.telemetry.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+        telemetry_scroll=QtWidgets.QScrollArea();telemetry_scroll.setWidgetResizable(True)
+        telemetry_scroll.setFrameShape(QtWidgets.QFrame.Shape.NoFrame);telemetry_scroll.setMinimumHeight(180)
+        telemetry_scroll.setWidget(self.telemetry);right_layout.addWidget(telemetry_scroll,3)
         scroll = QtWidgets.QScrollArea()
-        scroll.setWidgetResizable(True)
+        scroll.setWidgetResizable(True);scroll.setMinimumHeight(180)
         control_widget = QtWidgets.QWidget()
         controls = QtWidgets.QVBoxLayout(control_widget)
         controls.setContentsMargins(2, 2, 2, 2)
@@ -279,11 +284,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.map_size.valueChanged.connect(self.update_map_size_controls);self.update_map_size_controls()
         solar_group = QtWidgets.QGroupBox("База и солнце")
         solar_form = QtWidgets.QFormLayout(solar_group)
+        solar_form.setRowWrapPolicy(QtWidgets.QFormLayout.RowWrapPolicy.WrapLongRows)
         self.panels = self.spin(0, 10000000, self.config.base.panel_area, 1)
         self.base_mass = self.spin(0, 10000000, self.config.base.mass, 100, 1)
         for widget in [self.base_mass]:
             widget.setReadOnly(True);widget.setButtonSymbols(QtWidgets.QAbstractSpinBox.ButtonSymbols.NoButtons)
-            widget.setToolTip("Рассчитывается по установленным модулям. Измените состав кнопкой «Оборудование».")
+            widget.setToolTip("Установленное оборудование и текущие запасы базы, без пристыкованных дронов. Обновляется во время работы.")
         self.latitude = self.spin(-90, 90, config.base.latitude_deg, 1,4)
         self.latitude.setEnabled(not bool(config.georeference and config.georeference['source'].get('crs')=='EPSG:4326'))
         self.latitude.setToolTip('На географической карте широта берётся из координат базы и участвует в расчёте солнечной генерации.')
@@ -299,6 +305,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.calendar.setMaximumDate(QtCore.QDate(2025, 12, 31))
         for label, widget in [("Площадь панелей, м²", self.panels), ("Масса базы, кг", self.base_mass), ("Широта, ° (+север)", self.latitude), ("Сезонная дата", self.season), ("Стартовая дата", self.calendar)]:
             solar_form.addRow(label, widget)
+        self.base_dimensions=QtWidgets.QLabel();self.base_dimensions.setWordWrap(True)
+        self.base_dimensions.setToolTip('Габариты корпуса: 2 радиуса × 2 радиуса × высота крыши из геометрии модели. Посадочная зона охватывает установленные площадки. Поле панелей показано отдельно; размеры корпуса не масштабируются по массе оборудования.')
+        solar_form.addRow(self.base_dimensions)
         self.panel_info = QtWidgets.QLabel()
         self.panel_info.setWordWrap(True)
         solar_form.addRow(self.panel_info)
@@ -909,6 +918,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dust_image.setRect(QtCore.QRectF(0, 0, s.dust.side, s.dust.side))
         self.dust_image.setVisible(self.show_dust.isChecked())
         self.base_marker.setData([b.position[0]], [b.position[1]])
+        x,y=b.position[:2];r=b.config.radius
+        self.base_outline.setData([x-r,x+r,x+r,x-r,x-r],[y-r,y-r,y+r,y+r,y-r])
         if s.logistics is not None:
             l=s.logistics;e=l.excavator
             if l.field_rect is not None:
@@ -954,6 +965,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def refresh_telemetry(self, report):
         s,t,d,b=self.sim,self.sim.terrain,self.sim.drone,self.sim.base
+        spec=report['base_specification']
+        body=' × '.join(f'{value:.2f}' for value in spec['body_dimensions_m'])
+        landing=' × '.join(f'{value:.2f}' for value in spec['landing_zone_dimensions_m'])
+        field=spec['solar_field_dimensions_m']
+        field_text=(' × '.join(f'{value:.2f}' for value in field)+' м' if field else
+                    'компактная установка' if b.config.panel_area<=20 else 'не размещено / сложено')
+        self.base_mass.setValue(report['base_mass_kg'])
+        self.base_dimensions.setText(f"Паспорт базы\nКорпус: {body} м\nПосадочная зона: {landing} м\nПоле панелей: {field_text}\nС пристыкованными дронами: {spec['gross_mass_kg']:.1f} кг")
+        self.base_label.setText(f"База · {spec['gross_mass_kg']:.0f} кг с дронами\nКорпус {body} м")
+        self.base_label.setToolTip(f"Оборудование: {spec['installed_equipment_mass_kg']:.1f} кг; запасы: {spec['stored_items_mass_kg']:.1f} кг; пристыкованные дроны: {spec['docked_drones_mass_kg']:.1f} кг.\nПоле панелей: {field_text}.")
         self.fleet_table.setUpdatesEnabled(False)
         for row,o in enumerate(report['drones']):
             values=[f"{o['serial']} · {o['name']}",o['state'],f"{o['battery_percent']:.0f}%",f"{o['cargo_kg']:.1f}",str(o['trips']),f"{o['excavated_mass_kg']:.0f} / {o['filled_mass_kg']:.0f}",f"{o['consumed_kwh']:.3f}",f"{o['waiting_seconds']/60:.1f}",f"{o['charging_seconds']/60:.1f}",str(o['traffic_yields']),f"{o['last24_volume_m3']:.4f}",f"{o['laser_power_w']/1000:.2f}"]
@@ -979,6 +1000,10 @@ class MainWindow(QtWidgets.QMainWindow):
             ("Вынуто / рейсы", f"{report['excavated_m3']:.3f} м³ / {s.trips}"),
             ("Общий груз", f"{report['cargo_kg']:.1f} кг"),
             ("База / панели", f"{b.config.mass:.0f} кг / {b.config.panel_area:.1f} м²"),
+            ("Корпус, X × Y × В",body+' м'),
+            ("Посадочная зона",landing+' м'),
+            ("Поле панелей",field_text),
+            ("Масса с дронами",f"{spec['gross_mass_kg']:.1f} кг"),
             ("Широта / световой день", f"{b.config.latitude_deg:+.1f}° / {report['daylight_hours']:.1f} ч"),
             ("Солнце: высота / поток", f"{report['sun_elevation_deg']:.1f}° / {report['irradiance_w_m2']:.0f} Вт/м²"),
             ("Батареи флота", f"{report['drone_kwh']:.2f} / {sum(o.config.battery for o in s.drones)/KWH:.2f} кВт·ч"),
@@ -1004,7 +1029,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 ('Генерация / нагрузка',f"{report['solar_power_w']/1000:.2f} / {report['base_load_power_w']/1000:.2f} кВт"),
                 ('Поток в батарею базы',f"{report['base_battery_power_w']/1000:+.2f} кВт · плюс: заряд, минус: разряд"),
                 ('Развёрнуто панелей',f"{report['solar_generating_area_m2']:.1f} / {report['panel_area_m2']:.1f} м²")])
-        self.telemetry.setText("<table cellspacing='4'>"+"".join(f"<tr><td style='color:#94abbf'>{label}</td><td>{value}</td></tr>" for label, value in rows)+"</table>")
+        self.telemetry.setText("<table width='100%' cellspacing='4'>"+"".join(f"<tr><td width='48%' style='color:#94abbf'>{label}</td><td width='52%'>{value}</td></tr>" for label, value in rows)+"</table>")
         for serial, timestamp, message in s.events:
             if serial > self.last_event:
                 self.log.appendPlainText(f"[{timestamp/60:6.1f} мин] {message}")
