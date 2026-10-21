@@ -160,5 +160,14 @@
         "CONTAINER_HOOK"
       ]
     }
-  }
+  },
+  "code_commit": "b149dde45f366a8b473172efed57b8654a126505",
+  "local_tests": {
+    "passed": 301,
+    "seconds": 212.22,
+    "python": "3.12",
+    "focused_service_tests": 17,
+    "focused_seconds": 18.23
+  },
+  "ci_results": "service-recovery-ci-results.json"
 }

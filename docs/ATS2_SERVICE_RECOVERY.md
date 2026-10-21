@@ -81,6 +81,16 @@
 В этих прогонах ошибка массы равна нулю, максимальный модуль ошибки энергии —
 `1,27·10⁻⁸ Дж`. [Машинные результаты](ats2/service-recovery-scenarios.json).
 
+Полный локальный набор: **301 тест прошёл за 212,22 с**; отдельно 17 новых
+регрессионных проверок прошли за 18,23 с. Проверен код `b149dde`.
+
+CI того же коммита прошёл на **Ubuntu и Windows с Python 3.11 и 3.12**:
+по 301 тесту в каждой конфигурации. Дополнительные запуски legacy,
+ATS 2.0 (обычная и строгая логистика), офлайн-DEM и подготовленного канала
+Каттары также успешны.
+[Запуск CI](https://github.com/TopoLM21/Autonomous-Terraforming-Simulator-ATS-/actions/runs/39585819202),
+[машинная запись проверок](ats2/service-recovery-ci-results.json).
+
 ```bash
 python -m pytest -q tests/test_service_recovery.py
 python -m pytest -q
