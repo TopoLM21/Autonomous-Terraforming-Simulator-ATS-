@@ -745,7 +745,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.workfront_outline.setData([x0,x1,x1,x0,x0],[y0,y0,y1,y1,y0])
             else:self.workfront_outline.clear()
             if channel:
-                state='переезжает' if b.destination is not None else 'ждёт посадки для переезда' if s.relocation_pending is not None else 'на рабочей позиции'
+                state=s.base_move_status
                 self.channel_status.setText(self.channel_status.text()+f"\nФронт {front.position/1000:.3f} км · рабочая зона {front.settings['front_length_m']:g} м · база {state}")
         else:self.workfront_outline.clear()
         if self.config.georeference:
@@ -810,7 +810,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for row,o in enumerate(report['drones']):
             values=[f"{o['serial']} · {o['name']}",o['state'],f"{o['battery_percent']:.0f}%",f"{o['cargo_kg']:.1f}",str(o['trips']),f"{o['excavated_mass_kg']:.0f} / {o['filled_mass_kg']:.0f}",f"{o['consumed_kwh']:.3f}",f"{o['waiting_seconds']/60:.1f}",f"{o['charging_seconds']/60:.1f}",str(o['traffic_yields']),f"{o['last24_volume_m3']:.4f}",f"{o['laser_power_w']/1000:.2f}"]
             for col,value in enumerate(values):self.fleet_table.setItem(row,col,QtWidgets.QTableWidgetItem(value))
-            if 'task' in o:self.fleet_table.item(row,1).setToolTip(f"{o['task']} · {o['attachment']}\n{o['wait_reason']}\nБатареи: {', '.join(o['battery_ids'])}\nЗамен комплектов: {o['battery_swaps']}; до завершения замены: {o['battery_swap_remaining_seconds']:.0f} с\nГрузовой лимит: {o['transport_payload_kg']:.1f} кг")
+            if 'task' in o:self.fleet_table.item(row,1).setToolTip(f"{o['task']} · {o['attachment']}\n{o['wait_reason']}\nБатареи: {', '.join(o['battery_ids'])}\nЗамен комплектов: {o['battery_swaps']}; до завершения замены: {o['battery_swap_remaining_seconds']:.0f} с\nДо завершения смены инструмента: {o['tool_change_remaining_seconds']:.0f} с · возврат по отмене: {'да' if o['recall_requested'] else 'нет'}\nГрузовой лимит: {o['transport_payload_kg']:.1f} кг")
             self.fleet_table.item(row,2).setToolTip(f"Порог зарядки {o['charge_threshold_percent']:.0f}%; полных зарядок: {o['charge_cycles']}. Полёт сейчас: {o['current_flight_seconds']:.0f} с; самый длинный: {o['longest_flight_seconds']:.0f} с; в воздухе всего: {o['airborne_seconds']:.0f} с.")
             self.fleet_table.item(row,10).setToolTip(f"За текущие солнечные сутки: {o['today_volume_m3']:.4f} м³ / {o['today_mass_kg']:.2f} кг. Всего доставлено: {o['transported_volume_m3']:.4f} м³. Подробности — «По суткам».")
             self.fleet_table.item(row,11).setToolTip(f"{o['laser_status']}\nПолучено за миссию: {o['laser_received_kwh']:.3f} кВт·ч. Потребление двигателей и лебёдки за последний шаг: {o['flight_power_w']/1000:.2f} кВт. Показана фактическая мощность за последнюю физическую секунду.")
@@ -852,6 +852,10 @@ class MainWindow(QtWidgets.QMainWindow):
             rows.insert(4,('Партия / курьер',f"{courier['filled_containers']}/{courier['threshold']} · "+
                 ((f"Д{courier['drone_serial']} · {courier['reason']}" if courier['drone_serial'] is not None
                   else 'ожидание готового дрона') if courier['active'] else 'все копают')))
+            rows.extend([('Энергетика базы',report['base_energy_status']),
+                ('Генерация / нагрузка',f"{report['solar_power_w']/1000:.2f} / {report['base_load_power_w']/1000:.2f} кВт"),
+                ('Поток в батарею базы',f"{report['base_battery_power_w']/1000:+.2f} кВт · плюс: заряд, минус: разряд"),
+                ('Развёрнуто панелей',f"{report['solar_generating_area_m2']:.1f} / {report['panel_area_m2']:.1f} м²")])
         self.telemetry.setText("<table cellspacing='4'>"+"".join(f"<tr><td style='color:#94abbf'>{label}</td><td>{value}</td></tr>" for label, value in rows)+"</table>")
         for serial, timestamp, message in s.events:
             if serial > self.last_event:

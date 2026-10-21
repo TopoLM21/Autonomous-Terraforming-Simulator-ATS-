@@ -1,0 +1,164 @@
+{
+  "schema_version": 1,
+  "baseline_commit": "68bf221ab0f93b1b62a3f5dafce62fd78aefd3e8",
+  "date_utc": "2026-10-21",
+  "scenario_notes": {
+    "fold_before_dawn": "100 m2 deployed panels, 4 docks, 4 drones at 20%, empty spare packs, base initially 1.5% charged; relocate at 05:57, 1200 steps",
+    "tool_vs_spare_chargers": "Empty base at equatorial noon, 20 m2 panels, 1 fully charged drone and 2 empty spare sets; request hook, 47 steps",
+    "strict_dock_waiting_for_dawn": "Strict logistics, 1 drone at 20%, empty base, no spare sets, swap station disabled, start 05:57, stall timeout 60 s, request 300 steps"
+  },
+  "before": {
+    "fold_before_dawn": {
+      "state": "RUNNING",
+      "reason": "",
+      "time_seconds": 1200.0,
+      "solar_clock": "06:17:00",
+      "base_kwh": 0.0,
+      "solar_power_w": 0.0,
+      "solar_generated_kwh": 0.0,
+      "relocations": 0,
+      "base_move_wait": "WAITING_BASE_ENERGY",
+      "mass_error_kg": 0.0,
+      "energy_error_j": 0.0,
+      "panels_ready": true,
+      "folding_seconds": 67.0,
+      "station_consumed_j": 13400.0,
+      "drone_states": [
+        "CHARGING",
+        "CHARGING",
+        "CHARGING",
+        "CHARGING"
+      ],
+      "attachments": [
+        "CONTAINER_HOOK",
+        "CONTAINER_HOOK",
+        "CONTAINER_HOOK",
+        "CONTAINER_HOOK"
+      ]
+    },
+    "tool_vs_spare_chargers": {
+      "state": "RUNNING",
+      "reason": "",
+      "time_seconds": 47.0,
+      "solar_clock": "12:00:47",
+      "base_kwh": 0.0,
+      "solar_power_w": 3999.977129917074,
+      "solar_generated_kwh": 0.052222120554601806,
+      "relocations": 0,
+      "base_move_wait": "",
+      "mass_error_kg": 0.0,
+      "energy_error_j": -4.656612873077393e-10,
+      "panels_ready": true,
+      "folding_seconds": 0.0,
+      "station_consumed_j": 0.0,
+      "drone_states": [
+        "CHANGING_TOOL"
+      ],
+      "attachments": [
+        "GRABBER"
+      ]
+    },
+    "strict_dock_waiting_for_dawn": {
+      "state": "BLOCKED",
+      "reason": "BLOCKED_NO_PROGRESS: NO_EMPTY_CONTAINER",
+      "time_seconds": 62.0,
+      "solar_clock": "05:58:02",
+      "base_kwh": 0.0,
+      "solar_power_w": 0.0,
+      "solar_generated_kwh": 0.0,
+      "relocations": 0,
+      "base_move_wait": "",
+      "mass_error_kg": 0.0,
+      "energy_error_j": 0.0,
+      "panels_ready": true,
+      "folding_seconds": 0.0,
+      "station_consumed_j": 0.0,
+      "drone_states": [
+        "CHARGING"
+      ],
+      "attachments": [
+        "CONTAINER_HOOK"
+      ]
+    }
+  },
+  "after": {
+    "fold_before_dawn": {
+      "state": "RUNNING",
+      "reason": "",
+      "time_seconds": 1200.0,
+      "solar_clock": "06:17:00",
+      "base_kwh": 0.0,
+      "solar_power_w": 849.7217040688289,
+      "solar_generated_kwh": 0.10453373087395076,
+      "relocations": 1,
+      "base_move_wait": "",
+      "mass_error_kg": 0.0,
+      "energy_error_j": -1.2689270079135895e-08,
+      "base_battery_power_w": 0.0,
+      "base_load_power_w": 849.7217040685937,
+      "panels_ready": true,
+      "folding_seconds": 0.0,
+      "station_consumed_j": 120000.0,
+      "drone_states": [
+        "CHARGING",
+        "CHARGING",
+        "CHARGING",
+        "CHARGING"
+      ],
+      "attachments": [
+        "CONTAINER_HOOK",
+        "CONTAINER_HOOK",
+        "CONTAINER_HOOK",
+        "CONTAINER_HOOK"
+      ]
+    },
+    "tool_vs_spare_chargers": {
+      "state": "RUNNING",
+      "reason": "",
+      "time_seconds": 47.0,
+      "solar_clock": "12:00:47",
+      "base_kwh": 0.0,
+      "solar_power_w": 3999.977129917074,
+      "solar_generated_kwh": 0.052222120554601806,
+      "relocations": 0,
+      "base_move_wait": "",
+      "mass_error_kg": 0.0,
+      "energy_error_j": -4.656612873077393e-10,
+      "base_battery_power_w": 0.0,
+      "base_load_power_w": 3999.977129917126,
+      "panels_ready": true,
+      "folding_seconds": 0.0,
+      "station_consumed_j": 4500.0,
+      "drone_states": [
+        "DOCKED"
+      ],
+      "attachments": [
+        "CONTAINER_HOOK"
+      ]
+    },
+    "strict_dock_waiting_for_dawn": {
+      "state": "RUNNING",
+      "reason": "",
+      "time_seconds": 300.0,
+      "solar_clock": "06:02:00",
+      "base_kwh": 0.0,
+      "solar_power_w": 19.937920383628473,
+      "solar_generated_kwh": 0.00033369112660214,
+      "relocations": 0,
+      "base_move_wait": "",
+      "mass_error_kg": 0.0,
+      "energy_error_j": 2.8608155844267458e-09,
+      "base_battery_power_w": 0.0,
+      "base_load_power_w": 19.93792038362858,
+      "panels_ready": true,
+      "folding_seconds": 0.0,
+      "station_consumed_j": 0.0,
+      "drone_states": [
+        "CHARGING"
+      ],
+      "attachments": [
+        "CONTAINER_HOOK"
+      ]
+    }
+  }
+}

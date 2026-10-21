@@ -178,12 +178,37 @@ class Simulation:
 
     def request_landing(self):
         self.landing_requested = True
-        self.relocation_pending=None
+        self.cancel_relocation()
         if self.base.destination is None:self.base_move_wait=''
-        if self.logistics is not None and self.logistics.base_pack_elapsed>0:
-            self.logistics.base_pack_elapsed=0.
-            self.logistics.field_elapsed=0.;self.logistics.field_ready=False
         self.event("Запрошена посадка флота: завершение текущих переносов, без новых рейсов")
+
+    def cancel_relocation(self):
+        if self.base.destination is not None:
+            if self.relocation_pending is not None:raise ValueError('База уже движется; дождитесь остановки')
+            return False
+        if self.relocation_pending is None:return False
+        self.relocation_pending=None;self.base_move_wait='';self._relocation_attempt_time=self.time
+        w=self.logistics
+        if w is not None and w.base_pack_elapsed:
+            # Reverse only the part already folded. Deployed area is unchanged
+            # at cancellation and unfolding still consumes finite station power.
+            w.field_elapsed=max(0.,w.config.field_deployment_seconds-w.base_pack_elapsed)
+            w.base_pack_elapsed=0.;w.field_ready=False
+        self.event('Подготовка переезда отменена; панели разворачиваются, маршрут будет перепланирован')
+        return True
+
+    @property
+    def base_move_status(self):
+        labels={'LANDING_FLEET_FOR_BASE_MOVE':'завершает рейсы и ждёт посадки флота',
+                'WAITING_SERVICE_COMPLETION':'завершает начатую смену батарей',
+                'WAITING_GROUP_LIFT':'ждёт завершения совместного переноса',
+                'WAITING_BASE_ENERGY':'накапливает энергию для переезда и развёртывания панелей',
+                'WAITING_BASE_DRIVE_POWER':'недостаточная мощность привода от батарей или инвертора',
+                'FOLDING_SOLAR_FIELD':'складывает солнечные панели',
+                'UNFOLDING_SOLAR_FIELD':'завершает развёртывание солнечных панелей',
+                'MOVING_WITH_WORKFRONT':'переезжает вдоль канала',
+                'NO_SAFE_FORWARD_BASE_ROUTE':'ищет безопасный маршрут вперёд'}
+        return labels.get(self.base_move_wait,'на рабочей позиции')
 
     def set_panel_area(self, area):
         from copy import deepcopy
@@ -684,7 +709,7 @@ class Simulation:
         elif d.state == DS.RETURN:
             self._move(d,[*d.destination[:2],self.cruise(d)],DS.LANDING,dt)
         elif d.state == DS.LANDING:
-            air_wait = d.slot is None and d.charge_requested and not self.landing_requested and self.relocation_pending is None and self.config.fleet.wait_mode == "air" and self.terrain.remaining > self.config.terrain.completion_volume
+            air_wait = d.slot is None and d.charge_requested and not self.landing_requested and self.relocation_pending is None and self.config.fleet.wait_mode == "air" and self.terrain.remaining > self.config.terrain.completion_volume and (self.logistics is None or d.identifier not in self.logistics.recall_ids)
             goal = [*d.destination[:2],self.cruise(d)] if air_wait else d.destination
             self._move(d,goal,DS.WAIT_HOVER if air_wait else DS.DOCKED if d.slot is not None else DS.WAIT_GROUND,dt)
             if d.grounded:
@@ -697,7 +722,7 @@ class Simulation:
             landing_seconds=math.ceil((d.position[2]-self.wait_position(d.identifier)[2])/c.vertical_speed)
             future_transfer=max(self._transfer_energy_from_ground(d,i) for i in range(len(self.slots)))
             landing_budget = d.power(True)*(landing_seconds+self.config.fleet.emergency_landing_seconds)+future_transfer
-            if self.landing_requested or self.relocation_pending is not None or self.terrain.remaining <= self.config.terrain.completion_volume or d.battery <= c.battery*c.reserve+landing_budget:
+            if self.landing_requested or self.relocation_pending is not None or self.terrain.remaining <= self.config.terrain.completion_volume or d.battery <= c.battery*c.reserve+landing_budget or self.logistics is not None and d.identifier in self.logistics.recall_ids:
                 d.destination = self.wait_position(d.identifier)
                 d.transition(DS.WAIT_LANDING)
                 self.drone_event(d,"садится на площадку ожидания, чтобы сохранить резерв")
@@ -929,7 +954,7 @@ class Simulation:
                      base_battery_count=sum(pack.quantity for pack in b.config.equipment.batteries))
         extra.update(workfront=t.front.report() if t.front is not None else None,
                      base_position_m=b.position.tolist(),base_move_wait=self.base_move_wait,
-                     base_move_pending=self.relocation_pending is not None)
+                     base_move_pending=self.relocation_pending is not None,base_move_status=self.base_move_status)
         extra.update(base_equipment=b.config.equipment.breakdown(),equipment_imported_kwh=self.equipment_imported_energy/KWH,equipment_exported_kwh=self.equipment_exported_energy/KWH,equipment_pending=self.pending_equipment is not None,laser_transfer_enabled=True,retired_drones=[{"serial":d.serial,"name":d.config.name,"created_at_seconds":d.created_at,"retired_at_seconds":d.retired_at,"consumed_kwh":d.consumed/KWH,"laser_received_kwh":d.laser_received/KWH,"airborne_seconds":d.airborne_seconds,"longest_flight_seconds":d.longest_flight_seconds,**d.productivity.report(self.time,int((self.config.start_hour*3600+self.time)//86400))} for d in self.retired_drones])
         extra.update(lasers=[link.report() for link in self.laser_links],laser_input_power_w=b.laser_input_power,laser_received_power_w=sum(d.laser_power_w for d in self.drones),laser_input_kwh=b.laser_input/KWH,laser_received_kwh=sum(d.laser_received for d in self.drones+self.retired_drones)/KWH,laser_losses_kwh=b.laser_losses/KWH)
         extra['laser_receiver_heat_kwh']=sum(d.receiver_heat_j for d in self.drones+self.retired_drones)/KWH

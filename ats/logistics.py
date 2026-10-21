@@ -50,6 +50,7 @@ class Logistics:
         self.dedicated_ids=set()
         self.tool_changes={}
         self.tool_targets={}
+        self.recall_ids=set()
         self.idle_since={}
         self.parking=set()
         self.wait_reasons={}
@@ -61,6 +62,8 @@ class Logistics:
         self.base_move_job=None
         self.base_pack_elapsed=0.
         self._base_moving_step=False
+        self.base_battery_power_w=0.
+        self.base_load_power_w=0.
         self.base_battery_ids=[]
         self._base_battery_serial=0
         self.courier_id=None
@@ -200,6 +203,7 @@ class Logistics:
         if s.base.destination is not None:raise ValueError('Дождитесь остановки базы перед изменением панелей')
         equipment=deepcopy(s.base.config.equipment);equipment.panels=deepcopy(panels);equipment.validate()
         rect=self.solar_field_site(equipment.panel_area)
+        deployed=min(self.generating_area(),equipment.panel_area)
         items={id:item for id,item in self.inventory.items.items() if item.kind!='SOLAR_PANEL'}
         index=0
         for recipe in equipment.panels:
@@ -213,7 +217,10 @@ class Logistics:
         self.imported_mass_kg+=max(0.,new_mass-old_mass);self.exported_mass_kg+=max(0.,old_mass-new_mass)
         self.inventory.items=items
         s.base.config.equipment=equipment;equipment.resolve(s.base.config,s.config.fleet)
-        self.field_rect=rect;self.field_ready=rect is None;self.field_elapsed=0.
+        self.field_rect=rect;self.base_pack_elapsed=0.
+        self.field_ready=rect is None or deployed>=equipment.panel_area
+        self.field_elapsed=(self.config.field_deployment_seconds*deployed/equipment.panel_area
+                            if rect is not None else 0.)
         self.update_base_mass()
         s.event(f'Панели изменены без сброса: {equipment.panel_area:g} м², {new_mass:g} кг; '+
                 ('развёртывание поля' if rect else 'компактная установка'))
@@ -385,6 +392,7 @@ class Logistics:
                        key=lambda j:(j.priority-(s.time-j.created_at)/600,j.created_at,j.id))
         for d in s.drones:
             if (d.identifier in self.active or not d.grounded
+                    or d.identifier in self.recall_ids
                     or self.group is not None or d.identifier in self.direct_ids
                     or d.serial in self.battery_service.drone_swaps):
                 continue
@@ -419,7 +427,7 @@ class Logistics:
         from copy import copy
         e=self.excavator;s=self.sim
         if e is None or e.state.value!='WAITING_RELOCATION' or self.group is not None or self._base_moving_step or s.base.destination is not None or s.relocation_pending is not None:return
-        if (self.active or self.direct_ids or self.tool_targets or self.battery_service.drone_swaps
+        if (self.active or self.direct_ids or self.tool_targets or self.recall_ids or self.battery_service.drone_swaps
                 or any(not d.grounded for d in s.drones)):return
         rig=self.inventory.items['group_rig']
         if np.linalg.norm(np.asarray(rig.position[:2])-e.position[:2])>self.config.reach_m:
@@ -441,7 +449,7 @@ class Logistics:
         s.event('Команда зарезервирована: снятие батарей и перенос сухого Крота')
 
     def direct_should_return(self, d):
-        return (self.sim.relocation_pending is not None or d.identifier in self.tool_targets or
+        return (self.sim.relocation_pending is not None or d.identifier in self.tool_targets or d.identifier in self.recall_ids or
                 self.excavator is not None and self.excavator.state.value=='WAITING_RELOCATION')
 
     def request_tool(self, d, target):
@@ -450,6 +458,52 @@ class Logistics:
             self.tool_targets.pop(d.identifier,None);self.tool_changes.pop(d.serial,None)
             if d.state==DS.CHANGING_TOOL:d.state=DS.DOCKED
         else:self.tool_targets[d.identifier]=target
+
+    def reset_drone_order(self, serial):
+        """Cancel atomic dock work; return flying cargo through its existing safe route."""
+        d=next((d for d in self.sim.drones if d.serial==serial),None)
+        if d is None:raise ValueError('Дрон не найден')
+        in_group=self.group is not None and any(member is d for member in self.group.participants)
+        if d.grounded and d.cargo>1e-8 and d.identifier not in self.active and not in_group:
+            raise ValueError('Груз без маршрута: требуется восстановление перевозки, сброс груза запрещён')
+        self.request_tool(d,d.attachment)
+        swap=self.battery_service.drone_swaps.pop(d.serial,None)
+        if swap is not None:self.inventory.release(f'drone_swap_{d.serial}')
+        self.recall_ids.add(d.identifier)
+        if d.identifier in self.active:
+            self.active[d.identifier].reason='RECALL_REQUESTED'
+            result='Отмена принята: дрон завершит доставку груза и вернётся'
+        elif in_group:
+            result='Отмена принята: дрон завершит совместный перенос и вернётся'
+        elif d.identifier in self.direct_ids:
+            if d.cargo<=1e-8 and d.grabber_extension==0 and d.state in (DS.TAKEOFF,DS.TO_DIG):
+                d.trip=None
+                if d.slot is not None and self.sim.slots[d.slot]==d.identifier:
+                    d.destination=self.sim.slot_position(d.slot);d.transition(DS.LANDING)
+                else:
+                    d.transition(DS.RETURN);self.sim._reserve_return(d)
+            result='Отмена принята: груз будет выгружен, затем дрон вернётся'
+        elif d.grounded:
+            self.finish_drone_recall(d)
+            return 'Приказ сброшен, резервы освобождены; автономный диспетчер продолжит работу'
+        else:
+            if d.state==DS.WAIT_HOVER:
+                d.destination=self.sim.wait_position(d.identifier);d.transition(DS.WAIT_LANDING)
+            result='Отмена принята: дрон завершает посадку'
+        self.sim.drone_event(d,result)
+        return result
+
+    def finish_drone_recall(self, d):
+        self.recall_ids.discard(d.identifier)
+        self.request_tool(d,d.attachment)
+        self.idle_since.pop(d.identifier,None);self.wait_reasons.pop(d.identifier,None)
+        if self.courier_id==d.identifier:self.courier_id=None
+        d.trip=d.destination=d.detour=None;d.grabber_extension=0.
+        d.transition(DS.CHARGING if d.slot is not None and d.charge_requested else
+                     DS.DOCKED if d.slot is not None else DS.WAIT_GROUND)
+        if not d.charge_requested and d.identifier in self.sim.queue:self.sim.queue.remove(d.identifier)
+        elif d.slot is None:self.sim._enqueue(d)
+        self.sim.drone_event(d,'Текущий приказ сброшен; автономное планирование возобновлено')
 
     def batch_tool_requests(self, pending, relocating):
         """Latch a service batch, assigning exactly one courier until it is drained."""
@@ -478,12 +532,13 @@ class Logistics:
         previous=s.drones[self.courier_id] if self.courier_id is not None else None
         # Never hand an airborne transport job to another aircraft. A grounded
         # courier that needs its own full recharge may be relieved by a ready digger.
-        if previous is not None and (previous.identifier in self.active or not previous.charge_requested):
+        if previous is not None and (previous.identifier in self.active or
+                not previous.charge_requested and previous.identifier not in self.recall_ids):
             self.request_tool(previous,'CONTAINER_HOOK');return
         from copy import copy
         choices=[]
         for d in s.drones:
-            if d.charge_requested or d.identifier in self.active or d.serial in self.battery_service.drone_swaps:continue
+            if d.charge_requested or d.identifier in self.active or d.identifier in self.recall_ids or d.serial in self.battery_service.drone_swaps:continue
             preview=copy(d);preview.config=copy(d.config);self._tool_mass(preview,2.)
             if pending and not any(self.estimate(preview,j)[0]<=d.battery-d.config.battery*d.config.reserve for j in pending):continue
             choices.append(d)
@@ -510,7 +565,7 @@ class Logistics:
         candidates=[] if self.batch_enabled else sorted(s.drones,key=lambda d:(d.attachment!='CONTAINER_HOOK',d.identifier))
         for d in candidates:
             if not pending:break
-            if d.charge_requested or d.serial in self.battery_service.drone_swaps:continue
+            if d.charge_requested or d.identifier in self.recall_ids or d.serial in self.battery_service.drone_swaps:continue
             if d.identifier in self.active or d.identifier in self.direct_ids:continue
             if not d.grounded and self.tool_targets.get(d.identifier)!='CONTAINER_HOOK':continue
             if d.attachment=='GRABBER' and not self.config.idle_digging:
@@ -525,10 +580,10 @@ class Logistics:
                                for d in s.drones):
             # All ready diggers may currently be in flight. Finish one delivery
             # and bring its hook back instead of waiting for a charging carrier.
-            recall=next((d for d in s.drones if d.identifier in self.direct_ids and not d.charge_requested),None)
+            recall=next((d for d in s.drones if d.identifier in self.direct_ids and not d.charge_requested and d.identifier not in self.recall_ids),None)
             if recall is not None:self.request_tool(recall,'CONTAINER_HOOK')
         for d in s.drones:
-            if d.identifier not in self.tool_targets or d.identifier in self.direct_ids:continue
+            if d.identifier not in self.tool_targets or d.identifier in self.direct_ids or d.identifier in self.recall_ids:continue
             if d.charge_requested or s.landing_requested and self.tool_targets[d.identifier]!='CONTAINER_HOOK':continue
             if d.state==DS.WAIT_GROUND and s.base.destination is None:
                 slot=next((i for i,v in enumerate(s.slots) if v is None),None)
@@ -539,12 +594,21 @@ class Logistics:
                 d.slot=slot;s.slots[slot]=d.identifier;d.destination=s.slot_position(slot)
                 d.transition(DS.TRANSFER_TAKEOFF)
                 s.drone_event(d,f'возвращается в слот {slot+1} для смены инструмента')
-            if not d.docked:continue
+
+    def tick_tool_changes(self):
+        """Reserve workshop power before battery chargers, without changing inventory early."""
+        s=self.sim
+        if not self.field_ready or self.base_pack_elapsed or s.base.destination is not None or s.relocation_pending is not None:return
+        for d in s.drones:
+            if (d.identifier not in self.tool_targets or not d.docked or d.charge_requested
+                    or d.identifier in self.active or d.identifier in self.direct_ids or d.identifier in self.recall_ids
+                    or d.serial in self.battery_service.drone_swaps):continue
             owner=f'tool_{d.serial}'
             ids=[f'hook_{d.serial}',f'grabber_{d.serial}']
             if not self.inventory.reserve(ids,owner):continue
             d.state=DS.CHANGING_TOOL
-            if not self.use_station(100.):continue
+            if not self.use_station(100.):
+                self.wait_reasons[d.identifier]='нет энергии для привода станции';continue
             elapsed=self.tool_changes.get(d.serial,0.)+1
             self.tool_changes[d.serial]=elapsed
             if elapsed<self.config.attachment_seconds:continue
@@ -584,7 +648,7 @@ class Logistics:
         # selected; unrelated queued cargo must not serialize the whole fleet.
         for d in s.drones:
             if (d.identifier in self.active or d.identifier in self.direct_ids or not d.grounded
-                    or d.charge_requested or s.landing_requested):
+                    or d.charge_requested or s.landing_requested or d.identifier in self.recall_ids):
                 self.idle_since.pop(d.identifier,None);continue
             if d.identifier in self.tool_targets:continue
             if self.batch_enabled and self.courier_active and d.identifier==self.courier_id:continue
@@ -626,11 +690,14 @@ class Logistics:
 
     def idle_reason(self, d):
         if not d.grounded:return ''
+        if self.sim.relocation_pending is not None:
+            return 'Подготовка переезда базы: '+self.sim.base_move_status
         if d.serial in self.battery_service.drone_swaps:return 'Замена батарей'
         if d.charge_requested:
             return 'Зарядка до 100%' if d.docked else 'Очередь к зарядному доку'
         if d.identifier in self.tool_targets:
-            return 'Смена инструмента' if d.docked else 'Очередь к станции смены инструмента'
+            if d.state==DS.CHANGING_TOOL:return 'Смена инструмента: '+self.wait_reasons.get(d.identifier,'работает станция')
+            return 'Ожидание станции смены инструмента' if d.docked else 'Очередь к станции смены инструмента'
         if self.group is not None:return 'Подготовка совместного переноса'
         if self.excavator is not None and self.excavator.state.value=='WAITING_RELOCATION':
             return 'Сбор команды для переноса Крота'
@@ -639,12 +706,19 @@ class Logistics:
         if d.identifier in self.active:return ''
         return self.wait_reasons.get(d.identifier,'Ожидание готового груза' if d.attachment=='CONTAINER_HOOK' else 'Ожидание участка')
 
+    def generating_area(self):
+        """Only physically unfolded panels contribute, including partial deployment."""
+        if self.sim.base.destination is not None:return 0.
+        seconds=max(1.,self.config.field_deployment_seconds)
+        fraction=(max(0.,1-self.base_pack_elapsed/seconds) if self.base_pack_elapsed else
+                  1. if self.field_ready else min(1.,self.field_elapsed/seconds))
+        return self.sim.base.config.panel_area*fraction
+
     def use_station(self, energy):
         b=self.sim.base;s=self.sim
         if self._bus_used+energy>self.config.inverter_power_w:return False
         if not self._solar_ticked:
-            solar=(b.irradiance((s.hour+1/7200)%24,s.day_at(s.time+.5))*b.config.panel_area*b.config.panel_efficiency
-                   if b.destination is None and self.field_ready else 0.)
+            solar=b.irradiance((s.hour+1/7200)%24,s.day_at(s.time+.5))*self.generating_area()*b.config.panel_efficiency
             discharge=sum(self.inventory.items[id].max_discharge_w for id in self.base_battery_ids)
             available=min(self.config.inverter_power_w,solar+min(b.battery,discharge))-b.config.idle_power
             if available<self._pending_station_energy+energy:return False
@@ -661,22 +735,33 @@ class Logistics:
         s=self.sim
         channel=s.terrain.front is not None
         if self.field_rect is not None and not channel:return
+        if channel and s.relocation_pending is None:return
+        if channel:
+            s.base_move_wait=('LANDING_FLEET_FOR_BASE_MOVE' if self.active or self.direct_ids or not all(d.grounded for d in s.drones)
+                else 'WAITING_GROUP_LIFT' if self.group else 'WAITING_SERVICE_COMPLETION' if
+                self.battery_service.robot_swap or self.battery_service.drone_swaps else 'WAITING_BASE_ENERGY')
         if s.base.motion_power(s.drones)>min(self.config.inverter_power_w,
                 sum(self.inventory.items[id].max_discharge_w for id in self.base_battery_ids)):
+            if channel:s.base_move_wait='WAITING_BASE_DRIVE_POWER'
             return
         if (self.active or self.group or self.direct_ids or s.base.destination is not None
                 or self.battery_service.robot_swap or self.battery_service.drone_swaps
                 or not channel and any(j.status=='QUEUED' for j in self.jobs)
                 or not all(d.grounded if channel else d.docked for d in s.drones) or s.landing_requested):return
-        if channel and s.relocation_pending is None:return
         if channel and self.field_rect is not None:
+            if not self.field_ready:
+                s.base_move_wait='UNFOLDING_SOLAR_FIELD';return
             cost=s.base.route_energy(s.relocation_pending,s.terrain,s.drones)
-            if s.base.battery<cost*1.3+200*self.config.field_deployment_seconds:
+            # Chargers are paused until redeployment. Budget the remaining fold,
+            # the uphill drive and a full unfold even through a completely dark night.
+            setup_seconds=2*self.config.field_deployment_seconds-self.base_pack_elapsed
+            if s.base.battery<cost*1.3+(200+s.base.config.idle_power)*setup_seconds:
                 s.base_move_wait='WAITING_BASE_ENERGY';return
             if self.use_station(200.):self.base_pack_elapsed+=1.
             if self.base_pack_elapsed<self.config.field_deployment_seconds:
                 s.base_move_wait='FOLDING_SOLAR_FIELD';return
             self.field_rect=None;self.field_ready=False;self.field_elapsed=0.;self.base_pack_elapsed=0.
+            return  # account the final folding step before the drive starts
         before=s.base.position.copy();s._maybe_relocate()
         if s.base.destination is not None:
             for job in self.jobs:
@@ -858,10 +943,17 @@ class Logistics:
     def step(self):
         s=self.sim
         self.wait_reasons.clear()
+        self.wait_reason=''
         self._bus_used=0.
         self._pending_station_energy=0.;self._solar_ticked=False;self._step_curtailed=0.
         before_bus=s.base.consumed+s.base.charging_input+s.base.laser_input
+        battery_before=s.base.battery
         before_curtailed=s.base.curtailed
+        if s.relocation_pending is not None:
+            # Tool exchange commits atomically at the end. Release unfinished
+            # exchanges now, rather than freezing their state during relocation.
+            for identifier in list(self.tool_targets):
+                d=s.drones[identifier];self.request_tool(d,d.attachment)
         self.try_base_move();base_before=s.base.position.copy()
         self._base_moving_step=s.base.destination is not None
         s._starts={d.identifier:d.position.copy() for d in s.drones}
@@ -870,7 +962,9 @@ class Logistics:
                 if d.docked and s.base.destination is None:d.state=DS.CHARGING;d.charging_seconds+=1.
                 elif d.state==DS.WAIT_GROUND:s._enqueue(d)
         s._assign_slots()
-        if s.base.destination is None:self.battery_service.tick_drone_swaps()
+        if s.base.destination is None and self.field_ready and not self.base_pack_elapsed:
+            self.battery_service.tick_drone_swaps()
+        self.tick_tool_changes()
         consumers=self.battery_service.charging()
         flags=[d.docked and d.charge_requested and d.serial not in self.battery_service.drone_swaps for d in s.drones]
         for d in s.drones:
@@ -879,12 +973,17 @@ class Logistics:
         s.laser_links=prepare_links(s.base,s.drones,s.terrain,1.,s.flight_power,s.config.fleet.separation/4,
             dust=s.dust,obstacles=[self.excavator] if self.excavator is not None else ())
         area=s.base.config.panel_area
-        if self.base_pack_elapsed>0:s.base.config.panel_area=0.
+        setup=bool(self.base_pack_elapsed or not self.field_ready)
         if not self.field_ready:
-            s.base.config.panel_area=0.
-            if s.base.destination is None and s.relocation_pending is None and self.use_station(200.):
+            if s.base.destination is None and (s.relocation_pending is None or self.field_rect is not None) and self.use_station(200.):
                 self.field_elapsed+=1.
             if self.field_elapsed>=self.config.field_deployment_seconds:self.field_ready=True
+        generating_area=self.generating_area()
+        if setup:
+            # Deployment and motion must retain their own energy reserve;
+            # charging aircraft/spares must not strand folded panels overnight.
+            consumers=[];flags=[False]*len(s.drones);s.laser_links=[]
+        s.base.config.panel_area=generating_area
         charge_power=s.base.config.charge_power
         s.base.config.charge_power=min(charge_power,self.config.bus_power_w)
         s.base.tick(1.,(s.hour+1/7200)%24,s.drones,flags,s.day_at(s.time+.5),
@@ -933,7 +1032,8 @@ class Logistics:
                 if d.grounded:
                     self.direct_ids.remove(d.identifier)
                     job=next(j for j in reversed(self.jobs) if j.executor==d.serial and j.kind=='EXCAVATE_DIRECT' and j.status=='ACTIVE')
-                    job.status='COMPLETED';self.inventory.release(job.id);self.progress_at=s.time
+                    job.status='CANCELLED' if d.identifier in self.recall_ids else 'COMPLETED'
+                    self.inventory.release(job.id);self.progress_at=s.time
             elif not d.grounded:
                 s._airborne(d,1.)
             else:d.waiting_seconds+=1.
@@ -942,11 +1042,18 @@ class Logistics:
                 if d.grounded:self.parking.remove(d.identifier)
             s._settle_laser(d)
         for d in s.drones:s._settle_laser(d)
+        for identifier in list(self.recall_ids):
+            d=s.drones[identifier]
+            if (d.grounded and d.cargo<=1e-8 and d.identifier not in self.active
+                    and d.identifier not in self.direct_ids and d.identifier not in participants):
+                self.finish_drone_recall(d)
         if s._terrain_active:
             s._terrain_active=s.terrain.relax()>s.config.terrain.avalanche_stop_volume
         s.dust.tick(1.,s.drone.position,0.,1.,False)
         self.sync_batteries()
         self.update_base_mass()
+        self.base_battery_power_w=s.base.battery-battery_before
+        self.base_load_power_w=s.base.consumed+s.base.charging_input+s.base.laser_input-before_bus
         self.detect_stall()
         if (s.terrain.remaining<=s.config.terrain.completion_volume and not s._terrain_active
                 and not self.active and all(c.soil_kg==0 for c in self.containers)
@@ -986,9 +1093,14 @@ class Logistics:
         if not self.config.excavator_enabled and not (self.config.direct_allowed or self.config.idle_digging) and not pending:
             s.block('BLOCKED_NO_EXECUTOR: нет машины для выемки')
         if s.time-self.progress_at>self.config.stall_timeout_s:
-            charging=bool(self.battery_service.queue or self.battery_service.robot_swap or self.battery_service.drone_swaps)
+            charging=bool(self.battery_service.queue or self.battery_service.robot_swap or self.battery_service.drone_swaps
+                          or any(d.charge_requested for d in s.drones))
             if charging:
                 self.wait_reason='WAITING_SUN_OR_CHARGER: конечная зарядная очередь'
+            elif self.tool_targets:
+                self.wait_reason='WAITING_STATION_POWER'
+            elif not self.field_ready:
+                self.wait_reason='WAITING_SOLAR_DEPLOYMENT_POWER'
             elif self.excavator is not None and self.excavator.state.value=='WAITING_RELOCATION':
                 self.wait_reason='WAITING_GROUP_SOC'
             elif not (self.config.direct_allowed or self.config.idle_digging):
@@ -1018,6 +1130,21 @@ class Logistics:
         report['collective_lift_count']=self.lift_count
         report['delivered_mass_kg']=self.delivered_mass
         report['solar_field_deployed']=self.field_ready
+        report['solar_generating_area_m2']=self.generating_area()
+        report['solar_field_folding_seconds']=self.base_pack_elapsed
+        report['base_battery_power_w']=self.base_battery_power_w
+        report['base_load_power_w']=self.base_load_power_w
+        report['base_energy_status']=('База движется, генерация отключена' if s.base.destination is not None else
+            'Складывание панелей: зарядка потребителей приостановлена' if self.base_pack_elapsed else
+            'Панели сложены: недостаточно энергии для развёртывания' if not self.field_ready and
+                self.generating_area()<=1e-8 and s.base.battery<200+s.base.config.idle_power else
+            'Развёртывание панелей: зарядка потребителей приостановлена' if not self.field_ready else
+            'База без накопителя: прямое питание от солнца' if not s.base.config.battery else
+            'Аккумуляторы базы полностью заряжены' if s.base.battery>=s.base.config.battery-1e-7 else
+            'Аккумуляторы базы заряжаются' if self.base_battery_power_w>1e-7 else
+            'Аккумуляторы базы питают нагрузку' if self.base_battery_power_w< -1e-7 else
+            'Ожидание солнца' if s.base.solar_power<=1e-8 else
+            'Солнечная энергия поступает потребителям')
         report['solar_field_rect']=self.field_rect
         report['logistics_wait_reason']=self.wait_reason
         report['solar_field_deployment_seconds']=self.field_elapsed
@@ -1041,6 +1168,9 @@ class Logistics:
                        role='COURIER' if self.batch_enabled and d.identifier==self.courier_id else 'DIGGER' if d.attachment=='GRABBER' else 'CARRIER',
                        transport_payload_kg=self.payload_limit(d),battery_ids=list(d.battery_ids),
                        wait_reason=self.idle_reason(d))
+            row['recall_requested']=d.identifier in self.recall_ids
+            row['tool_change_remaining_seconds']=(max(0.,self.config.attachment_seconds-self.tool_changes.get(d.serial,0.))
+                                                  if d.identifier in self.tool_targets else 0.)
             if d.identifier in self.direct_ids:row['task']='EXCAVATE_DIRECT'
             if d.identifier in self.tool_targets:
                 row['task']='CHANGE_TOOL → '+self.tool_targets[d.identifier]

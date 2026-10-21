@@ -51,7 +51,17 @@ class LogisticsWindow(QtWidgets.QDialog):
         self.jobs.setHorizontalHeaderLabels(['ID','Задание','Приоритет','Статус / этап','Ресурсы','Дрон','ETA, с','Причина'])
         self.jobs.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
         for col,width in enumerate((100,230,85,200,250,60,80,180)):self.jobs.setColumnWidth(col,width)
-        tabs.addTab(self.jobs,'Диспетчер')
+        dispatch_page=QtWidgets.QWidget();dispatch_box=QtWidgets.QVBoxLayout(dispatch_page)
+        recovery=QtWidgets.QHBoxLayout();dispatch_box.addLayout(recovery)
+        self.recovery_drone=QtWidgets.QComboBox();recovery.addWidget(self.recovery_drone)
+        self.reset_order_button=QtWidgets.QPushButton('Отменить приказ / вернуть дрона')
+        self.reset_order_button.clicked.connect(self.reset_order);recovery.addWidget(self.reset_order_button)
+        self.cancel_move_button=QtWidgets.QPushButton('Отменить ожидание переезда базы')
+        self.cancel_move_button.clicked.connect(self.cancel_move);recovery.addWidget(self.cancel_move_button)
+        self.recovery_status=QtWidgets.QLabel('Наземная смена отменяется сразу. Дрон с грузом сначала завершит безопасную доставку. Автономное планирование продолжится.')
+        self.recovery_status.setWordWrap(True);dispatch_box.addWidget(self.recovery_status)
+        dispatch_box.addWidget(self.jobs)
+        tabs.addTab(dispatch_page,'Диспетчер')
         self.charging=QtWidgets.QTableWidget(0,7)
         self.charging.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
         self.charging.setHorizontalHeaderLabels(['Слот','Модуль','Состояние слота','Место модуля','SOC','Вход, Вт','Предел, Вт'])
@@ -77,18 +87,35 @@ class LogisticsWindow(QtWidgets.QDialog):
         except ValueError as error:
             QtWidgets.QMessageBox.warning(self,'Поставка батарей',str(error))
 
+    def reset_order(self):
+        if self.host.sim.logistics is None:return
+        try:
+            self.recovery_status.setText(self.host.sim.logistics.reset_drone_order(self.recovery_drone.currentData()))
+            self.host.refresh(True);self.refresh()
+        except ValueError as error:
+            QtWidgets.QMessageBox.warning(self,'Отмена приказа',str(error))
+
+    def cancel_move(self):
+        if self.host.sim.cancel_relocation():
+            self.recovery_status.setText('Ожидание переезда отменено. Панели разворачиваются; переезд будет перепланирован.')
+        self.host.refresh(True);self.refresh()
+
     def refresh_inventory_selection(self):
         if not self._updating_groups and self.show_inventory_details.isChecked():self.refresh()
 
     def refresh(self):
         s=self.host.sim;l=s.logistics
         self.replenish_button.setEnabled(l is not None)
+        self.reset_order_button.setEnabled(l is not None)
+        self.cancel_move_button.setEnabled(s.relocation_pending is not None and s.base.destination is None)
         if l is None:
             self.status.setText('Режим совместимости. Для ATS 2.0 выберите «Новый эксперимент».')
             self.inventory.setRowCount(0);self.inventory_groups.setRowCount(0);self.jobs.setRowCount(0);self.charging.setRowCount(0);return
         if self._battery_world is not l:
             from .inventory import BatteryModule
             self._battery_world=l;self.battery_type.clear();seen=set()
+            self.recovery_drone.clear()
+            for d in s.drones:self.recovery_drone.addItem(f'Дрон {d.serial} · {d.config.name}',d.serial)
             for pack in l.inventory.select(BatteryModule):
                 key=(pack.compatibility,pack.capacity_j,pack.mass_kg)
                 if pack.compatibility=='base' or key in seen:continue
@@ -114,6 +141,8 @@ class LogisticsWindow(QtWidgets.QDialog):
             f"Очередь: {', '.join(service['queue']) or 'пусто'}\n"
             f"Солнце: {r['solar_power_w']/1000:.2f} кВт · выработка {r['solar_generated_kwh']:.3f} кВт·ч\n"
             f"База: {r['base_kwh']:.2f}/{r['base_capacity_kwh']:.2f} кВт·ч · {r['base_battery_count']} аккумуляторов · расход {r['consumed_kwh']:.3f} кВт·ч\n"
+            f"{r['base_energy_status']} · нагрузка {r['base_load_power_w']/1000:.2f} кВт · поток в батарею {r['base_battery_power_w']/1000:+.2f} кВт\n"
+            f"Развёрнуто панелей: {r['solar_generating_area_m2']:.1f}/{r['panel_area_m2']:.1f} м² · база {r['base_move_status']}\n"
             f"Лазер: {r['laser_input_power_w']/1000:.2f} → {r['laser_received_power_w']/1000:.2f} кВт\n"
             f"Баланс грунта {r['mass_error_kg']:+.2e} кг · энергии {r['energy_error_j']:+.2e} Дж")
         # Build only the visible table. Telemetry never serializes the archive.

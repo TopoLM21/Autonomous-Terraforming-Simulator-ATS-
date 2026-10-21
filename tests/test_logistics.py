@@ -290,7 +290,8 @@ def test_large_field_has_finite_deployment_and_footprint():
     w=s.logistics
     assert w.field_rect is not None and not w.field_ready
     s.run(100)
-    assert s.base.generated==0 and w.field_elapsed==100
+    assert w.field_elapsed==100 and not w.field_ready
+    assert 0<s.base.generated<s.base.config.panel_area*s.base.config.panel_efficiency*s.base.config.peak_irradiance*100/3
     assert w.station_consumed>=200*100
     s.run(210)
     assert w.field_ready and s.base.generated>0

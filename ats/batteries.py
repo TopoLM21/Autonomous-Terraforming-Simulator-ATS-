@@ -169,6 +169,7 @@ class BatteryService:
             if not d.docked or not d.charge_requested:continue
             owner=f'drone_swap_{d.serial}'
             if d.serial not in self.drone_swaps:
+                if w.sim.relocation_pending is not None or d.identifier in w.recall_ids:continue
                 mounted=[inv.items[id] for id in d.battery_ids]
                 ids=[]
                 for old in mounted:
