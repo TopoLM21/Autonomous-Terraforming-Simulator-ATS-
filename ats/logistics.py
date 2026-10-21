@@ -62,6 +62,7 @@ class Logistics:
         self.base_pack_elapsed=0.
         self._base_moving_step=False
         self.base_battery_ids=[]
+        self._base_battery_serial=0
         self.courier_id=None
         self.courier_active=False
         self.courier_reason=''
@@ -73,6 +74,7 @@ class Logistics:
         self.field_elapsed=0.
         self.field_ready=sim.base.config.panel_area<=20.
         self.field_rect=None
+        base_packs=[]
         for recipe in sim.base.config.equipment.batteries:
             for _ in range(recipe.quantity):
                 id=f'base_battery_{len(self.base_battery_ids)+1:02}'
@@ -80,7 +82,9 @@ class Logistics:
                     position=tuple(sim.base.position),compatibility='base',capacity_j=recipe.capacity_kwh*KWH,
                     energy_j=recipe.capacity_kwh*KWH*sim.base.config.initial_charge,
                     max_charge_w=recipe.capacity_kwh*2000.,max_discharge_w=recipe.capacity_kwh*10000.)
-                self.inventory.add(b);self.base_battery_ids.append(id)
+                base_packs.append(b);self.base_battery_ids.append(id)
+        self.inventory.add_many(base_packs)
+        self._base_battery_serial=len(self.base_battery_ids)
         eq=sim.base.config.equipment
         self.inventory.add(Item('base_chassis',eq.chassis_mass_kg,L.BASE_MOUNT,'INSTALLED','base',position=tuple(sim.base.position),kind='CHASSIS'))
         self.inventory.add(Item('base_charger',eq.charger_mass_kg,L.BASE_MOUNT,'INSTALLED','base',position=tuple(sim.base.position),kind='CHARGER_AND_AUTOMATION'))
@@ -214,6 +218,52 @@ class Logistics:
         s.event(f'Панели изменены без сброса: {equipment.panel_area:g} м², {new_mass:g} кг; '+
                 ('развёртывание поля' if rect else 'компактная установка'))
 
+    def configure_base_batteries(self, recipes):
+        """Install empty base packs, retaining real IDs, charge and all jobs."""
+        from copy import deepcopy
+        from collections import defaultdict,deque
+        s=self.sim
+        if s.base.destination is not None:raise ValueError('Дождитесь остановки базы перед изменением аккумуляторов')
+        equipment=deepcopy(s.base.config.equipment)
+        equipment.batteries=deepcopy(recipes);equipment.validate()
+        available=defaultdict(deque)
+        old=[self.inventory.items[id] for id in self.base_battery_ids]
+        for pack in old:available[(pack.capacity_j,pack.mass_kg)].append(pack)
+        retained=[];added=[];serial=self._base_battery_serial
+        for recipe in equipment.batteries:
+            for _ in range(recipe.quantity):
+                key=(recipe.capacity_kwh*KWH,recipe.mass_kg)
+                if available[key]:retained.append(available[key].popleft())
+                else:
+                    serial+=1
+                    added.append(BatteryModule(f'base_battery_{serial:02}',recipe.mass_kg,
+                        L.BASE_MOUNT,'INSTALLED','base',position=tuple(s.base.position),
+                        compatibility='base',capacity_j=key[0],energy_j=0.,
+                        max_charge_w=recipe.capacity_kwh*2000.,max_discharge_w=recipe.capacity_kwh*10000.))
+        removed=[pack for queue in available.values() for pack in queue]
+        if any(pack.reserved_by for pack in removed):raise ValueError('Нельзя снять зарезервированный аккумулятор базы')
+        items=dict(self.inventory.items)
+        for pack in removed:del items[pack.id]
+        for pack in added:items[pack.id]=pack
+        Inventory(items).validate()
+        old_capacity=sum(pack.capacity_j for pack in old)
+        retained_capacity=sum(pack.capacity_j for pack in retained)
+        retained_energy=min(s.base.battery,s.base.battery*retained_capacity/old_capacity) if old_capacity else 0.
+        exported_energy=s.base.battery-retained_energy
+        # The existing shared base bus represents a common state of charge.
+        for pack in retained:pack.energy_j=retained_energy*pack.capacity_j/retained_capacity
+        self.inventory.items=items
+        self.base_battery_ids=[pack.id for pack in [*retained,*added]]
+        self._base_battery_serial=serial
+        self.imported_mass_kg+=sum(pack.mass_kg for pack in added)
+        self.exported_mass_kg+=sum(pack.mass_kg for pack in removed)
+        s.equipment_exported_energy+=exported_energy
+        s.base.battery=retained_energy
+        s.base.config.equipment=equipment;equipment.resolve(s.base.config,s.config.fleet)
+        self.update_base_mass();self.progress_at=s.time
+        s.event(f'Аккумуляторы базы: {len(self.base_battery_ids)} шт., {equipment.capacity/KWH:g} кВт·ч; '+
+                f'добавлено {len(added)} пустых, снято {len(removed)}; вывоз {exported_energy/KWH:.3f} кВт·ч')
+
     def replenish_batteries(self, template_id, count, soc=1.):
         """External shipment: new IDs, slot hardware and explicitly imported energy."""
         template=self.inventory.items.get(template_id)
@@ -284,6 +334,9 @@ class Logistics:
         s=self.sim
         self.battery_service.generate_jobs()
         for c in self.containers:
+            # Reservations already own an immutable route until pickup. Do not
+            # redo the spatial search, or report a full dump for assigned cargo.
+            if c.reserved_by:continue
             if c.soil_kg > 1e-8 and c.location==L.FILLED_QUEUE:
                 incoming=sum(self.inventory.items[j.resource_ids[0]].soil_kg for j in self.jobs
                     if j.kind=='PICKUP_FULL_CONTAINER' and j.soil_destination=='fill' and j.status in ('QUEUED','ACTIVE'))

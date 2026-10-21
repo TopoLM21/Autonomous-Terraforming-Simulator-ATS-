@@ -113,7 +113,7 @@ class LogisticsWindow(QtWidgets.QDialog):
             f"Доковая зарядка дронов: {service['dock_charging_drones']}\n"
             f"Очередь: {', '.join(service['queue']) or 'пусто'}\n"
             f"Солнце: {r['solar_power_w']/1000:.2f} кВт · выработка {r['solar_generated_kwh']:.3f} кВт·ч\n"
-            f"База: {r['base_kwh']:.2f} кВт·ч · расход {r['consumed_kwh']:.3f} кВт·ч\n"
+            f"База: {r['base_kwh']:.2f}/{r['base_capacity_kwh']:.2f} кВт·ч · {r['base_battery_count']} аккумуляторов · расход {r['consumed_kwh']:.3f} кВт·ч\n"
             f"Лазер: {r['laser_input_power_w']/1000:.2f} → {r['laser_received_power_w']/1000:.2f} кВт\n"
             f"Баланс грунта {r['mass_error_kg']:+.2e} кг · энергии {r['energy_error_j']:+.2e} Дж")
         # Build only the visible table. Telemetry never serializes the archive.

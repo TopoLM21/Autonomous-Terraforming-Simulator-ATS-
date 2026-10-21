@@ -1,0 +1,234 @@
+{
+  "schema_version": 1,
+  "date_utc": "2026-10-21",
+  "baseline_commit": "ec37eb48d6d7a5a153e355e3b24533b22b2daf6b",
+  "scenario": {
+    "map_side_m": 512,
+    "grid_cells": 1024,
+    "cell_size_m": 0.5,
+    "drones": 4,
+    "steps": 1200,
+    "trials": 3,
+    "rendering": false,
+    "power": "Standard production configuration"
+  },
+  "before": {
+    "steps": 1200,
+    "base_batteries": 6,
+    "trials": [
+      {
+        "layout_seconds": 0.7255739710003581,
+        "initialization_seconds": 0.8734988189999058,
+        "run_seconds": 21.517773921999833,
+        "actual_speed": 55.767850538345726,
+        "mean_planned_loaded_haul_m": 25.360077336345146,
+        "max_planned_loaded_haul_m": 27.98660393831306,
+        "state": "RUNNING",
+        "trips": 85,
+        "excavated_m3": 3.3908998075950674,
+        "mass_error_kg": 5.684341886080801e-13,
+        "energy_error_j": 5.513429641723633e-07,
+        "physical_sha256": "5c2c6ca426147f45729dffbcdad6cedacda9325c2ac6d0ebf294ed42ec6f5afd"
+      },
+      {
+        "layout_seconds": 0.695390996000242,
+        "initialization_seconds": 0.6945912849996603,
+        "run_seconds": 20.00614206199998,
+        "actual_speed": 59.981579471001616,
+        "mean_planned_loaded_haul_m": 25.360077336345146,
+        "max_planned_loaded_haul_m": 27.98660393831306,
+        "state": "RUNNING",
+        "trips": 85,
+        "excavated_m3": 3.3908998075950674,
+        "mass_error_kg": 5.684341886080801e-13,
+        "energy_error_j": 5.513429641723633e-07,
+        "physical_sha256": "5c2c6ca426147f45729dffbcdad6cedacda9325c2ac6d0ebf294ed42ec6f5afd"
+      },
+      {
+        "layout_seconds": 0.7128024560001904,
+        "initialization_seconds": 0.7120213240000339,
+        "run_seconds": 21.531302888000027,
+        "actual_speed": 55.73280940043773,
+        "mean_planned_loaded_haul_m": 25.360077336345146,
+        "max_planned_loaded_haul_m": 27.98660393831306,
+        "state": "RUNNING",
+        "trips": 85,
+        "excavated_m3": 3.3908998075950674,
+        "mass_error_kg": 5.684341886080801e-13,
+        "energy_error_j": 5.513429641723633e-07,
+        "physical_sha256": "5c2c6ca426147f45729dffbcdad6cedacda9325c2ac6d0ebf294ed42ec6f5afd"
+      }
+    ],
+    "median": {
+      "layout_seconds": 0.7128024560001904,
+      "initialization_seconds": 0.7120213240000339,
+      "run_seconds": 21.517773921999833,
+      "actual_speed": 55.767850538345726,
+      "mean_planned_loaded_haul_m": 25.360077336345146,
+      "max_planned_loaded_haul_m": 27.98660393831306,
+      "trips": 85,
+      "excavated_m3": 3.3908998075950674,
+      "mass_error_kg": 5.684341886080801e-13,
+      "energy_error_j": 5.513429641723633e-07,
+      "state": "RUNNING"
+    }
+  },
+  "after": {
+    "steps": 1200,
+    "base_batteries": 6,
+    "trials": [
+      {
+        "layout_seconds": 0.760379348999777,
+        "initialization_seconds": 0.7878676230002384,
+        "run_seconds": 7.464406691000022,
+        "actual_speed": 160.76294468880735,
+        "mean_planned_loaded_haul_m": 25.360077336345146,
+        "max_planned_loaded_haul_m": 27.98660393831306,
+        "state": "RUNNING",
+        "trips": 85,
+        "excavated_m3": 3.3908998075950674,
+        "mass_error_kg": 5.684341886080801e-13,
+        "energy_error_j": 5.513429641723633e-07,
+        "physical_sha256": "5c2c6ca426147f45729dffbcdad6cedacda9325c2ac6d0ebf294ed42ec6f5afd"
+      },
+      {
+        "layout_seconds": 0.7474147980001362,
+        "initialization_seconds": 0.6729272829998081,
+        "run_seconds": 6.399819059000038,
+        "actual_speed": 187.50530115573272,
+        "mean_planned_loaded_haul_m": 25.360077336345146,
+        "max_planned_loaded_haul_m": 27.98660393831306,
+        "state": "RUNNING",
+        "trips": 85,
+        "excavated_m3": 3.3908998075950674,
+        "mass_error_kg": 5.684341886080801e-13,
+        "energy_error_j": 5.513429641723633e-07,
+        "physical_sha256": "5c2c6ca426147f45729dffbcdad6cedacda9325c2ac6d0ebf294ed42ec6f5afd"
+      },
+      {
+        "layout_seconds": 0.6261513890003698,
+        "initialization_seconds": 0.6337177539999175,
+        "run_seconds": 6.829330104999826,
+        "actual_speed": 175.71269532299618,
+        "mean_planned_loaded_haul_m": 25.360077336345146,
+        "max_planned_loaded_haul_m": 27.98660393831306,
+        "state": "RUNNING",
+        "trips": 85,
+        "excavated_m3": 3.3908998075950674,
+        "mass_error_kg": 5.684341886080801e-13,
+        "energy_error_j": 5.513429641723633e-07,
+        "physical_sha256": "5c2c6ca426147f45729dffbcdad6cedacda9325c2ac6d0ebf294ed42ec6f5afd"
+      }
+    ],
+    "median": {
+      "layout_seconds": 0.7474147980001362,
+      "initialization_seconds": 0.6729272829998081,
+      "run_seconds": 6.829330104999826,
+      "actual_speed": 175.71269532299618,
+      "mean_planned_loaded_haul_m": 25.360077336345146,
+      "max_planned_loaded_haul_m": 27.98660393831306,
+      "trips": 85,
+      "excavated_m3": 3.3908998075950674,
+      "mass_error_kg": 5.684341886080801e-13,
+      "energy_error_j": 5.513429641723633e-07,
+      "state": "RUNNING"
+    }
+  },
+  "run_speedup": 3.1507883776545578,
+  "identical_physical_report_sha256": "5c2c6ca426147f45729dffbcdad6cedacda9325c2ac6d0ebf294ed42ec6f5afd",
+  "physical_comparison": "Every existing report field matched exactly; only the two new base summary fields are omitted from the digest",
+  "large_storage": {
+    "steps": 180,
+    "base_batteries": 1000,
+    "trials": [
+      {
+        "layout_seconds": 0.7910053440000411,
+        "initialization_seconds": 0.7718498740000541,
+        "run_seconds": 1.422288148000007,
+        "actual_speed": 126.55663358589635,
+        "mean_planned_loaded_haul_m": 25.0,
+        "max_planned_loaded_haul_m": 25.5,
+        "state": "RUNNING",
+        "trips": 14,
+        "excavated_m3": 0.653125,
+        "mass_error_kg": -2.842170943040401e-14,
+        "energy_error_j": -3.0931783840060234e-05,
+        "physical_sha256": "583dccdea63279fdde9c139518259bf2b400405f81a83315e8d08c41ec8fc383"
+      }
+    ],
+    "median": {
+      "layout_seconds": 0.7910053440000411,
+      "initialization_seconds": 0.7718498740000541,
+      "run_seconds": 1.422288148000007,
+      "actual_speed": 126.55663358589635,
+      "mean_planned_loaded_haul_m": 25.0,
+      "max_planned_loaded_haul_m": 25.5,
+      "trips": 14,
+      "excavated_m3": 0.653125,
+      "mass_error_kg": -2.842170943040401e-14,
+      "energy_error_j": -3.0931783840060234e-05,
+      "state": "RUNNING"
+    }
+  },
+  "profile": {
+    "before": {
+      "total_seconds": 24.712194416,
+      "functions": {
+        "terrain.py:dump_location": {
+          "calls": 6342,
+          "self_seconds": 11.930459279,
+          "cumulative_seconds": 13.286263660000001
+        },
+        "dust.py:tick": {
+          "calls": 1200,
+          "self_seconds": 3.5584830980000004,
+          "cumulative_seconds": 3.852998528
+        },
+        "logistics.py:generate_jobs": {
+          "calls": 1200,
+          "self_seconds": 0.06504119900000001,
+          "cumulative_seconds": 11.422189317
+        },
+        "simulation.py:run": {
+          "calls": 1,
+          "self_seconds": 0.002418066,
+          "cumulative_seconds": 22.477134802000002
+        }
+      }
+    },
+    "after": {
+      "total_seconds": 10.674495073999976,
+      "functions": {
+        "terrain.py:dump_location": {
+          "calls": 2982,
+          "self_seconds": 1.9716096710000002,
+          "cumulative_seconds": 2.2162821160000004
+        },
+        "dust.py:tick": {
+          "calls": 1200,
+          "self_seconds": 1.47198165,
+          "cumulative_seconds": 1.626200429
+        },
+        "logistics.py:generate_jobs": {
+          "calls": 1200,
+          "self_seconds": 0.016315378000000002,
+          "cumulative_seconds": 0.14164024
+        },
+        "simulation.py:run": {
+          "calls": 1,
+          "self_seconds": 0.001577658,
+          "cumulative_seconds": 8.48893641
+        }
+      }
+    }
+  },
+  "local_tests": {
+    "passed": 284,
+    "seconds": 179.77
+  },
+  "limits": [
+    "Timing is headless and hardware-dependent; it does not guarantee target 1000x/2000x",
+    "Hot-added base packs are empty; removal exports their accounted energy",
+    "Base storage is a shared bus; more capacity does not increase solar area, inverter rating or dock charging power"
+  ]
+}

@@ -11,6 +11,24 @@ class Dust:
         self.cell = self.side/self.n
         self.field = np.zeros((self.n, self.n), dtype=np.float64)
         self.y, self.x = np.indices(self.field.shape, dtype=float)
+        self._advection_key=None
+        self._advection=[]
+
+    def _transport(self,dt):
+        c=self.config
+        key=(dt,c.wind_x,c.wind_y,self.cell,self.n)
+        if self._advection_key==key:return self._advection
+        source_x=self.x-c.wind_x*dt/self.cell
+        source_y=self.y-c.wind_y*dt/self.cell
+        ix,iy=np.floor(source_x).astype(int),np.floor(source_y).astype(int)
+        fx,fy=source_x-ix,source_y-iy
+        stencil=[]
+        for ox,oy,weight in [(0,0,(1-fx)*(1-fy)),(1,0,fx*(1-fy)),(0,1,(1-fx)*fy),(1,1,fx*fy)]:
+            xx,yy=ix+ox,iy+oy
+            inside=(xx>=0)&(xx<self.n)&(yy>=0)&(yy<self.n)
+            stencil.append((np.flatnonzero(inside),yy[inside]*self.n+xx[inside],weight[inside]))
+        self._advection=stencil;self._advection_key=key
+        return stencil
 
     def tick(self, dt, position, altitude, power_ratio, working):
         c = self.config
@@ -19,15 +37,9 @@ class Dust:
             return
         # Semi-Lagrangian backtracing is stable even with strong wind; dust can
         # leave the map. This is not a conservative physical sand transport.
-        source_x = self.x-c.wind_x*dt/self.cell
-        source_y = self.y-c.wind_y*dt/self.cell
-        ix, iy = np.floor(source_x).astype(int), np.floor(source_y).astype(int)
-        fx, fy = source_x-ix, source_y-iy
         new = np.zeros_like(self.field)
-        for ox, oy, weight in [(0, 0, (1-fx)*(1-fy)), (1, 0, fx*(1-fy)), (0, 1, (1-fx)*fy), (1, 1, fx*fy)]:
-            xx, yy = ix+ox, iy+oy
-            inside = (xx >= 0) & (xx < self.n) & (yy >= 0) & (yy < self.n)
-            new[inside] += weight[inside]*self.field[yy[inside], xx[inside]]
+        for destination,source,weight in self._transport(dt):
+            new.ravel()[destination]+=weight*self.field.ravel()[source]
         self.field = new
         count = max(1, math.ceil(c.diffusion*dt/self.cell**2/0.24))
         alpha = c.diffusion*dt/self.cell**2/count

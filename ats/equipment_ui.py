@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from PySide6 import QtCore,QtWidgets
 from .config import DroneConfig
-from .equipment import (BatteryModule,PanelModule,LaserEmitter,LaserReceiver,BucketModule,
+from .equipment import (BatteryModule,PanelModule,LaserEmitter,LaserReceiver,BucketModule,BASE_BATTERY_LIMIT,
                         DroneEquipment,resolve_config,equipment_data,load_equipment_data)
 
 
@@ -18,8 +18,9 @@ def spin(value,minimum=0,maximum=100000,decimals=3):
 class ModuleTable(QtWidgets.QWidget):
     changed=QtCore.Signal()
 
-    def __init__(self,kind,columns,modules,parent=None):
+    def __init__(self,kind,columns,modules,parent=None,quantity_limit=None):
         super().__init__(parent);self.kind=kind;self.columns=columns
+        self.quantity_limit=quantity_limit if quantity_limit is not None else 1000 if kind is PanelModule else 64
         self.sources=[]
         layout=QtWidgets.QVBoxLayout(self);layout.setContentsMargins(0,0,0,0)
         self.table=QtWidgets.QTableWidget(0,len(columns))
@@ -73,7 +74,10 @@ class ModuleTable(QtWidgets.QWidget):
                     value=int(value)
                 if key=="efficiency":value/=100
                 values[key]=value
-            module=self.kind(**values);module.validate();result.append(module)
+            module=self.kind(**values)
+            if self.kind is BatteryModule:module.validate(self.quantity_limit)
+            else:module.validate()
+            result.append(module)
         return result
 
 
@@ -98,7 +102,7 @@ class ModuleQuantities(QtWidgets.QWidget):
             self.controls=[];self.labels=[]
             for index,module in enumerate(modules):
                 label=QtWidgets.QLabel();label.setWordWrap(True);label.setMinimumWidth(300)
-                quantity=QtWidgets.QSpinBox();quantity.setRange(0,1000 if isinstance(module,PanelModule) else 64)
+                quantity=QtWidgets.QSpinBox();quantity.setRange(0,self.table.quantity_limit)
                 quantity.setSuffix(' шт.');quantity.valueChanged.connect(lambda value,row=index:self.set_quantity(row,value))
                 self.form.addRow(label,quantity);self.labels.append(label);self.controls.append(quantity)
         for module,label,quantity in zip(modules,self.labels,self.controls):
@@ -127,13 +131,15 @@ class BaseEditor(QtWidgets.QWidget):
         self.efficiency=spin(equipment.charge_efficiency*100,.001,100)
         form.addRow('Посадочных мест',self.slots);form.addRow('Общая мощность зарядки, кВт',self.power)
         self.summary=QtWidgets.QLabel();self.summary.setWordWrap(True);layout.addWidget(self.summary)
-        self.batteries=ModuleTable(BatteryModule,BATTERY_COLUMNS,equipment.batteries)
+        self.batteries=ModuleTable(BatteryModule,BATTERY_COLUMNS,equipment.batteries,quantity_limit=BASE_BATTERY_LIMIT)
         self.panels=ModuleTable(PanelModule,[("name","Тип панели"),("quantity","Количество"),("area_m2","м² / шт."),("mass_kg","кг / шт."),("efficiency","КПД, %")],equipment.panels)
         self.emitters=ModuleTable(LaserEmitter,[("drone_number","Позиция\nдрона"),("mass_kg","Масса, кг"),("input_power_kw","Электровход,\nкВт"),("efficiency","КПД, %"),("range_m","Дальность, м"),("enabled","Включён"),("beam_radius_m","Радиус луча,\nм"),("divergence_mrad","Полуугол,\nмрад")],equipment.emitters)
         self.panel_quantities=ModuleQuantities(self.panels);self.battery_quantities=ModuleQuantities(self.batteries)
         panels=QtWidgets.QGroupBox('Солнечные панели');QtWidgets.QVBoxLayout(panels).addWidget(self.panel_quantities)
         batteries=QtWidgets.QGroupBox('Аккумуляторы базы');QtWidgets.QVBoxLayout(batteries).addWidget(self.battery_quantities)
         layout.addWidget(panels);layout.addWidget(batteries)
+        battery_note=QtWidgets.QLabel('Добавленные во время работы аккумуляторы пустые. Текущая энергия сохраняется; новые модули заряжаются от базы.')
+        battery_note.setWordWrap(True);layout.addWidget(battery_note)
         self.details=QtWidgets.QCheckBox('Подробные параметры базы и типы модулей');layout.addWidget(self.details)
         self.advanced=QtWidgets.QWidget();advanced=QtWidgets.QVBoxLayout(self.advanced)
         detail_form=QtWidgets.QFormLayout();advanced.addLayout(detail_form)
@@ -234,7 +240,7 @@ class EquipmentDialog(QtWidgets.QDialog):
         self.wait_mode=QtWidgets.QComboBox();self.wait_mode.addItem("На земле","ground");self.wait_mode.addItem("В воздухе с посадкой по резерву","air")
         self.wait_mode.setCurrentIndex(0 if config.fleet.wait_mode=="ground" else 1)
         form.addRow("Дронов (удаляются последние позиции)",self.count);form.addRow("Очередь зарядки",self.wait_mode);layout.addLayout(form)
-        message=('Сейчас можно применить панели, пороги зарядки, мощность зарядки и лазеров. Запасные батареи добавляются через инвентарь. '
+        message=('Сейчас можно применить панели, аккумуляторы базы, пороги зарядки, мощность зарядки и лазеров. Запасные батареи добавляются через инвентарь. '
                  'Для другого начального состава базы или флота выберите «Новый прогон».') if config.logistics else (
                  'База обновляется на стоянке. Для изменения дронов флот завершит перенос груза и приземлится. Новые батарейные модули пустые.')
         info=QtWidgets.QLabel(message)

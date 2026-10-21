@@ -18,6 +18,7 @@ def station_offset(index,spacing):
     return (0 if index==0 else (index+1)//2*(1 if index%2 else -1))*spacing
 
 KWH=3_600_000.0
+BASE_BATTERY_LIMIT=1000
 
 
 def positive(value,label,zero=False):
@@ -50,8 +51,8 @@ class BatteryModule:
     capacity_kwh: float=5.0
     mass_kg: float=50.0
 
-    def validate(self):
-        if not isinstance(self.quantity,int) or not 0<=self.quantity<=64:raise ValueError("Количество батарей: 0–64")
+    def validate(self,maximum=64):
+        if not isinstance(self.quantity,int) or isinstance(self.quantity,bool) or not 0<=self.quantity<=maximum:raise ValueError(f"Количество батарей: 0–{maximum}")
         positive(self.capacity_kwh,"Ёмкость батареи");positive(self.mass_kg,"Масса батареи")
 
 
@@ -163,7 +164,9 @@ class BaseEquipment:
         if not isinstance(self.landing_slots,int) or not 1<=self.landing_slots<=6:raise ValueError("Посадочных мест: 1–6")
         if not 0<self.charge_efficiency<=1:raise ValueError("КПД зарядки: 0–100%")
         if len(self.batteries)>12 or len(self.panels)>12 or len(self.emitters)>6:raise ValueError("Слишком много типов оборудования базы")
-        for module in [*self.batteries,*self.panels,*self.emitters]:module.validate()
+        for module in self.batteries:module.validate(BASE_BATTERY_LIMIT)
+        if sum(b.quantity for b in self.batteries)>BASE_BATTERY_LIMIT:raise ValueError(f'На базе допускается до {BASE_BATTERY_LIMIT} аккумуляторов')
+        for module in [*self.panels,*self.emitters]:module.validate()
         if len({e.drone_number for e in self.emitters})!=len(self.emitters):raise ValueError("Для позиции дрона допускается один лазерный передатчик")
 
     @classmethod

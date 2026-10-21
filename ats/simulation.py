@@ -212,11 +212,18 @@ class Simulation:
             for values in (old,new):
                 values.pop('charge_power_kw');values.pop('charge_efficiency')
                 values.pop('panels')
+                values.pop('batteries')
                 for emitter in values['emitters']:
                     emitter.pop('enabled');emitter.pop('input_power_kw')
             if old!=new or [asdict(d.config.equipment) for d in self.drones]!=[asdict(d.equipment) for d in proposed.drone_models()]:
                 raise ValueError('ATS 2.0: изменение физических предметов требует нового эксперимента; зарядка, смена готовых батарей и перевозки выполняются автоматически')
-            if asdict(self.config.base.equipment)['panels']!=asdict(proposed.base.equipment)['panels']:
+            panels_changed=asdict(self.config.base.equipment)['panels']!=asdict(proposed.base.equipment)['panels']
+            batteries_changed=asdict(self.config.base.equipment)['batteries']!=asdict(proposed.base.equipment)['batteries']
+            if panels_changed:
+                if self.base.destination is not None:raise ValueError('Дождитесь остановки базы перед изменением панелей')
+                self.logistics.solar_field_site(proposed.base.equipment.panel_area)
+            if batteries_changed:self.logistics.configure_base_batteries(proposed.base.equipment.batteries)
+            if panels_changed:
                 self.logistics.configure_panels(proposed.base.equipment.panels)
             self.config.base.equipment=deepcopy(proposed.base.equipment)
             self.config.base.charge_power=proposed.base.equipment.charge_power_kw*1000
@@ -918,6 +925,8 @@ class Simulation:
         extra = {"remaining_cut_m3":t.remaining_cut,"remaining_fill_m3":t.remaining_fill,"stockpile_m3":t.stockpile_volume,"filled_mass_kg":self.filled_mass,"filled_m3":self.filled_mass/self.config.terrain.density,"plan_segments":len(self.config.plan.segments) if self.config.plan is not None else 1,"landing_requested":self.landing_requested}
         extra.update(map_side_m=t.cell*t.height.shape[0],grid_cells=t.height.shape[0],cell_size_m=t.cell)
         extra['georeference']=self.config.georeference
+        extra.update(base_capacity_kwh=b.config.battery/KWH,
+                     base_battery_count=sum(pack.quantity for pack in b.config.equipment.batteries))
         extra.update(workfront=t.front.report() if t.front is not None else None,
                      base_position_m=b.position.tolist(),base_move_wait=self.base_move_wait,
                      base_move_pending=self.relocation_pending is not None)
