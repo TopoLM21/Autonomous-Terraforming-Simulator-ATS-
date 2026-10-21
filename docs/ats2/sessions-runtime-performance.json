@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "baseline_commit": "97284aafff858c2cb82552da03d40ef77f7215ff",
-  "code_commit": null,
+  "code_commit": "fefcb8bf630d46abd1859362cfb237144d50b8ae",
   "description": "Fixed-step reference canal; sequential trials on one Linux worker, Qt offscreen; initialization excluded.",
   "scenario": {
     "map_side_m": 512,
@@ -2115,12 +2115,23 @@
   "local_tests": {
     "full_suite_passed": 326,
     "full_suite_seconds": 225.21,
-    "final_cli_gui_followup": "see CI results"
+    "final_cli_gui_followup": {
+      "passed": 23,
+      "seconds": 9.79
+    }
   },
   "limitations": [
     "Measured reference scenario, not a reproduction of the user 15x state.",
     "GUI offscreen timings depend on hardware and Qt platform.",
     "Profiles include profiler overhead and are excluded from speed medians.",
     "Exact continuation tested in the same Python/NumPy environment."
-  ]
+  ],
+  "hot_equipment_resume_cli_smoke": {
+    "time_preserved_seconds": 1200,
+    "added_empty_base_batteries": 3,
+    "panel_area_m2": 40,
+    "base_energy_preserved": true,
+    "trips_preserved": true,
+    "saved_and_reloaded": true
+  }
 }

@@ -1,0 +1,250 @@
+{
+  "schema_version": 1,
+  "code_commit": "fefcb8bf630d46abd1859362cfb237144d50b8ae",
+  "local_tests": {
+    "full_suite": {
+      "passed": 326,
+      "seconds": 225.21
+    },
+    "final_cli_gui_followup": {
+      "passed": 23,
+      "seconds": 9.79
+    }
+  },
+  "run": {
+    "id": 39629164853,
+    "head_sha": "fefcb8bf630d46abd1859362cfb237144d50b8ae",
+    "event": "push",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/TopoLM21/Autonomous-Terraforming-Simulator-ATS-/actions/runs/39629164853",
+    "run_started_at": "2026-10-21T15:49:31Z",
+    "updated_at": "2026-10-21T15:56:25Z"
+  },
+  "matrix": [
+    {
+      "id": 119322337451,
+      "name": "test (windows-latest, 3.11)",
+      "conclusion": "success",
+      "html_url": "https://github.com/TopoLM21/Autonomous-Terraforming-Simulator-ATS-/actions/runs/39629164853/job/119322337451",
+      "started_at": "2026-10-21T15:49:33Z",
+      "completed_at": "2026-10-21T15:54:35Z",
+      "tests": {
+        "passed": 327,
+        "seconds": 234.2
+      },
+      "checks": [
+        {
+          "name": "Run python -m pytest -q",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-21T15:50:16Z",
+          "completed_at": "2026-10-21T15:54:12Z"
+        },
+        {
+          "name": "Run python -m ats --headless --mode legacy --steps 10000 --seed 42",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-21T15:54:12Z",
+          "completed_at": "2026-10-21T15:54:13Z"
+        },
+        {
+          "name": "ATS 2.0 logistics smoke test",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-21T15:54:13Z",
+          "completed_at": "2026-10-21T15:54:24Z"
+        },
+        {
+          "name": "Offline real DEM smoke test",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-21T15:54:24Z",
+          "completed_at": "2026-10-21T15:54:25Z"
+        },
+        {
+          "name": "Save and resume airborne simulation",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-21T15:54:25Z",
+          "completed_at": "2026-10-21T15:54:28Z"
+        },
+        {
+          "name": "Prepared Qattara channel smoke test",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-21T15:54:28Z",
+          "completed_at": "2026-10-21T15:54:31Z"
+        }
+      ]
+    },
+    {
+      "id": 119322337997,
+      "name": "test (ubuntu-latest, 3.11)",
+      "conclusion": "success",
+      "html_url": "https://github.com/TopoLM21/Autonomous-Terraforming-Simulator-ATS-/actions/runs/39629164853/job/119322337997",
+      "started_at": "2026-10-21T15:49:33Z",
+      "completed_at": "2026-10-21T15:52:50Z",
+      "tests": {
+        "passed": 327,
+        "seconds": 150.24
+      },
+      "checks": [
+        {
+          "name": "Run python -m pytest -q",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-21T15:50:06Z",
+          "completed_at": "2026-10-21T15:52:37Z"
+        },
+        {
+          "name": "Run python -m ats --headless --mode legacy --steps 10000 --seed 42",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-21T15:52:37Z",
+          "completed_at": "2026-10-21T15:52:38Z"
+        },
+        {
+          "name": "ATS 2.0 logistics smoke test",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-21T15:52:38Z",
+          "completed_at": "2026-10-21T15:52:43Z"
+        },
+        {
+          "name": "Offline real DEM smoke test",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-21T15:52:43Z",
+          "completed_at": "2026-10-21T15:52:43Z"
+        },
+        {
+          "name": "Save and resume airborne simulation",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-21T15:52:43Z",
+          "completed_at": "2026-10-21T15:52:45Z"
+        },
+        {
+          "name": "Prepared Qattara channel smoke test",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-21T15:52:45Z",
+          "completed_at": "2026-10-21T15:52:46Z"
+        }
+      ]
+    },
+    {
+      "id": 119322338098,
+      "name": "test (windows-latest, 3.12)",
+      "conclusion": "success",
+      "html_url": "https://github.com/TopoLM21/Autonomous-Terraforming-Simulator-ATS-/actions/runs/39629164853/job/119322338098",
+      "started_at": "2026-10-21T15:49:33Z",
+      "completed_at": "2026-10-21T15:56:23Z",
+      "tests": {
+        "passed": 327,
+        "seconds": 341.33
+      },
+      "checks": [
+        {
+          "name": "Run python -m pytest -q",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-21T15:50:10Z",
+          "completed_at": "2026-10-21T15:55:53Z"
+        },
+        {
+          "name": "Run python -m ats --headless --mode legacy --steps 10000 --seed 42",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-21T15:55:53Z",
+          "completed_at": "2026-10-21T15:55:55Z"
+        },
+        {
+          "name": "ATS 2.0 logistics smoke test",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-21T15:55:55Z",
+          "completed_at": "2026-10-21T15:56:10Z"
+        },
+        {
+          "name": "Offline real DEM smoke test",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-21T15:56:10Z",
+          "completed_at": "2026-10-21T15:56:11Z"
+        },
+        {
+          "name": "Save and resume airborne simulation",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-21T15:56:11Z",
+          "completed_at": "2026-10-21T15:56:15Z"
+        },
+        {
+          "name": "Prepared Qattara channel smoke test",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-21T15:56:15Z",
+          "completed_at": "2026-10-21T15:56:19Z"
+        }
+      ]
+    },
+    {
+      "id": 119322338241,
+      "name": "test (ubuntu-latest, 3.12)",
+      "conclusion": "success",
+      "html_url": "https://github.com/TopoLM21/Autonomous-Terraforming-Simulator-ATS-/actions/runs/39629164853/job/119322338241",
+      "started_at": "2026-10-21T15:49:33Z",
+      "completed_at": "2026-10-21T15:52:46Z",
+      "tests": {
+        "passed": 327,
+        "seconds": 159.73
+      },
+      "checks": [
+        {
+          "name": "Run python -m pytest -q",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-21T15:49:53Z",
+          "completed_at": "2026-10-21T15:52:33Z"
+        },
+        {
+          "name": "Run python -m ats --headless --mode legacy --steps 10000 --seed 42",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-21T15:52:33Z",
+          "completed_at": "2026-10-21T15:52:34Z"
+        },
+        {
+          "name": "ATS 2.0 logistics smoke test",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-21T15:52:34Z",
+          "completed_at": "2026-10-21T15:52:39Z"
+        },
+        {
+          "name": "Offline real DEM smoke test",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-21T15:52:39Z",
+          "completed_at": "2026-10-21T15:52:40Z"
+        },
+        {
+          "name": "Save and resume airborne simulation",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-21T15:52:40Z",
+          "completed_at": "2026-10-21T15:52:41Z"
+        },
+        {
+          "name": "Prepared Qattara channel smoke test",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-21T15:52:41Z",
+          "completed_at": "2026-10-21T15:52:43Z"
+        }
+      ]
+    }
+  ]
+}
