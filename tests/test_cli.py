@@ -4,6 +4,11 @@ import subprocess
 import sys
 
 
+def test_cli_help_lists_save_resume_and_live_base_storage():
+    result=subprocess.run([sys.executable,'-m','ats','--help'],capture_output=True,check=True)
+    assert all(option.encode() in result.stdout for option in ('--save-state','--load-state','--base-batteries'))
+
+
 def test_headless_json_in_legacy_console_and_utf8_file(tmp_path):
     environment = dict(os.environ, PYTHONIOENCODING="cp1252")
     path = tmp_path/"report.json"

@@ -25,6 +25,15 @@ class Dust:
         stencil=[]
         for ox,oy,weight in [(0,0,(1-fx)*(1-fy)),(1,0,fx*(1-fy)),(0,1,(1-fx)*fy),(1,1,fx*fy)]:
             xx,yy=ix+ox,iy+oy
+            dx,dy=int(xx[0,0]),int(yy[0,0])
+            if np.all(xx==self.x+dx) and np.all(yy==self.y+dy):
+                x0,x1=max(0,-dx),min(self.n,self.n-dx)
+                y0,y1=max(0,-dy),min(self.n,self.n-dy)
+                if x0<x1 and y0<y1:
+                    destination=(slice(y0,y1),slice(x0,x1))
+                    source=(slice(y0+dy,y1+dy),slice(x0+dx,x1+dx))
+                    stencil.append((destination,source,weight[destination]))
+                continue
             inside=(xx>=0)&(xx<self.n)&(yy>=0)&(yy<self.n)
             stencil.append((np.flatnonzero(inside),yy[inside]*self.n+xx[inside],weight[inside]))
         self._advection=stencil;self._advection_key=key
@@ -39,7 +48,8 @@ class Dust:
         # leave the map. This is not a conservative physical sand transport.
         new = np.zeros_like(self.field)
         for destination,source,weight in self._transport(dt):
-            new.ravel()[destination]+=weight*self.field.ravel()[source]
+            if isinstance(destination,tuple):new[destination]+=weight*self.field[source]
+            else:new.ravel()[destination]+=weight*self.field.ravel()[source]
         self.field = new
         count = max(1, math.ceil(c.diffusion*dt/self.cell**2/0.24))
         alpha = c.diffusion*dt/self.cell**2/count

@@ -39,6 +39,7 @@ class Terrain:
         distance = np.maximum(0, np.minimum.reduce([self.x-x, x+w-self.x, self.y-y, y+h-self.y])-self.cell)
         self.dump_cap = self.reference + np.where(self.dump_mask, np.minimum(t.dump_max_height, distance*self.slope*t.dump_slope_factor), 0)
         self.revision = 0
+        self._dump_content_revision=0
         self.front = None
         self.protected = None
         self.design_work=None
@@ -223,7 +224,8 @@ class Terrain:
 
     def dump_location(self, volume, reserved=(), separation=0.0, near=None):
         if near is not None:
-            if getattr(self,'_dump_revision',None)!=self.revision:
+            dump_revision=getattr(self,'_dump_content_revision',0)
+            if getattr(self,'_dump_revision',None)!=dump_revision:
                 indices=self._dump_indices
                 capacity=np.maximum(self.dump_cap.ravel()[indices]-self.height.ravel()[indices],0)
                 self._dump_free=float(capacity.sum()*self.area)
@@ -231,7 +233,7 @@ class Terrain:
                     signed=self.front.signed.ravel()[indices]
                     heights=np.maximum(self.height.ravel()[indices]-self.reference.ravel()[indices],0)
                     self._lighter_bank=1 if heights[signed>0].sum()<=heights[signed<0].sum() else -1
-                self._dump_revision=self.revision
+                self._dump_revision=dump_revision
             if self._dump_free<volume-1e-12:return None
             # Search increasing local windows; no repeated sort of the full map.
             radius=max(4.,self.config.fleet.separation*2)
@@ -339,6 +341,7 @@ class Terrain:
     def _mark_dirty(self,patch,mask):
         yy,xx=np.nonzero(mask)
         if not len(xx):return
+        if np.any(self.dump_mask[patch]&mask):self._dump_content_revision=getattr(self,'_dump_content_revision',0)+1
         self._grow_bounds(int(yy.min())+patch[0].start,int(yy.max())+patch[0].start+1,
                           int(xx.min())+patch[1].start,int(xx.max())+patch[1].start+1)
 
@@ -389,6 +392,8 @@ class Terrain:
                 transfer = np.sign(difference)*(np.abs(difference)-limit-t.avalanche_epsilon)*t.relaxation
                 height[a] -= transfer
                 height[b] += transfer
+                if np.any(self.dump_mask.ravel()[a]|self.dump_mask.ravel()[b]):
+                    self._dump_content_revision=getattr(self,'_dump_content_revision',0)+1
                 self._relax_dirty.ravel()[a]=True;self._relax_dirty.ravel()[b]=True
                 n=self.height.shape[0]
                 self._grow_bounds(int(min(a.min()//n,b.min()//n)),int(max(a.max()//n,b.max()//n))+1,

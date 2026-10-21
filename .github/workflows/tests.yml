@@ -39,6 +39,12 @@ jobs:
         run: |
           python -m ats --headless --qattara --steps 0 --json dem-ci.json > dem-ci-stdout.json
           python -c "import json; r=json.load(open('dem-ci.json',encoding='utf-8')); assert r['georeference']['vertical_datum']=='MSL'; assert r['landscape']['modified_tiles']==0; assert r['landscape']['fine_storage_bytes']==0; assert r['remaining_m3']==0; assert r['panel_area_m2']==20"
+      - name: Save and resume airborne simulation
+        run: |
+          python -m ats --headless --steps 75 --save-state flight-ci.atsstate --json flight-ci.json > flight-ci-stdout.json
+          python -m ats --headless --load-state flight-ci.atsstate --steps 125 --json resumed-ci.json > resumed-ci-stdout.json
+          python -m ats --headless --steps 200 --json straight-ci.json > straight-ci-stdout.json
+          python -c "import json; a=json.load(open('resumed-ci.json',encoding='utf-8')); b=json.load(open('straight-ci.json',encoding='utf-8')); assert a==b; assert a['time_seconds']==200; assert abs(a['mass_error_kg'])<1e-7; assert abs(a['energy_error_j'])<0.002"
       - name: Prepared Qattara channel smoke test
         run: |
           python -m ats --headless --qattara --channel-route docs/ats2/qattara-channel.json --steps 0 --json channel-ci.json > channel-ci-stdout.json

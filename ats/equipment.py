@@ -241,6 +241,20 @@ def physical_payload_limit(drone):
     return max(0.,min(structural,power_limit))
 
 
+def set_base_battery_count(equipment, count):
+    """Resize installed storage; additions use its first type, removals the last."""
+    if type(count) is not int or not 0<=count<=BASE_BATTERY_LIMIT:
+        raise ValueError(f'Аккумуляторов базы: 0–{BASE_BATTERY_LIMIT}')
+    delta=count-sum(pack.quantity for pack in equipment.batteries)
+    if delta>0:
+        if not equipment.batteries:equipment.batteries=[BatteryModule(quantity=0)]
+        equipment.batteries[0].quantity+=delta
+    elif delta<0:
+        for pack in reversed(equipment.batteries):
+            take=min(pack.quantity,-delta);pack.quantity-=take;delta+=take
+    equipment.validate()
+
+
 def equipment_data(config):
     return {"version":1,"base":asdict(config.base.equipment),"models":[asdict(d) for d in config.drone_models()],"wait_mode":config.fleet.wait_mode}
 

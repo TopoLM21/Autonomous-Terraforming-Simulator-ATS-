@@ -1,0 +1,2126 @@
+{
+  "schema_version": 1,
+  "baseline_commit": "97284aafff858c2cb82552da03d40ef77f7215ff",
+  "code_commit": null,
+  "description": "Fixed-step reference canal; sequential trials on one Linux worker, Qt offscreen; initialization excluded.",
+  "scenario": {
+    "map_side_m": 512,
+    "cell_size_m": 0.5,
+    "cells_per_axis": 1024,
+    "drones": 4,
+    "inventory_items": 93,
+    "physical_dt_seconds": 1,
+    "steps": 1200
+  },
+  "measurements": {
+    "before": {
+      "python": "3.12.14",
+      "platform": "Linux",
+      "cpu_count": 5,
+      "physical_dt_seconds": 1,
+      "steps": 1200,
+      "source": "Offline Qattara reference canal",
+      "trials": [
+        {
+          "mode": "headless",
+          "render": null,
+          "profiled": false,
+          "initialization_seconds": 1.8081863610059372,
+          "wall_seconds": 7.857318545997259,
+          "model_seconds": 1200.0,
+          "actual_speed": 152.72385776077692,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 93,
+          "state": "RUNNING",
+          "trips": 85,
+          "mass_error_kg": 5.684341886080801e-13,
+          "energy_error_j": 5.513429641723633e-07,
+          "physical_sha256": "07ce0111ef315b4de14a716208593bb5c13da706692bd3e0e941c6054644540c",
+          "wall_limit_reached": false
+        },
+        {
+          "mode": "gui",
+          "render": "auto",
+          "profiled": false,
+          "initialization_seconds": 3.234566489001736,
+          "wall_seconds": 12.402912295001443,
+          "model_seconds": 1200.0,
+          "actual_speed": 96.7514702561928,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 93,
+          "state": "RUNNING",
+          "trips": 85,
+          "mass_error_kg": 5.684341886080801e-13,
+          "energy_error_j": 5.513429641723633e-07,
+          "physical_sha256": "07ce0111ef315b4de14a716208593bb5c13da706692bd3e0e941c6054644540c",
+          "wall_limit_reached": false
+        },
+        {
+          "mode": "headless",
+          "render": null,
+          "profiled": false,
+          "initialization_seconds": 1.6961527870007558,
+          "wall_seconds": 8.225204925998696,
+          "model_seconds": 1200.0,
+          "actual_speed": 145.89302160812696,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 93,
+          "state": "RUNNING",
+          "trips": 85,
+          "mass_error_kg": 5.684341886080801e-13,
+          "energy_error_j": 5.513429641723633e-07,
+          "physical_sha256": "07ce0111ef315b4de14a716208593bb5c13da706692bd3e0e941c6054644540c",
+          "wall_limit_reached": false
+        },
+        {
+          "mode": "gui",
+          "render": "auto",
+          "profiled": false,
+          "initialization_seconds": 2.886680780997267,
+          "wall_seconds": 11.328162575999158,
+          "model_seconds": 1200.0,
+          "actual_speed": 105.9306831049923,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 93,
+          "state": "RUNNING",
+          "trips": 85,
+          "mass_error_kg": 5.684341886080801e-13,
+          "energy_error_j": 5.513429641723633e-07,
+          "physical_sha256": "07ce0111ef315b4de14a716208593bb5c13da706692bd3e0e941c6054644540c",
+          "wall_limit_reached": false
+        },
+        {
+          "mode": "headless",
+          "render": null,
+          "profiled": false,
+          "initialization_seconds": 1.4835076870003832,
+          "wall_seconds": 8.247812182999041,
+          "model_seconds": 1200.0,
+          "actual_speed": 145.49312876856274,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 93,
+          "state": "RUNNING",
+          "trips": 85,
+          "mass_error_kg": 5.684341886080801e-13,
+          "energy_error_j": 5.513429641723633e-07,
+          "physical_sha256": "07ce0111ef315b4de14a716208593bb5c13da706692bd3e0e941c6054644540c",
+          "wall_limit_reached": false
+        },
+        {
+          "mode": "gui",
+          "render": "auto",
+          "profiled": false,
+          "initialization_seconds": 2.945322005005437,
+          "wall_seconds": 11.85464736099675,
+          "model_seconds": 1200.0,
+          "actual_speed": 101.22612368446723,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 93,
+          "state": "RUNNING",
+          "trips": 85,
+          "mass_error_kg": 5.684341886080801e-13,
+          "energy_error_j": 5.513429641723633e-07,
+          "physical_sha256": "07ce0111ef315b4de14a716208593bb5c13da706692bd3e0e941c6054644540c",
+          "wall_limit_reached": false
+        }
+      ],
+      "median": {
+        "headless": {
+          "wall_seconds": 8.225204925998696,
+          "model_seconds": 1200.0,
+          "actual_speed": 145.89302160812696
+        },
+        "gui": {
+          "wall_seconds": 11.85464736099675,
+          "model_seconds": 1200.0,
+          "actual_speed": 101.22612368446723
+        }
+      }
+    },
+    "after": {
+      "python": "3.12.14",
+      "platform": "Linux",
+      "cpu_count": 5,
+      "physical_dt_seconds": 1,
+      "steps": 1200,
+      "source": "Offline Qattara reference canal",
+      "trials": [
+        {
+          "mode": "headless",
+          "render": null,
+          "profiled": false,
+          "initialization_seconds": 1.8208895800053142,
+          "wall_seconds": 6.572173607994046,
+          "model_seconds": 1200.0,
+          "actual_speed": 182.58799471462277,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 93,
+          "state": "RUNNING",
+          "trips": 85,
+          "mass_error_kg": 5.684341886080801e-13,
+          "energy_error_j": 5.513429641723633e-07,
+          "physical_sha256": "07ce0111ef315b4de14a716208593bb5c13da706692bd3e0e941c6054644540c",
+          "wall_limit_reached": false
+        },
+        {
+          "mode": "gui",
+          "render": "auto",
+          "profiled": false,
+          "initialization_seconds": 2.3189358099989477,
+          "wall_seconds": 9.42820615600067,
+          "model_seconds": 1200.0,
+          "actual_speed": 127.27765814032915,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 93,
+          "state": "RUNNING",
+          "trips": 85,
+          "mass_error_kg": 5.684341886080801e-13,
+          "energy_error_j": 5.513429641723633e-07,
+          "physical_sha256": "07ce0111ef315b4de14a716208593bb5c13da706692bd3e0e941c6054644540c",
+          "wall_limit_reached": false
+        },
+        {
+          "mode": "headless",
+          "render": null,
+          "profiled": false,
+          "initialization_seconds": 1.7820687830026145,
+          "wall_seconds": 6.8816232300014235,
+          "model_seconds": 1200.0,
+          "actual_speed": 174.3774629753672,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 93,
+          "state": "RUNNING",
+          "trips": 85,
+          "mass_error_kg": 5.684341886080801e-13,
+          "energy_error_j": 5.513429641723633e-07,
+          "physical_sha256": "07ce0111ef315b4de14a716208593bb5c13da706692bd3e0e941c6054644540c",
+          "wall_limit_reached": false
+        },
+        {
+          "mode": "gui",
+          "render": "auto",
+          "profiled": false,
+          "initialization_seconds": 1.7383558910005377,
+          "wall_seconds": 8.699090727997827,
+          "model_seconds": 1200.0,
+          "actual_speed": 137.94545171690498,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 93,
+          "state": "RUNNING",
+          "trips": 85,
+          "mass_error_kg": 5.684341886080801e-13,
+          "energy_error_j": 5.513429641723633e-07,
+          "physical_sha256": "07ce0111ef315b4de14a716208593bb5c13da706692bd3e0e941c6054644540c",
+          "wall_limit_reached": false
+        },
+        {
+          "mode": "headless",
+          "render": null,
+          "profiled": false,
+          "initialization_seconds": 1.7442202110032667,
+          "wall_seconds": 6.6715761619998375,
+          "model_seconds": 1200.0,
+          "actual_speed": 179.86754117190415,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 93,
+          "state": "RUNNING",
+          "trips": 85,
+          "mass_error_kg": 5.684341886080801e-13,
+          "energy_error_j": 5.513429641723633e-07,
+          "physical_sha256": "07ce0111ef315b4de14a716208593bb5c13da706692bd3e0e941c6054644540c",
+          "wall_limit_reached": false
+        },
+        {
+          "mode": "gui",
+          "render": "auto",
+          "profiled": false,
+          "initialization_seconds": 1.838969789998373,
+          "wall_seconds": 8.981761317998462,
+          "model_seconds": 1200.0,
+          "actual_speed": 133.60408471279814,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 93,
+          "state": "RUNNING",
+          "trips": 85,
+          "mass_error_kg": 5.684341886080801e-13,
+          "energy_error_j": 5.513429641723633e-07,
+          "physical_sha256": "07ce0111ef315b4de14a716208593bb5c13da706692bd3e0e941c6054644540c",
+          "wall_limit_reached": false
+        }
+      ],
+      "median": {
+        "headless": {
+          "wall_seconds": 6.6715761619998375,
+          "model_seconds": 1200.0,
+          "actual_speed": 179.86754117190415
+        },
+        "gui": {
+          "wall_seconds": 8.981761317998462,
+          "model_seconds": 1200.0,
+          "actual_speed": 133.60408471279814
+        }
+      }
+    },
+    "gui_without_map": {
+      "python": "3.12.14",
+      "platform": "Linux",
+      "cpu_count": 5,
+      "physical_dt_seconds": 1,
+      "steps": 1200,
+      "source": "Offline Qattara reference canal",
+      "trials": [
+        {
+          "mode": "gui",
+          "render": "off",
+          "profiled": false,
+          "initialization_seconds": 2.139134228003968,
+          "wall_seconds": 6.816566959001648,
+          "model_seconds": 1200.0,
+          "actual_speed": 176.041694773545,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 93,
+          "state": "RUNNING",
+          "trips": 85,
+          "mass_error_kg": 5.684341886080801e-13,
+          "energy_error_j": 5.513429641723633e-07,
+          "physical_sha256": "07ce0111ef315b4de14a716208593bb5c13da706692bd3e0e941c6054644540c",
+          "wall_limit_reached": false
+        },
+        {
+          "mode": "gui",
+          "render": "off",
+          "profiled": false,
+          "initialization_seconds": 1.9019632349954918,
+          "wall_seconds": 7.493879190005828,
+          "model_seconds": 1200.0,
+          "actual_speed": 160.13068393207803,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 93,
+          "state": "RUNNING",
+          "trips": 85,
+          "mass_error_kg": 5.684341886080801e-13,
+          "energy_error_j": 5.513429641723633e-07,
+          "physical_sha256": "07ce0111ef315b4de14a716208593bb5c13da706692bd3e0e941c6054644540c",
+          "wall_limit_reached": false
+        },
+        {
+          "mode": "gui",
+          "render": "off",
+          "profiled": false,
+          "initialization_seconds": 1.851066435003304,
+          "wall_seconds": 7.076400187994295,
+          "model_seconds": 1200.0,
+          "actual_speed": 169.57774689395046,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 93,
+          "state": "RUNNING",
+          "trips": 85,
+          "mass_error_kg": 5.684341886080801e-13,
+          "energy_error_j": 5.513429641723633e-07,
+          "physical_sha256": "07ce0111ef315b4de14a716208593bb5c13da706692bd3e0e941c6054644540c",
+          "wall_limit_reached": false
+        }
+      ],
+      "median": {
+        "gui": {
+          "wall_seconds": 7.076400187994295,
+          "model_seconds": 1200.0,
+          "actual_speed": 169.57774689395046
+        }
+      }
+    }
+  },
+  "speedup": {
+    "headless": 1.2328728213953493,
+    "gui": 1.3198577585491322,
+    "gui_without_map_vs_old_gui": 1.6752369914167873
+  },
+  "identical_physical_report_sha256": "07ce0111ef315b4de14a716208593bb5c13da706692bd3e0e941c6054644540c",
+  "all_15_reports_equal": true,
+  "profiling": {
+    "before_headless": {
+      "gui": false,
+      "profiled": true,
+      "wall_seconds": 9.10916117600209,
+      "model_seconds": 1200.0,
+      "actual_speed": 131.7355107472878,
+      "grid_cells": 1024,
+      "cell_size_m": 0.5,
+      "trips": 85,
+      "mass_error_kg": 5.684341886080801e-13,
+      "energy_error_j": 5.513429641723633e-07,
+      "self_top": [
+        {
+          "file": "terrain.py",
+          "line": 224,
+          "function": "dump_location",
+          "calls": 2982,
+          "self_seconds": 2.047343826,
+          "cumulative_seconds": 2.305718779
+        },
+        {
+          "file": "dust.py",
+          "line": 33,
+          "function": "tick",
+          "calls": 1200,
+          "self_seconds": 1.524266256,
+          "cumulative_seconds": 1.700711832
+        },
+        {
+          "file": "terrain.py",
+          "line": 281,
+          "function": "deposit",
+          "calls": 85,
+          "self_seconds": 0.467215818,
+          "cumulative_seconds": 0.5096479770000001
+        },
+        {
+          "file": "workfront.py",
+          "line": 84,
+          "function": "update",
+          "calls": 1924,
+          "self_seconds": 0.43082479300000004,
+          "cumulative_seconds": 0.6549721820000001
+        },
+        {
+          "file": "excavator.py",
+          "line": 93,
+          "function": "reachable_mask",
+          "calls": 663,
+          "self_seconds": 0.410108413,
+          "cumulative_seconds": 0.41293495300000005
+        },
+        {
+          "file": "terrain.py",
+          "line": 104,
+          "function": "remaining",
+          "calls": 6540,
+          "self_seconds": 0.39350100400000004,
+          "cumulative_seconds": 0.416331055
+        },
+        {
+          "file": "terrain.py",
+          "line": 365,
+          "function": "relax",
+          "calls": 705,
+          "self_seconds": 0.320043911,
+          "cumulative_seconds": 0.7591013670000001
+        },
+        {
+          "file": "terrain.py",
+          "line": 350,
+          "function": "_local_pairs",
+          "calls": 705,
+          "self_seconds": 0.299262248,
+          "cumulative_seconds": 0.346512243
+        },
+        {
+          "file": "~",
+          "line": 0,
+          "function": "<method 'cumsum' of 'numpy.ndarray' objects>",
+          "calls": 749,
+          "self_seconds": 0.212972187,
+          "cumulative_seconds": 0.212972187
+        },
+        {
+          "file": "~",
+          "line": 0,
+          "function": "<method 'reduce' of 'numpy.ufunc' objects>",
+          "calls": 68092,
+          "self_seconds": 0.167162142,
+          "cumulative_seconds": 0.167162142
+        },
+        {
+          "file": "~",
+          "line": 0,
+          "function": "<built-in method builtins.isinstance>",
+          "calls": 1676116,
+          "self_seconds": 0.13806315400000002,
+          "cumulative_seconds": 0.140391166
+        },
+        {
+          "file": "inventory.py",
+          "line": 129,
+          "function": "validate",
+          "calls": 1200,
+          "self_seconds": 0.12114279200000001,
+          "cumulative_seconds": 0.186311951
+        },
+        {
+          "file": "inventory.py",
+          "line": 125,
+          "function": "select",
+          "calls": 12136,
+          "self_seconds": 0.109475421,
+          "cumulative_seconds": 0.198419687
+        },
+        {
+          "file": "logistics.py",
+          "line": 910,
+          "function": "sync_batteries",
+          "calls": 1200,
+          "self_seconds": 0.10789668300000001,
+          "cumulative_seconds": 0.33457210400000004
+        },
+        {
+          "file": "terrain.py",
+          "line": 191,
+          "function": "_available_patch",
+          "calls": 5559,
+          "self_seconds": 0.09696349800000001,
+          "cumulative_seconds": 0.10648085900000001
+        },
+        {
+          "file": "logistics.py",
+          "line": 943,
+          "function": "step",
+          "calls": 1200,
+          "self_seconds": 0.095868018,
+          "cumulative_seconds": 8.403136012000001
+        },
+        {
+          "file": "_linalg.py",
+          "line": 2615,
+          "function": "norm",
+          "calls": 55588,
+          "self_seconds": 0.09078113,
+          "cumulative_seconds": 0.18413088500000002
+        },
+        {
+          "file": "simulation.py",
+          "line": 477,
+          "function": "_move",
+          "calls": 1322,
+          "self_seconds": 0.083612831,
+          "cumulative_seconds": 0.359658488
+        },
+        {
+          "file": "~",
+          "line": 0,
+          "function": "<method 'argsort' of 'numpy.ndarray' objects>",
+          "calls": 3709,
+          "self_seconds": 0.071133763,
+          "cumulative_seconds": 0.071133763
+        },
+        {
+          "file": "terrain.py",
+          "line": 274,
+          "function": "local_dump_space",
+          "calls": 3492,
+          "self_seconds": 0.06562904600000001,
+          "cumulative_seconds": 0.087981378
+        },
+        {
+          "file": "planner.py",
+          "line": 21,
+          "function": "estimate",
+          "calls": 4232,
+          "self_seconds": 0.053188397000000005,
+          "cumulative_seconds": 0.119047332
+        },
+        {
+          "file": "~",
+          "line": 0,
+          "function": "<built-in method builtins.max>",
+          "calls": 209548,
+          "self_seconds": 0.050601026,
+          "cumulative_seconds": 0.050603119
+        },
+        {
+          "file": "~",
+          "line": 0,
+          "function": "<built-in method builtins.sum>",
+          "calls": 45506,
+          "self_seconds": 0.050171036,
+          "cumulative_seconds": 0.12282097700000001
+        },
+        {
+          "file": "~",
+          "line": 0,
+          "function": "<method 'dot' of 'numpy.ndarray' objects>",
+          "calls": 55588,
+          "self_seconds": 0.048145477000000006,
+          "cumulative_seconds": 0.048145477000000006
+        },
+        {
+          "file": "terrain.py",
+          "line": 164,
+          "function": "sample",
+          "calls": 27577,
+          "self_seconds": 0.041896794,
+          "cumulative_seconds": 0.060226116
+        }
+      ],
+      "cumulative_top": [
+        {
+          "file": "simulation.py",
+          "line": 917,
+          "function": "run",
+          "calls": 1,
+          "self_seconds": 0.001884451,
+          "cumulative_seconds": 9.109070821000001
+        },
+        {
+          "file": "simulation.py",
+          "line": 844,
+          "function": "step",
+          "calls": 1200,
+          "self_seconds": 0.022846364,
+          "cumulative_seconds": 9.099654026000001
+        },
+        {
+          "file": "logistics.py",
+          "line": 943,
+          "function": "step",
+          "calls": 1200,
+          "self_seconds": 0.095868018,
+          "cumulative_seconds": 8.403136012000001
+        },
+        {
+          "file": "simulation.py",
+          "line": 615,
+          "function": "_airborne",
+          "calls": 3872,
+          "self_seconds": 0.026885675,
+          "cumulative_seconds": 3.4705944640000004
+        },
+        {
+          "file": "simulation.py",
+          "line": 531,
+          "function": "_choose_trip",
+          "calls": 93,
+          "self_seconds": 0.000754264,
+          "cumulative_seconds": 2.565177592
+        },
+        {
+          "file": "planner.py",
+          "line": 46,
+          "function": "choose",
+          "calls": 93,
+          "self_seconds": 0.0011611360000000001,
+          "cumulative_seconds": 2.56259051
+        },
+        {
+          "file": "planner.py",
+          "line": 58,
+          "function": "_choose_source",
+          "calls": 93,
+          "self_seconds": 0.033884368000000005,
+          "cumulative_seconds": 2.561262773
+        },
+        {
+          "file": "simulation.py",
+          "line": 588,
+          "function": "_continue_or_return",
+          "calls": 85,
+          "self_seconds": 0.002271251,
+          "cumulative_seconds": 2.409290253
+        },
+        {
+          "file": "terrain.py",
+          "line": 224,
+          "function": "dump_location",
+          "calls": 2982,
+          "self_seconds": 2.047343826,
+          "cumulative_seconds": 2.305718779
+        },
+        {
+          "file": "dust.py",
+          "line": 33,
+          "function": "tick",
+          "calls": 1200,
+          "self_seconds": 1.524266256,
+          "cumulative_seconds": 1.700711832
+        },
+        {
+          "file": "terrain.py",
+          "line": 365,
+          "function": "relax",
+          "calls": 705,
+          "self_seconds": 0.320043911,
+          "cumulative_seconds": 0.7591013670000001
+        },
+        {
+          "file": "excavator.py",
+          "line": 179,
+          "function": "tick",
+          "calls": 1200,
+          "self_seconds": 0.028563874000000003,
+          "cumulative_seconds": 0.670528133
+        },
+        {
+          "file": "workfront.py",
+          "line": 84,
+          "function": "update",
+          "calls": 1924,
+          "self_seconds": 0.43082479300000004,
+          "cumulative_seconds": 0.6549721820000001
+        },
+        {
+          "file": "simulation.py",
+          "line": 742,
+          "function": "_update_workfront",
+          "calls": 1200,
+          "self_seconds": 0.0036711520000000004,
+          "cumulative_seconds": 0.623390231
+        },
+        {
+          "file": "terrain.py",
+          "line": 281,
+          "function": "deposit",
+          "calls": 85,
+          "self_seconds": 0.467215818,
+          "cumulative_seconds": 0.5096479770000001
+        },
+        {
+          "file": "logistics.py",
+          "line": 1073,
+          "function": "detect_stall",
+          "calls": 1200,
+          "self_seconds": 0.01193565,
+          "cumulative_seconds": 0.505719045
+        },
+        {
+          "file": "terrain.py",
+          "line": 104,
+          "function": "remaining",
+          "calls": 6540,
+          "self_seconds": 0.39350100400000004,
+          "cumulative_seconds": 0.416331055
+        },
+        {
+          "file": "excavator.py",
+          "line": 93,
+          "function": "reachable_mask",
+          "calls": 663,
+          "self_seconds": 0.410108413,
+          "cumulative_seconds": 0.41293495300000005
+        },
+        {
+          "file": "fromnumeric.py",
+          "line": 48,
+          "function": "_wrapfunc",
+          "calls": 17253,
+          "self_seconds": 0.013884536000000001,
+          "cumulative_seconds": 0.36571516000000004
+        },
+        {
+          "file": "simulation.py",
+          "line": 477,
+          "function": "_move",
+          "calls": 1322,
+          "self_seconds": 0.083612831,
+          "cumulative_seconds": 0.359658488
+        },
+        {
+          "file": "terrain.py",
+          "line": 350,
+          "function": "_local_pairs",
+          "calls": 705,
+          "self_seconds": 0.299262248,
+          "cumulative_seconds": 0.346512243
+        },
+        {
+          "file": "logistics.py",
+          "line": 910,
+          "function": "sync_batteries",
+          "calls": 1200,
+          "self_seconds": 0.10789668300000001,
+          "cumulative_seconds": 0.33457210400000004
+        },
+        {
+          "file": "fromnumeric.py",
+          "line": 2876,
+          "function": "cumsum",
+          "calls": 749,
+          "self_seconds": 0.001625336,
+          "cumulative_seconds": 0.216444296
+        },
+        {
+          "file": "~",
+          "line": 0,
+          "function": "<method 'cumsum' of 'numpy.ndarray' objects>",
+          "calls": 749,
+          "self_seconds": 0.212972187,
+          "cumulative_seconds": 0.212972187
+        },
+        {
+          "file": "inventory.py",
+          "line": 125,
+          "function": "select",
+          "calls": 12136,
+          "self_seconds": 0.109475421,
+          "cumulative_seconds": 0.198419687
+        }
+      ]
+    },
+    "before_gui": {
+      "gui": true,
+      "profiled": true,
+      "wall_seconds": 12.402540724000573,
+      "model_seconds": 876.0,
+      "actual_speed": 70.63068926714531,
+      "grid_cells": 1024,
+      "cell_size_m": 0.5,
+      "trips": 72,
+      "mass_error_kg": 2.2737367544323206e-13,
+      "energy_error_j": 3.8743019104003906e-07,
+      "self_top": [
+        {
+          "file": "terrain.py",
+          "line": 224,
+          "function": "dump_location",
+          "calls": 2532,
+          "self_seconds": 1.7731309450000001,
+          "cumulative_seconds": 1.999541935
+        },
+        {
+          "file": "dust.py",
+          "line": 33,
+          "function": "tick",
+          "calls": 876,
+          "self_seconds": 1.1857739010000001,
+          "cumulative_seconds": 1.3309222470000002
+        },
+        {
+          "file": "~",
+          "line": 0,
+          "function": "<built-in method exec>",
+          "calls": 1,
+          "self_seconds": 0.864245036,
+          "cumulative_seconds": 12.402333052000001
+        },
+        {
+          "file": "gui.py",
+          "line": 21,
+          "function": "terrain_rgb",
+          "calls": 43,
+          "self_seconds": 0.699517271,
+          "cumulative_seconds": 1.926858143
+        },
+        {
+          "file": "~",
+          "line": 0,
+          "function": "<method 'play' of 'PySide6.QtGui.QPicture' objects>",
+          "calls": 178,
+          "self_seconds": 0.549931919,
+          "cumulative_seconds": 0.549931919
+        },
+        {
+          "file": "~",
+          "line": 0,
+          "function": "<built-in method numpy._core._multiarray_umath.interp>",
+          "calls": 215,
+          "self_seconds": 0.47044167900000006,
+          "cumulative_seconds": 0.47044167900000006
+        },
+        {
+          "file": "terrain.py",
+          "line": 281,
+          "function": "deposit",
+          "calls": 72,
+          "self_seconds": 0.446368189,
+          "cumulative_seconds": 0.48446683300000004
+        },
+        {
+          "file": "workfront.py",
+          "line": 84,
+          "function": "update",
+          "calls": 1502,
+          "self_seconds": 0.375119233,
+          "cumulative_seconds": 0.557957104
+        },
+        {
+          "file": "terrain.py",
+          "line": 104,
+          "function": "remaining",
+          "calls": 4655,
+          "self_seconds": 0.350013483,
+          "cumulative_seconds": 0.371118286
+        },
+        {
+          "file": "excavator.py",
+          "line": 93,
+          "function": "reachable_mask",
+          "calls": 483,
+          "self_seconds": 0.32420866600000003,
+          "cumulative_seconds": 0.326466474
+        },
+        {
+          "file": "shape_base.py",
+          "line": 378,
+          "function": "stack",
+          "calls": 43,
+          "self_seconds": 0.277644699,
+          "cumulative_seconds": 0.27788013
+        },
+        {
+          "file": "terrain.py",
+          "line": 365,
+          "function": "relax",
+          "calls": 574,
+          "self_seconds": 0.247006204,
+          "cumulative_seconds": 0.565826033
+        },
+        {
+          "file": "_methods.py",
+          "line": 96,
+          "function": "_clip",
+          "calls": 5502,
+          "self_seconds": 0.24538362800000002,
+          "cumulative_seconds": 0.24891172500000003
+        },
+        {
+          "file": "~",
+          "line": 0,
+          "function": "<method 'reduce' of 'numpy.ufunc' objects>",
+          "calls": 60774,
+          "self_seconds": 0.231026277,
+          "cumulative_seconds": 0.231026277
+        },
+        {
+          "file": "terrain.py",
+          "line": 350,
+          "function": "_local_pairs",
+          "calls": 574,
+          "self_seconds": 0.218032903,
+          "cumulative_seconds": 0.25783601300000003
+        },
+        {
+          "file": "_function_base_impl.py",
+          "line": 1014,
+          "function": "gradient",
+          "calls": 43,
+          "self_seconds": 0.19664235800000002,
+          "cumulative_seconds": 0.198716298
+        },
+        {
+          "file": "~",
+          "line": 0,
+          "function": "<method 'cumsum' of 'numpy.ndarray' objects>",
+          "calls": 647,
+          "self_seconds": 0.174422045,
+          "cumulative_seconds": 0.174422045
+        },
+        {
+          "file": "terrain.py",
+          "line": 129,
+          "function": "stockpile_volume",
+          "calls": 44,
+          "self_seconds": 0.14568869,
+          "cumulative_seconds": 0.151287949
+        },
+        {
+          "file": "terrain.py",
+          "line": 94,
+          "function": "mass_change",
+          "calls": 88,
+          "self_seconds": 0.12091510400000001,
+          "cumulative_seconds": 0.14786506200000002
+        },
+        {
+          "file": "~",
+          "line": 0,
+          "function": "<built-in method builtins.isinstance>",
+          "calls": 1252139,
+          "self_seconds": 0.12028735800000001,
+          "cumulative_seconds": 0.123134769
+        },
+        {
+          "file": "terrain.py",
+          "line": 191,
+          "function": "_available_patch",
+          "calls": 4742,
+          "self_seconds": 0.08783384600000001,
+          "cumulative_seconds": 0.10049065900000001
+        },
+        {
+          "file": "inventory.py",
+          "line": 129,
+          "function": "validate",
+          "calls": 876,
+          "self_seconds": 0.08758051,
+          "cumulative_seconds": 0.14083652500000002
+        },
+        {
+          "file": "logistics.py",
+          "line": 910,
+          "function": "sync_batteries",
+          "calls": 876,
+          "self_seconds": 0.086983107,
+          "cumulative_seconds": 0.260438443
+        },
+        {
+          "file": "gui.py",
+          "line": 734,
+          "function": "refresh",
+          "calls": 44,
+          "self_seconds": 0.08642619800000001,
+          "cumulative_seconds": 2.811608634
+        },
+        {
+          "file": "inventory.py",
+          "line": 125,
+          "function": "select",
+          "calls": 8703,
+          "self_seconds": 0.084854647,
+          "cumulative_seconds": 0.152682002
+        }
+      ],
+      "cumulative_top": [
+        {
+          "file": "~",
+          "line": 0,
+          "function": "<built-in method exec>",
+          "calls": 1,
+          "self_seconds": 0.864245036,
+          "cumulative_seconds": 12.402333052000001
+        },
+        {
+          "file": "gui.py",
+          "line": 684,
+          "function": "on_frame",
+          "calls": 195,
+          "self_seconds": 0.026109037,
+          "cumulative_seconds": 10.471411259
+        },
+        {
+          "file": "simulation.py",
+          "line": 844,
+          "function": "step",
+          "calls": 876,
+          "self_seconds": 0.025119823000000003,
+          "cumulative_seconds": 7.6209193840000005
+        },
+        {
+          "file": "logistics.py",
+          "line": 943,
+          "function": "step",
+          "calls": 876,
+          "self_seconds": 0.07608708700000001,
+          "cumulative_seconds": 7.042301286000001
+        },
+        {
+          "file": "simulation.py",
+          "line": 615,
+          "function": "_airborne",
+          "calls": 3268,
+          "self_seconds": 0.023753345000000002,
+          "cumulative_seconds": 3.0520100570000004
+        },
+        {
+          "file": "gui.py",
+          "line": 734,
+          "function": "refresh",
+          "calls": 44,
+          "self_seconds": 0.08642619800000001,
+          "cumulative_seconds": 2.811608634
+        },
+        {
+          "file": "simulation.py",
+          "line": 531,
+          "function": "_choose_trip",
+          "calls": 79,
+          "self_seconds": 0.000772248,
+          "cumulative_seconds": 2.2468967230000003
+        },
+        {
+          "file": "planner.py",
+          "line": 46,
+          "function": "choose",
+          "calls": 79,
+          "self_seconds": 0.0008622250000000001,
+          "cumulative_seconds": 2.2441193480000003
+        },
+        {
+          "file": "planner.py",
+          "line": 58,
+          "function": "_choose_source",
+          "calls": 79,
+          "self_seconds": 0.032743192000000004,
+          "cumulative_seconds": 2.2431156380000004
+        },
+        {
+          "file": "simulation.py",
+          "line": 588,
+          "function": "_continue_or_return",
+          "calls": 72,
+          "self_seconds": 0.001915032,
+          "cumulative_seconds": 2.0705658010000003
+        },
+        {
+          "file": "terrain.py",
+          "line": 224,
+          "function": "dump_location",
+          "calls": 2532,
+          "self_seconds": 1.7731309450000001,
+          "cumulative_seconds": 1.999541935
+        },
+        {
+          "file": "gui.py",
+          "line": 21,
+          "function": "terrain_rgb",
+          "calls": 43,
+          "self_seconds": 0.699517271,
+          "cumulative_seconds": 1.926858143
+        },
+        {
+          "file": "dust.py",
+          "line": 33,
+          "function": "tick",
+          "calls": 876,
+          "self_seconds": 1.1857739010000001,
+          "cumulative_seconds": 1.3309222470000002
+        },
+        {
+          "file": "GraphicsView.py",
+          "line": 136,
+          "function": "paintEvent",
+          "calls": 89,
+          "self_seconds": 0.001452348,
+          "cumulative_seconds": 0.9789584840000001
+        },
+        {
+          "file": "~",
+          "line": 0,
+          "function": "<function GraphicsView.paintEvent at 0x7fd854267600>",
+          "calls": 89,
+          "self_seconds": 0.070949343,
+          "cumulative_seconds": 0.9575900920000001
+        },
+        {
+          "file": "AxisItem.py",
+          "line": 983,
+          "function": "paint",
+          "calls": 178,
+          "self_seconds": 0.0032705480000000003,
+          "cumulative_seconds": 0.657207956
+        },
+        {
+          "file": "terrain.py",
+          "line": 365,
+          "function": "relax",
+          "calls": 574,
+          "self_seconds": 0.247006204,
+          "cumulative_seconds": 0.565826033
+        },
+        {
+          "file": "workfront.py",
+          "line": 84,
+          "function": "update",
+          "calls": 1502,
+          "self_seconds": 0.375119233,
+          "cumulative_seconds": 0.557957104
+        },
+        {
+          "file": "~",
+          "line": 0,
+          "function": "<method 'play' of 'PySide6.QtGui.QPicture' objects>",
+          "calls": 178,
+          "self_seconds": 0.549931919,
+          "cumulative_seconds": 0.549931919
+        },
+        {
+          "file": "excavator.py",
+          "line": 179,
+          "function": "tick",
+          "calls": 876,
+          "self_seconds": 0.022971149,
+          "cumulative_seconds": 0.539030761
+        },
+        {
+          "file": "simulation.py",
+          "line": 742,
+          "function": "_update_workfront",
+          "calls": 876,
+          "self_seconds": 0.004811392,
+          "cumulative_seconds": 0.49078681500000004
+        },
+        {
+          "file": "terrain.py",
+          "line": 281,
+          "function": "deposit",
+          "calls": 72,
+          "self_seconds": 0.446368189,
+          "cumulative_seconds": 0.48446683300000004
+        },
+        {
+          "file": "_function_base_impl.py",
+          "line": 1550,
+          "function": "interp",
+          "calls": 215,
+          "self_seconds": 0.001289625,
+          "cumulative_seconds": 0.47251153300000004
+        },
+        {
+          "file": "~",
+          "line": 0,
+          "function": "<built-in method numpy._core._multiarray_umath.interp>",
+          "calls": 215,
+          "self_seconds": 0.47044167900000006,
+          "cumulative_seconds": 0.47044167900000006
+        },
+        {
+          "file": "logistics.py",
+          "line": 1073,
+          "function": "detect_stall",
+          "calls": 876,
+          "self_seconds": 0.011086989,
+          "cumulative_seconds": 0.459484378
+        }
+      ]
+    },
+    "after": {
+      "python": "3.12.14",
+      "platform": "Linux",
+      "cpu_count": 5,
+      "physical_dt_seconds": 1,
+      "steps": 1200,
+      "source": "Offline Qattara reference canal",
+      "trials": [
+        {
+          "mode": "headless",
+          "render": null,
+          "profiled": true,
+          "initialization_seconds": 1.5867600290002883,
+          "wall_seconds": 7.961386736002169,
+          "model_seconds": 1200.0,
+          "actual_speed": 150.72751014260905,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 93,
+          "state": "RUNNING",
+          "trips": 85,
+          "mass_error_kg": 5.684341886080801e-13,
+          "energy_error_j": 5.513429641723633e-07,
+          "physical_sha256": "07ce0111ef315b4de14a716208593bb5c13da706692bd3e0e941c6054644540c",
+          "wall_limit_reached": false,
+          "self_top": [
+            {
+              "file": "terrain.py",
+              "line": 225,
+              "function": "dump_location",
+              "calls": 2982,
+              "self_seconds": 1.9919756530000001,
+              "cumulative_seconds": 2.244763336
+            },
+            {
+              "file": "dust.py",
+              "line": 42,
+              "function": "tick",
+              "calls": 1200,
+              "self_seconds": 0.743746616,
+              "cumulative_seconds": 0.902443592
+            },
+            {
+              "file": "terrain.py",
+              "line": 283,
+              "function": "deposit",
+              "calls": 85,
+              "self_seconds": 0.434510302,
+              "cumulative_seconds": 0.473856096
+            },
+            {
+              "file": "excavator.py",
+              "line": 93,
+              "function": "reachable_mask",
+              "calls": 663,
+              "self_seconds": 0.389442426,
+              "cumulative_seconds": 0.392265666
+            },
+            {
+              "file": "workfront.py",
+              "line": 84,
+              "function": "update",
+              "calls": 1924,
+              "self_seconds": 0.354391285,
+              "cumulative_seconds": 0.5745557560000001
+            },
+            {
+              "file": "terrain.py",
+              "line": 105,
+              "function": "remaining",
+              "calls": 6540,
+              "self_seconds": 0.34753681000000003,
+              "cumulative_seconds": 0.36942213100000004
+            },
+            {
+              "file": "terrain.py",
+              "line": 368,
+              "function": "relax",
+              "calls": 705,
+              "self_seconds": 0.32281925100000003,
+              "cumulative_seconds": 0.739442137
+            },
+            {
+              "file": "terrain.py",
+              "line": 353,
+              "function": "_local_pairs",
+              "calls": 705,
+              "self_seconds": 0.291994266,
+              "cumulative_seconds": 0.33592345300000004
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<method 'cumsum' of 'numpy.ndarray' objects>",
+              "calls": 749,
+              "self_seconds": 0.21016512,
+              "cumulative_seconds": 0.21016512
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<method 'reduce' of 'numpy.ufunc' objects>",
+              "calls": 71118,
+              "self_seconds": 0.157995569,
+              "cumulative_seconds": 0.157995569
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<built-in method builtins.isinstance>",
+              "calls": 1680804,
+              "self_seconds": 0.145468589,
+              "cumulative_seconds": 0.147705781
+            },
+            {
+              "file": "inventory.py",
+              "line": 129,
+              "function": "validate",
+              "calls": 1200,
+              "self_seconds": 0.116350174,
+              "cumulative_seconds": 0.17763082300000002
+            },
+            {
+              "file": "inventory.py",
+              "line": 125,
+              "function": "select",
+              "calls": 12136,
+              "self_seconds": 0.10637824500000001,
+              "cumulative_seconds": 0.194199908
+            },
+            {
+              "file": "logistics.py",
+              "line": 910,
+              "function": "sync_batteries",
+              "calls": 1200,
+              "self_seconds": 0.099388007,
+              "cumulative_seconds": 0.31842088300000004
+            },
+            {
+              "file": "terrain.py",
+              "line": 192,
+              "function": "_available_patch",
+              "calls": 5559,
+              "self_seconds": 0.092134214,
+              "cumulative_seconds": 0.099937201
+            },
+            {
+              "file": "_linalg.py",
+              "line": 2615,
+              "function": "norm",
+              "calls": 55588,
+              "self_seconds": 0.090805089,
+              "cumulative_seconds": 0.186690086
+            },
+            {
+              "file": "logistics.py",
+              "line": 943,
+              "function": "step",
+              "calls": 1200,
+              "self_seconds": 0.08518217700000001,
+              "cumulative_seconds": 7.341305782
+            },
+            {
+              "file": "simulation.py",
+              "line": 485,
+              "function": "_move",
+              "calls": 1322,
+              "self_seconds": 0.078135308,
+              "cumulative_seconds": 0.349691717
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<method 'argsort' of 'numpy.ndarray' objects>",
+              "calls": 3709,
+              "self_seconds": 0.068782908,
+              "cumulative_seconds": 0.068782908
+            },
+            {
+              "file": "terrain.py",
+              "line": 276,
+              "function": "local_dump_space",
+              "calls": 3492,
+              "self_seconds": 0.06270385,
+              "cumulative_seconds": 0.085322795
+            },
+            {
+              "file": "planner.py",
+              "line": 21,
+              "function": "estimate",
+              "calls": 4232,
+              "self_seconds": 0.050669564,
+              "cumulative_seconds": 0.115822725
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<built-in method builtins.max>",
+              "calls": 209556,
+              "self_seconds": 0.048780708000000006,
+              "cumulative_seconds": 0.048783082000000005
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<method 'dot' of 'numpy.ndarray' objects>",
+              "calls": 55588,
+              "self_seconds": 0.047748756,
+              "cumulative_seconds": 0.047748756
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<built-in method builtins.sum>",
+              "calls": 45506,
+              "self_seconds": 0.045584598000000004,
+              "cumulative_seconds": 0.12144111
+            },
+            {
+              "file": "terrain.py",
+              "line": 165,
+              "function": "sample",
+              "calls": 27577,
+              "self_seconds": 0.042159405000000004,
+              "cumulative_seconds": 0.061256152
+            }
+          ],
+          "cumulative_top": [
+            {
+              "file": "simulation.py",
+              "line": 925,
+              "function": "run",
+              "calls": 1,
+              "self_seconds": 0.0018733110000000001,
+              "cumulative_seconds": 7.9612170010000005
+            },
+            {
+              "file": "simulation.py",
+              "line": 852,
+              "function": "step",
+              "calls": 1200,
+              "self_seconds": 0.017571907,
+              "cumulative_seconds": 7.950776584000001
+            },
+            {
+              "file": "logistics.py",
+              "line": 943,
+              "function": "step",
+              "calls": 1200,
+              "self_seconds": 0.08518217700000001,
+              "cumulative_seconds": 7.341305782
+            },
+            {
+              "file": "simulation.py",
+              "line": 623,
+              "function": "_airborne",
+              "calls": 3872,
+              "self_seconds": 0.023897321000000003,
+              "cumulative_seconds": 3.3848163380000003
+            },
+            {
+              "file": "simulation.py",
+              "line": 539,
+              "function": "_choose_trip",
+              "calls": 93,
+              "self_seconds": 0.001003891,
+              "cumulative_seconds": 2.5050292780000003
+            },
+            {
+              "file": "planner.py",
+              "line": 46,
+              "function": "choose",
+              "calls": 93,
+              "self_seconds": 0.000765189,
+              "cumulative_seconds": 2.5014907330000002
+            },
+            {
+              "file": "planner.py",
+              "line": 58,
+              "function": "_choose_source",
+              "calls": 93,
+              "self_seconds": 0.031545488000000003,
+              "cumulative_seconds": 2.5005292000000003
+            },
+            {
+              "file": "simulation.py",
+              "line": 596,
+              "function": "_continue_or_return",
+              "calls": 85,
+              "self_seconds": 0.0018328700000000001,
+              "cumulative_seconds": 2.377669086
+            },
+            {
+              "file": "terrain.py",
+              "line": 225,
+              "function": "dump_location",
+              "calls": 2982,
+              "self_seconds": 1.9919756530000001,
+              "cumulative_seconds": 2.244763336
+            },
+            {
+              "file": "dust.py",
+              "line": 42,
+              "function": "tick",
+              "calls": 1200,
+              "self_seconds": 0.743746616,
+              "cumulative_seconds": 0.902443592
+            },
+            {
+              "file": "terrain.py",
+              "line": 368,
+              "function": "relax",
+              "calls": 705,
+              "self_seconds": 0.32281925100000003,
+              "cumulative_seconds": 0.739442137
+            },
+            {
+              "file": "excavator.py",
+              "line": 179,
+              "function": "tick",
+              "calls": 1200,
+              "self_seconds": 0.025723734,
+              "cumulative_seconds": 0.637648153
+            },
+            {
+              "file": "workfront.py",
+              "line": 84,
+              "function": "update",
+              "calls": 1924,
+              "self_seconds": 0.354391285,
+              "cumulative_seconds": 0.5745557560000001
+            },
+            {
+              "file": "simulation.py",
+              "line": 750,
+              "function": "_update_workfront",
+              "calls": 1200,
+              "self_seconds": 0.00360085,
+              "cumulative_seconds": 0.542264336
+            },
+            {
+              "file": "terrain.py",
+              "line": 283,
+              "function": "deposit",
+              "calls": 85,
+              "self_seconds": 0.434510302,
+              "cumulative_seconds": 0.473856096
+            },
+            {
+              "file": "logistics.py",
+              "line": 1073,
+              "function": "detect_stall",
+              "calls": 1200,
+              "self_seconds": 0.013249089,
+              "cumulative_seconds": 0.457957469
+            },
+            {
+              "file": "excavator.py",
+              "line": 93,
+              "function": "reachable_mask",
+              "calls": 663,
+              "self_seconds": 0.389442426,
+              "cumulative_seconds": 0.392265666
+            },
+            {
+              "file": "terrain.py",
+              "line": 105,
+              "function": "remaining",
+              "calls": 6540,
+              "self_seconds": 0.34753681000000003,
+              "cumulative_seconds": 0.36942213100000004
+            },
+            {
+              "file": "fromnumeric.py",
+              "line": 48,
+              "function": "_wrapfunc",
+              "calls": 17249,
+              "self_seconds": 0.013130654,
+              "cumulative_seconds": 0.350747172
+            },
+            {
+              "file": "simulation.py",
+              "line": 485,
+              "function": "_move",
+              "calls": 1322,
+              "self_seconds": 0.078135308,
+              "cumulative_seconds": 0.349691717
+            },
+            {
+              "file": "terrain.py",
+              "line": 353,
+              "function": "_local_pairs",
+              "calls": 705,
+              "self_seconds": 0.291994266,
+              "cumulative_seconds": 0.33592345300000004
+            },
+            {
+              "file": "logistics.py",
+              "line": 910,
+              "function": "sync_batteries",
+              "calls": 1200,
+              "self_seconds": 0.099388007,
+              "cumulative_seconds": 0.31842088300000004
+            },
+            {
+              "file": "fromnumeric.py",
+              "line": 2876,
+              "function": "cumsum",
+              "calls": 749,
+              "self_seconds": 0.001636672,
+              "cumulative_seconds": 0.213517917
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<method 'cumsum' of 'numpy.ndarray' objects>",
+              "calls": 749,
+              "self_seconds": 0.21016512,
+              "cumulative_seconds": 0.21016512
+            },
+            {
+              "file": "inventory.py",
+              "line": 125,
+              "function": "select",
+              "calls": 12136,
+              "self_seconds": 0.10637824500000001,
+              "cumulative_seconds": 0.194199908
+            }
+          ]
+        },
+        {
+          "mode": "gui",
+          "render": "auto",
+          "profiled": true,
+          "initialization_seconds": 1.9663207350022276,
+          "wall_seconds": 10.318516669001838,
+          "model_seconds": 1200.0,
+          "actual_speed": 116.29578538211365,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 93,
+          "state": "RUNNING",
+          "trips": 85,
+          "mass_error_kg": 5.684341886080801e-13,
+          "energy_error_j": 5.513429641723633e-07,
+          "physical_sha256": "07ce0111ef315b4de14a716208593bb5c13da706692bd3e0e941c6054644540c",
+          "wall_limit_reached": false,
+          "self_top": [
+            {
+              "file": "terrain.py",
+              "line": 225,
+              "function": "dump_location",
+              "calls": 2982,
+              "self_seconds": 2.006702384,
+              "cumulative_seconds": 2.261150968
+            },
+            {
+              "file": "dust.py",
+              "line": 42,
+              "function": "tick",
+              "calls": 1200,
+              "self_seconds": 0.738088833,
+              "cumulative_seconds": 0.9038450320000001
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<built-in method exec>",
+              "calls": 1,
+              "self_seconds": 0.5338542900000001,
+              "cumulative_seconds": 10.318395356
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<method 'reduce' of 'numpy.ufunc' objects>",
+              "calls": 76291,
+              "self_seconds": 0.45968620000000004,
+              "cumulative_seconds": 0.45968620000000004
+            },
+            {
+              "file": "terrain.py",
+              "line": 283,
+              "function": "deposit",
+              "calls": 85,
+              "self_seconds": 0.454137866,
+              "cumulative_seconds": 0.493973618
+            },
+            {
+              "file": "excavator.py",
+              "line": 93,
+              "function": "reachable_mask",
+              "calls": 663,
+              "self_seconds": 0.40181829300000005,
+              "cumulative_seconds": 0.405378275
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<method 'play' of 'PySide6.QtGui.QPicture' objects>",
+              "calls": 114,
+              "self_seconds": 0.362922682,
+              "cumulative_seconds": 0.362922682
+            },
+            {
+              "file": "terrain.py",
+              "line": 105,
+              "function": "remaining",
+              "calls": 6624,
+              "self_seconds": 0.333179746,
+              "cumulative_seconds": 0.35517700100000005
+            },
+            {
+              "file": "workfront.py",
+              "line": 84,
+              "function": "update",
+              "calls": 1981,
+              "self_seconds": 0.325029257,
+              "cumulative_seconds": 0.549380254
+            },
+            {
+              "file": "terrain.py",
+              "line": 368,
+              "function": "relax",
+              "calls": 705,
+              "self_seconds": 0.319404283,
+              "cumulative_seconds": 0.737309816
+            },
+            {
+              "file": "terrain.py",
+              "line": 353,
+              "function": "_local_pairs",
+              "calls": 705,
+              "self_seconds": 0.28943596600000004,
+              "cumulative_seconds": 0.33522827
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<method 'cumsum' of 'numpy.ndarray' objects>",
+              "calls": 776,
+              "self_seconds": 0.212894457,
+              "cumulative_seconds": 0.212894457
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<built-in method builtins.isinstance>",
+              "calls": 1728377,
+              "self_seconds": 0.145448182,
+              "cumulative_seconds": 0.148020767
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<built-in method numpy._core._multiarray_umath.interp>",
+              "calls": 140,
+              "self_seconds": 0.13860755700000002,
+              "cumulative_seconds": 0.13860755700000002
+            },
+            {
+              "file": "inventory.py",
+              "line": 129,
+              "function": "validate",
+              "calls": 1200,
+              "self_seconds": 0.11428157600000001,
+              "cumulative_seconds": 0.180825708
+            },
+            {
+              "file": "inventory.py",
+              "line": 125,
+              "function": "select",
+              "calls": 12363,
+              "self_seconds": 0.10232263700000001,
+              "cumulative_seconds": 0.19056356600000002
+            },
+            {
+              "file": "logistics.py",
+              "line": 910,
+              "function": "sync_batteries",
+              "calls": 1200,
+              "self_seconds": 0.102084378,
+              "cumulative_seconds": 0.32383943600000004
+            },
+            {
+              "file": "terrain.py",
+              "line": 192,
+              "function": "_available_patch",
+              "calls": 5559,
+              "self_seconds": 0.093383781,
+              "cumulative_seconds": 0.10114654000000001
+            },
+            {
+              "file": "_linalg.py",
+              "line": 2615,
+              "function": "norm",
+              "calls": 55644,
+              "self_seconds": 0.092279317,
+              "cumulative_seconds": 0.18535552700000002
+            },
+            {
+              "file": "logistics.py",
+              "line": 943,
+              "function": "step",
+              "calls": 1200,
+              "self_seconds": 0.087880468,
+              "cumulative_seconds": 7.4539968420000005
+            },
+            {
+              "file": "gui.py",
+              "line": 22,
+              "function": "terrain_rgb",
+              "calls": 28,
+              "self_seconds": 0.085603997,
+              "cumulative_seconds": 0.30630812300000004
+            },
+            {
+              "file": "simulation.py",
+              "line": 485,
+              "function": "_move",
+              "calls": 1322,
+              "self_seconds": 0.077911275,
+              "cumulative_seconds": 0.347789459
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<method 'argsort' of 'numpy.ndarray' objects>",
+              "calls": 3709,
+              "self_seconds": 0.06807761200000001,
+              "cumulative_seconds": 0.06807761200000001
+            },
+            {
+              "file": "terrain.py",
+              "line": 276,
+              "function": "local_dump_space",
+              "calls": 3492,
+              "self_seconds": 0.067516696,
+              "cumulative_seconds": 0.090156679
+            },
+            {
+              "file": "terrain.py",
+              "line": 130,
+              "function": "stockpile_volume",
+              "calls": 29,
+              "self_seconds": 0.055818343000000006,
+              "cumulative_seconds": 0.058449191000000005
+            }
+          ],
+          "cumulative_top": [
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<built-in method exec>",
+              "calls": 1,
+              "self_seconds": 0.5338542900000001,
+              "cumulative_seconds": 10.318395356
+            },
+            {
+              "file": "gui.py",
+              "line": 811,
+              "function": "on_frame",
+              "calls": 133,
+              "self_seconds": 0.020905708000000002,
+              "cumulative_seconds": 9.122526997000001
+            },
+            {
+              "file": "benchmark_runtime.py",
+              "line": 62,
+              "function": "step",
+              "calls": 1200,
+              "self_seconds": 0.002492479,
+              "cumulative_seconds": 8.050111341000001
+            },
+            {
+              "file": "simulation.py",
+              "line": 852,
+              "function": "step",
+              "calls": 1200,
+              "self_seconds": 0.024971892000000002,
+              "cumulative_seconds": 8.045537462
+            },
+            {
+              "file": "logistics.py",
+              "line": 943,
+              "function": "step",
+              "calls": 1200,
+              "self_seconds": 0.087880468,
+              "cumulative_seconds": 7.4539968420000005
+            },
+            {
+              "file": "simulation.py",
+              "line": 623,
+              "function": "_airborne",
+              "calls": 3872,
+              "self_seconds": 0.023669639000000003,
+              "cumulative_seconds": 3.443134586
+            },
+            {
+              "file": "simulation.py",
+              "line": 539,
+              "function": "_choose_trip",
+              "calls": 93,
+              "self_seconds": 0.000956723,
+              "cumulative_seconds": 2.536684438
+            },
+            {
+              "file": "planner.py",
+              "line": 46,
+              "function": "choose",
+              "calls": 93,
+              "self_seconds": 0.0007821680000000001,
+              "cumulative_seconds": 2.533668634
+            },
+            {
+              "file": "planner.py",
+              "line": 58,
+              "function": "_choose_source",
+              "calls": 93,
+              "self_seconds": 0.037413478,
+              "cumulative_seconds": 2.532717538
+            },
+            {
+              "file": "simulation.py",
+              "line": 596,
+              "function": "_continue_or_return",
+              "calls": 85,
+              "self_seconds": 0.0018281940000000002,
+              "cumulative_seconds": 2.416335248
+            },
+            {
+              "file": "terrain.py",
+              "line": 225,
+              "function": "dump_location",
+              "calls": 2982,
+              "self_seconds": 2.006702384,
+              "cumulative_seconds": 2.261150968
+            },
+            {
+              "file": "gui.py",
+              "line": 866,
+              "function": "refresh",
+              "calls": 29,
+              "self_seconds": 0.032916843,
+              "cumulative_seconds": 1.043753427
+            },
+            {
+              "file": "dust.py",
+              "line": 42,
+              "function": "tick",
+              "calls": 1200,
+              "self_seconds": 0.738088833,
+              "cumulative_seconds": 0.9038450320000001
+            },
+            {
+              "file": "terrain.py",
+              "line": 368,
+              "function": "relax",
+              "calls": 705,
+              "self_seconds": 0.319404283,
+              "cumulative_seconds": 0.737309816
+            },
+            {
+              "file": "excavator.py",
+              "line": 179,
+              "function": "tick",
+              "calls": 1200,
+              "self_seconds": 0.031720937000000005,
+              "cumulative_seconds": 0.6635729450000001
+            },
+            {
+              "file": "GraphicsView.py",
+              "line": 136,
+              "function": "paintEvent",
+              "calls": 57,
+              "self_seconds": 0.0006413510000000001,
+              "cumulative_seconds": 0.6136126700000001
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<function GraphicsView.paintEvent at 0x7fc311822de0>",
+              "calls": 57,
+              "self_seconds": 0.036280973,
+              "cumulative_seconds": 0.6022504550000001
+            },
+            {
+              "file": "workfront.py",
+              "line": 84,
+              "function": "update",
+              "calls": 1981,
+              "self_seconds": 0.325029257,
+              "cumulative_seconds": 0.549380254
+            },
+            {
+              "file": "simulation.py",
+              "line": 750,
+              "function": "_update_workfront",
+              "calls": 1200,
+              "self_seconds": 0.003819181,
+              "cumulative_seconds": 0.49873885700000004
+            },
+            {
+              "file": "terrain.py",
+              "line": 283,
+              "function": "deposit",
+              "calls": 85,
+              "self_seconds": 0.454137866,
+              "cumulative_seconds": 0.493973618
+            },
+            {
+              "file": "logistics.py",
+              "line": 1073,
+              "function": "detect_stall",
+              "calls": 1200,
+              "self_seconds": 0.011188431,
+              "cumulative_seconds": 0.46024077
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<method 'reduce' of 'numpy.ufunc' objects>",
+              "calls": 76291,
+              "self_seconds": 0.45968620000000004,
+              "cumulative_seconds": 0.45968620000000004
+            },
+            {
+              "file": "AxisItem.py",
+              "line": 983,
+              "function": "paint",
+              "calls": 114,
+              "self_seconds": 0.0023645940000000002,
+              "cumulative_seconds": 0.431100808
+            },
+            {
+              "file": "excavator.py",
+              "line": 93,
+              "function": "reachable_mask",
+              "calls": 663,
+              "self_seconds": 0.40181829300000005,
+              "cumulative_seconds": 0.405378275
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<method 'play' of 'PySide6.QtGui.QPicture' objects>",
+              "calls": 114,
+              "self_seconds": 0.362922682,
+              "cumulative_seconds": 0.362922682
+            }
+          ]
+        }
+      ],
+      "median": {}
+    }
+  },
+  "checkpoint": {
+    "source": "Offline Qattara reference canal",
+    "model_seconds_at_save": 1200,
+    "grid_cells": 1024,
+    "file_bytes": 74134978,
+    "save_seconds": 2.2982190900002024,
+    "load_seconds": 0.6679519879980944,
+    "physical_report_equal": true,
+    "terrain_bitwise_equal": true,
+    "continuation_steps": 25,
+    "continuation_report_equal": true,
+    "landscape_included": true
+  },
+  "saved_state_benchmark_smoke": {
+    "python": "3.12.14",
+    "platform": "Linux",
+    "cpu_count": 5,
+    "physical_dt_seconds": 1,
+    "steps": 20,
+    "source": "ats-session-canal.atsstate",
+    "trials": [
+      {
+        "mode": "headless",
+        "render": null,
+        "profiled": false,
+        "initialization_seconds": 0.7602105930054677,
+        "wall_seconds": 0.06352049399720272,
+        "model_seconds": 20.0,
+        "actual_speed": 314.85901228792,
+        "grid_cells": 1024,
+        "drones": 4,
+        "inventory_items": 93,
+        "state": "RUNNING",
+        "trips": 85,
+        "mass_error_kg": 5.684341886080801e-13,
+        "energy_error_j": 5.513429641723633e-07,
+        "physical_sha256": "1106855f27e3b789e311f4851c8642f0d8f477312c34d6b4848fe6f66cb1810a",
+        "wall_limit_reached": false
+      },
+      {
+        "mode": "gui",
+        "render": "auto",
+        "profiled": false,
+        "initialization_seconds": 1.2142748789992766,
+        "wall_seconds": 0.18155274000309873,
+        "model_seconds": 20.0,
+        "actual_speed": 110.16082709442249,
+        "grid_cells": 1024,
+        "drones": 4,
+        "inventory_items": 93,
+        "state": "RUNNING",
+        "trips": 85,
+        "mass_error_kg": 5.684341886080801e-13,
+        "energy_error_j": 5.513429641723633e-07,
+        "physical_sha256": "1106855f27e3b789e311f4851c8642f0d8f477312c34d6b4848fe6f66cb1810a",
+        "wall_limit_reached": false
+      }
+    ],
+    "median": {
+      "headless": {
+        "wall_seconds": 0.06352049399720272,
+        "model_seconds": 20.0,
+        "actual_speed": 314.85901228792
+      },
+      "gui": {
+        "wall_seconds": 0.18155274000309873,
+        "model_seconds": 20.0,
+        "actual_speed": 110.16082709442249
+      }
+    }
+  },
+  "local_tests": {
+    "full_suite_passed": 326,
+    "full_suite_seconds": 225.21,
+    "final_cli_gui_followup": "see CI results"
+  },
+  "limitations": [
+    "Measured reference scenario, not a reproduction of the user 15x state.",
+    "GUI offscreen timings depend on hardware and Qt platform.",
+    "Profiles include profiler overhead and are excluded from speed medians.",
+    "Exact continuation tested in the same Python/NumPy environment."
+  ]
+}

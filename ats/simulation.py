@@ -222,6 +222,14 @@ class Simulation:
             return 'applied'
         return self.request_equipment(candidate)
 
+    def set_base_battery_count(self, count):
+        from copy import deepcopy
+        from .equipment import set_base_battery_count
+        if type(count) is int and count==sum(b.quantity for b in self.base.config.equipment.batteries):return 'applied'
+        candidate=deepcopy(self.config)
+        set_base_battery_count(candidate.base.equipment,count)
+        return self.request_equipment(candidate)
+
     def request_equipment(self,proposed):
         """Apply stationary base changes now; airborne workshop work waits for landing."""
         from copy import deepcopy

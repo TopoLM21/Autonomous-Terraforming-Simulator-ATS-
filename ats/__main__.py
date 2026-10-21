@@ -5,6 +5,49 @@ from .scenarios import scenario, PRESETS
 from .simulation import Simulation
 
 
+def _write_report(report, path):
+    result=json.dumps(report,ensure_ascii=False,indent=2)
+    try:result.encode(sys.stdout.encoding or 'utf-8');stdout=result
+    except UnicodeEncodeError:stdout=json.dumps(report,ensure_ascii=True,indent=2)
+    print(stdout)
+    if path:
+        from pathlib import Path
+        Path(path).write_text(result+'\n',encoding='utf-8')
+
+
+def _finish_region(sim, region, report, save_path=None):
+    if region is None:return
+    if save_path:
+        w=sim.logistics;e=w.excavator if w else None
+        if (any(not d.grounded or d.cargo>0 for d in sim.drones) or w and
+                (w.active or w.group is not None or any(c.soil_kg>0 for c in w.containers) or
+                 e and (e.bucket_kg>0 or e.active_container is not None))):
+            raise ValueError('Ландшафт не сохранён: завершите рейсы/выгрузку; для сохранения работающей техники используйте --save-state')
+    region.commit_window(sim.config.georeference['origin_m'],sim.terrain.height,cell_size=sim.terrain.cell)
+    if region.channel_project:
+        from .channel import ChannelProject
+        project=ChannelProject.from_data(region.channel_project);project.record(report);region.channel_project=project.to_data()
+    if save_path:region.save(save_path)
+    report['landscape']=region.report()
+
+
+def _resume(args, parser):
+    from .checkpoint import load_state,save_state
+    allowed={'--load-state','--save-state','--headless','--steps','--json','--panel-area','--base-batteries'}
+    forbidden=[v.split('=')[0] for v in sys.argv[1:] if v.startswith('--') and v.split('=')[0] not in allowed]
+    if forbidden:parser.error('Сохранение уже задаёт сценарий; несовместимые параметры: '+', '.join(forbidden))
+    session=load_state(args.load_state);sim=session.simulation
+    if args.panel_area is not None:sim.set_panel_area(args.panel_area)
+    if args.base_batteries is not None:sim.set_base_battery_count(args.base_batteries)
+    if not args.headless:
+        from .gui import launch
+        return launch(sim.config,session=session)
+    report=sim.run(args.steps);_finish_region(sim,session.landscape,report)
+    if args.save_state:save_state(args.save_state,sim,session.landscape,session.ui)
+    _write_report(report,args.json_path)
+    return 2 if report['state']=='BLOCKED' else 0
+
+
 def main():
     parser = argparse.ArgumentParser(description="ATS 2.0 · Autonomous Terraforming Simulator")
     parser.add_argument("--headless", action="store_true")
@@ -20,7 +63,7 @@ def main():
     parser.add_argument("--drones", type=int, help="Fleet size, 1..6; default 1 legacy / 4 logistics")
     parser.add_argument("--charge-slots", type=int, help="Landing/charging sockets, 1..6; share total charging power")
     parser.add_argument("--wait-mode", choices=("ground","air"), default="ground")
-    parser.add_argument("--charge-threshold", type=float, default=30, help="Lower charging trigger, percent; charging then continues to 100%")
+    parser.add_argument("--charge-threshold", type=float, default=30, help="Lower charging trigger, percent; charging then continues to 100%%")
     parser.add_argument("--plan", help="Load a brush plan JSON, including its starting terrain")
     parser.add_argument("--equipment", help="Load an equipment inventory JSON exported from the equipment editor")
     parser.add_argument("--compare-fleet", help="Compare fleet sizes, e.g. 1,2,3, with the same scenario")
@@ -42,6 +85,9 @@ def main():
     parser.add_argument('--laser-profile',choices=('laser_off','existing_legacy','realistic_reference'))
     parser.add_argument('--configuration',help='Load version 2 experiment JSON')
     parser.add_argument('--save-configuration',help='Save version 2 experiment JSON')
+    parser.add_argument('--load-state',help='Resume a complete .atsstate snapshot, including working machinery')
+    parser.add_argument('--save-state',help='Save complete state after a headless run; airborne cargo is supported')
+    parser.add_argument('--base-batteries',type=int,help='Installed base packs, 0..1000; hot additions to loaded state are empty')
     parser.add_argument('--batch-experiments',action='store_true',help='Run S0–S9 with the same terrain/seed')
     dem_source=parser.add_mutually_exclusive_group()
     dem_source.add_argument('--dem',help='Offline DEM: NPZ, ESRI ASC or optional GeoTIFF')
@@ -67,6 +113,11 @@ def main():
     mode=args.mode or 'logistics'
     if args.steps < 0:
         parser.error("--steps must be nonnegative")
+    if args.save_state and (not args.headless or args.batch_experiments or args.compare_fleet):
+        parser.error('--save-state требует один headless-прогон; в интерфейсе используйте меню «Файл»')
+    if args.load_state:
+        try:return _resume(args,parser)
+        except (ValueError,OSError,KeyError,TypeError) as error:parser.error(str(error))
     config = scenario(args.preset, args.seed)
     config.start_hour = args.start_hour
     config.terrain.roughness = args.roughness
@@ -175,6 +226,9 @@ def main():
         if args.dig_rate is not None:
             config.drone.dig_rate_kg_s=args.dig_rate
             for model in config.fleet.models:model.dig_rate_kg_s=args.dig_rate
+        if args.base_batteries is not None:
+            from .equipment import set_base_battery_count,resolve_config
+            set_base_battery_count(config.base.equipment,args.base_batteries);resolve_config(config)
         if args.save_configuration:
             from .experiments import save_configuration
             save_configuration(args.save_configuration,config)
@@ -189,29 +243,11 @@ def main():
             else:
                 sim = Simulation(config)
                 report = sim.run(args.steps)
-                if region is not None:
-                    if args.save_landscape:
-                        w=sim.logistics;e=w.excavator if w else None
-                        if any(not d.grounded or d.cargo>0 for d in sim.drones) or w and (w.active or w.group is not None or any(c.soil_kg>0 for c in w.containers) or e and (e.bucket_kg>0 or e.active_container is not None)):
-                            raise ValueError('Ландшафт не сохранён: завершите рейсы/выгрузку (увеличьте --steps); грунт ещё в оборудовании')
-                    region.commit_window(config.georeference['origin_m'],sim.terrain.height,cell_size=sim.terrain.cell)
-                    if region.channel_project:
-                        from .channel import ChannelProject
-                        project=ChannelProject.from_data(region.channel_project);project.record(report);region.channel_project=project.to_data()
-                    if args.save_landscape:region.save(args.save_landscape)
-                    report['landscape']=region.report()
-            result = json.dumps(report, ensure_ascii=False, indent=2)
-            # Windows redirected consoles can use cp1252. Escape Unicode only
-            # when the stream cannot encode it; JSON files always remain UTF-8.
-            stdout_result = result
-            try:
-                result.encode(sys.stdout.encoding or "utf-8")
-            except UnicodeEncodeError:
-                stdout_result = json.dumps(report, ensure_ascii=True, indent=2)
-            print(stdout_result)
-            if args.json_path:
-                from pathlib import Path
-                Path(args.json_path).write_text(result+"\n", encoding="utf-8")
+                _finish_region(sim,region,report,args.save_landscape)
+                if args.save_state:
+                    from .checkpoint import save_state
+                    save_state(args.save_state,sim,region)
+            _write_report(report,args.json_path)
             blocked=isinstance(report,dict) and report['state']=='BLOCKED'
             if args.batch_experiments:blocked=any(row['state']=='BLOCKED' for row in report)
             return 2 if blocked else 0

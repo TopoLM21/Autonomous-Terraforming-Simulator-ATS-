@@ -90,7 +90,7 @@ def test_fast_compute_slices_run_more_steps_without_forcing_a_redraw(monkeypatch
     w.running=True;w.credit=200;w.last_wall=clock.now
     w.performance_wall=clock.now;w.performance_sim=0
     w.on_frame();first=len(calls)
-    assert 20<first<=32 and len(renders)==1 and w.config.dt==1
+    assert 40<first<=52 and len(renders)==1 and w.config.dt==1
     w.on_frame();assert len(calls)>first and len(renders)==1
     assert w.sim.time==len(calls) and calls==list(range(1,len(calls)+1))
     assert w.sim.drone.activity.report()['total_seconds']==len(calls)

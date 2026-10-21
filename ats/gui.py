@@ -1,5 +1,6 @@
 """Qt presentation. Fixed engine steps are bounded by a per-frame time budget."""
 from copy import deepcopy
+from pathlib import Path
 import time
 import math
 import numpy as np
@@ -27,12 +28,31 @@ def terrain_rgb(height, cell, depth, maximum):
     return (rgb*shade[..., None]).clip(0, 255).astype(np.uint8)
 
 
+def terrain_view(height, cell, bounds, pixels=512):
+    """Crop and average display pixels only; the physical float64 grid is untouched."""
+    n=height.shape[0]
+    x0=max(0,math.floor(bounds[0][0]/cell)-1);x1=min(n,math.ceil(bounds[0][1]/cell)+1)
+    y0=max(0,math.floor(bounds[1][0]/cell)-1);y1=min(n,math.ceil(bounds[1][1]/cell)+1)
+    if x1-x0<2 or y1-y0<2:x0=y0=0;x1=y1=n
+    stride=2**max(0,math.ceil(math.log2(max(x1-x0,y1-y0)/pixels)))
+    x0=x0//stride*stride;y0=y0//stride*stride
+    x1=min(n,math.ceil(x1/stride)*stride);y1=min(n,math.ceil(y1/stride)*stride)
+    view=height[y0:y1,x0:x1]
+    if stride>1:
+        view=np.pad(view,((0,(-view.shape[0])%stride),(0,(-view.shape[1])%stride)),mode='edge')
+        view=view.reshape(view.shape[0]//stride,stride,view.shape[1]//stride,stride).mean(axis=(1,3))
+    rect=(x0*cell,y0*cell,view.shape[1]*stride*cell,view.shape[0]*stride*cell)
+    return view,rect,stride
+
+
 class MainWindow(QtWidgets.QMainWindow):
-    def __init__(self, config):
+    def __init__(self, config, session=None):
         super().__init__()
-        self.config = deepcopy(config)
-        self.sim = Simulation(self.config)
-        self.landscape = None
+        self.config = session.simulation.config if session else deepcopy(config)
+        self.sim = session.simulation if session else Simulation(self.config)
+        config=self.config
+        self.landscape = session.landscape if session else None
+        self._session_path=None
         self.running = False
         self._equipment_resume = None
         self.credit = 0.0
@@ -40,10 +60,18 @@ class MainWindow(QtWidgets.QMainWindow):
         self.last_render_wall=-float('inf')
         self.actual_speed=0.;self.actual_render_hz=0.
         self.performance_wall=self.last_wall;self.performance_sim=self.sim.time;self.performance_renders=0
+        self._render_cost=.02;self._last_view=None
         self.last_terrain_wall = -1.0
         self.last_revision = -1
         self.last_event = 0
         self.setWindowTitle("ATS 2.0 · Автономные земляные работы")
+        files=self.menuBar().addMenu('Файл')
+        self.save_action=files.addAction('Сохранить симуляцию…');self.save_action.setShortcut('Ctrl+S')
+        self.save_action.triggered.connect(self.save_session)
+        self.save_as_action=files.addAction('Сохранить симуляцию как…');self.save_as_action.setShortcut('Ctrl+Shift+S')
+        self.save_as_action.triggered.connect(lambda:self.save_session(force_dialog=True))
+        self.load_action=files.addAction('Загрузить симуляцию…');self.load_action.setShortcut('Ctrl+O')
+        self.load_action.triggered.connect(self.load_session)
         self.resize(1450, 940)
         self.setStyleSheet("""
             QMainWindow, QWidget { background: #101a27; color: #dbe6ef; font-size: 13px; }
@@ -276,6 +304,14 @@ class MainWindow(QtWidgets.QMainWindow):
         solar_form.addRow(self.panel_info)
         self.apply_panels_button=QtWidgets.QPushButton('Применить площадь панелей сейчас')
         self.apply_panels_button.clicked.connect(self.apply_panel_area);solar_form.addRow(self.apply_panels_button)
+        self.base_batteries=QtWidgets.QSpinBox();self.base_batteries.setRange(0,1000)
+        self.base_batteries.setValue(sum(b.quantity for b in config.base.equipment.batteries))
+        solar_form.addRow('Аккумуляторов базы, шт.',self.base_batteries)
+        self.battery_type_info=QtWidgets.QLabel();self.battery_type_info.setWordWrap(True)
+        solar_form.addRow(self.battery_type_info)
+        self.apply_base_batteries_button=QtWidgets.QPushButton('Применить аккумуляторы сейчас')
+        self.apply_base_batteries_button.clicked.connect(self.apply_base_battery_count)
+        solar_form.addRow(self.apply_base_batteries_button)
         self.season.currentIndexChanged.connect(lambda index: self.calendar.setDate(QtCore.QDate(2025, 1, 1).addDays(self.season.currentData()-1)) if index >= 0 else None)
         for widget in [self.panels, self.latitude]:
             widget.valueChanged.connect(self.update_solar_preview)
@@ -313,6 +349,11 @@ class MainWindow(QtWidgets.QMainWindow):
         split.addWidget(right)
         split.setSizes([1030, 370])
         self.statusBar().showMessage("Колесо мыши — масштаб; перетаскивание — панорама. Размеры сценария применяются кнопкой создания.")
+        self.render_mode=QtWidgets.QComboBox()
+        for label,value in [('Карта: авто','auto'),('Карта: подробно','detail'),('Без карты','off')]:self.render_mode.addItem(label,value)
+        self.render_mode.setToolTip('Авто уменьшает только отображение большой карты и частоту перерисовки. Без карты расчёт и телеметрия продолжаются. Физический шаг и сетка сохраняются.')
+        self.render_mode.currentIndexChanged.connect(self.render_changed)
+        self.statusBar().addPermanentWidget(self.render_mode)
         self.speed_status=QtWidgets.QLabel('Факт: 0×')
         self.speed_status.setToolTip('Фактически прошедшие секунды симуляции за одну реальную секунду. Физический шаг всегда 1 с. Высокая цель может ограничиваться скоростью расчёта.')
         self.statusBar().addPermanentWidget(self.speed_status)
@@ -321,6 +362,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.timer.timeout.connect(self.on_frame)
         self.timer.start(config.display_interval_ms)
         self.setup_map()
+        self.sync_equipment()
+        self.sync_wind_controls()
+        if session:self.restore_session_ui(session.ui)
         self.refresh(True)
 
     @staticmethod
@@ -564,6 +608,10 @@ class MainWindow(QtWidgets.QMainWindow):
     def sync_equipment(self):
         self.config=self.sim.config
         self.panels.setValue(self.config.base.panel_area);self.base_mass.setValue(self.config.base.mass)
+        self.base_batteries.setValue(sum(b.quantity for b in self.config.base.equipment.batteries))
+        first=next(iter(self.config.base.equipment.batteries),None)
+        capacity,mass=(first.capacity_kwh,first.mass_kg) if first else (5.,50.)
+        self.battery_type_info.setText(f'Добавление: {capacity:g} кВт·ч / {mass:g} кг, пустые. Другие типы — «Оборудование».')
         self.update_solar_preview()
         while len(self.drone_labels)<len(self.sim.drones):
             label=pg.TextItem(color=self.palette[len(self.drone_labels)],anchor=(0,1));self.map.addItem(label);self.drone_labels.append(label)
@@ -576,6 +624,66 @@ class MainWindow(QtWidgets.QMainWindow):
             self.sync_equipment();self.refresh(True)
         except ValueError as error:
             QtWidgets.QMessageBox.warning(self,'Площадь панелей',str(error))
+
+    def apply_base_battery_count(self):
+        try:
+            self.sim.set_base_battery_count(self.base_batteries.value())
+            self.sync_equipment();self.refresh(True)
+        except ValueError as error:
+            QtWidgets.QMessageBox.warning(self,'Аккумуляторы базы',str(error))
+
+    def session_ui(self):
+        return dict(speed=self.speed.currentData(),view_range=self.view_box.viewRange(),
+                    brush_segments=self.plan_editor.segments,brush_dirty=self.plan_editor.dirty,
+                    profile_direction=self.profile_direction.currentData(),profile_segment=self.profile_segment.currentData(),
+                    profile_position=self.profile_position.value(),equipment_resume=self._equipment_resume,
+                    render_mode=self.render_mode.currentData() if hasattr(self,'render_mode') else 'auto')
+
+    def restore_session_ui(self, ui):
+        self.speed.setCurrentIndex(max(0,self.speed.findData(ui.get('speed',50))))
+        if hasattr(self,'render_mode'):self.render_mode.setCurrentIndex(max(0,self.render_mode.findData(ui.get('render_mode','auto'))))
+        if ui.get('view_range') is not None:self.view_box.setRange(xRange=ui['view_range'][0],yRange=ui['view_range'][1],padding=0)
+        self.plan_editor.segments=deepcopy(ui.get('brush_segments',self.plan_editor.segments))
+        self.plan_editor.dirty=bool(ui.get('brush_dirty',False));self.plan_editor.rebuild()
+        for combo,key in ((self.profile_direction,'profile_direction'),(self.profile_segment,'profile_segment')):
+            if key in ui:combo.setCurrentIndex(max(0,combo.findData(ui[key])))
+        self.profile_position.setValue(ui.get('profile_position',50));self._equipment_resume=ui.get('equipment_resume')
+
+    def _after_file_action(self, running):
+        self.running=running;self.credit=0.;self.last_wall=time.perf_counter();self.reset_performance()
+        self.play.setText('⏸ Pause' if running else '▶ Start')
+        self.timer.start(0 if running else self.config.display_interval_ms)
+
+    def save_session(self, path=None, force_dialog=False):
+        from .checkpoint import save_state
+        previous=self.running;self.running=False
+        try:
+            if not isinstance(path,(str,Path)):
+                path=self._session_path if self._session_path and not force_dialog else QtWidgets.QFileDialog.getSaveFileName(
+                    self,'Сохранить текущую симуляцию',str(self._session_path or 'simulation.atsstate'),'Состояние ATS (*.atsstate)')[0]
+            if not path:return
+            QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CursorShape.WaitCursor)
+            try:save_state(path,self.sim,self.landscape,self.session_ui())
+            finally:QtWidgets.QApplication.restoreOverrideCursor()
+            self._session_path=Path(path);self.statusBar().showMessage(f'Симуляция сохранена: {path}',7000)
+        except (ValueError,OSError) as error:QtWidgets.QMessageBox.warning(self,'Сохранение симуляции',str(error))
+        finally:self._after_file_action(previous)
+
+    def load_session(self, path=None):
+        from .checkpoint import load_state
+        previous=self.running;self.running=False;loaded=False
+        try:
+            if not isinstance(path,(str,Path)):
+                path=QtWidgets.QFileDialog.getOpenFileName(self,'Загрузить симуляцию','','Состояние ATS (*.atsstate)')[0]
+            if not path:return
+            QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CursorShape.WaitCursor)
+            try:session=load_state(path)
+            finally:QtWidgets.QApplication.restoreOverrideCursor()
+            self.install_simulation(session.simulation,session.landscape);self.restore_session_ui(session.ui)
+            self._session_path=Path(path);loaded=True
+            self.refresh(True);self.statusBar().showMessage(f'Загружено: {path}. Симуляция на паузе.',10000)
+        except (ValueError,OSError) as error:QtWidgets.QMessageBox.warning(self,'Загрузка симуляции',str(error))
+        finally:self._after_file_action(False if loaded else previous)
 
     def cancel_equipment(self):
         self.sim.cancel_equipment()
@@ -600,6 +708,13 @@ class MainWindow(QtWidgets.QMainWindow):
         c = self.sim.config.dust
         c.wind_x, c.wind_y, c.strength = self.wind_x.value(), self.wind_y.value(), self.dust_strength.value()
 
+    def sync_wind_controls(self):
+        c=self.sim.config.dust
+        for widget,value in ((self.wind_x,c.wind_x),(self.wind_y,c.wind_y),(self.dust_strength,c.strength)):
+            widget.blockSignals(True)
+            widget.setRange(min(widget.minimum(),value),max(widget.maximum(),value));widget.setValue(value)
+            widget.blockSignals(False)
+
     def update_solar_preview(self):
         from .solar import sunlight
         sun = sunlight(self.latitude.value(), self.calendar.date().dayOfYear(), 12, self.config.base.peak_irradiance)
@@ -611,8 +726,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def replace_simulation(self, config):
         sim = Simulation(config)  # validate before discarding the current state
-        if self.landscape is not None and (not config.georeference or config.georeference.get('source')!=self.landscape.raster.metadata):
-            self.landscape=None
+        region=self.landscape
+        if region is not None and (not config.georeference or config.georeference.get('source')!=region.raster.metadata):region=None
+        self.install_simulation(sim,region)
+
+    def install_simulation(self, sim, landscape=None):
+        config=sim.config;self.landscape=landscape;self._session_path=None
         self.running = False
         self._equipment_resume = None
         self.play.setText("▶ Start")
@@ -622,6 +741,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.map_size.setValue(config.terrain.n*config.terrain.cell_size)
         self.update_map_size_controls()
         self.cx.setValue(config.trench.x);self.cy.setValue(config.trench.y)
+        self.length.setValue(config.trench.length);self.width.setValue(config.trench.width)
+        self.depth.setValue(config.trench.depth);self.angle.setValue(config.trench.angle_deg)
+        self.seed.setValue(config.seed);self.roughness.setValue(config.terrain.roughness)
+        self.start_hour.setValue(config.start_hour)
+        self.calendar.setDate(QtCore.QDate(2025,1,1).addDays(config.base.start_day_of_year-1))
         self.latitude.setValue(config.base.latitude_deg)
         self.latitude.setEnabled(not bool(config.georeference and config.georeference['source'].get('crs')=='EPSG:4326'))
         self.sync_equipment()
@@ -633,7 +757,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.last_event = 0
         self.log.clear()
         self.setup_map()
-        self.change_dust()
+        self.sync_wind_controls()
         self.refresh(True)
 
     def new_scenario(self):
@@ -677,6 +801,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.performance_wall=time.perf_counter();self.performance_sim=self.sim.time
         self.performance_renders=0;self.actual_speed=0.;self.actual_render_hz=0.
 
+    def render_changed(self):
+        off=self.render_mode.currentData()=='off'
+        self.map_frame.setVisible(not off);self.profile.setVisible(not off)
+        self.last_revision=-1;self._last_view=None;self.last_render_wall=-float('inf')
+        self._render_cost=.02;self.reset_performance()
+        self.statusBar().showMessage('Карта и профиль приостановлены; расчёт и телеметрия продолжаются.' if off else 'Отображение карты включено.',7000)
+        self.refresh(True)
+
     def speed_changed(self):
         self.credit=0.;self.last_wall=time.perf_counter();self.reset_performance()
         if hasattr(self,'timer'):self.timer.setInterval(0 if self.running else self.config.display_interval_ms)
@@ -690,7 +822,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.credit = min(self.credit+elapsed*self.speed.currentData(), self.config.max_frame_steps)
             # Long but bounded compute slices run independently of rendering.
             # All edits remain on the same Qt thread, between physical steps.
-            budget=max(self.config.frame_budget_ms,30 if self.speed.currentData()>=200 else 0)
+            budget=max(self.config.frame_budget_ms,50 if self.speed.currentData()>=200 else 0)
             deadline = now+budget/1000
             steps = 0
             while self.credit >= 1 and steps < self.config.max_frame_steps and time.perf_counter() < deadline:
@@ -719,11 +851,16 @@ class MainWindow(QtWidgets.QMainWindow):
         stamp=time.perf_counter()
         interval=(.2 if self.speed.currentData()>=1000 else .1 if self.speed.currentData()>=200
                   else self.config.display_interval_ms/1000) if self.running else .25
+        if self.running and self.render_mode.currentData()=='auto' and self.speed.currentData()>=200:
+            interval=max(interval,self._render_cost*9)
+        elif self.running and self.render_mode.currentData()=='off':interval=.5
         if stamp-self.last_render_wall>=interval or was_running and not self.running:
-            self.refresh();self.last_render_wall=time.perf_counter();self.performance_renders+=1
-        span=stamp-self.performance_wall
-        if span>=.5:
-            self.actual_speed=max(0.,(self.sim.time-self.performance_sim)/span)
+            begin=time.perf_counter();self.refresh();self.last_render_wall=time.perf_counter();self.performance_renders+=1
+            self._render_cost=.75*self._render_cost+.25*(self.last_render_wall-begin)
+        stamp=time.perf_counter();span=stamp-self.performance_wall
+        if span>=1.:
+            sample=max(0.,(self.sim.time-self.performance_sim)/span)
+            self.actual_speed=sample if self.actual_speed==0 else .5*self.actual_speed+.5*sample
             self.actual_render_hz=self.performance_renders/span
             self.speed_status.setText(f'Цель: {self.speed.currentData()}× · факт: {self.actual_speed:.1f}× · обновление: {self.actual_render_hz:.1f}/с')
             self.performance_wall=stamp;self.performance_sim=self.sim.time;self.performance_renders=0
@@ -750,13 +887,20 @@ class MainWindow(QtWidgets.QMainWindow):
         else:self.workfront_outline.clear()
         if self.config.georeference:
             self.latitude.blockSignals(True);self.latitude.setValue(b.config.latitude_deg);self.latitude.blockSignals(False)
+        if self.render_mode.currentData()=='off':
+            self.refresh_telemetry(s.report(full=False));return
         now = time.perf_counter()
-        if force or (t.revision != self.last_revision and now-self.last_terrain_wall >= self.config.terrain_display_seconds):
-            self.image.setImage(terrain_rgb(t.height, t.cell, self.config.trench.depth, max(0.5, float(t.height.max()))), autoLevels=False)
-            self.image.setRect(QtCore.QRectF(0, 0, t.cell*t.height.shape[0], t.cell*t.height.shape[0]))
+        view_range=self.view_box.viewRange();view_key=tuple(tuple(p) for p in view_range)
+        if force or (t.revision != self.last_revision or view_key!=self._last_view) and now-self.last_terrain_wall >= self.config.terrain_display_seconds:
+            if self.render_mode.currentData()=='auto' and self.running:
+                height,rect,stride=terrain_view(t.height,t.cell,view_range)
+            else:height,rect,stride=t.height,(0,0,t.cell*t.height.shape[0],t.cell*t.height.shape[0]),1
+            self.image.setImage(terrain_rgb(height, t.cell*stride, self.config.trench.depth, max(0.5, float(height.max()))), autoLevels=False)
+            self.image.setRect(QtCore.QRectF(*rect))
             self.update_profile()
             self.last_revision = t.revision
             self.last_terrain_wall = now
+            self._last_view=view_key
         concentration = 1-np.exp(-s.dust.field*self.config.dust.concentration_scale)
         cloud = np.zeros((*concentration.shape, 4), dtype=np.uint8)
         cloud[..., :3] = [211, 187, 146]
@@ -806,6 +950,10 @@ class MainWindow(QtWidgets.QMainWindow):
         if beams:
             points=np.asarray(beams);self.laser_beams.setData(points[:,0],points[:,1],connect="finite")
         else:self.laser_beams.clear()
+        self.refresh_telemetry(report)
+
+    def refresh_telemetry(self, report):
+        s,t,d,b=self.sim,self.sim.terrain,self.sim.drone,self.sim.base
         self.fleet_table.setUpdatesEnabled(False)
         for row,o in enumerate(report['drones']):
             values=[f"{o['serial']} · {o['name']}",o['state'],f"{o['battery_percent']:.0f}%",f"{o['cargo_kg']:.1f}",str(o['trips']),f"{o['excavated_mass_kg']:.0f} / {o['filled_mass_kg']:.0f}",f"{o['consumed_kwh']:.3f}",f"{o['waiting_seconds']/60:.1f}",f"{o['charging_seconds']/60:.1f}",str(o['traffic_yields']),f"{o['last24_volume_m3']:.4f}",f"{o['laser_power_w']/1000:.2f}"]
@@ -867,10 +1015,10 @@ class MainWindow(QtWidgets.QMainWindow):
             self.play.setEnabled(True)
 
 
-def launch(config,landscape=None):
+def launch(config,landscape=None,session=None):
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     app.setApplicationName("ATS")
-    window = MainWindow(config)
-    window.landscape=landscape
+    window = MainWindow(config,session=session)
+    if session is None:window.landscape=landscape
     window.show()
     return app.exec()
