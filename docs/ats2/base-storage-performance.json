@@ -2,6 +2,7 @@
   "schema_version": 1,
   "date_utc": "2026-10-21",
   "baseline_commit": "ec37eb48d6d7a5a153e355e3b24533b22b2daf6b",
+  "measured_commit": "139904d737982c1edeee9202aec3c975651dce0f",
   "scenario": {
     "map_side_m": 512,
     "grid_cells": 1024,
@@ -230,5 +231,6 @@
     "Timing is headless and hardware-dependent; it does not guarantee target 1000x/2000x",
     "Hot-added base packs are empty; removal exports their accounted energy",
     "Base storage is a shared bus; more capacity does not increase solar area, inverter rating or dock charging power"
-  ]
+  ],
+  "ci_results": "base-storage-ci-results.json"
 }
