@@ -30,10 +30,12 @@ class TransportJob:
 
 
 class Logistics:
+    archived_jobs=None
     def __init__(self, sim):
         self.sim, self.config = sim, sim.config.logistics
         self.inventory = Inventory()
         self.jobs = []
+        self.archived_jobs=[]
         self.active = {}
         self._serial = 0
         self.delivered_mass = 0.
@@ -94,11 +96,12 @@ class Logistics:
         self.inventory.add(Item('base_charger',eq.charger_mass_kg,L.BASE_MOUNT,'INSTALLED','base',position=tuple(sim.base.position),kind='CHARGER_AND_AUTOMATION'))
         for i in range(eq.landing_slots):
             self.inventory.add(Item(f'landing_pad_{i+1}',eq.slot_mass_kg,L.BASE_MOUNT,'INSTALLED','base',position=tuple(sim.slot_position(i)),kind='LANDING_PAD'))
-        panel_index=0
+        panel_index=0;panel_items=[]
         for recipe in eq.panels:
             for _ in range(recipe.quantity):
                 panel_index+=1
-                self.inventory.add(Item(f'solar_panel_{panel_index:03}',recipe.mass_kg,L.BASE_MOUNT,'INSTALLED','base',position=tuple(sim.base.position),kind='SOLAR_PANEL'))
+                panel_items.append(Item(f'solar_panel_{panel_index:03}',recipe.mass_kg,L.BASE_MOUNT,'INSTALLED','base',position=tuple(sim.base.position),kind='SOLAR_PANEL'))
+        self.inventory.add_many(panel_items)
         for i,emitter in enumerate(eq.emitters):
             self.inventory.add(Item(f'laser_channel_{i+1}',emitter.mass_kg,L.BASE_MOUNT,'INSTALLED','base',position=tuple(sim.base.position),kind='LASER_TRANSMITTER'))
         if not self.field_ready:
@@ -171,8 +174,19 @@ class Logistics:
                         capacity_j=old.capacity_j,energy_j=old.capacity_j*self.config.drone_spare_initial_soc,max_charge_w=old.max_charge_w,
                         max_discharge_w=old.max_discharge_w)
                     self.inventory.add(b);self.initial_extra_energy+=b.energy_j
+        stock=[]
+        for recipe in sim.initial_stock:
+            for _ in range(recipe['count']):
+                pack=BatteryModule(f'initial_stock_{len(stock)+1:05}',recipe['mass_kg'],position=tuple(sim.base.position),
+                    compatibility=recipe['compatibility'],capacity_j=recipe['capacity_kwh']*KWH,
+                    energy_j=recipe['capacity_kwh']*KWH*recipe['initial_soc'],max_charge_w=recipe['max_charge_w'],max_discharge_w=recipe['max_discharge_w'])
+                stock.append(pack);self.initial_extra_energy+=pack.energy_j
+        self.inventory.add_many(stock)
         from .batteries import BatteryService
         self.battery_service=BatteryService(self)
+        if sim.base.config.layout is not None:
+            from .base_layout import solve_layout,apply_live_layout
+            apply_live_layout(self,solve_layout(sim.config,self))
         self.update_base_mass()
 
     @property
@@ -187,8 +201,10 @@ class Logistics:
         pads += [d.position for d in s.drones if d.grounded]
         if self.excavator is not None:pads.append(self.excavator.position)
         sites=[]
-        for x in np.linspace(margin,max(margin,side-margin-width),5):
-            for y in np.linspace(margin,max(margin,side-margin-height),5):
+        shared=getattr(s.terrain,'shared_site',None);grid=11 if shared is not None else 5
+        for x in np.linspace(margin,max(margin,side-margin-width),grid):
+            for y in np.linspace(margin,max(margin,side-margin-height),grid):
+                if shared is not None and shared.ground_occupied(s.terrain.owner_id,(x,y,width,height)):continue
                 mask=(s.terrain.x>=x)&(s.terrain.x<x+width)&(s.terrain.y>=y)&(s.terrain.y<y+height)
                 if height>side-2*margin or np.any(mask&(s.terrain.design_work|s.terrain.dump_mask)):continue
                 if any(x-margin<=p[0]<=x+width+margin and y-margin<=p[1]<=y+height+margin for p in pads):continue
@@ -203,6 +219,8 @@ class Logistics:
         s=self.sim
         if s.base.destination is not None:raise ValueError('Дождитесь остановки базы перед изменением панелей')
         equipment=deepcopy(s.base.config.equipment);equipment.panels=deepcopy(panels);equipment.validate()
+        from .base_layout import preview_live_layout,apply_live_layout
+        layout=preview_live_layout(self,panels=panels)
         rect=self.solar_field_site(equipment.panel_area)
         deployed=min(self.generating_area(),equipment.panel_area)
         items={id:item for id,item in self.inventory.items.items() if item.kind!='SOLAR_PANEL'}
@@ -218,10 +236,12 @@ class Logistics:
         self.imported_mass_kg+=max(0.,new_mass-old_mass);self.exported_mass_kg+=max(0.,old_mass-new_mass)
         self.inventory.items=items
         s.base.config.equipment=equipment;equipment.resolve(s.base.config,s.config.fleet)
+        if layout is not None:apply_live_layout(self,layout)
         self.field_rect=rect;self.base_pack_elapsed=0.
         self.field_ready=rect is None or deployed>=equipment.panel_area
         self.field_elapsed=(self.config.field_deployment_seconds*deployed/equipment.panel_area
                             if rect is not None else 0.)
+        if s.shared_site is not None:s.shared_site.invalidate_geometry()
         self.update_base_mass()
         s.event(f'Панели изменены без сброса: {equipment.panel_area:g} м², {new_mass:g} кг; '+
                 ('развёртывание поля' if rect else 'компактная установка'))
@@ -234,6 +254,8 @@ class Logistics:
         if s.base.destination is not None:raise ValueError('Дождитесь остановки базы перед изменением аккумуляторов')
         equipment=deepcopy(s.base.config.equipment)
         equipment.batteries=deepcopy(recipes);equipment.validate()
+        from .base_layout import preview_live_layout,apply_live_layout
+        layout=preview_live_layout(self,batteries=recipes)
         available=defaultdict(deque)
         old=[self.inventory.items[id] for id in self.base_battery_ids]
         for pack in old:available[(pack.capacity_j,pack.mass_kg)].append(pack)
@@ -268,6 +290,7 @@ class Logistics:
         s.equipment_exported_energy+=exported_energy
         s.base.battery=retained_energy
         s.base.config.equipment=equipment;equipment.resolve(s.base.config,s.config.fleet)
+        if layout is not None:apply_live_layout(self,layout)
         self.update_base_mass();self.progress_at=s.time
         s.event(f'Аккумуляторы базы: {len(self.base_battery_ids)} шт., {equipment.capacity/KWH:g} кВт·ч; '+
                 f'добавлено {len(added)} пустых, снято {len(removed)}; вывоз {exported_energy/KWH:.3f} кВт·ч')
@@ -288,11 +311,14 @@ class Logistics:
                 compatibility=template.compatibility,capacity_j=template.capacity_j,energy_j=template.capacity_j*soc,
                 max_charge_w=template.max_charge_w,max_discharge_w=template.max_discharge_w))
         slots=self.battery_service.make_slots(packs)
+        from .base_layout import preview_live_layout,apply_live_layout
+        layout=preview_live_layout(self,extra=[(sum(o.mass_kg for o in [*packs,*slots]),sum(p.capacity_j for p in packs)/KWH)])
         self.inventory.add_many([*packs,*slots])
         self.battery_service.slots.update((slot.module_id,slot) for slot in slots)
         self._delivery_serial+=count
         energy=sum(b.energy_j for b in packs);mass=sum(item.mass_kg for item in [*packs,*slots])
         self.sim.equipment_imported_energy+=energy;self.imported_mass_kg+=mass
+        if layout is not None:apply_live_layout(self,layout)
         self.deliveries.append(dict(time_seconds=self.sim.time,module_ids=[b.id for b in packs],
             compatibility=template.compatibility,soc=soc,energy_j=energy,mass_kg=mass))
         self.battery_service.update_slot_states();self.update_base_mass()
@@ -305,7 +331,7 @@ class Logistics:
 
     def update_base_mass(self):
         self.sim.base.config.mass=self.sim.base.config.equipment.mass+sum(
-            o.gross_mass for o in self.inventory.items.values()
+            o.gross_mass for o in self.inventory.mutable_items()
             if o.holder_id=='base' and (o.location in (L.BASE_STORAGE,L.BASE_CHARGER) or isinstance(o,ChargingSlot)))
 
     def _tool_mass(self, d, tool_mass):
@@ -917,9 +943,10 @@ class Logistics:
             item.position=tuple(p)
 
     def sync_batteries(self):
+        mounted=[item for item in self.inventory.mutable_items() if item.location==L.DRONE_MOUNT]
         for d in self.sim.drones:
-            for item in self.inventory.items.values():
-                if item.location==L.DRONE_MOUNT and item.holder_id==f'drone_{d.serial}':
+            for item in mounted:
+                if item.holder_id==f'drone_{d.serial}':
                     item.position=tuple(d.position)
         for id in self.base_battery_ids:
             b=self.inventory.items[id]
@@ -937,7 +964,7 @@ class Logistics:
                     b.energy_j=min(b.capacity_j,b.energy_j+difference*(b.capacity_j-b.energy_j)/room)
                 b.position=tuple(d.position)
         self.battery_service.update_slot_states()
-        self.inventory.validate()
+        self.inventory.validate(dynamic=int(self.sim.time)%60!=0)
         mounted=set()
         for d in self.sim.drones:
             for id in d.battery_ids:
@@ -1065,6 +1092,8 @@ class Logistics:
         self.base_load_power_w=s.base.consumed+s.base.charging_input+s.base.laser_input-before_bus
         self.detect_stall()
         if (s.terrain.remaining<=s.config.terrain.completion_volume and not s._terrain_active
+                and s.base.destination is None and self.base_move_job is None
+                and not self.battery_service.drone_swaps and not self.battery_service.robot_swap
                 and not self.active and all(c.soil_kg==0 for c in self.containers)
                 and self.group is None and not self.direct_ids
                 and (self.excavator is None or self.excavator.bucket_kg==0)
@@ -1078,6 +1107,14 @@ class Logistics:
             self.tool_targets.clear();self.tool_changes.clear()
             self.courier_active=False;self.courier_id=None;self.courier_reason=''
         s.time+=1.
+        if len(self.jobs)>2048:self.archive_completed_jobs()
+
+    def archive_completed_jobs(self):
+        history=[j for j in self.jobs if j.status in ('COMPLETED','CANCELLED')]
+        if len(history)<=256:return
+        removed=history[:-256];keys={id(j) for j in removed}
+        if self.archived_jobs is None:self.archived_jobs=[]
+        self.archived_jobs.extend(removed);self.jobs[:]=[j for j in self.jobs if id(j) not in keys]
 
     def detect_stall(self):
         s=self.sim
@@ -1132,7 +1169,9 @@ class Logistics:
         report['inventory_exported_mass_kg']=self.exported_mass_kg
         report['battery_deliveries_count']=len(self.deliveries)
         if full:report['battery_deliveries']=list(self.deliveries)
-        if full:report['jobs']=[asdict(j) for j in self.jobs]
+        if full:
+            jobs=(sorted([*self.archived_jobs,*self.jobs],key=lambda j:int(j.id.rsplit('_',1)[1])) if self.archived_jobs else self.jobs)
+            report['jobs']=[asdict(j) for j in jobs]
         report['container_cycles']=sum(c.cycles for c in self.containers)
         report['battery_service']=self.battery_service.snapshot(include_slots=full)
         report['collective_lift']=self.group.report() if self.group else None

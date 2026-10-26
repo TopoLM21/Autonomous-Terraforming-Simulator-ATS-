@@ -44,11 +44,16 @@ class SolarBase:
     def irradiance(self, hour, day_of_year=None):
         return self.sun(hour, day_of_year).irradiance
 
-    def motion_power(self, drone):
+    def motion_power(self, drone,terrain=None):
         drones = drone if isinstance(drone, list) else [drone]
         total_mass = self.config.mass+sum(d.config.empty_mass+d.cargo for d in drones if d.docked)
         if not isinstance(drone, list) and not drone.docked:
             total_mass += drone.config.empty_mass+drone.cargo
+        if self.config.layout is not None:
+            from .base_layout import support_report
+            spec=self.layout_spec;p=spec['parameters']
+            rolling=support_report(self,terrain,drones)['rolling_resistance'] if terrain is not None else p['rolling_resistance']
+            return total_mass*9.80665*rolling*self.config.speed/p['drive_efficiency']+spec['control_power_w']
         return self.config.move_power*total_mass/self.config.reference_total_mass
 
     def route_energy(self,target,terrain,drones):
@@ -56,7 +61,13 @@ class SolarBase:
         points=np.linspace(self.position[:2],target,max(2,math.ceil(distance/(terrain.cell/2))+1))
         heights=np.array([terrain.sample(*p) for p in points])
         climb=float(np.maximum(np.diff(heights),0).sum())
-        mass=self.motion_power(drones)/self.config.move_power*self.config.reference_total_mass
+        mass=(self.config.mass+sum(d.config.empty_mass+d.cargo for d in drones if d.docked)
+              if self.config.layout is not None else self.motion_power(drones)/self.config.move_power*self.config.reference_total_mass)
+        if self.config.layout is not None:
+            from .base_layout import ground_properties
+            p=self.layout_spec['parameters'];rolling=[ground_properties(terrain,point,p)[2] for point in points]
+            force=mass*9.80665*float(np.mean(rolling))
+            return force*distance/p['drive_efficiency']+mass*9.80665*climb/p['drive_efficiency']+self.layout_spec['control_power_w']*distance/self.config.speed
         return self.motion_power(drones)*distance/self.config.speed+mass*9.80665*climb/.8
 
     def tick(self, dt, hour, drone, charging, day_of_year=None,laser_links=(),modules=(),bus_limit_w=None,
@@ -69,12 +80,17 @@ class SolarBase:
             self.state = BaseState.MOVING
             self.solar_power = 0.0
             distance = float(np.linalg.norm(self.destination-self.position[:2]))
-            needed = self.motion_power(drone)*min(dt, distance/b.speed)
+            needed = self.motion_power(drone,terrain)*min(dt, distance/b.speed)
             fraction = min(1.0, b.speed*dt/max(distance, 1e-12))
             point=self.position[:2]+(self.destination-self.position[:2])*fraction
             ground=terrain.sample(*point) if terrain is not None else self.position[2]
-            mass=self.motion_power(drone)/b.move_power*b.reference_total_mass
-            needed+=mass*9.80665*max(0.,ground-self.position[2])/.8
+            mass=(b.mass+sum(d.config.empty_mass+d.cargo for d in drones if d.docked) if b.layout is not None
+                  else self.motion_power(drone)/b.move_power*b.reference_total_mass)
+            efficiency=self.layout_spec['parameters']['drive_efficiency'] if b.layout is not None else .8
+            needed+=mass*9.80665*max(0.,ground-self.position[2])/efficiency
+            if b.layout is not None and (needed>self.layout_spec['drive_power_kw']*1000*dt or not self.safe_path(point,terrain)):
+                self.destination=None;self.state=BaseState.WAITING_FOR_SUN
+                return 'База остановилась: ограничение привода или несущей способности грунта'
             if self.battery < needed:
                 self.destination = None  # unfold panels at the actual stopping point
                 self.state = BaseState.WAITING_FOR_SUN
@@ -145,6 +161,9 @@ class SolarBase:
         return None
 
     def safe_path(self, target, terrain, offset=(0, 0)):
+        if self.config.layout is not None:
+            from .base_layout import safe_layout_route
+            return safe_layout_route(self,target,terrain,offset)
         b = self.config
         distance = float(np.linalg.norm(np.asarray(target)-self.position[:2]))
         steps = max(2, int(math.ceil(distance/(terrain.cell/2)))+1)
@@ -157,12 +176,14 @@ class SolarBase:
         for p in points:
             if np.any(p < b.radius+terrain.cell) or np.any(p > side-b.radius-terrain.cell):
                 return False
-            if terrain.front is not None:
+            if terrain.front is not None or getattr(terrain,'shared_site',None) is not None:
                 patch=terrain.patch(*p,b.radius+terrain.cell)
                 near=(terrain.x[patch]-p[0])**2+(terrain.y[patch]-p[1])**2<(b.radius+terrain.cell)**2
                 blocked=terrain.design_work[patch]|terrain.dump_mask[patch]
                 if terrain.protected is not None:blocked |= terrain.protected[patch]
                 if np.any(blocked&near):return False
+                site=getattr(terrain,'shared_site',None)
+                if site is not None and site.ground_occupied(terrain.owner_id,(p[0]-b.radius,p[1]-b.radius,2*b.radius,2*b.radius)):return False
             else:
                 dx = max(abs(p[0]-q.x)-q.length/2, 0)
                 dy = max(abs(p[1]-q.y)-q.width/2, 0)

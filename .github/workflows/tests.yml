@@ -66,6 +66,16 @@ jobs:
           python -m ats --headless --load-state complexes-ci.atsstate --steps 15 --json complexes-resumed-ci.json > complexes-resumed-ci-stdout.json
           python -m ats --headless --qattara --channel-route docs/ats2/qattara-channel.json --complexes 2 --steps 20 --json complexes-straight-ci.json > complexes-straight-ci-stdout.json
           python -c "import json; a=json.load(open('complexes-resumed-ci.json',encoding='utf-8')); b=json.load(open('complexes-straight-ci.json',encoding='utf-8')); assert a==b; assert a['state']=='RUNNING' and a['complex_count']==2 and a['drone_count']==8 and a['time_seconds']==20; assert abs(a['mass_error_kg'])<1e-7; assert abs(a['equipment_mass_error_kg'])<1e-7; assert abs(a['energy_error_j'])<0.002; assert a['delivered_energy_kwh']>0"
+      - name: Twenty complexes on one physical map and exact snapshot continuation
+        run: |
+          python -m ats --headless --shared-site --complexes 20 --soil-profile qattara --steps 30 --save-state shared-ci.atsstate > shared-ci-stdout.json
+          python -m ats --headless --load-state shared-ci.atsstate --steps 30 --json shared-resumed-ci.json > shared-resumed-ci-stdout.json
+          python -m ats --headless --shared-site --complexes 20 --soil-profile qattara --steps 60 --json shared-straight-ci.json > shared-straight-ci-stdout.json
+          python -c "import json; a=json.load(open('shared-resumed-ci.json',encoding='utf-8')); b=json.load(open('shared-straight-ci.json',encoding='utf-8')); assert a==b; assert a['complex_count']==20 and a['drone_count']==80 and a['time_seconds']==60; assert a['shared_worksite']['max_material_mass_error_kg']<1e-7; assert abs(a['mass_error_kg'])<1e-7; assert abs(a['equipment_mass_error_kg'])<1e-7; assert abs(a['energy_error_j'])<0.002"
+      - name: Continuous design includes real platform hardware
+        run: |
+          python -m ats --headless --latitude 31 --continuous-design --drone-duty 85 --steps 0 --power-report continuous-ci.json --json continuous-world-ci.json > continuous-ci-stdout.json
+          python -c "import json; d=json.load(open('continuous-ci.json',encoding='utf-8')); r=json.load(open('continuous-world-ci.json',encoding='utf-8')); assert r['state']=='RUNNING'; assert d['request']['work_hours']==24; assert d['base_layout']['platform_count']>1; assert r['base_specification']['layout']['platform_count']==d['base_layout']['platform_count']; assert d['storage_check']['daily_storage_drift_kwh']>=-1e-7; assert abs(r['energy_error_j'])<0.002"
       - uses: actions/upload-artifact@v4
         with:
           name: ats2-${{ matrix.os }}-${{ matrix.python }}
@@ -81,3 +91,7 @@ jobs:
             template-ci.json
             complexes-resumed-ci.json
             complexes-straight-ci.json
+            shared-resumed-ci.json
+            shared-straight-ci.json
+            continuous-ci.json
+            continuous-world-ci.json

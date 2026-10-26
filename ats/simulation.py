@@ -30,13 +30,33 @@ def elapsed_text(seconds):
 
 
 class Simulation:
-    def __init__(self, config=None):
+    shared_site=None
+    def __init__(self, config=None,terrain=None,initial_stock=None):
         self.config = config or Config()
         self.config.validate()
         resolve_config(self.config);self.config.validate()
-        self.terrain = Terrain(self.config)
+        from .base_layout import configure_layout
+        self.initial_stock=initial_stock or []
+        extra=[(r['count']*(r['mass_kg']+(self.config.logistics.charger_slot_mass_kg if self.config.logistics and self.config.logistics.individual_chargers else 0.)),r['count']*r['capacity_kwh']) for r in self.initial_stock]
+        layout=configure_layout(self.config,extra)
+        self.terrain = Terrain(self.config) if terrain is None else terrain
         b = self.config.base
         self.base = SolarBase(b, np.array([b.x, b.y, self.terrain.sample(b.x, b.y)]))
+        if layout is not None:
+            self.base.layout_spec=layout
+            side=self.terrain.cell*self.config.terrain.n
+            def pads_clear():
+                return all(self._safe_pad(self.slot_position(i)) for i in range(self.config.fleet.charge_slots)) and all(
+                    self._safe_pad(self.wait_position(i)) for i in range(self.config.fleet.count))
+            if not self.base.safe_path(self.base.position[:2],self.terrain) or not pads_clear():
+                original=self.base.position.copy()
+                candidates=sorted([(float(x),float(y)) for x in np.linspace(b.radius+1,side-b.radius-1,15)
+                    for y in np.linspace(b.radius+1,side-b.radius-1,15)],key=lambda p:(p[0]-b.x)**2+(p[1]-b.y)**2)
+                for point in candidates:
+                    self.base.position=np.array([*point,self.terrain.sample(*point)])
+                    if self.base.safe_path(point,self.terrain) and pads_clear():
+                        b.x,b.y=point;break
+                else:self.base.position=original
         self.drones = []
         self.slots = [None]*self.config.fleet.charge_slots
         self.queue = []
@@ -107,7 +127,10 @@ class Simulation:
 
     def slot_position(self, slot):
         offset = station_offset(slot,self.config.fleet.pad_spacing)
-        return self.base.position+np.array([0, offset, self.config.base.roof_height])
+        if self.base.config.layout is None:return self.base.position+np.array([0,offset,self.config.base.roof_height])
+        from .base_layout import rotate_offset
+        xy=rotate_offset(self.base.config.layout,[0,offset])
+        return self.base.position+np.array([*xy,self.config.base.roof_height])
 
     def base_specification(self):
         """Nominal envelope from existing geometry; live mass from actual equipment."""
@@ -115,21 +138,28 @@ class Simulation:
         offsets=[station_offset(i,self.config.fleet.pad_spacing) for i in range(len(self.slots))]
         docked=sum(d.config.empty_mass+d.cargo for d in self.drones if d.docked)
         rect=self.logistics.field_rect if self.logistics is not None else None
-        return dict(body_dimensions_m=[diameter,diameter,b.config.roof_height],
+        result=dict(body_dimensions_m=[diameter,diameter,b.config.roof_height],
                     landing_zone_dimensions_m=[diameter,max(offsets)-min(offsets)+diameter],
                     solar_field_dimensions_m=list(rect[2:]) if rect is not None else None,
                     installed_equipment_mass_kg=b.config.equipment.mass,
                     stored_items_mass_kg=b.config.mass-b.config.equipment.mass,
                     docked_drones_mass_kg=docked,gross_mass_kg=b.config.mass+docked)
+        if b.config.layout is not None:
+            from .base_layout import support_report
+            result['body_dimensions_m']=list(b.layout_spec['dimensions_m'])
+            result['landing_zone_dimensions_m']=[max(diameter,b.layout_spec['dimensions_m'][0]),max(max(offsets)-min(offsets)+diameter,b.layout_spec['dimensions_m'][1])]
+            result['layout']=b.layout_spec;result['ground_support']=support_report(b,self.terrain,self.drones)
+        return result
 
     def wait_position(self, index):
         f = self.config.fleet
-        x = self.base.position[0]-f.waiting_offset
-        y = self.base.position[1]+station_offset(index,f.pad_spacing)
+        from .base_layout import rotate_offset
+        if self.base.config.layout is None:x,y=self.base.position[0]-f.waiting_offset,self.base.position[1]+station_offset(index,f.pad_spacing)
+        else:x,y=self.base.position[:2]+rotate_offset(self.base.config.layout,[-f.waiting_offset,station_offset(index,f.pad_spacing)])
         return np.array([x, y, self.terrain.sample(x, y)+f.ground_clearance])
 
     def cruise(self, d):
-        surface = self.terrain.clearance_surface if self.config.reference_height is not None else max(float(self.terrain.reference.max()), self.config.terrain.dump_max_height)
+        surface = self.terrain.clearance_surface if self.config.reference_height is not None or self.shared_site is not None else max(float(self.terrain.reference.max()), self.config.terrain.dump_max_height)
         return surface+d.config.work_height+self.config.base.roof_height+d.identifier*self.config.fleet.altitude_spacing
 
     def _safe_pad(self, p):
@@ -146,9 +176,10 @@ class Simulation:
         return not np.any(blocked&near) and not (t.excavation[iy,ix] or t.fill_mask[iy,ix])
 
     def apply_plan(self, plan):
+        if self.shared_site is not None:return self.shared_site.apply_plan(plan)
         from copy import deepcopy
         if self.pending_equipment is not None:raise ValueError("Сначала дождитесь установки оборудования или отмените её")
-        if self.base.destination is not None or not all(d.grounded and d.cargo == 0 for d in self.drones):
+        if self.base.destination is not None or not all(d.grounded and abs(d.cargo) <= 1e-8 for d in self.drones):
             raise ValueError("Применяйте план после посадки всех дронов и выгрузки груза; при полёте можно подготовить рисунок")
         if self.logistics is not None:
             w=self.logistics;e=w.excavator
@@ -246,6 +277,25 @@ class Simulation:
         candidate=deepcopy(self.config)
         set_base_battery_count(candidate.base.equipment,count)
         return self.request_equipment(candidate)
+
+    def configure_platforms(self,settings):
+        from copy import deepcopy
+        from .base_layout import parameters,solve_layout,apply_live_layout,plan_heading
+        from .power_design import equipment_copy
+        if self.logistics is None:raise ValueError('Платформы настраиваются в ATS 2.0')
+        if self.base.destination is not None or not all(d.grounded for d in self.drones) or self.logistics.group:
+            raise ValueError('Для изменения шасси остановите базу и посадите дронов')
+        c=equipment_copy(self.config);c.base.layout=parameters(settings)
+        if c.base.layout['auto_heading']:c.base.layout['heading_deg']=plan_heading(c)
+        spec=solve_layout(c,self.logistics);candidate=deepcopy(self.base);candidate.config=c.base;candidate.layout_spec=spec
+        c.base.radius=spec['dimensions_m'][0]/2;c.base.roof_height=spec['dimensions_m'][2]
+        c.base.mass=self.base.config.mass+spec['chassis_mass_kg']-self.base.config.equipment.chassis_mass_kg
+        if not candidate.safe_path(candidate.position[:2],self.terrain):raise ValueError('Платформы не помещаются на текущей площадке или превышают несущую способность')
+        self.base.config.layout=c.base.layout;apply_live_layout(self.logistics,spec);self.logistics.update_base_mass()
+        for d in self.drones:
+            if d.docked:d.position=self.slot_position(d.slot)
+        self.event(f"Автокомпоновка: {spec['platform_count']} платформ, шасси {spec['chassis_mass_kg']:.0f} кг")
+        return spec
 
     def request_equipment(self,proposed):
         """Apply stationary base changes now; airborne workshop work waits for landing."""
@@ -513,6 +563,7 @@ class Simulation:
         target = np.asarray(d.detour if d.detour is not None else destination)
         arrived = d.move_towards(target,dt)
         other = conflicts(d,previous,d.position,self.drones,self._starts,self.config.fleet.separation)
+        if other is None and self.shared_site is not None:other=self.shared_site.collision(self,d,previous,d.position)
         if other is not None:
             d.position[:] = previous
             d.velocity[:] = 0
@@ -526,7 +577,9 @@ class Simulation:
                 for sign in (1,-1):
                     point = previous.copy()
                     point[:2] += sign*normal*self.config.fleet.detour_distance
-                    if np.all(point[:2] > self.terrain.cell) and np.all(point[:2] < side-self.terrain.cell) and conflicts(d,previous,point,self.drones,self._starts,self.config.fleet.separation) is None:
+                    if (np.all(point[:2] > self.terrain.cell) and np.all(point[:2] < side-self.terrain.cell) and
+                            conflicts(d,previous,point,self.drones,self._starts,self.config.fleet.separation) is None and
+                            (self.shared_site is None or self.shared_site.collision(self,d,previous,point) is None)):
                         d.detour = point
                         break
             return
@@ -535,6 +588,7 @@ class Simulation:
         count = max(2,int(math.ceil(distance/(self.terrain.cell/2)))+1)
         for p in np.linspace(previous,d.position,count):
             ground = self.terrain.sample(*p[:2])
+            if self.shared_site is not None:ground=max(ground,self.shared_site.obstacle_height(p))
             if np.linalg.norm(p[:2]-self.base.position[:2]) <= self.config.base.radius:
                 ground = max(ground,self.base.position[2]+self.config.base.roof_height)
             if p[2] < ground-1e-9:
@@ -553,6 +607,7 @@ class Simulation:
         points=[o.trip.dig for o in self.drones if o is not d and o.trip is not None and o.state in working]
         if self.logistics is not None and self.logistics.excavator is not None:
             points.append(tuple(self.logistics.excavator.position[:2]))
+        if self.shared_site is not None:points+=self.shared_site.reservations(self,'dig')
         return points
 
     def _reserved_dump(self,d):
@@ -560,6 +615,7 @@ class Simulation:
         if self.logistics is not None:
             points += [j.destination[:2] for j in self.logistics.jobs
                        if j.kind=='PICKUP_FULL_CONTAINER' and j.status in ('ACTIVE','QUEUED')]
+        if self.shared_site is not None:points+=self.shared_site.reservations(self,'dump')
         return points
 
     def _choose_trip(self, d, battery=None, unreserved=False, airborne=False):
@@ -1019,9 +1075,11 @@ class Simulation:
                 if e is not None and e.soil is not None:loads.append(e.soil)
             error=(t.soil.volume_delta_by_material-t._initial_soil_volume)*t.soil.profile.densities
             for load in loads:error+=load.masses
+            if self.shared_site is not None:error=self.shared_site.material_errors()
             result['soil']=dict(name=t.soil.profile.name,conditional=True,
                 modified_tiles=len(t.soil.tiles),storage_bytes=sum(a.nbytes for a in t.soil.tiles.values()),
                 materials=[dict(name=m.name,density_kg_m3=m.density,digging_factor=m.digging_factor,
                     mass_error_kg=float(v)) for m,v in zip(t.soil.profile.materials,error)],
                 max_material_mass_error_kg=float(np.abs(error).max()))
+        if self.shared_site is not None:result['mass_error_kg']=self.shared_site.mass_error()
         return result

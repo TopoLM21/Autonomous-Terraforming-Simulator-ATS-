@@ -85,6 +85,8 @@ class Excavator:
     def stable(self, point, terrain):
         c=self.config;z=terrain.sample(*point[:2]);side=terrain.height.shape[0]*terrain.cell
         radius=c.support_half_width_m
+        site=getattr(terrain,'shared_site',None)
+        if site is not None and site.ground_occupied(terrain.owner_id,(point[0]-radius,point[1]-radius,2*radius,2*radius)):return False
         if np.any(np.asarray(point[:2])<radius+terrain.cell) or np.any(np.asarray(point[:2])>side-radius-terrain.cell):
             return False
         limit=math.tan(math.radians(c.max_slope_deg))

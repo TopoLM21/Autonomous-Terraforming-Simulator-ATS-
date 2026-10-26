@@ -14,9 +14,9 @@ class SoilDialog(QtWidgets.QDialog):
         self.enabled=QtWidgets.QCheckBox('Использовать условные слои');self.enabled.setChecked(profile is not None)
         layout.addWidget(self.enabled)
         self.settings=QtWidgets.QWidget();grid=QtWidgets.QGridLayout(self.settings)
-        for col,title in enumerate(('Материал','Плотность, кг/м³','Коэффициент копания','Толщина, м')):
+        for col,title in enumerate(('Материал','Плотность, кг/м³','Копание','Толщина, м','Опора, кПа','Сцепление','Качение')):
             grid.addWidget(QtWidgets.QLabel(title),0,col)
-        self.densities=[];self.factors=[];self.thicknesses=[]
+        self.densities=[];self.factors=[];self.thicknesses=[];self.mechanics=[]
         for i,m in enumerate(self.profile.materials):
             grid.addWidget(QtWidgets.QLabel(m.name),i+1,0)
             density=QtWidgets.QDoubleSpinBox();density.setRange(100,5000);density.setDecimals(1);density.setSingleStep(50);density.setValue(m.density)
@@ -27,7 +27,11 @@ class SoilDialog(QtWidgets.QDialog):
                 depth=QtWidgets.QDoubleSpinBox();depth.setRange(.01,10000);depth.setSingleStep(.25);depth.setValue(self.profile.thicknesses[i]);self.thicknesses.append(depth)
                 grid.addWidget(depth,i+1,3)
             else:grid.addWidget(QtWidgets.QLabel('Вся оставшаяся глубина'),i+1,3)
-        layout.addWidget(self.settings)
+            mechanical=[]
+            for col,key,lo,hi in ((4,'bearing_kpa',.1,10000),(5,'traction',.01,1),(6,'rolling_resistance',.001,.99)):
+                value=QtWidgets.QDoubleSpinBox();value.setDecimals(3);value.setRange(lo,hi);value.setValue(getattr(m,key));grid.addWidget(value,i+1,col);mechanical.append(value)
+            self.mechanics.append(mechanical)
+        scroll=QtWidgets.QScrollArea();scroll.setWidgetResizable(True);scroll.setWidget(self.settings);layout.addWidget(scroll)
         self.enabled.setEnabled(editable);self.settings.setEnabled(editable and self.enabled.isChecked())
         self.enabled.toggled.connect(lambda enabled:self.settings.setEnabled(editable and enabled))
         if not editable:
@@ -35,9 +39,12 @@ class SoilDialog(QtWidgets.QDialog):
             locked.setWordWrap(True);layout.addWidget(locked)
         buttons=QtWidgets.QDialogButtonBox((QtWidgets.QDialogButtonBox.StandardButton.Ok|QtWidgets.QDialogButtonBox.StandardButton.Cancel) if editable else QtWidgets.QDialogButtonBox.StandardButton.Close)
         buttons.accepted.connect(self.apply);buttons.rejected.connect(self.reject);layout.addWidget(buttons)
+        from .ui_windows import fit_window
+        fit_window(self,1050,430)
 
     def apply(self):
         profile=deepcopy(self.profile)
         for m,d,f in zip(profile.materials,self.densities,self.factors):m.density=d.value();m.digging_factor=f.value()
+        for m,values in zip(profile.materials,self.mechanics):m.bearing_kpa,m.traction,m.rolling_resistance=[v.value() for v in values]
         profile.thicknesses=[s.value() for s in self.thicknesses];profile.validate()
         self.result_profile=profile if self.enabled.isChecked() else None;self.accept()

@@ -93,7 +93,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(central)
         layout = QtWidgets.QVBoxLayout(central)
         header = QtWidgets.QHBoxLayout()
-        title = QtWidgets.QLabel("<b style='font-size:22px'>ATS 2.0</b>  /  Autonomous Terraforming Simulator")
+        title = QtWidgets.QLabel("<b style='font-size:22px'>ATS 2.0</b>")
         header.addWidget(title, 1)
         self.play = QtWidgets.QPushButton("▶ Start")
         self.play.setObjectName("play")
@@ -102,19 +102,21 @@ class MainWindow(QtWidgets.QMainWindow):
         self.reset_button = QtWidgets.QPushButton("Reset")
         self.reset_button.clicked.connect(self.reset)
         header.addWidget(self.reset_button)
+        from .ui_windows import menu_button,hidden_action
+        actions_menu=menu_button(header,self,'Управление ▾')
         fleet_button=QtWidgets.QPushButton("Оборудование")
-        fleet_button.clicked.connect(self.edit_fleet);header.addWidget(fleet_button)
+        fleet_button.clicked.connect(self.edit_fleet);hidden_action(actions_menu,self,fleet_button)
         daily_button=QtWidgets.QPushButton("Статистика")
-        daily_button.clicked.connect(self.show_daily_stats);header.addWidget(daily_button)
+        daily_button.clicked.connect(self.show_daily_stats);hidden_action(actions_menu,self,daily_button)
         self.cancel_equipment_button=QtWidgets.QPushButton("Отменить установку")
         self.cancel_equipment_button.clicked.connect(self.cancel_equipment);header.addWidget(self.cancel_equipment_button)
         self.cancel_equipment_button.hide()
         compare_button=QtWidgets.QPushButton("Сравнить 1…N")
-        compare_button.clicked.connect(self.compare_fleet);header.addWidget(compare_button)
+        compare_button.clicked.connect(self.compare_fleet);hidden_action(actions_menu,self,compare_button)
         logistics_button=QtWidgets.QPushButton('Склад / диспетчер')
-        logistics_button.clicked.connect(self.show_logistics);header.addWidget(logistics_button)
+        logistics_button.clicked.connect(self.show_logistics);hidden_action(actions_menu,self,logistics_button)
         experiments_button=QtWidgets.QPushButton('Новый эксперимент')
-        experiments_button.clicked.connect(self.show_experiments);header.addWidget(experiments_button)
+        experiments_button.clicked.connect(self.show_experiments);hidden_action(actions_menu,self,experiments_button)
         self.brush_button=QtWidgets.QPushButton("Кисть / план")
         self.brush_button.setCheckable(True);header.addWidget(self.brush_button)
         self.speed = QtWidgets.QComboBox()
@@ -142,13 +144,14 @@ class MainWindow(QtWidgets.QMainWindow):
         map_tools=QtWidgets.QHBoxLayout()
         self.zoom_in=QtWidgets.QPushButton('+');self.zoom_out=QtWidgets.QPushButton('−')
         self.zoom_fit=QtWidgets.QPushButton('Вся карта')
-        self.map_fullscreen=QtWidgets.QPushButton('Развернуть карту · F11');self.map_fullscreen.setCheckable(True)
+        self.map_fullscreen=QtWidgets.QPushButton('Карта ↗ · F11');self.map_fullscreen.setCheckable(True)
         self.map_shortcut=QtGui.QShortcut(QtGui.QKeySequence('F11'),self)
         self.map_shortcut.activated.connect(lambda:self.map_fullscreen.toggle())
         self.zoom_label=QtWidgets.QLabel('100%')
         for widget in (self.zoom_out,self.zoom_label,self.zoom_in,self.zoom_fit,self.map_fullscreen):map_tools.addWidget(widget)
         self.soil_view=QtWidgets.QCheckBox('Грунты');self.soil_view.setToolTip('Цвет материала на поверхности; условные слои задаются в окне ландшафта до начала работ')
         self.soil_view.toggled.connect(lambda _:self.refresh(True));map_tools.addWidget(self.soil_view)
+        self.labels_view=QtWidgets.QCheckBox('Подписи');self.labels_view.toggled.connect(lambda _:self.refresh(True));map_tools.addWidget(self.labels_view)
         map_tools.addStretch();map_layout.addLayout(map_tools)
         self.soil_legend=QtWidgets.QLabel();self.soil_legend.setWordWrap(True);self.soil_legend.hide();map_layout.addWidget(self.soil_legend)
         self.landscape_button=QtWidgets.QPushButton('Ландшафт / импорт DEM…')
@@ -204,7 +207,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.profile_position=QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal);self.profile_position.setRange(0,100);self.profile_position.setValue(50);self.profile_position.setMaximumWidth(180)
         self.profile_position_label=QtWidgets.QLabel("Срез: 50%")
         for widget in [QtWidgets.QLabel("Профиль"),self.profile_segment,self.profile_direction,self.profile_position_label,self.profile_position]:profile_controls.addWidget(widget)
-        profile_controls.addStretch();left_layout.addLayout(profile_controls)
+        profile_controls.addStretch();self.profile_controls_widget=QtWidgets.QWidget();self.profile_controls_widget.setLayout(profile_controls)
+        left_layout.addWidget(self.profile_controls_widget)
         self.profile = pg.PlotWidget(title="Поперечный профиль")
         self.profile.setLabel("bottom", "Y", units="m")
         self.profile.setLabel("left", "Высота", units="m")
@@ -226,6 +230,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.drone_labels=[self.drone_label]
         self.slot_markers=pg.ScatterPlotItem(size=10,symbol="s",pen="#f4b651")
         self.map.addItem(self.slot_markers)
+        from .shared_ui import initialize
+        initialize(self)
         self.brush_button.toggled.connect(self.toggle_brush_panel)
         self.plan_editor.enabled.toggled.connect(self.toggle_brush)
         self.view_box.strokeFinished.connect(self.add_brush_stroke)
@@ -332,6 +338,7 @@ class MainWindow(QtWidgets.QMainWindow):
         solar_form.addRow(self.power_design_button)
         self.complexes_button=QtWidgets.QPushButton('Комплексы общего проекта…');self.complexes_button.clicked.connect(self.show_complexes)
         solar_form.addRow(self.complexes_button)
+        self.layout_button=QtWidgets.QPushButton('Паспорт и платформы…');self.layout_button.clicked.connect(self.show_base_layout);solar_form.addRow(self.layout_button)
         self.season.currentIndexChanged.connect(lambda index: self.calendar.setDate(QtCore.QDate(2025, 1, 1).addDays(self.season.currentData()-1)) if index >= 0 else None)
         for widget in [self.panels, self.latitude]:
             widget.valueChanged.connect(self.update_solar_preview)
@@ -368,6 +375,9 @@ class MainWindow(QtWidgets.QMainWindow):
         right_layout.addWidget(self.log, 1)
         split.addWidget(right)
         split.setSizes([1030, 370])
+        from .ui_windows import compact_workspace
+        compact_workspace(self,split,right,right_layout,telemetry_scroll,scroll,
+            [('Новый сценарий',project),('База и солнце',solar_group),('Пыль и ветер',dust_group)],self.profile_controls_widget)
         self.statusBar().showMessage("Колесо мыши — масштаб; перетаскивание — панорама. Размеры сценария применяются кнопкой создания.")
         self.render_mode=QtWidgets.QComboBox()
         for label,value in [('Карта: авто','auto'),('Карта: подробно','detail'),('Без карты','off')]:self.render_mode.addItem(label,value)
@@ -398,6 +408,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def setup_map(self):
         t = self.sim.terrain
+        if self.complex_project is not None and self.complex_project.shared_site is not None:t=self.complex_project.shared_site.core
+        self._assignment_revision=None
         side = t.cell*t.height.shape[0]
         rect = QtCore.QRectF(0, 0, side, side)
         self.image.setRect(rect)
@@ -471,6 +483,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def toggle_brush_panel(self,visible):
         self.plan_editor.setVisible(visible)
+        if hasattr(self,'plan_window'):
+            self.plan_window.setVisible(visible)
+            if visible:self.plan_window.raise_()
         self.plan_editor.enabled.setChecked(visible)
 
     def toggle_brush(self,enabled):
@@ -515,8 +530,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.refresh(True);return True
 
     def land_for_plan(self):
-        if self.sim.state!=MissionState.RUNNING:return
-        self.sim.request_landing();self.running=True;self.last_wall=time.perf_counter();self.play.setText("Посадка…")
+        group=self.complex_project if self.complex_project is not None and self.complex_project.shared_site is not None else None
+        if group is None and self.sim.state!=MissionState.RUNNING:return
+        for s in ([u.simulation for u in group.units] if group is not None else [self.sim]):s.request_landing()
+        self.running=True;self.last_wall=time.perf_counter();self.play.setText("Посадка…")
         self.plan_editor.enabled.setChecked(False)
 
     def save_brush_plan(self):
@@ -580,6 +597,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if hasattr(self,'logistics_window'):self.logistics_window.close()
         if hasattr(self,'power_window'):self.power_window.close()
         if hasattr(self,'complex_window'):self.complex_window.close()
+        if hasattr(self,'base_layout_window'):self.base_layout_window.close()
+        for window in getattr(self,'detail_windows',[]):window.close()
         super().closeEvent(event)
 
     def show_logistics(self):
@@ -738,14 +757,19 @@ class MainWindow(QtWidgets.QMainWindow):
         if hasattr(self,'power_window'):self.power_window.close()
         self.power_window=PowerDesignDialog(self);self.power_window.show()
 
+    def show_base_layout(self):
+        from .base_layout_ui import BaseLayoutDialog
+        if hasattr(self,'base_layout_window'):self.base_layout_window.close()
+        self.base_layout_window=BaseLayoutDialog(self);self.base_layout_window.show()
+
     def show_complexes(self):
         from .complexes import ComplexProject,ComplexTemplate
         from .complexes_ui import ComplexesWindow
         if self.complex_project is None:
             self.complex_project=ComplexProject(self.sim,self.landscape)
             self.complex_project.templates.extend(self.template_library)
-            if not self.complex_project.templates:self.complex_project.templates.append(ComplexTemplate.capture(self.config,'Текущая комплектация'))
-            self.template_library=self.complex_project.templates
+        if not self.complex_project.templates:self.complex_project.templates.append(ComplexTemplate.from_simulation(self.sim,'Текущая комплектация'))
+        self.template_library=self.complex_project.templates
         if not hasattr(self,'complex_window') or self.complex_window.project is not self.complex_project:
             self.complex_window=ComplexesWindow(self)
         self.complex_window.timer.start(700);self.complex_window.refresh();self.complex_window.show();self.complex_window.raise_()
@@ -905,7 +929,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 robot=logistics.excavator if logistics is not None else None
                 robot_ready=(robot is None or robot.bucket_kg==0 and robot.active_container is None)
                 if self.sim.landing_requested and logistics is not None:robot_ready=robot_ready and all(c.soil_kg==0 for c in logistics.containers)
-                if self.sim.landing_requested and robot_ready and all(d.grounded and d.cargo==0 for d in self.sim.drones):
+                shared=self.complex_project is not None and self.complex_project.shared_site is not None
+                grounded=(all(d.grounded and abs(d.cargo)<=1e-8 for u in self.complex_project.units for d in u.simulation.drones) if shared else all(d.grounded and abs(d.cargo)<=1e-8 for d in self.sim.drones))
+                if shared:
+                    robot_ready=all(u.simulation.logistics is None or (not u.simulation.logistics.active and not u.simulation.logistics.group and
+                        all(c.soil_kg==0 for c in u.simulation.logistics.containers) and (u.simulation.logistics.excavator is None or u.simulation.logistics.excavator.bucket_kg==0)) for u in self.complex_project.units)
+                requested=any(u.simulation.landing_requested for u in self.complex_project.units) if shared else self.sim.landing_requested
+                if requested and robot_ready and grounded:
                     self.running=False;self.credit=0;self.play.setText("▶ Start")
                     self.plan_editor.info.setText("Флот приземлён. Можно применить нарисованный план.")
                     break
@@ -991,7 +1021,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dust_image.setVisible(self.show_dust.isChecked())
         self.base_marker.setData([b.position[0]], [b.position[1]])
         x,y=b.position[:2];r=b.config.radius
-        self.base_outline.setData([x-r,x+r,x+r,x-r,x-r],[y-r,y-r,y+r,y+r,y-r])
+        if b.config.layout is None:self.base_outline.setData([x-r,x+r,x+r,x-r,x-r],[y-r,y-r,y+r,y+r,y-r])
+        else:
+            from .base_layout import platform_polygons
+            points=[]
+            for polygon in platform_polygons(b.layout_spec,b.position):points.extend([*polygon,(np.nan,np.nan)])
+            points=np.asarray(points);self.base_outline.setData(points[:,0],points[:,1],connect='finite')
         if s.logistics is not None:
             l=s.logistics;e=l.excavator
             if l.field_rect is not None:
@@ -1033,6 +1068,9 @@ class MainWindow(QtWidgets.QMainWindow):
         if beams:
             points=np.asarray(beams);self.laser_beams.setData(points[:,0],points[:,1],connect="finite")
         else:self.laser_beams.clear()
+        for label in [*self.drone_labels,self.base_label,self.excavator_label]:label.setVisible(self.labels_view.isChecked())
+        from .shared_ui import refresh
+        refresh(self)
         self.refresh_telemetry(report)
 
     def refresh_telemetry(self, report):
@@ -1045,6 +1083,8 @@ class MainWindow(QtWidgets.QMainWindow):
                     'компактная установка' if b.config.panel_area<=20 else 'не размещено / сложено')
         self.base_mass.setValue(report['base_mass_kg'])
         self.base_dimensions.setText(f"Паспорт базы\nКорпус: {body} м\nПосадочная зона: {landing} м\nПоле панелей: {field_text}\nС пристыкованными дронами: {spec['gross_mass_kg']:.1f} кг")
+        if spec.get('layout'):
+            self.base_dimensions.setText(self.base_dimensions.text()+f"\nПлатформ: {spec['layout']['platform_count']} · давление {spec['ground_support']['max_pressure_kpa']:.1f} кПа")
         self.base_label.setText(f"База · {spec['gross_mass_kg']:.0f} кг с дронами\nКорпус {body} м")
         self.base_label.setToolTip(f"Оборудование: {spec['installed_equipment_mass_kg']:.1f} кг; запасы: {spec['stored_items_mass_kg']:.1f} кг; пристыкованные дроны: {spec['docked_drones_mass_kg']:.1f} кг.\nПоле панелей: {field_text}.")
         self.fleet_table.setUpdatesEnabled(False)
@@ -1062,6 +1102,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.status.setText(f"<b style='font-size:17px'>{status}</b><br>{s.reason}")
         self.progress.setValue(round(report["completion_percent"]*10))
         self.progress.setFormat(f"{report['completion_percent']:.1f}% · допуск {self.config.terrain.completion_volume:.3f} м³")
+        project=self.complex_project
+        if project is not None and project.shared_site is not None:
+            site=project.shared_site;percent=max(0.,min(100.,100*(1-site.core.remaining/max(site.core.initial_excavation,1e-12))))
+            self.progress.setValue(round(percent*10));self.progress.setFormat(f'Общий план {percent:.1f}%')
+            self.progress.setToolTip(f'Допуск общего плана: {site.completion_volume:.3f} м³')
+            state='Группа работает' if project.running and self.running else 'Группа на паузе' if project.running else 'Группа остановлена' if project.blocked else 'Общий план завершён'
+            self.status.setText(f'<b>{state}</b><br>Комплексов: {len(project.units)} · выбран {project.active_id[8:]}')
         rows = [
             ("Прошло с запуска", report["elapsed_display"]),
             ("Дата / солнечное время", f"{s.date_text} · {s.clock_text}"),
@@ -1102,6 +1149,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 ('Поток в батарею базы',f"{report['base_battery_power_w']/1000:+.2f} кВт · плюс: заряд, минус: разряд"),
                 ('Развёрнуто панелей',f"{report['solar_generating_area_m2']:.1f} / {report['panel_area_m2']:.1f} м²")])
         self.telemetry.setText("<table width='100%' cellspacing='4'>"+"".join(f"<tr><td width='48%' style='color:#94abbf'>{label}</td><td width='52%'>{value}</td></tr>" for label, value in rows)+"</table>")
+        self.compact_telemetry.setText(f"{s.clock_text}\nБаза: {b.battery/KWH:.1f} / {b.config.battery/KWH:.1f} кВт·ч\n"
+            f"Панели: {b.config.panel_area:g} м²\nВыемка: {report['excavated_m3']:.2f} м³\nМасса базы: {b.config.mass:.0f} кг")
+        if project is not None and project.shared_site is not None:
+            volume=sum(u.simulation.excavated_volume if u.simulation.terrain.soil is not None else u.simulation.excavated_mass/u.simulation.config.terrain.density for u in project.units)
+            self.compact_telemetry.setText(self.compact_telemetry.text()+f'\nОбщая выемка: {volume:.2f} м³')
         for serial, timestamp, message in s.events:
             if serial > self.last_event:
                 self.log.appendPlainText(f"[{timestamp/60:6.1f} мин] {message}")

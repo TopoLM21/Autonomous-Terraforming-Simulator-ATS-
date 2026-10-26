@@ -101,6 +101,7 @@ class CollectiveLift:
                 if not s.consume_drone(d.power(moving=True),d):return
                 d.airborne_seconds+=1.;d.flight_seconds+=1.
             previous=self.cargo_position.copy()
+            previous_phase=self.phase;previous_elapsed=self.elapsed
             if self.phase=='LIFT':
                 self.cargo_position[2]=min(self.altitude,self.cargo_position[2]+min(d.config.vertical_speed for d in self.participants))
                 if self.cargo_position[2]>=self.altitude:self.transition('FLY')
@@ -121,6 +122,10 @@ class CollectiveLift:
             # would compare a moving member with a neighbour's old position.
             from .traffic import closest_separation
             targets={d.identifier:self.cargo_position+self.offsets[d.identifier] for d in self.participants}
+            if s.shared_site is not None and any(s.shared_site.collision(s,d,d.position,targets[d.identifier]) is not None for d in self.participants):
+                self.cargo_position=previous;self.phase=previous_phase;self.elapsed=previous_elapsed
+                for d in self.participants:d.velocity[:]=0;d.traffic_yields+=1
+                return
             for i,d in enumerate(self.participants):
                 target=targets[d.identifier]
                 if (np.linalg.norm(target[:2]-d.position[:2])>d.config.loaded_speed+1e-7

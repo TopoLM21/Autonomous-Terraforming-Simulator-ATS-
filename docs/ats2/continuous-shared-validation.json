@@ -1,0 +1,1950 @@
+{
+  "design": {
+    "request": {
+      "work_hours": 24.0,
+      "start_hour": null,
+      "drone_utilization": 0.85,
+      "excavator_utilization": 1.0,
+      "payload_fraction": 0.5,
+      "solar_factor": 0.8,
+      "reserve_soc": 0.2,
+      "energy_margin": 0.3,
+      "auxiliary_kw": 0.2,
+      "courier_minutes": 5.0,
+      "laser_coverage": 0.5,
+      "laser_distance_m": 25.0,
+      "source": "equipment"
+    },
+    "source": "equipment",
+    "start_hour": 6.0,
+    "latitude_deg": 31.0,
+    "day_of_year": 172,
+    "daily_energy_kwh": 2644.6376183485067,
+    "mean_power_kw": 110.19323409785444,
+    "work_power_kw": 110.19323409785444,
+    "idle_power_kw": 0.41666666666666663,
+    "drone_charging_kw": 107.06545632007666,
+    "laser_input_kw": 0.0,
+    "robot_charging_kw": 2.7777777777777777,
+    "solar_kwh_per_m2": 1.387409820833766,
+    "panel_area_required_m2": 2478.019725842052,
+    "panel_count": 2479,
+    "panel_area_m2": 2479.0,
+    "panel_type": {
+      "name": "Солнечная панель",
+      "quantity": 2479,
+      "area_m2": 1.0,
+      "mass_kg": 4.0,
+      "efficiency": 0.2
+    },
+    "solar_peak_kw": 393.18973698702257,
+    "solar_daily_kwh": 3439.3889458469057,
+    "storage_required_kwh": 1564.0822185343134,
+    "base_battery_count": 313,
+    "base_battery_type": {
+      "name": "Аккумулятор",
+      "quantity": 313,
+      "capacity_kwh": 5.0,
+      "mass_kg": 50.0
+    },
+    "base_capacity_kwh": 1565.0,
+    "initial_stored_kwh": 1774.1,
+    "empty_to_full_input_kwh": 1797.3456790123457,
+    "charging_continuous_kw": 142.79620432721077,
+    "connected_peak_kw": 122.35000000000001,
+    "inverter_required_kw": 159.055,
+    "drone_spare_sets": 9,
+    "drone_spare_modules": 72,
+    "excavator_spare_modules": 4,
+    "module_charging_slots": 86,
+    "drones": [
+      {
+        "number": 1,
+        "name": "Тяжёлый 60",
+        "modules_per_set": 2,
+        "flight_kw": 28.340856084726177,
+        "battery_kw": 28.340856084726177,
+        "mean_charging_kw": 26.766364080019166,
+        "laser_input_kw": 0.0,
+        "usable_kwh": 3.5,
+        "active_minutes": 7.409797338944039,
+        "recharge_minutes": 77.77777777777777,
+        "spare_sets": 9,
+        "recharge_input_kwh": 3.888888888888889,
+        "empty_to_full_input_kwh": 5.555555555555555,
+        "total_sets": 10,
+        "max_utilization": 0.8810910703675098,
+        "allocated_spare_sets": 9
+      },
+      {
+        "number": 2,
+        "name": "Тяжёлый 60",
+        "modules_per_set": 2,
+        "flight_kw": 28.340856084726177,
+        "battery_kw": 28.340856084726177,
+        "mean_charging_kw": 26.766364080019166,
+        "laser_input_kw": 0.0,
+        "usable_kwh": 3.5,
+        "active_minutes": 7.409797338944039,
+        "recharge_minutes": 77.77777777777777,
+        "spare_sets": 9,
+        "recharge_input_kwh": 3.888888888888889,
+        "empty_to_full_input_kwh": 5.555555555555555,
+        "total_sets": 10,
+        "max_utilization": 0.8810910703675098,
+        "allocated_spare_sets": 9
+      },
+      {
+        "number": 3,
+        "name": "Тяжёлый 60",
+        "modules_per_set": 2,
+        "flight_kw": 28.340856084726177,
+        "battery_kw": 28.340856084726177,
+        "mean_charging_kw": 26.766364080019166,
+        "laser_input_kw": 0.0,
+        "usable_kwh": 3.5,
+        "active_minutes": 7.409797338944039,
+        "recharge_minutes": 77.77777777777777,
+        "spare_sets": 9,
+        "recharge_input_kwh": 3.888888888888889,
+        "empty_to_full_input_kwh": 5.555555555555555,
+        "total_sets": 10,
+        "max_utilization": 0.8810910703675098,
+        "allocated_spare_sets": 9
+      },
+      {
+        "number": 4,
+        "name": "Тяжёлый 60",
+        "modules_per_set": 2,
+        "flight_kw": 28.340856084726177,
+        "battery_kw": 28.340856084726177,
+        "mean_charging_kw": 26.766364080019166,
+        "laser_input_kw": 0.0,
+        "usable_kwh": 3.5,
+        "active_minutes": 7.409797338944039,
+        "recharge_minutes": 77.77777777777777,
+        "spare_sets": 9,
+        "recharge_input_kwh": 3.888888888888889,
+        "empty_to_full_input_kwh": 5.555555555555555,
+        "total_sets": 10,
+        "max_utilization": 0.8810910703675098,
+        "allocated_spare_sets": 9
+      }
+    ],
+    "excavator": {
+      "usable_kwh": 2.7,
+      "active_minutes": 64.80000000000001,
+      "recharge_minutes": 60.0,
+      "spare_sets": 2,
+      "recharge_input_kwh": 3.0,
+      "empty_to_full_input_kwh": 3.333333333333333,
+      "total_sets": 3,
+      "max_utilization": 0.9848024316109423,
+      "modules_per_set": 2,
+      "recommended_modules": 6
+    },
+    "storage_check": {
+      "unserved_kwh": 0.0,
+      "curtailed_kwh": 1107.5677712052668,
+      "minimum_kwh": 313.73422517255887,
+      "initial_kwh": 1565.0,
+      "final_kwh": 939.3671125862919,
+      "solar_kwh": 6878.777891693811,
+      "demand_kwh": 5289.2752366970135,
+      "daily_storage_drift_kwh": 0.0,
+      "energy_error_kwh": -2.773958840407431e-11
+    },
+    "warnings": [],
+    "hourly_load_kw": [
+      110.19323409785446,
+      110.19323409785446,
+      110.19323409785446,
+      110.19323409785446,
+      110.19323409785446,
+      110.19323409785446,
+      110.19323409785446,
+      110.19323409785446,
+      110.19323409785446,
+      110.19323409785446,
+      110.19323409785446,
+      110.19323409785446,
+      110.19323409785446,
+      110.19323409785446,
+      110.19323409785446,
+      110.19323409785446,
+      110.19323409785446,
+      110.19323409785446,
+      110.19323409785446,
+      110.19323409785446,
+      110.19323409785446,
+      110.19323409785446,
+      110.19323409785446,
+      110.19323409785446
+    ],
+    "hourly_solar_kw": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      40.65620295081539,
+      121.85522960915122,
+      200.28746652797233,
+      270.607886376661,
+      328.02426875251746,
+      368.62378208168536,
+      389.6396366246501,
+      389.63963662465,
+      368.62378208168536,
+      328.02426875251746,
+      270.607886376661,
+      200.2874665279723,
+      121.8552296091512,
+      40.65620295081539,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "base_layout": {
+      "parameters": {
+        "platform_length_m": 6.0,
+        "platform_width_m": 3.0,
+        "platform_height_m": 1.8,
+        "platform_payload_kg": 5000.0,
+        "frame_base_kg": 400.0,
+        "frame_kg_m2": 55.0,
+        "drive_mass_kg": 180.0,
+        "drive_kw": 12.0,
+        "platform_gap_m": 1.0,
+        "track_contact_fraction": 0.8,
+        "max_pressure_kpa": 30.0,
+        "min_track_width_m": 0.45,
+        "battery_litres_kwh": 8.0,
+        "panel_folded_thickness_m": 0.04,
+        "packing_fraction": 0.75,
+        "other_equipment_kg_m3": 300.0,
+        "drone_stowed_m3": 2.0,
+        "landing_pad_m2": 9.0,
+        "drive_efficiency": 0.8,
+        "rolling_resistance": 0.1,
+        "traction_coefficient": 0.55,
+        "bearing_capacity_kpa": 60.0,
+        "control_power_w": 25.0,
+        "heading_deg": -90.0
+      },
+      "platforms": [
+        {
+          "id": 1,
+          "offset_m": [
+            0.0,
+            0.0
+          ],
+          "dimensions_m": [
+            3.0,
+            6.0,
+            1.8
+          ],
+          "payload_kg": 4590.166666666667,
+          "dry_mass_kg": 1570.0,
+          "gross_mass_kg": 6160.166666666667,
+          "track_width_m": 0.45,
+          "track_contact_length_m": 4.800000000000001,
+          "contact_area_m2": 4.32,
+          "pressure_kpa": 13.983934824459876,
+          "drive_power_kw": 12.0,
+          "centre_of_gravity_m": [
+            0.0,
+            0.0,
+            0.7182492356808529
+          ]
+        },
+        {
+          "id": 2,
+          "offset_m": [
+            0.0,
+            7.0
+          ],
+          "dimensions_m": [
+            3.0,
+            6.0,
+            1.8
+          ],
+          "payload_kg": 4590.166666666667,
+          "dry_mass_kg": 1570.0,
+          "gross_mass_kg": 6160.166666666667,
+          "track_width_m": 0.45,
+          "track_contact_length_m": 4.800000000000001,
+          "contact_area_m2": 4.32,
+          "pressure_kpa": 13.983934824459876,
+          "drive_power_kw": 12.0,
+          "centre_of_gravity_m": [
+            0.0,
+            7.0,
+            0.7182492356808529
+          ]
+        },
+        {
+          "id": 3,
+          "offset_m": [
+            0.0,
+            -7.0
+          ],
+          "dimensions_m": [
+            3.0,
+            6.0,
+            1.8
+          ],
+          "payload_kg": 4590.166666666667,
+          "dry_mass_kg": 1570.0,
+          "gross_mass_kg": 6160.166666666667,
+          "track_width_m": 0.45,
+          "track_contact_length_m": 4.800000000000001,
+          "contact_area_m2": 4.32,
+          "pressure_kpa": 13.983934824459876,
+          "drive_power_kw": 12.0,
+          "centre_of_gravity_m": [
+            0.0,
+            -7.0,
+            0.7182492356808529
+          ]
+        },
+        {
+          "id": 4,
+          "offset_m": [
+            0.0,
+            14.0
+          ],
+          "dimensions_m": [
+            3.0,
+            6.0,
+            1.8
+          ],
+          "payload_kg": 4590.166666666667,
+          "dry_mass_kg": 1570.0,
+          "gross_mass_kg": 6160.166666666667,
+          "track_width_m": 0.45,
+          "track_contact_length_m": 4.800000000000001,
+          "contact_area_m2": 4.32,
+          "pressure_kpa": 13.983934824459876,
+          "drive_power_kw": 12.0,
+          "centre_of_gravity_m": [
+            0.0,
+            14.0,
+            0.7182492356808529
+          ]
+        },
+        {
+          "id": 5,
+          "offset_m": [
+            0.0,
+            -14.0
+          ],
+          "dimensions_m": [
+            3.0,
+            6.0,
+            1.8
+          ],
+          "payload_kg": 4590.166666666667,
+          "dry_mass_kg": 1570.0,
+          "gross_mass_kg": 6160.166666666667,
+          "track_width_m": 0.45,
+          "track_contact_length_m": 4.800000000000001,
+          "contact_area_m2": 4.32,
+          "pressure_kpa": 13.983934824459876,
+          "drive_power_kw": 12.0,
+          "centre_of_gravity_m": [
+            0.0,
+            -14.0,
+            0.7182492356808529
+          ]
+        },
+        {
+          "id": 6,
+          "offset_m": [
+            0.0,
+            21.0
+          ],
+          "dimensions_m": [
+            3.0,
+            6.0,
+            1.8
+          ],
+          "payload_kg": 4590.166666666667,
+          "dry_mass_kg": 1570.0,
+          "gross_mass_kg": 6160.166666666667,
+          "track_width_m": 0.45,
+          "track_contact_length_m": 4.800000000000001,
+          "contact_area_m2": 4.32,
+          "pressure_kpa": 13.983934824459876,
+          "drive_power_kw": 12.0,
+          "centre_of_gravity_m": [
+            0.0,
+            21.0,
+            0.7182492356808529
+          ]
+        }
+      ],
+      "platform_count": 6,
+      "chassis_mass_kg": 9420.0,
+      "packed_payload_kg": 27541.0,
+      "packed_gross_mass_kg": 36961.0,
+      "packed_volume_m3": 123.71613333333333,
+      "dimensions_m": [
+        3.0,
+        41.0,
+        1.8
+      ],
+      "bounds_m": [
+        -1.5,
+        -17.0,
+        3.0,
+        41.0
+      ],
+      "centre_of_gravity_m": [
+        0.0,
+        3.5,
+        0.7182492356808529
+      ],
+      "contact_area_m2": 25.92,
+      "max_pressure_kpa": 13.983934824459876,
+      "drive_power_kw": 72.0,
+      "control_power_w": 150.0
+    },
+    "design_mode": "continuous"
+  },
+  "steps": 172800.0,
+  "measurement_start_seconds": 0.0,
+  "wall_seconds": 571.414057506001,
+  "actual_speed": 302.4076809629159,
+  "plan_changes": 42,
+  "minimum_base_soc": 0.48720822251763,
+  "night_grounded_seconds": 6434.0,
+  "night_excavated_kg": 84224.86685023093,
+  "max_mass_error_kg": 1.2676082405960187e-11,
+  "max_energy_error_j": 0.001942753791809082,
+  "samples": [
+    {
+      "time": 3600.0,
+      "hour": 7.0,
+      "base_soc": 1.0,
+      "excavated_m3": 7.0199740232287455,
+      "consumed_kwh": 85.77494076330389,
+      "solar_generated_kwh": 147.98347935282817
+    },
+    {
+      "time": 7200.0,
+      "hour": 8.0,
+      "base_soc": 1.0,
+      "excavated_m3": 8.85671199108457,
+      "consumed_kwh": 179.93769633575005,
+      "solar_generated_kwh": 398.3426945145373
+    },
+    {
+      "time": 10800.0,
+      "hour": 9.0,
+      "base_soc": 1.0,
+      "excavated_m3": 13.045233596060871,
+      "consumed_kwh": 248.42037967124926,
+      "solar_generated_kwh": 736.6023647772497
+    },
+    {
+      "time": 14400.0,
+      "hour": 10.0,
+      "base_soc": 1.0,
+      "excavated_m3": 16.708027401671888,
+      "consumed_kwh": 347.8882024748944,
+      "solar_generated_kwh": 1146.6324560919177
+    },
+    {
+      "time": 18000.0,
+      "hour": 11.0,
+      "base_soc": 1.0,
+      "excavated_m3": 18.7639615870704,
+      "consumed_kwh": 390.69004557655137,
+      "solar_generated_kwh": 1607.4118988210278
+    },
+    {
+      "time": 21600.0,
+      "hour": 12.0,
+      "base_soc": 1.0,
+      "excavated_m3": 20.0077115870704,
+      "consumed_kwh": 472.13922022466267,
+      "solar_generated_kwh": 2094.46113889547
+    },
+    {
+      "time": 25200.0,
+      "hour": 13.0,
+      "base_soc": 1.0,
+      "excavated_m3": 24.154276867391403,
+      "consumed_kwh": 529.0374692659656,
+      "solar_generated_kwh": 2581.51037896991
+    },
+    {
+      "time": 28800.0,
+      "hour": 14.0,
+      "base_soc": 1.0,
+      "excavated_m3": 24.788003710312992,
+      "consumed_kwh": 589.0226776763645,
+      "solar_generated_kwh": 3042.2898216990384
+    },
+    {
+      "time": 32400.0,
+      "hour": 15.0,
+      "base_soc": 1.0,
+      "excavated_m3": 30.049291645989012,
+      "consumed_kwh": 673.8743535994183,
+      "solar_generated_kwh": 3452.3199130137036
+    },
+    {
+      "time": 36000.0,
+      "hour": 16.0,
+      "base_soc": 1.0,
+      "excavated_m3": 30.657164785735244,
+      "consumed_kwh": 728.2085570283757,
+      "solar_generated_kwh": 3790.579583276418
+    },
+    {
+      "time": 39600.0,
+      "hour": 17.0,
+      "base_soc": 1.0,
+      "excavated_m3": 35.622083141106835,
+      "consumed_kwh": 815.4204131093043,
+      "solar_generated_kwh": 4040.9387984381387
+    },
+    {
+      "time": 43200.0,
+      "hour": 18.0,
+      "base_soc": 1.0,
+      "excavated_m3": 36.53190156100091,
+      "consumed_kwh": 837.7034807737674,
+      "solar_generated_kwh": 4193.257795202568
+    },
+    {
+      "time": 46800.0,
+      "hour": 19.0,
+      "base_soc": 0.9874957094325673,
+      "excavated_m3": 39.23877656100091,
+      "consumed_kwh": 932.7017517313465,
+      "solar_generated_kwh": 4244.07808913811
+    },
+    {
+      "time": 50400.0,
+      "hour": 20.0,
+      "base_soc": 0.9294485723313611,
+      "excavated_m3": 41.8844521419025,
+      "consumed_kwh": 980.5213709557768,
+      "solar_generated_kwh": 4244.08024047859
+    },
+    {
+      "time": 54000.0,
+      "hour": 21.0,
+      "base_soc": 0.893304221818757,
+      "excavated_m3": 42.402193079269644,
+      "consumed_kwh": 1056.9166267695189,
+      "solar_generated_kwh": 4244.08024047859
+    },
+    {
+      "time": 57600.0,
+      "hour": 22.0,
+      "base_soc": 0.8363405373778476,
+      "excavated_m3": 47.61521170088619,
+      "consumed_kwh": 1125.2169577930342,
+      "solar_generated_kwh": 4244.08024047859
+    },
+    {
+      "time": 61200.0,
+      "hour": 23.0,
+      "base_soc": 0.7969105567113722,
+      "excavated_m3": 48.26909062454189,
+      "consumed_kwh": 1180.4446109948478,
+      "solar_generated_kwh": 4244.08024047859
+    },
+    {
+      "time": 64800.0,
+      "hour": 0.0,
+      "base_soc": 0.745974066309115,
+      "excavated_m3": 53.20317838298358,
+      "consumed_kwh": 1266.948675216955,
+      "solar_generated_kwh": 4244.08024047859
+    },
+    {
+      "time": 68400.0,
+      "hour": 1.0,
+      "base_soc": 0.6985257819674731,
+      "excavated_m3": 54.145164764415355,
+      "consumed_kwh": 1298.0665673279907,
+      "solar_generated_kwh": 4244.08024047859
+    },
+    {
+      "time": 72000.0,
+      "hour": 2.0,
+      "base_soc": 0.6597795593278333,
+      "excavated_m3": 57.87078060243778,
+      "consumed_kwh": 1396.3909165781033,
+      "solar_generated_kwh": 4244.08024047859
+    },
+    {
+      "time": 75600.0,
+      "hour": 3.0,
+      "base_soc": 0.6032070427313092,
+      "excavated_m3": 59.91644075645926,
+      "consumed_kwh": 1438.1097573222428,
+      "solar_generated_kwh": 4244.08024047859
+    },
+    {
+      "time": 79200.0,
+      "hour": 4.0,
+      "base_soc": 0.5689029122714933,
+      "excavated_m3": 60.92562135667119,
+      "consumed_kwh": 1517.1416510425006,
+      "solar_generated_kwh": 4244.08024047859
+    },
+    {
+      "time": 82800.0,
+      "hour": 5.0,
+      "base_soc": 0.5097211853810512,
+      "excavated_m3": 65.49352738917415,
+      "consumed_kwh": 1582.7692406119643,
+      "solar_generated_kwh": 4244.082122293358
+    },
+    {
+      "time": 86400.0,
+      "hour": 6.0,
+      "base_soc": 0.49963648719045456,
+      "excavated_m3": 65.92080087111687,
+      "consumed_kwh": 1656.3441461690802,
+      "solar_generated_kwh": 4294.863581999275
+    },
+    {
+      "time": 90000.0,
+      "hour": 7.0,
+      "base_soc": 0.5400319594437879,
+      "excavated_m3": 71.11468766999847,
+      "consumed_kwh": 1722.2017187265933,
+      "solar_generated_kwh": 4447.1504107766505
+    },
+    {
+      "time": 93600.0,
+      "hour": 8.0,
+      "base_soc": 0.6629822214041807,
+      "excavated_m3": 71.74993999073723,
+      "consumed_kwh": 1773.594640067652,
+      "solar_generated_kwh": 4697.483897047163
+    },
+    {
+      "time": 97200.0,
+      "hour": 9.0,
+      "base_soc": 0.8304405453169347,
+      "excavated_m3": 76.68305583190845,
+      "consumed_kwh": 1864.3418069488077,
+      "solar_generated_kwh": 5035.72361155408
+    },
+    {
+      "time": 100800.0,
+      "hour": 10.0,
+      "base_soc": 1.0,
+      "excavated_m3": 77.61587933585395,
+      "consumed_kwh": 1897.185338007359,
+      "solar_generated_kwh": 5445.7384608582415
+    },
+    {
+      "time": 104400.0,
+      "hour": 11.0,
+      "base_soc": 1.0,
+      "excavated_m3": 81.23022731672023,
+      "consumed_kwh": 1995.2596133363247,
+      "solar_generated_kwh": 5906.505994698147
+    },
+    {
+      "time": 108000.0,
+      "hour": 12.0,
+      "base_soc": 1.0,
+      "excavated_m3": 83.43413005993601,
+      "consumed_kwh": 2035.4752273916051,
+      "solar_generated_kwh": 6393.545051233936
+    },
+    {
+      "time": 111600.0,
+      "hour": 13.0,
+      "base_soc": 1.0,
+      "excavated_m3": 84.26038005993601,
+      "consumed_kwh": 2113.739497758009,
+      "solar_generated_kwh": 6880.584107769724
+    },
+    {
+      "time": 115200.0,
+      "hour": 14.0,
+      "base_soc": 1.0,
+      "excavated_m3": 88.72730564083696,
+      "consumed_kwh": 2174.7185580266523,
+      "solar_generated_kwh": 7341.351641609631
+    },
+    {
+      "time": 118800.0,
+      "hour": 15.0,
+      "base_soc": 1.0,
+      "excavated_m3": 89.35391437172142,
+      "consumed_kwh": 2235.5886945749753,
+      "solar_generated_kwh": 7751.3664909137915
+    },
+    {
+      "time": 122400.0,
+      "hour": 16.0,
+      "base_soc": 1.0,
+      "excavated_m3": 94.39015677086512,
+      "consumed_kwh": 2318.69717121248,
+      "solar_generated_kwh": 8089.606205420689
+    },
+    {
+      "time": 126000.0,
+      "hour": 17.0,
+      "base_soc": 1.0,
+      "excavated_m3": 95.22760428837871,
+      "consumed_kwh": 2356.4782177608886,
+      "solar_generated_kwh": 8339.939691691196
+    },
+    {
+      "time": 129600.0,
+      "hour": 18.0,
+      "base_soc": 1.0,
+      "excavated_m3": 99.60102990476734,
+      "consumed_kwh": 2453.9285143456577,
+      "solar_generated_kwh": 8492.226520468545
+    },
+    {
+      "time": 133200.0,
+      "hour": 19.0,
+      "base_soc": 0.9776903586482232,
+      "excavated_m3": 101.08237652920539,
+      "consumed_kwh": 2488.6902331082733,
+      "solar_generated_kwh": 8543.007980174461
+    },
+    {
+      "time": 136800.0,
+      "hour": 20.0,
+      "base_soc": 0.9401266749160156,
+      "excavated_m3": 103.33862652920547,
+      "consumed_kwh": 2579.8934887269347,
+      "solar_generated_kwh": 8543.009861989229
+    },
+    {
+      "time": 140400.0,
+      "hour": 21.0,
+      "base_soc": 0.8830463599476673,
+      "excavated_m3": 106.33324792816003,
+      "consumed_kwh": 2628.920063904559,
+      "solar_generated_kwh": 8543.009861989229
+    },
+    {
+      "time": 144000.0,
+      "hour": 22.0,
+      "base_soc": 0.8487339229255922,
+      "excavated_m3": 106.96641865244835,
+      "consumed_kwh": 2698.0041819995818,
+      "solar_generated_kwh": 8543.009861989229
+    },
+    {
+      "time": 147600.0,
+      "hour": 23.0,
+      "base_soc": 0.7932269543022011,
+      "excavated_m3": 112.22730283930977,
+      "consumed_kwh": 2773.8928124053878,
+      "solar_generated_kwh": 8543.009861989229
+    },
+    {
+      "time": 151200.0,
+      "hour": 0.0,
+      "base_soc": 0.7483229277722876,
+      "excavated_m3": 112.83348671286014,
+      "consumed_kwh": 2834.173507716026,
+      "solar_generated_kwh": 8543.009861989229
+    },
+    {
+      "time": 154800.0,
+      "hour": 1.0,
+      "base_soc": 0.6957541682761396,
+      "excavated_m3": 117.8759698650409,
+      "consumed_kwh": 2916.481514911863,
+      "solar_generated_kwh": 8543.009861989229
+    },
+    {
+      "time": 158400.0,
+      "hour": 2.0,
+      "base_soc": 0.6500139339496781,
+      "excavated_m3": 118.70650640700416,
+      "consumed_kwh": 2950.6868877382617,
+      "solar_generated_kwh": 8543.009861989229
+    },
+    {
+      "time": 162000.0,
+      "hour": 3.0,
+      "base_soc": 0.6096430732905666,
+      "excavated_m3": 122.88370115380239,
+      "consumed_kwh": 3048.3793220744033,
+      "solar_generated_kwh": 8543.009861989229
+    },
+    {
+      "time": 165600.0,
+      "hour": 4.0,
+      "base_soc": 0.5541872132344217,
+      "excavated_m3": 124.57566748242648,
+      "consumed_kwh": 3084.557803160062,
+      "solar_generated_kwh": 8543.009861989229
+    },
+    {
+      "time": 169200.0,
+      "hour": 5.0,
+      "base_soc": 0.5139967044413436,
+      "excavated_m3": 127.57004248242649,
+      "consumed_kwh": 3181.629724565299,
+      "solar_generated_kwh": 8543.011303661673
+    },
+    {
+      "time": 172800.0,
+      "hour": 6.0,
+      "base_soc": 0.48931186455458997,
+      "excavated_m3": 129.88977478658174,
+      "consumed_kwh": 3224.721036204338,
+      "solar_generated_kwh": 8593.72287090045
+    }
+  ],
+  "report": {
+    "remaining_cut_m3": 0.6009432767458398,
+    "remaining_fill_m3": 0.0,
+    "stockpile_m3": 6.533896063256803,
+    "filled_mass_kg": 197309.40595732068,
+    "filled_m3": 123.31837872332542,
+    "plan_segments": 1,
+    "landing_requested": false,
+    "map_side_m": 128.0,
+    "grid_cells": 256,
+    "cell_size_m": 0.5,
+    "georeference": null,
+    "base_capacity_kwh": 1565.0,
+    "base_battery_count": 313,
+    "base_specification": {
+      "body_dimensions_m": [
+        3.0,
+        41.0,
+        1.8
+      ],
+      "landing_zone_dimensions_m": [
+        3.0,
+        41.0
+      ],
+      "solar_field_dimensions_m": [
+        49.78955713801841,
+        49.78955713801841
+      ],
+      "installed_equipment_mass_kg": 35081.0,
+      "stored_items_mass_kg": 1209.0,
+      "docked_drones_mass_kg": 210.0,
+      "gross_mass_kg": 36500.0,
+      "layout": {
+        "parameters": {
+          "platform_length_m": 6.0,
+          "platform_width_m": 3.0,
+          "platform_height_m": 1.8,
+          "platform_payload_kg": 5000.0,
+          "frame_base_kg": 400.0,
+          "frame_kg_m2": 55.0,
+          "drive_mass_kg": 180.0,
+          "drive_kw": 12.0,
+          "platform_gap_m": 1.0,
+          "track_contact_fraction": 0.8,
+          "max_pressure_kpa": 30.0,
+          "min_track_width_m": 0.45,
+          "battery_litres_kwh": 8.0,
+          "panel_folded_thickness_m": 0.04,
+          "packing_fraction": 0.75,
+          "other_equipment_kg_m3": 300.0,
+          "drone_stowed_m3": 2.0,
+          "landing_pad_m2": 9.0,
+          "drive_efficiency": 0.8,
+          "rolling_resistance": 0.1,
+          "traction_coefficient": 0.55,
+          "bearing_capacity_kpa": 60.0,
+          "control_power_w": 25.0,
+          "heading_deg": -90.0
+        },
+        "platforms": [
+          {
+            "id": 1,
+            "offset_m": [
+              0.0,
+              0.0
+            ],
+            "dimensions_m": [
+              3.0,
+              6.0,
+              1.8
+            ],
+            "payload_kg": 4590.166666666667,
+            "dry_mass_kg": 1570.0,
+            "gross_mass_kg": 6160.166666666667,
+            "track_width_m": 0.45,
+            "track_contact_length_m": 4.800000000000001,
+            "contact_area_m2": 4.32,
+            "pressure_kpa": 13.983934824459876,
+            "drive_power_kw": 12.0,
+            "centre_of_gravity_m": [
+              0.0,
+              0.0,
+              0.7182492356808529
+            ]
+          },
+          {
+            "id": 2,
+            "offset_m": [
+              0.0,
+              7.0
+            ],
+            "dimensions_m": [
+              3.0,
+              6.0,
+              1.8
+            ],
+            "payload_kg": 4590.166666666667,
+            "dry_mass_kg": 1570.0,
+            "gross_mass_kg": 6160.166666666667,
+            "track_width_m": 0.45,
+            "track_contact_length_m": 4.800000000000001,
+            "contact_area_m2": 4.32,
+            "pressure_kpa": 13.983934824459876,
+            "drive_power_kw": 12.0,
+            "centre_of_gravity_m": [
+              0.0,
+              7.0,
+              0.7182492356808529
+            ]
+          },
+          {
+            "id": 3,
+            "offset_m": [
+              0.0,
+              -7.0
+            ],
+            "dimensions_m": [
+              3.0,
+              6.0,
+              1.8
+            ],
+            "payload_kg": 4590.166666666667,
+            "dry_mass_kg": 1570.0,
+            "gross_mass_kg": 6160.166666666667,
+            "track_width_m": 0.45,
+            "track_contact_length_m": 4.800000000000001,
+            "contact_area_m2": 4.32,
+            "pressure_kpa": 13.983934824459876,
+            "drive_power_kw": 12.0,
+            "centre_of_gravity_m": [
+              0.0,
+              -7.0,
+              0.7182492356808529
+            ]
+          },
+          {
+            "id": 4,
+            "offset_m": [
+              0.0,
+              14.0
+            ],
+            "dimensions_m": [
+              3.0,
+              6.0,
+              1.8
+            ],
+            "payload_kg": 4590.166666666667,
+            "dry_mass_kg": 1570.0,
+            "gross_mass_kg": 6160.166666666667,
+            "track_width_m": 0.45,
+            "track_contact_length_m": 4.800000000000001,
+            "contact_area_m2": 4.32,
+            "pressure_kpa": 13.983934824459876,
+            "drive_power_kw": 12.0,
+            "centre_of_gravity_m": [
+              0.0,
+              14.0,
+              0.7182492356808529
+            ]
+          },
+          {
+            "id": 5,
+            "offset_m": [
+              0.0,
+              -14.0
+            ],
+            "dimensions_m": [
+              3.0,
+              6.0,
+              1.8
+            ],
+            "payload_kg": 4590.166666666667,
+            "dry_mass_kg": 1570.0,
+            "gross_mass_kg": 6160.166666666667,
+            "track_width_m": 0.45,
+            "track_contact_length_m": 4.800000000000001,
+            "contact_area_m2": 4.32,
+            "pressure_kpa": 13.983934824459876,
+            "drive_power_kw": 12.0,
+            "centre_of_gravity_m": [
+              0.0,
+              -14.0,
+              0.7182492356808529
+            ]
+          },
+          {
+            "id": 6,
+            "offset_m": [
+              0.0,
+              21.0
+            ],
+            "dimensions_m": [
+              3.0,
+              6.0,
+              1.8
+            ],
+            "payload_kg": 4590.166666666667,
+            "dry_mass_kg": 1570.0,
+            "gross_mass_kg": 6160.166666666667,
+            "track_width_m": 0.45,
+            "track_contact_length_m": 4.800000000000001,
+            "contact_area_m2": 4.32,
+            "pressure_kpa": 13.983934824459876,
+            "drive_power_kw": 12.0,
+            "centre_of_gravity_m": [
+              0.0,
+              21.0,
+              0.7182492356808529
+            ]
+          }
+        ],
+        "platform_count": 6,
+        "chassis_mass_kg": 9420.0,
+        "packed_payload_kg": 27541.0,
+        "packed_gross_mass_kg": 36961.0,
+        "packed_volume_m3": 123.71613333333333,
+        "dimensions_m": [
+          3.0,
+          41.0,
+          1.8
+        ],
+        "bounds_m": [
+          -1.5,
+          -17.0,
+          3.0,
+          41.0
+        ],
+        "centre_of_gravity_m": [
+          0.0,
+          3.5,
+          0.7182492356808529
+        ],
+        "contact_area_m2": 25.92,
+        "max_pressure_kpa": 13.983934824459876,
+        "drive_power_kw": 72.0,
+        "control_power_w": 150.0
+      },
+      "ground_support": {
+        "platforms": [
+          {
+            "id": 1,
+            "pressure_kpa": 13.809518711419752,
+            "bearing_kpa": 60.0,
+            "traction": 0.55,
+            "rolling_resistance": 0.1,
+            "safe": true
+          },
+          {
+            "id": 2,
+            "pressure_kpa": 13.809518711419752,
+            "bearing_kpa": 60.0,
+            "traction": 0.55,
+            "rolling_resistance": 0.1,
+            "safe": true
+          },
+          {
+            "id": 3,
+            "pressure_kpa": 13.809518711419752,
+            "bearing_kpa": 60.0,
+            "traction": 0.55,
+            "rolling_resistance": 0.1,
+            "safe": true
+          },
+          {
+            "id": 4,
+            "pressure_kpa": 13.809518711419752,
+            "bearing_kpa": 60.0,
+            "traction": 0.55,
+            "rolling_resistance": 0.1,
+            "safe": true
+          },
+          {
+            "id": 5,
+            "pressure_kpa": 13.809518711419752,
+            "bearing_kpa": 60.0,
+            "traction": 0.55,
+            "rolling_resistance": 0.1,
+            "safe": true
+          },
+          {
+            "id": 6,
+            "pressure_kpa": 13.809518711419752,
+            "bearing_kpa": 60.0,
+            "traction": 0.55,
+            "rolling_resistance": 0.1,
+            "safe": true
+          }
+        ],
+        "max_pressure_kpa": 13.809518711419752,
+        "minimum_bearing_kpa": 60.0,
+        "safe": true,
+        "rolling_resistance": 0.1,
+        "traction": 0.55
+      }
+    },
+    "workfront": null,
+    "base_position_m": [
+      20.071428571428573,
+      11.285714285714286,
+      0.0
+    ],
+    "base_move_wait": "",
+    "base_move_pending": false,
+    "base_move_status": "на рабочей позиции",
+    "base_equipment": {
+      "chassis_kg": 9420.0,
+      "batteries_kg": 15650.0,
+      "panels_kg": 9916.0,
+      "landing_slots_kg": 80,
+      "charger_kg": 15,
+      "emitters_kg": 0,
+      "total_kg": 35081.0
+    },
+    "equipment_imported_kwh": 0.0,
+    "equipment_exported_kwh": 0.0,
+    "equipment_pending": false,
+    "laser_transfer_enabled": true,
+    "retired_drones": [],
+    "lasers": [
+      {
+        "serial": 1,
+        "position_number": 1,
+        "status": "Нет передатчика",
+        "code": "no_emitter",
+        "limits": [],
+        "input_power_w": 0.0,
+        "received_power_w": 0.0,
+        "receiver_limit_w": 0.0,
+        "distance_m": 0.0,
+        "beam_radius_m": 0.0,
+        "capture_fraction": 0.0,
+        "total_efficiency": 0.0,
+        "source": [
+          20.071428571428573,
+          11.285714285714286,
+          2.3
+        ],
+        "target": [
+          54.75,
+          63.75,
+          10.3
+        ],
+        "receiver_heat_w": 0.0,
+        "temperature_c": null,
+        "source_heat_w": 0.0,
+        "path_loss_w": 0.0,
+        "atmosphere_factor": 1.0,
+        "dust_factor": 1.0,
+        "profile": "existing_legacy"
+      },
+      {
+        "serial": 2,
+        "position_number": 2,
+        "status": "Нет передатчика",
+        "code": "no_emitter",
+        "limits": [],
+        "input_power_w": 0.0,
+        "received_power_w": 0.0,
+        "receiver_limit_w": 0.0,
+        "distance_m": 0.0,
+        "beam_radius_m": 0.0,
+        "capture_fraction": 0.0,
+        "total_efficiency": 0.0,
+        "source": [
+          20.071428571428573,
+          11.285714285714286,
+          2.3
+        ],
+        "target": [
+          20.071428571428573,
+          11.285714285714286,
+          1.8
+        ],
+        "receiver_heat_w": 0.0,
+        "temperature_c": null,
+        "source_heat_w": 0.0,
+        "path_loss_w": 0.0,
+        "atmosphere_factor": 1.0,
+        "dust_factor": 1.0,
+        "profile": "existing_legacy"
+      },
+      {
+        "serial": 3,
+        "position_number": 3,
+        "status": "Нет передатчика",
+        "code": "no_emitter",
+        "limits": [],
+        "input_power_w": 0.0,
+        "received_power_w": 0.0,
+        "receiver_limit_w": 0.0,
+        "distance_m": 0.0,
+        "beam_radius_m": 0.0,
+        "capture_fraction": 0.0,
+        "total_efficiency": 0.0,
+        "source": [
+          20.071428571428573,
+          11.285714285714286,
+          2.3
+        ],
+        "target": [
+          55.25,
+          64.25,
+          16.3
+        ],
+        "receiver_heat_w": 0.0,
+        "temperature_c": null,
+        "source_heat_w": 0.0,
+        "path_loss_w": 0.0,
+        "atmosphere_factor": 1.0,
+        "dust_factor": 1.0,
+        "profile": "existing_legacy"
+      },
+      {
+        "serial": 4,
+        "position_number": 4,
+        "status": "Нет передатчика",
+        "code": "no_emitter",
+        "limits": [],
+        "input_power_w": 0.0,
+        "received_power_w": 0.0,
+        "receiver_limit_w": 0.0,
+        "distance_m": 0.0,
+        "beam_radius_m": 0.0,
+        "capture_fraction": 0.0,
+        "total_efficiency": 0.0,
+        "source": [
+          20.071428571428573,
+          11.285714285714286,
+          2.3
+        ],
+        "target": [
+          26.071428571428573,
+          11.285714285714286,
+          1.8
+        ],
+        "receiver_heat_w": 0.0,
+        "temperature_c": null,
+        "source_heat_w": 0.0,
+        "path_loss_w": 0.0,
+        "atmosphere_factor": 1.0,
+        "dust_factor": 1.0,
+        "profile": "existing_legacy"
+      }
+    ],
+    "laser_input_power_w": 0.0,
+    "laser_received_power_w": 0.0,
+    "laser_input_kwh": 0.0,
+    "laser_received_kwh": 0.0,
+    "laser_losses_kwh": 0.0,
+    "laser_receiver_heat_kwh": 0.0,
+    "state": "RUNNING",
+    "reason": "",
+    "time_seconds": 172800.0,
+    "elapsed_display": "2 д 00:00:00",
+    "solar_clock": "06:00:00",
+    "date": "23.06",
+    "day_of_year": 174,
+    "latitude_deg": 31.0,
+    "base_mass_kg": 36290.0,
+    "panel_area_m2": 2479.0,
+    "irradiance_w_m2": 204.65963578073186,
+    "sun_elevation_deg": 11.809575181546474,
+    "daylight_hours": 14.010818795941338,
+    "sunrise_hour": 4.994590602029331,
+    "sunset_hour": 19.00540939797067,
+    "base_motion_power_w": 0.0,
+    "cable_length_m": 1.0,
+    "hour": 6.0,
+    "trips": 7161,
+    "relocations": 0,
+    "initial_excavation_m3": 5.915050580901346,
+    "remaining_m3": 0.6009432767458398,
+    "completion_percent": 89.84043722827697,
+    "excavated_m3": 129.88977478658174,
+    "excavated_mass_kg": 207823.6396585308,
+    "cargo_kg": 62.0,
+    "drone_state": "LOWER_GRABBER",
+    "base_state": "CHARGING",
+    "drone_kwh": 15.777008835244418,
+    "base_kwh": 765.7730680279333,
+    "solar_power_w": 101456.06697884505,
+    "solar_generated_kwh": 8593.72287090045,
+    "solar_curtailed_kwh": 5847.739979931438,
+    "consumed_kwh": 3224.721036204338,
+    "charging_losses_kwh": 353.46616840521324,
+    "mass_error_kg": 1.1937117960769683e-11,
+    "energy_error_j": -0.001942753791809082,
+    "minimum_drone_kwh": 1.091029330415799,
+    "initial_energy_kwh": 1774.1,
+    "drone_count": 4,
+    "charge_slots": 4,
+    "slot_occupants": [
+      2,
+      null,
+      null,
+      4
+    ],
+    "queue": [],
+    "wait_mode": "ground",
+    "drones": [
+      {
+        "id": 1,
+        "name": "Тяжёлый 60",
+        "state": "LOWER_GRABBER",
+        "position": [
+          54.75,
+          63.75,
+          10.3
+        ],
+        "battery_kwh": 4.26379430911156,
+        "battery_percent": 85.2758861822312,
+        "capacity_kwh": 5.0,
+        "cargo_kg": 2.0,
+        "payload_kg": 60.0,
+        "empty_mass_kg": 92.0,
+        "trips": 1856,
+        "excavated_mass_kg": 56009.79920041452,
+        "consumed_kwh": 806.314861544006,
+        "waiting_seconds": 57773.0,
+        "charging_seconds": 13519.0,
+        "traffic_yields": 27,
+        "slot": null,
+        "minimum_kwh": 1.1424085824427879,
+        "cable_length_m": 1.0,
+        "charge_threshold_percent": 30.0,
+        "charge_requested": false,
+        "charge_cycles": 224,
+        "filled_mass_kg": 50003.976362876885,
+        "reclaimed_mass_kg": 50003.97636287677,
+        "serial": 1,
+        "created_at_seconds": 0.0,
+        "equipment": {
+          "frame_kg": 60.0,
+          "batteries_kg": 30.0,
+          "bucket_kg": 0.0,
+          "receiver_kg": 0,
+          "total_kg": 92.0,
+          "hook_kg": 2.0
+        },
+        "transported_mass_kg": 106013.77556329168,
+        "transported_volume_m3": 66.25860972705847,
+        "today_mass_kg": 12573.492621318512,
+        "today_volume_m3": 7.858432888324043,
+        "last24_mass_kg": 50986.33627014417,
+        "last24_volume_m3": 31.86646016884011,
+        "daily": [
+          {
+            "mission_day": 0,
+            "mass_kg": 42599.06482811795,
+            "volume_m3": 26.62441551757398,
+            "fill_mass_kg": 18813.78351052643,
+            "dump_mass_kg": 23785.281317591533,
+            "deliveries": 735
+          },
+          {
+            "mission_day": 1,
+            "mass_kg": 50841.21811385526,
+            "volume_m3": 31.77576132115996,
+            "fill_mass_kg": 25789.28637031126,
+            "dump_mass_kg": 25051.931743543984,
+            "deliveries": 895
+          },
+          {
+            "mission_day": 2,
+            "mass_kg": 12573.492621318512,
+            "volume_m3": 7.858432888324043,
+            "fill_mass_kg": 5400.906482039187,
+            "dump_mass_kg": 7172.586139279326,
+            "deliveries": 226
+          }
+        ],
+        "activity": {
+          "total_seconds": 172800.0,
+          "seconds": {
+            "digging": 91183.0,
+            "waiting_charge": 256.0,
+            "battery_swap": 13216.0,
+            "idle": 40964.0,
+            "group_lift": 5664.0,
+            "flight": 843.0,
+            "tool_change": 3835.0,
+            "transport": 16755.0,
+            "charging": 84.0
+          }
+        },
+        "dig_rate_kg_s": 6.0,
+        "full_scoop_seconds": 10.0,
+        "digging_j_m3": 100000.0,
+        "laser_received_kwh": 0.0,
+        "laser_power_w": 0.0,
+        "laser_status": "Нет передатчика",
+        "flight_power_w": 0.0,
+        "airborne_seconds": 110167.0,
+        "current_flight_seconds": 4334.0,
+        "last_flight_seconds": 99.0,
+        "longest_flight_seconds": 10277.0,
+        "task": "RECOVER_EMPTY_EXCAVATOR_BATTERY",
+        "attachment": "CONTAINER_HOOK",
+        "role": "COURIER",
+        "transport_payload_kg": 120.0,
+        "battery_ids": [
+          "drone_4_battery_1",
+          "drone_4_battery_2"
+        ],
+        "wait_reason": "",
+        "recall_requested": false,
+        "tool_change_remaining_seconds": 0.0,
+        "battery_swaps": 224,
+        "battery_swap_remaining_seconds": 0.0,
+        "lift_equivalent_kg": null
+      },
+      {
+        "id": 2,
+        "name": "Тяжёлый 60",
+        "state": "DOCKED",
+        "position": [
+          20.071428571428573,
+          11.285714285714286,
+          1.8
+        ],
+        "battery_kwh": 2.98569449826559,
+        "battery_percent": 59.71388996531181,
+        "capacity_kwh": 5.0,
+        "cargo_kg": 0,
+        "payload_kg": 60.0,
+        "empty_mass_kg": 105.0,
+        "trips": 1849,
+        "excavated_mass_kg": 54777.81023311292,
+        "consumed_kwh": 808.4434295111856,
+        "waiting_seconds": 56949.0,
+        "charging_seconds": 13440.0,
+        "traffic_yields": 23,
+        "slot": 1,
+        "minimum_kwh": 1.091029330415799,
+        "cable_length_m": 0.0,
+        "charge_threshold_percent": 30.0,
+        "charge_requested": false,
+        "charge_cycles": 224,
+        "filled_mass_kg": 49598.80108308905,
+        "reclaimed_mass_kg": 49598.80108308888,
+        "serial": 2,
+        "created_at_seconds": 0.0,
+        "equipment": {
+          "frame_kg": 60.0,
+          "batteries_kg": 30.0,
+          "bucket_kg": 15.0,
+          "receiver_kg": 0,
+          "total_kg": 105.0,
+          "hook_kg": 0.0
+        },
+        "transported_mass_kg": 104376.61131620184,
+        "transported_volume_m3": 65.23538207262747,
+        "today_mass_kg": 12077.599376680017,
+        "today_volume_m3": 7.548499610424987,
+        "last24_mass_kg": 50542.03795781015,
+        "last24_volume_m3": 31.58877372363134,
+        "daily": [
+          {
+            "mission_day": 0,
+            "mass_kg": 40790.05304060913,
+            "volume_m3": 25.49378315038093,
+            "fill_mass_kg": 18808.654604648662,
+            "dump_mass_kg": 21981.398435960466,
+            "deliveries": 734
+          },
+          {
+            "mission_day": 1,
+            "mass_kg": 51508.958898912715,
+            "volume_m3": 32.19309931182086,
+            "fill_mass_kg": 25326.132600499815,
+            "dump_mass_kg": 26182.8262984129,
+            "deliveries": 896
+          },
+          {
+            "mission_day": 2,
+            "mass_kg": 12077.599376680017,
+            "volume_m3": 7.548499610424987,
+            "fill_mass_kg": 5464.013877940586,
+            "dump_mass_kg": 6613.5854987394305,
+            "deliveries": 219
+          }
+        ],
+        "activity": {
+          "total_seconds": 172800.0,
+          "seconds": {
+            "digging": 91786.0,
+            "waiting_charge": 247.0,
+            "battery_swap": 13216.0,
+            "idle": 40362.0,
+            "group_lift": 5664.0,
+            "flight": 975.0,
+            "tool_change": 3696.0,
+            "transport": 16847.0,
+            "charging": 7.0
+          }
+        },
+        "dig_rate_kg_s": 6.0,
+        "full_scoop_seconds": 10.0,
+        "digging_j_m3": 100000.0,
+        "laser_received_kwh": 0.0,
+        "laser_power_w": 0.0,
+        "laser_status": "Нет передатчика",
+        "flight_power_w": 0.0,
+        "airborne_seconds": 111021.0,
+        "current_flight_seconds": 4453.0,
+        "last_flight_seconds": 72.0,
+        "longest_flight_seconds": 8481.0,
+        "task": "",
+        "attachment": "GRABBER",
+        "role": "DIGGER",
+        "transport_payload_kg": 120.0,
+        "battery_ids": [
+          "drone_4_spare_7_1",
+          "drone_4_spare_7_2"
+        ],
+        "wait_reason": "Нет свободного доступного участка",
+        "recall_requested": false,
+        "tool_change_remaining_seconds": 0.0,
+        "battery_swaps": 224,
+        "battery_swap_remaining_seconds": 0.0,
+        "lift_equivalent_kg": null
+      },
+      {
+        "id": 3,
+        "name": "Тяжёлый 60",
+        "state": "LIFT_GRABBER",
+        "position": [
+          55.25,
+          64.25,
+          16.3
+        ],
+        "battery_kwh": 4.163627818958707,
+        "battery_percent": 83.27255637917413,
+        "capacity_kwh": 5.0,
+        "cargo_kg": 60.0,
+        "payload_kg": 60.0,
+        "empty_mass_kg": 105.0,
+        "trips": 1722,
+        "excavated_mass_kg": 48054.05539183655,
+        "consumed_kwh": 768.703936307652,
+        "waiting_seconds": 61432.0,
+        "charging_seconds": 12878.0,
+        "traffic_yields": 114,
+        "slot": null,
+        "minimum_kwh": 1.173905673375181,
+        "cable_length_m": 16.35294117647059,
+        "charge_threshold_percent": 30.0,
+        "charge_requested": false,
+        "charge_cycles": 213,
+        "filled_mass_kg": 49161.97348568379,
+        "reclaimed_mass_kg": 49161.973485683426,
+        "serial": 3,
+        "created_at_seconds": 0.0,
+        "equipment": {
+          "frame_kg": 60.0,
+          "batteries_kg": 30.0,
+          "bucket_kg": 15.0,
+          "receiver_kg": 0,
+          "total_kg": 105.0,
+          "hook_kg": 0.0
+        },
+        "transported_mass_kg": 97156.02887752047,
+        "transported_volume_m3": 60.722518048451555,
+        "today_mass_kg": 12333.780406033444,
+        "today_volume_m3": 7.708612753770878,
+        "last24_mass_kg": 48036.946298272596,
+        "last24_volume_m3": 30.02309143642037,
+        "daily": [
+          {
+            "mission_day": 0,
+            "mass_kg": 37860.919326239266,
+            "volume_m3": 23.66307457889969,
+            "fill_mass_kg": 18905.670976280635,
+            "dump_mass_kg": 18955.24834995862,
+            "deliveries": 675
+          },
+          {
+            "mission_day": 1,
+            "mass_kg": 46961.32914524777,
+            "volume_m3": 29.350830715780162,
+            "fill_mass_kg": 24979.174581718537,
+            "dump_mass_kg": 21982.15456352921,
+            "deliveries": 834
+          },
+          {
+            "mission_day": 2,
+            "mass_kg": 12333.780406033444,
+            "volume_m3": 7.708612753770878,
+            "fill_mass_kg": 5277.127927684618,
+            "dump_mass_kg": 7056.652478348822,
+            "deliveries": 213
+          }
+        ],
+        "activity": {
+          "total_seconds": 172800.0,
+          "seconds": {
+            "digging": 86050.0,
+            "waiting_charge": 244.0,
+            "battery_swap": 12567.0,
+            "idle": 45099.0,
+            "tool_change": 3960.0,
+            "transport": 17957.0,
+            "flight": 1161.0,
+            "group_lift": 5664.0,
+            "charging": 98.0
+          }
+        },
+        "dig_rate_kg_s": 6.0,
+        "full_scoop_seconds": 10.0,
+        "digging_j_m3": 100000.0,
+        "laser_received_kwh": 0.0,
+        "laser_power_w": 0.0,
+        "laser_status": "Нет передатчика",
+        "flight_power_w": 33916.63610752581,
+        "airborne_seconds": 106498.0,
+        "current_flight_seconds": 149.0,
+        "last_flight_seconds": 105.0,
+        "longest_flight_seconds": 8955.0,
+        "task": "EXCAVATE_DIRECT",
+        "attachment": "GRABBER",
+        "role": "DIGGER",
+        "transport_payload_kg": 120.0,
+        "battery_ids": [
+          "drone_1_spare_2_1",
+          "drone_1_spare_2_2"
+        ],
+        "wait_reason": "",
+        "recall_requested": false,
+        "tool_change_remaining_seconds": 0.0,
+        "battery_swaps": 213,
+        "battery_swap_remaining_seconds": 0.0,
+        "lift_equivalent_kg": null
+      },
+      {
+        "id": 4,
+        "name": "Тяжёлый 60",
+        "state": "DOCKED",
+        "position": [
+          26.071428571428573,
+          11.285714285714286,
+          1.8
+        ],
+        "battery_kwh": 4.363892208908563,
+        "battery_percent": 87.27784417817126,
+        "capacity_kwh": 5.0,
+        "cargo_kg": 0.0,
+        "payload_kg": 60.0,
+        "empty_mass_kg": 105.0,
+        "trips": 1734,
+        "excavated_mass_kg": 48981.97483316716,
+        "consumed_kwh": 769.4643477303831,
+        "waiting_seconds": 62006.0,
+        "charging_seconds": 12720.0,
+        "traffic_yields": 33,
+        "slot": 4,
+        "minimum_kwh": 1.139412714862659,
+        "cable_length_m": 0.0,
+        "charge_threshold_percent": 30.0,
+        "charge_requested": false,
+        "charge_cycles": 212,
+        "filled_mass_kg": 48544.65502567101,
+        "reclaimed_mass_kg": 48544.65502567068,
+        "serial": 4,
+        "created_at_seconds": 0.0,
+        "equipment": {
+          "frame_kg": 60.0,
+          "batteries_kg": 30.0,
+          "bucket_kg": 15.0,
+          "receiver_kg": 0,
+          "total_kg": 105.0,
+          "hook_kg": 0.0
+        },
+        "transported_mass_kg": 97526.62985883838,
+        "transported_volume_m3": 60.95414366177526,
+        "today_mass_kg": 11661.213002912245,
+        "today_volume_m3": 7.288258126820132,
+        "last24_mass_kg": 46692.82431661413,
+        "last24_volume_m3": 29.183015197883833,
+        "daily": [
+          {
+            "mission_day": 0,
+            "mass_kg": 38802.93120251154,
+            "volume_m3": 24.251832001569895,
+            "fill_mass_kg": 18690.773893248817,
+            "dump_mass_kg": 20112.15730926275,
+            "deliveries": 694
+          },
+          {
+            "mission_day": 1,
+            "mass_kg": 47062.48565341452,
+            "volume_m3": 29.4140535333844,
+            "fill_mass_kg": 24579.904931097837,
+            "dump_mass_kg": 22482.580722316692,
+            "deliveries": 833
+          },
+          {
+            "mission_day": 2,
+            "mass_kg": 11661.213002912245,
+            "volume_m3": 7.288258126820132,
+            "fill_mass_kg": 5273.976201324362,
+            "dump_mass_kg": 6387.236801587878,
+            "deliveries": 207
+          }
+        ],
+        "activity": {
+          "total_seconds": 172800.0,
+          "seconds": {
+            "digging": 87204.0,
+            "waiting_charge": 234.0,
+            "battery_swap": 12508.0,
+            "idle": 46398.0,
+            "tool_change": 3344.0,
+            "transport": 16277.0,
+            "flight": 1163.0,
+            "group_lift": 5664.0,
+            "charging": 8.0
+          }
+        },
+        "dig_rate_kg_s": 6.0,
+        "full_scoop_seconds": 10.0,
+        "digging_j_m3": 100000.0,
+        "laser_received_kwh": 0.0,
+        "laser_power_w": 0.0,
+        "laser_status": "Нет передатчика",
+        "flight_power_w": 0.0,
+        "airborne_seconds": 106029.0,
+        "current_flight_seconds": 117.0,
+        "last_flight_seconds": 109.0,
+        "longest_flight_seconds": 8507.0,
+        "task": "",
+        "attachment": "GRABBER",
+        "role": "DIGGER",
+        "transport_payload_kg": 120.0,
+        "battery_ids": [
+          "drone_3_battery_1",
+          "drone_3_battery_2"
+        ],
+        "wait_reason": "Нет свободного доступного участка",
+        "recall_requested": false,
+        "tool_change_remaining_seconds": 0.0,
+        "battery_swaps": 212,
+        "battery_swap_remaining_seconds": 0.0,
+        "lift_equivalent_kg": null
+      }
+    ],
+    "logistics_version": 2,
+    "courier_strategy": "batch",
+    "courier": {
+      "active": true,
+      "reason": "LOW_SOC",
+      "drone_serial": 1,
+      "batches": 60,
+      "filled_containers": 0,
+      "threshold": 6
+    },
+    "inventory_imported_mass_kg": 0.0,
+    "inventory_exported_mass_kg": 0.0,
+    "battery_deliveries_count": 0,
+    "container_cycles": 485,
+    "battery_service": {
+      "ports": [
+        "drone_2_spare_6_1",
+        "drone_2_spare_6_2",
+        "drone_2_spare_7_1",
+        "drone_2_spare_7_2",
+        "drone_2_spare_8_1",
+        "drone_2_spare_8_2",
+        "drone_2_spare_9_1",
+        "drone_2_spare_9_2",
+        "drone_3_spare_1_1",
+        "drone_3_spare_1_2",
+        "drone_3_spare_2_1",
+        "drone_3_spare_2_2",
+        "drone_3_spare_3_1",
+        "drone_3_spare_3_2",
+        "drone_3_spare_4_1",
+        "drone_3_spare_4_2",
+        "drone_3_spare_5_1",
+        "drone_3_spare_5_2",
+        "drone_3_spare_6_1",
+        "drone_3_spare_6_2",
+        "drone_3_spare_7_1",
+        "drone_3_spare_7_2",
+        "drone_3_spare_8_1",
+        "drone_3_spare_8_2",
+        "drone_3_spare_9_1",
+        "drone_3_spare_9_2",
+        "drone_4_spare_1_1",
+        "drone_4_spare_1_2",
+        "drone_4_spare_2_1",
+        "drone_4_spare_2_2",
+        "drone_4_spare_3_1",
+        "drone_4_spare_3_2",
+        "drone_4_spare_4_1",
+        "drone_4_spare_4_2",
+        "drone_4_spare_5_1",
+        "drone_4_spare_5_2",
+        "drone_1_spare_1_1",
+        "drone_1_spare_1_2",
+        "excavator_battery_04",
+        "excavator_battery_06",
+        "drone_4_spare_8_1",
+        "drone_4_spare_8_2",
+        "drone_1_battery_1",
+        "drone_1_battery_2",
+        "drone_4_spare_6_1",
+        "drone_4_spare_6_2"
+      ],
+      "queue": [],
+      "mode": "individual",
+      "capacity": 86,
+      "module_input_power_w": 69000.0,
+      "robot_swap": {
+        "ids": [
+          "excavator_battery_03",
+          "excavator_battery_05"
+        ],
+        "index": 1,
+        "elapsed": 30.0
+      },
+      "drone_swaps": {},
+      "drone_swap_count": 873,
+      "drone_swap_counts": {
+        "1": 224,
+        "2": 224,
+        "3": 213,
+        "4": 212
+      },
+      "dock_charging_drones": []
+    },
+    "collective_lift": null,
+    "collective_lift_count": 22,
+    "delivered_mass_kg": 39669.870540691736,
+    "solar_field_deployed": true,
+    "solar_generating_area_m2": 2479.0,
+    "solar_field_folding_seconds": 0.0,
+    "base_battery_power_w": 32306.066978931427,
+    "base_load_power_w": 69150.0,
+    "base_energy_status": "Аккумуляторы базы заряжаются",
+    "solar_field_rect": [
+      39.105221430990795,
+      0.5,
+      49.78955713801841,
+      49.78955713801841
+    ],
+    "logistics_wait_reason": "",
+    "solar_field_deployment_seconds": 300.0,
+    "energy_drone_kwh": 3152.926575093227,
+    "energy_excavator_kwh": 61.246322222222226,
+    "energy_laser_station_kwh": 0.0,
+    "energy_station_mechanics_kwh": 3.3481388888888888,
+    "drone_flight_time_seconds": 433715.0,
+    "excavator": {
+      "state": "SWAPPING_BATTERIES",
+      "position": [
+        53.25,
+        63.75,
+        -0.3
+      ],
+      "reason": "SIDE_DOCK_SEQUENTIAL_SWAP",
+      "excavated_m3": 24.793669087932344,
+      "activity": {
+        "total_seconds": 172800.0,
+        "seconds": {
+          "setup": 31.0,
+          "digging": 83755.0,
+          "idle": 64117.0,
+          "waiting_transport": 10383.0,
+          "waiting_relocation": 2492.0,
+          "group_lift": 5664.0,
+          "waiting_power": 396.0,
+          "battery_swap": 5088.0,
+          "waiting_container": 874.0
+        }
+      },
+      "today_excavated_kg": 5158.1124832883115,
+      "today_excavated_m3": 3.223820302055193,
+      "last24_excavated_kg": 20510.26497603636,
+      "last24_excavated_m3": 12.818915610022724,
+      "daily_excavation": [
+        {
+          "mission_day": 0,
+          "mass_kg": 14773.636659806401,
+          "volume_m3": 9.23352291237914,
+          "fill_mass_kg": 0.0,
+          "dump_mass_kg": 0.0,
+          "deliveries": 890,
+          "excavated_mass_kg": 14773.636659806401
+        },
+        {
+          "mission_day": 1,
+          "mass_kg": 19738.121397597017,
+          "volume_m3": 12.336325873498355,
+          "fill_mass_kg": 0.0,
+          "dump_mass_kg": 0.0,
+          "deliveries": 1194,
+          "excavated_mass_kg": 19738.121397597017
+        },
+        {
+          "mission_day": 2,
+          "mass_kg": 5158.1124832883115,
+          "volume_m3": 3.223820302055193,
+          "fill_mass_kg": 0.0,
+          "dump_mass_kg": 0.0,
+          "deliveries": 309,
+          "excavated_mass_kg": 5158.1124832883115
+        }
+      ],
+      "battery_ids": [
+        "excavator_battery_03"
+      ],
+      "energy_kwh": 1.5,
+      "capacity_kwh": 1.5,
+      "buffer_kwh": 0.0975,
+      "buffer_charge_losses_kwh": 0.01167888888888889,
+      "mass_kg": 171.0,
+      "bucket_kg": 0.0,
+      "container": null,
+      "excavated_kg": 39669.87054069175,
+      "consumed_kwh": 61.246322222222226,
+      "working_seconds": 86148.0,
+      "waiting_seconds": 14123.0,
+      "moving_seconds": 0.0,
+      "cycles": 2393,
+      "swaps": 42,
+      "relocations": 22,
+      "supports": true
+    }
+  },
+  "measurement": {
+    "physical_dt_seconds": 1.0,
+    "configuration": "latitude 31°, day 172, continuous design, ordinary autonomous controllers, alternating cut/fill plans",
+    "command": "python scripts/validate_continuous.py --output two-days.json",
+    "python": "3.12.14",
+    "platform": "Linux",
+    "resumed": false
+  }
+}

@@ -15,6 +15,9 @@ class SoilMaterial:
     density: float
     digging_factor: float = 1.
     color: str = '#c9b57a'
+    bearing_kpa: float = 60.
+    traction: float = .55
+    rolling_resistance: float = .10
 
 
 @dataclass
@@ -25,9 +28,9 @@ class SoilProfile:
 
     @classmethod
     def qattara(cls):
-        return cls([SoilMaterial('Песчаные отложения',1600.,1.,'#dbc18a'),
-                    SoilMaterial('Песчано-глинистые отложения',1850.,1.5,'#ae8162'),
-                    SoilMaterial('Выветрелая известняковая порода',2200.,3.,'#a9b6bc')], [2.,6.])
+        return cls([SoilMaterial('Песчаные отложения',1600.,1.,'#dbc18a',60.,.55,.10),
+                    SoilMaterial('Песчано-глинистые отложения',1850.,1.5,'#ae8162',100.,.6,.07),
+                    SoilMaterial('Выветрелая известняковая порода',2200.,3.,'#a9b6bc',500.,.7,.03)], [2.,6.])
 
     @classmethod
     def from_data(cls, data):
@@ -40,6 +43,9 @@ class SoilProfile:
             raise ValueError('Грунт: требуется 1–3 материала и толщины верхних слоёв')
         if not isinstance(self.name,str) or not self.name.strip():raise ValueError('Нужно название профиля грунта')
         for m in self.materials:
+            if (not all(math.isfinite(v) for v in (m.bearing_kpa,m.traction,m.rolling_resistance)) or
+                    m.bearing_kpa<=0 or not 0<m.traction<=1 or not 0<m.rolling_resistance<1):
+                raise ValueError('Неверная несущая способность или параметры сцепления грунта')
             if (not isinstance(m.name,str) or not m.name.strip() or
                     not math.isfinite(m.density) or not 100<=m.density<=5000 or
                     not math.isfinite(m.digging_factor) or not 1<=m.digging_factor<=100 or

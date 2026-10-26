@@ -38,7 +38,7 @@ def _run_project(project,steps,save_landscape=None):
     report=project.report()
     report['reports']=[dict(id=u.id,report=u.simulation.report()) for u in project.units]
     if project.landscape is not None:
-        for unit in project.units:
+        for unit in (project.units[:1] if project.shared_site is not None else project.units):
             if save_landscape:project.commit(unit)
             else:
                 s=unit.simulation
@@ -55,15 +55,37 @@ def _design_outputs(args,config,observation=None):
     from pathlib import Path
     request=PowerRequest(work_hours=args.work_hours,start_hour=args.work_start_hour,drone_utilization=args.drone_duty/100,
                          source='measured' if args.measured_power else 'equipment')
-    report=calculate_power(config,request,observation)
+    if args.continuous_design:
+        from .base_layout import design_continuous
+        config,report=design_continuous(config,request)
+    else:report=calculate_power(config,request,observation)
     if args.power_report:Path(args.power_report).write_text(json.dumps(report,ensure_ascii=False,allow_nan=False,indent=2)+'\n',encoding='utf-8')
     if args.save_complex_template:ComplexTemplate.capture(config,'Рассчитанный комплекс',report).save(args.save_complex_template)
+
+
+def _make_project(sim,region,args):
+    if args.complexes==1 and not args.shared_site:return None
+    from .complexes import ComplexProject,ComplexTemplate
+    project=ComplexProject(sim,region);template=ComplexTemplate.from_simulation(sim,'Комплекс');project.templates.append(template)
+    if args.shared_site:
+        site=project.enable_shared()
+        if args.map_size is None and args.complexes>1:
+            import math
+            required=min(1024,math.ceil(math.sqrt(args.complexes*(template.config.base.panel_area+150))*2/32)*32)
+            if required>site.core.height.shape[0]*site.core.cell:site.enlarge(required)
+    for _ in range(args.complexes-1):
+        if args.shared_site:project.add_shared(template)
+        else:
+            section=project.find_free_section(template)
+            if section is None:raise ValueError('В проекте недостаточно свободных непересекающихся участков')
+            project.add(template,section=section)
+    return project
 
 
 def _resume(args, parser):
     from .checkpoint import load_state,save_state
     allowed={'--load-state','--save-state','--headless','--steps','--json','--panel-area','--base-batteries',
-             '--power-report','--save-complex-template','--work-hours','--work-start-hour','--drone-duty','--measured-power'}
+             '--power-report','--save-complex-template','--work-hours','--work-start-hour','--drone-duty','--measured-power','--continuous-design'}
     forbidden=[v.split('=')[0] for v in sys.argv[1:] if v.startswith('--') and v.split('=')[0] not in allowed]
     if forbidden:parser.error('Сохранение уже задаёт сценарий; несовместимые параметры: '+', '.join(forbidden))
     session=load_state(args.load_state);sim=session.simulation
@@ -137,7 +159,9 @@ def main():
     parser.add_argument('--power-report',help='Save a daily solar/storage and spare-pack sizing report JSON')
     parser.add_argument('--save-complex-template',help='Save the calculated hardware recipe as an .atstemplate')
     parser.add_argument('--complex-template',help='Start a fresh complex from an .atstemplate hardware recipe')
-    parser.add_argument('--complexes',type=int,default=1,help='Independent complexes on separated sections of one regional channel, 1..8')
+    parser.add_argument('--complexes',type=int,default=1,help='Working complexes, 1..20; use --shared-site for one physical map')
+    parser.add_argument('--shared-site',action='store_true',help='One shared physical terrain, work dispatcher and airspace for all complexes')
+    parser.add_argument('--continuous-design',action='store_true',help='Automatically size 24-hour solar/storage and modular crawler platforms')
     parser.add_argument('--work-hours',type=float,default=24,help='Design assumption: operating hours per solar day')
     parser.add_argument('--work-start-hour',type=float,help='Design assumption: shift start in local solar hours')
     parser.add_argument('--drone-duty',type=float,default=50,help='Design assumption: percent of shift spent flying')
@@ -149,7 +173,7 @@ def main():
     parser.add_argument('--channel-depth',type=float,help='Positive depth below MSL, e.g. 5 means bottom -5 m MSL')
     parser.add_argument('--shore-offset',type=float,help='Dry start offset along alignment from sea coastline, default 10 m')
     args = parser.parse_args()
-    if not 1<=args.complexes<=8:parser.error('--complexes: от 1 до 8')
+    if not 1<=args.complexes<=20:parser.error('--complexes: от 1 до 20')
     if args.complex_template and (args.configuration or args.equipment):parser.error('Шаблон комплекса уже задаёт оборудование')
     if (args.channel_width is not None or args.channel_depth is not None or args.shore_offset is not None or args.channel_section!=1) and not (args.channel or args.channel_route):
         parser.error('Параметры канала требуют --channel или --channel-route')
@@ -175,9 +199,11 @@ def main():
     config.drone.charge_threshold = args.charge_threshold/100
     try:
         from .maps import with_map_size
+        initial_stock=[]
         if args.complex_template:
             from .complexes import ComplexTemplate
-            config=ComplexTemplate.load(args.complex_template).config
+            loaded_template=ComplexTemplate.load(args.complex_template)
+            config=loaded_template.config;initial_stock=loaded_template.stock or []
             config=with_map_size(config,args.map_size or config.terrain.n*config.terrain.cell_size)
             if args.mode is None:mode='legacy' if config.logistics is None else 'logistics'
         if not args.plan and not args.configuration and not args.complex_template:
@@ -287,11 +313,19 @@ def main():
         if args.base_batteries is not None:
             from .equipment import set_base_battery_count,resolve_config
             set_base_battery_count(config.base.equipment,args.base_batteries);resolve_config(config)
+        if args.continuous_design:
+            from .base_layout import design_continuous
+            from .power_design import PowerRequest
+            config,design=design_continuous(config,PowerRequest(drone_utilization=args.drone_duty/100))
+            if config.georeference is None and args.map_size is None:
+                from .complexes import ComplexTemplate
+                desired=ComplexTemplate.capture(config).config.terrain.n*config.terrain.cell_size
+                config=with_map_size(config,max(desired,config.terrain.n*config.terrain.cell_size))
         if args.save_configuration:
             from .experiments import save_configuration
             save_configuration(args.save_configuration,config)
         config.validate()
-        if args.complexes>1 and (region is None or region.channel_project is None):raise ValueError('Для --complexes нужен общий региональный проект канала')
+        if args.complexes>1 and not args.shared_site and (region is None or region.channel_project is None):raise ValueError('Для --complexes нужен --shared-site или общий региональный проект канала')
         if (args.power_report or args.save_complex_template or args.complexes>1) and (args.batch_experiments or args.compare_fleet):
             raise ValueError('Расчёт энергоснабжения и клонирование требуют одного проекта')
         if not args.headless:
@@ -304,15 +338,9 @@ def main():
                 from .comparison import compare_fleets
                 report = compare_fleets(config,[int(n) for n in args.compare_fleet.split(',')],args.steps)
             else:
-                sim = Simulation(config)
-                project=None
-                if args.complexes>1:
-                    from .complexes import ComplexProject,ComplexTemplate
-                    project=ComplexProject(sim,region);template=ComplexTemplate.capture(config,'Комплекс');project.templates.append(template)
-                    for _ in range(args.complexes-1):
-                        section=project.find_free_section(template)
-                        if section is None:raise ValueError('В проекте недостаточно свободных непересекающихся участков')
-                        project.add(template,section=section)
+                sim = Simulation(config,initial_stock=initial_stock)
+                project=_make_project(sim,region,args)
+                if project is not None:
                     report=_run_project(project,args.steps,args.save_landscape)
                 else:
                     report = sim.run(args.steps)
@@ -326,14 +354,9 @@ def main():
             if args.batch_experiments:blocked=any(row['state']=='BLOCKED' for row in report)
             return 2 if blocked else 0
         from .gui import launch
-        if args.complexes>1:
-            from .complexes import ComplexProject,ComplexTemplate
+        if args.complexes>1 or args.shared_site or initial_stock:
             from .checkpoint import Session
-            sim=Simulation(config);project=ComplexProject(sim,region);template=ComplexTemplate.capture(config,'Комплекс');project.templates.append(template)
-            for _ in range(args.complexes-1):
-                section=project.find_free_section(template)
-                if section is None:raise ValueError('В проекте недостаточно свободных непересекающихся участков')
-                project.add(template,section=section)
+            sim=Simulation(config,initial_stock=initial_stock);project=_make_project(sim,region,args)
             return launch(config,session=Session(sim,region,{},complex_project=project))
         return launch(config,landscape=region)
     except (ValueError, OSError, KeyError, TypeError) as error:

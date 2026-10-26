@@ -90,6 +90,7 @@ class BaseConfig:
     relocation_clearance: float = 2.0
     idle_power: float = 0.0
     equipment: object = None
+    layout: dict | None = None  # None retains the historical chassis and drive
 
 
 @dataclass
@@ -131,6 +132,7 @@ class Config:
     plan: object = None  # PlanConfig, imported lazily to keep configuration simple
     initial_height: list | None = None
     reference_height: list | None = None  # immutable imported DEM, metres above MSL
+    local_reference: bool = False  # preserved reference of an extended synthetic field
     georeference: dict | None = None
     seed: int = 42
     dt: float = 1.0
@@ -150,6 +152,9 @@ class Config:
         return deepcopy(self.fleet.models) if self.fleet.models else [deepcopy(self.drone) for _ in range(self.fleet.count)]
 
     def validate(self):
+        if self.base.layout is not None:
+            from .base_layout import parameters
+            parameters(self.base.layout)
         if self.soil_profile is not None:
             self.soil_profile.validate()
         elif self.initial_soil is not None:
@@ -223,7 +228,7 @@ class Config:
         require(d.flight_factor >= 1 and d.budget_margin >= 1 and d.winch_power >= 0 and b.idle_power >= 0 and 0 <= b.relocation_min_gain < 1, "Неверные энергетические параметры")
         require(d.dig_rate_kg_s > 0 and d.digging_j_m3 >= 0, "Неверная скорость или удельная энергия копания")
         if self.reference_height is not None:
-            require(self.georeference is not None and self.georeference.get('vertical_datum') == 'MSL', "DEM должен иметь высоты относительно уровня моря (MSL)")
+            require(self.local_reference and self.georeference is None or self.georeference is not None and self.georeference.get('vertical_datum') == 'MSL', "DEM должен иметь высоты относительно уровня моря (MSL)")
             require(len(self.reference_height) == t.n and all(len(row) == t.n for row in self.reference_height), "Размер DEM не совпадает с сеткой")
             import numpy as np
             h=np.asarray(self.reference_height,dtype=float)

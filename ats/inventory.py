@@ -130,12 +130,25 @@ class Inventory:
         item.position, item.state = tuple(map(float, position)), state
 
     def select(self, cls, location=None):
-        return [o for o in self.items.values() if isinstance(o, cls)
-                and (location is None or o.location == location)]
+        signature=(id(self.items),len(self.items))
+        if getattr(self,'_index_signature',None)!=signature:
+            self._index_signature=signature;self._type_index={}
+        key=cls.__module__+'.'+cls.__name__
+        if key not in self._type_index:self._type_index[key]=[o for o in self.items.values() if isinstance(o,cls)]
+        return [o for o in self._type_index[key] if location is None or o.location == location]
 
-    def validate(self):
+    def mutable_items(self):
+        signature=(id(self.items),len(self.items))
+        if getattr(self,'_mutable_signature',None)!=signature:
+            self._mutable_signature=signature
+            static={'SOLAR_PANEL','LANDING_PAD','CHASSIS','PLATFORM_CHASSIS','CHARGER_AND_AUTOMATION','LASER_TRANSMITTER'}
+            self._mutable_items=[o for o in self.items.values() if o.kind not in static]
+        return self._mutable_items
+
+    def validate(self,*,dynamic=False):
         slot_modules=set()
-        for key, o in self.items.items():
+        entries=((o.id,o) for o in self.mutable_items()) if dynamic else self.items.items()
+        for key, o in entries:
             if key != o.id or not o.holder_id or not isinstance(o.location, Location):
                 raise ValueError('Invalid inventory identity/location')
             if not math.isfinite(o.mass_kg) or o.mass_kg <= 0:

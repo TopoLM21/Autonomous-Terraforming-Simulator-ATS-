@@ -19,7 +19,7 @@ import numpy as np
 
 
 FORMAT='ATS_SIMULATION'
-VERSION=3
+VERSION=4
 MAX_BYTES=1_500_000_000
 MAX_NODES=2_000_000
 
@@ -27,10 +27,10 @@ MAX_NODES=2_000_000
 def _classes():
     from . import (config,equipment,simulation,solar_base,drone,terrain,planner,dust,
                    logistics,logistics_config,inventory,batteries,excavator,cooperative_lift,
-                   productivity,activity,plan,laser,workfront,landscape,soil,complexes,power_design)
+                   productivity,activity,plan,laser,workfront,landscape,soil,complexes,power_design,shared_site)
     modules=(config,equipment,simulation,solar_base,drone,terrain,planner,dust,logistics,
              logistics_config,inventory,batteries,excavator,cooperative_lift,productivity,
-             activity,plan,laser,workfront,landscape,soil,complexes,power_design)
+             activity,plan,laser,workfront,landscape,soil,complexes,power_design,shared_site)
     classes=[value for module in modules for value in vars(module).values()
              if isinstance(value,type) and value.__module__==module.__name__]
     return {c.__module__+'.'+c.__name__:c for c in [*classes,SimpleNamespace]}
@@ -309,7 +309,7 @@ def load_state(path):
                 raise ValueError('Сохранение превышает допустимый размер')
             if archive.getinfo('manifest.json').file_size>256_000_000:raise ValueError('Слишком большой список объектов')
             manifest=json.loads(archive.read('manifest.json'))
-            if manifest.get('format')!=FORMAT or type(manifest.get('version')) is not int or manifest['version'] not in (1,2,VERSION):
+            if manifest.get('format')!=FORMAT or type(manifest.get('version')) is not int or manifest['version'] not in (1,2,3,VERSION):
                 raise ValueError('Неизвестный формат или версия сохранения')
             decoder=_Decoder(archive,manifest['nodes']);root=decoder.decode(manifest['root'])
             if manifest['version']==1:_migrate_v1(decoder)

@@ -60,7 +60,7 @@ class Planner:
 
     def _choose_source(self, terrain, base, drone, source, reserved, home, reserved_dump, fill_point, fill_mass, charge, start):
         d, t = (drone.config if drone is not None else self.config.drone), self.config.terrain
-        local=terrain.front is not None and source=='cut'
+        local=(terrain.front is not None or getattr(terrain,'shared_site',None) is not None) and source=='cut'
         if local:
             candidates=terrain.source_indices(source)
             xx,yy=terrain.x.ravel()[candidates],terrain.y.ravel()[candidates]
@@ -85,7 +85,7 @@ class Planner:
             order = np.argsort(-heights, kind="stable")[:32]
         best = None
         altitude = max(float(terrain.reference.max()), t.dump_max_height) + d.work_height + self.config.base.roof_height
-        if self.config.reference_height is not None:
+        if self.config.reference_height is not None or getattr(terrain,'shared_site',None) is not None:
             altitude = terrain.clearance_surface+d.work_height+self.config.base.roof_height
         altitude += (drone.identifier if drone is not None else 0)*self.config.fleet.altitude_spacing
         for index in candidates[order]:
