@@ -157,6 +157,12 @@ def test_authentic_version_three_regional_group_continues_without_conversion(tmp
                 for a,b in zip(actual.get(kind,[]),target.get(kind,[])):
                     for key in ('last24_mass_kg','last24_volume_m3'):
                         assert a[key]==pytest.approx(b[key],rel=0,abs=1e-11);a[key]=b[key]
+            # Python 3.12 improved sum() accuracy. The fixture was generated
+            # there; rolling statistics on 3.11 can differ by a few ulps.
+            if target.get('excavator') is not None:
+                for key in ('last24_excavated_kg','last24_excavated_m3'):
+                    a,b=actual['excavator'],target['excavator']
+                    assert a[key]==pytest.approx(b[key],rel=0,abs=1e-11);a[key]=b[key]
             assert actual==target
     compare(expected['initial'])
     for _ in range(expected['steps']):p.step()
