@@ -132,13 +132,24 @@ def test_cli_energy_report_and_calculated_template_are_executable(tmp_path):
 
 def test_real_version_two_layered_save_keeps_soil_and_exact_continuation(tmp_path):
     import base64
+    def check_historical_report(actual,expected):
+        actual=json.loads(json.dumps(actual))
+        # Python 3.12 changed float sum() reduction. Only the two rolling
+        # statistics may differ by a few ULP across runtimes; recorded loads,
+        # physics and the rest of the historical report must remain exact.
+        for kind in ('drones','retired_drones'):
+            for row,want in zip(actual.get(kind,[]),expected.get(kind,[])):
+                for key in ('last24_mass_kg','last24_volume_m3'):
+                    assert row[key]==pytest.approx(want[key],rel=0,abs=1e-11)
+                    row[key]=want[key]
+        assert actual==expected
     fixture=Path(__file__).parent/'fixtures'/'soil-v2'/'layered'
     path=tmp_path/'v2.atsstate';path.write_bytes(base64.b64decode(fixture.with_suffix('.b64').read_text(encoding='ascii')))
     expected=json.loads(fixture.with_suffix('.json').read_text(encoding='utf-8'))
     original=path.read_bytes();session=load_state(path);s=session.simulation
     assert session.complex_project is None and s.terrain.soil is not None
-    assert json.loads(json.dumps(s.report()))==expected['initial']
-    s.run(expected['steps']);assert json.loads(json.dumps(s.report()))==expected['continued']
+    check_historical_report(s.report(),expected['initial'])
+    s.run(expected['steps']);check_historical_report(s.report(),expected['continued'])
     save_state(tmp_path/'v3.atsstate',s)
     assert path.read_bytes()==original and load_state(tmp_path/'v3.atsstate').simulation.report()==s.report()
 
