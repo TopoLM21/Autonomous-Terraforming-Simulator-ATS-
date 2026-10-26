@@ -208,7 +208,8 @@ def calculate_power(config,request=None,observation=None):
     for row in rows:row['allocated_spare_sets']=max_spare
     robot_spares=(robot['spare_sets'] or 0)*robot['modules_per_set'] if robot else 0
     slot_kw=(log.port_power_w/1000 if log else 0.)
-    connected=spare_modules*slot_kw+robot_spares*slot_kw+b.charge_power/1000+sum(p for _,p,_ in channels)
+    connected=(spare_modules*slot_kw+robot_spares*slot_kw+b.charge_power/1000+
+               sum(p for _,p,_ in channels)+b.idle_power/1000+request.auxiliary_kw)
     continuous=(drone_input+robot_input+robot_idle)*(1+request.energy_margin)
     inverter=max(connected,idle+work)*(1+request.energy_margin)
     if log and inverter>log.inverter_power_w/1000:warnings.append('Мощность преобразователя текущей базы меньше расчётной')

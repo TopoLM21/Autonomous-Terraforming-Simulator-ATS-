@@ -101,6 +101,14 @@ def test_shared_laser_power_is_counted_once_and_cannot_create_free_energy():
     assert abs(on['storage_check']['energy_error_kwh'])<1e-7
 
 
+def test_auxiliary_load_raises_connected_peak_in_addition_to_charging_power():
+    c=config();normal=calculate_power(c,PowerRequest(auxiliary_kw=0,energy_margin=0))
+    extra=calculate_power(c,PowerRequest(auxiliary_kw=200,energy_margin=0))
+    assert extra['daily_energy_kwh']-normal['daily_energy_kwh']==pytest.approx(200*24)
+    assert extra['connected_peak_kw']-normal['connected_peak_kw']==pytest.approx(200)
+    assert extra['inverter_required_kw']>=normal['connected_peak_kw']+200-1e-9
+
+
 def test_actual_measurement_is_read_only_and_requires_a_nonempty_sample():
     s=Simulation(config());before=s.report()
     with pytest.raises(ValueError,match='60 секунд'):calculate_power(s.config,PowerRequest(source='measured'),before)
