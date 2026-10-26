@@ -52,6 +52,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sim = session.simulation if session else Simulation(self.config)
         config=self.config
         self.landscape = session.landscape if session else None
+        self.complex_project=getattr(session,'complex_project',None) if session else None
+        self.template_library=(self.complex_project.templates if self.complex_project is not None else
+                               list((session.ui or {}).get('complex_templates',[])) if session else [])
+        self.power_request_state=(session.ui or {}).get('power_request') if session else None
         self._session_path=None
         self.running = False
         self._equipment_resume = None
@@ -59,7 +63,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.last_wall = time.perf_counter()
         self.last_render_wall=-float('inf')
         self.actual_speed=0.;self.actual_render_hz=0.
-        self.performance_wall=self.last_wall;self.performance_sim=self.sim.time;self.performance_renders=0
+        self.performance_wall=self.last_wall;self.performance_sim=self.model_time();self.performance_renders=0
         self._render_cost=.02;self._last_view=None
         self.last_terrain_wall = -1.0
         self.last_revision = -1
@@ -324,6 +328,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.apply_base_batteries_button=QtWidgets.QPushButton('Применить аккумуляторы сейчас')
         self.apply_base_batteries_button.clicked.connect(self.apply_base_battery_count)
         solar_form.addRow(self.apply_base_batteries_button)
+        self.power_design_button=QtWidgets.QPushButton('Энергоснабжение и шаблон…');self.power_design_button.clicked.connect(self.show_power_design)
+        solar_form.addRow(self.power_design_button)
+        self.complexes_button=QtWidgets.QPushButton('Комплексы общего проекта…');self.complexes_button.clicked.connect(self.show_complexes)
+        solar_form.addRow(self.complexes_button)
         self.season.currentIndexChanged.connect(lambda index: self.calendar.setDate(QtCore.QDate(2025, 1, 1).addDays(self.season.currentData()-1)) if index >= 0 else None)
         for widget in [self.panels, self.latitude]:
             widget.valueChanged.connect(self.update_solar_preview)
@@ -570,6 +578,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.timer.stop();self.running=False
         if self.map_dialog is not None:self.map_dialog.close()
         if hasattr(self,'logistics_window'):self.logistics_window.close()
+        if hasattr(self,'power_window'):self.power_window.close()
+        if hasattr(self,'complex_window'):self.complex_window.close()
         super().closeEvent(event)
 
     def show_logistics(self):
@@ -658,9 +668,12 @@ class MainWindow(QtWidgets.QMainWindow):
                     profile_direction=self.profile_direction.currentData(),profile_segment=self.profile_segment.currentData(),
                     profile_position=self.profile_position.value(),equipment_resume=self._equipment_resume,
                     render_mode=self.render_mode.currentData() if hasattr(self,'render_mode') else 'auto',
-                    soil_view=self.soil_view.isChecked())
+                    soil_view=self.soil_view.isChecked(),power_request=self.power_request_state,
+                    complex_templates=self.template_library)
 
     def restore_session_ui(self, ui):
+        self.power_request_state=ui.get('power_request')
+        self.template_library=self.complex_project.templates if self.complex_project is not None else list(ui.get('complex_templates',[]))
         self.speed.setCurrentIndex(max(0,self.speed.findData(ui.get('speed',50))))
         if hasattr(self,'render_mode'):self.render_mode.setCurrentIndex(max(0,self.render_mode.findData(ui.get('render_mode','auto'))))
         self.soil_view.setChecked(bool(ui.get('soil_view',False)))
@@ -685,7 +698,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     self,'Сохранить текущую симуляцию',str(self._session_path or 'simulation.atsstate'),'Состояние ATS (*.atsstate)')[0]
             if not path:return
             QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CursorShape.WaitCursor)
-            try:save_state(path,self.sim,self.landscape,self.session_ui())
+            try:save_state(path,self.sim,self.landscape,self.session_ui(),complex_project=self.complex_project)
             finally:QtWidgets.QApplication.restoreOverrideCursor()
             self._session_path=Path(path);self.statusBar().showMessage(f'Симуляция сохранена: {path}',7000)
         except (ValueError,OSError) as error:QtWidgets.QMessageBox.warning(self,'Сохранение симуляции',str(error))
@@ -701,7 +714,7 @@ class MainWindow(QtWidgets.QMainWindow):
             QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CursorShape.WaitCursor)
             try:session=load_state(path)
             finally:QtWidgets.QApplication.restoreOverrideCursor()
-            self.install_simulation(session.simulation,session.landscape);self.restore_session_ui(session.ui)
+            self.install_simulation(session.simulation,session.landscape,session.complex_project);self.restore_session_ui(session.ui)
             self._session_path=Path(path);loaded=True
             self.refresh(True);self.statusBar().showMessage(f'Загружено: {path}. Симуляция на паузе.',10000)
         except (ValueError,OSError) as error:QtWidgets.QMessageBox.warning(self,'Загрузка симуляции',str(error))
@@ -719,6 +732,32 @@ class MainWindow(QtWidgets.QMainWindow):
     def compare_fleet(self):
         self.running=False;self.play.setText("▶ Start")
         self.comparison=ComparisonWindow(self.config,self);self.comparison.show()
+
+    def show_power_design(self):
+        from .power_ui import PowerDesignDialog
+        if hasattr(self,'power_window'):self.power_window.close()
+        self.power_window=PowerDesignDialog(self);self.power_window.show()
+
+    def show_complexes(self):
+        from .complexes import ComplexProject,ComplexTemplate
+        from .complexes_ui import ComplexesWindow
+        if self.complex_project is None:
+            self.complex_project=ComplexProject(self.sim,self.landscape)
+            self.complex_project.templates.extend(self.template_library)
+            if not self.complex_project.templates:self.complex_project.templates.append(ComplexTemplate.capture(self.config,'Текущая комплектация'))
+            self.template_library=self.complex_project.templates
+        if not hasattr(self,'complex_window') or self.complex_window.project is not self.complex_project:
+            self.complex_window=ComplexesWindow(self)
+        self.complex_window.timer.start(700);self.complex_window.refresh();self.complex_window.show();self.complex_window.raise_()
+
+    def select_complex(self,id):
+        project=self.complex_project
+        if project is None:return
+        previous=self.running;sim=project.select(id)
+        self.install_simulation(sim,project.landscape,project);self._after_file_action(previous)
+        self.statusBar().showMessage(f'Открыт {project.active.name}. Start/Pause управляет всеми комплексами.',7000)
+
+    def model_time(self):return self.complex_project.time if self.complex_project is not None else self.sim.time
 
     def apply_preset(self):
         length, width, depth = PRESETS[self.preset.currentData()]
@@ -752,7 +791,11 @@ class MainWindow(QtWidgets.QMainWindow):
         if region is not None and (not config.georeference or config.georeference.get('source')!=region.raster.metadata):region=None
         self.install_simulation(sim,region)
 
-    def install_simulation(self, sim, landscape=None):
+    def install_simulation(self, sim, landscape=None,complex_project=None):
+        if hasattr(self,'complex_window') and self.complex_window.project is not complex_project:
+            self.complex_window.close();self.complex_window.project=None
+        self.complex_project=complex_project
+        if complex_project is not None:self.template_library=complex_project.templates
         config=sim.config;self.landscape=landscape;self._session_path=None
         self.running = False
         self._equipment_resume = None
@@ -808,7 +851,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.replace_simulation(deepcopy(self.config))
 
     def toggle_play(self):
-        if self.sim.state != MissionState.RUNNING:
+        if not (self.complex_project.running if self.complex_project is not None else self.sim.state==MissionState.RUNNING):
             return
         self.running = not self.running
         if self.running:
@@ -821,7 +864,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.play.setText("⏸ Pause" if self.running else "▶ Start")
 
     def reset_performance(self):
-        self.performance_wall=time.perf_counter();self.performance_sim=self.sim.time
+        self.performance_wall=time.perf_counter();self.performance_sim=self.model_time()
         self.performance_renders=0;self.actual_speed=0.;self.actual_render_hz=0.
 
     def render_changed(self):
@@ -849,7 +892,8 @@ class MainWindow(QtWidgets.QMainWindow):
             deadline = now+budget/1000
             steps = 0
             while self.credit >= 1 and steps < self.config.max_frame_steps and time.perf_counter() < deadline:
-                self.sim.step()
+                if self.complex_project is not None:self.complex_project.step()
+                else:self.sim.step()
                 if self.sim.config is not self.config:self.sync_equipment()
                 self.credit -= 1
                 steps += 1
@@ -865,11 +909,13 @@ class MainWindow(QtWidgets.QMainWindow):
                     self.running=False;self.credit=0;self.play.setText("▶ Start")
                     self.plan_editor.info.setText("Флот приземлён. Можно применить нарисованный план.")
                     break
-                if self.sim.state != MissionState.RUNNING:
-                    if self.sim.state==MissionState.COMPLETED and self.landscape is not None and self.config.georeference.get('channel'):
+                done=not self.complex_project.running if self.complex_project is not None else self.sim.state!=MissionState.RUNNING
+                if done:
+                    if self.complex_project is None and self.sim.state==MissionState.COMPLETED and self.landscape is not None and self.config.georeference.get('channel'):
                         self.commit_landscape()
                     self.running = False
-                    self.play.setText("Завершено" if self.sim.state == MissionState.COMPLETED else "Заблокировано")
+                    completed=not self.complex_project.blocked if self.complex_project is not None else self.sim.state==MissionState.COMPLETED
+                    self.play.setText('Завершено' if completed else 'Заблокировано')
                     break
         stamp=time.perf_counter()
         interval=(.2 if self.speed.currentData()>=1000 else .1 if self.speed.currentData()>=200
@@ -882,11 +928,11 @@ class MainWindow(QtWidgets.QMainWindow):
             self._render_cost=.75*self._render_cost+.25*(self.last_render_wall-begin)
         stamp=time.perf_counter();span=stamp-self.performance_wall
         if span>=1.:
-            sample=max(0.,(self.sim.time-self.performance_sim)/span)
+            sample=max(0.,(self.model_time()-self.performance_sim)/span)
             self.actual_speed=sample if self.actual_speed==0 else .5*self.actual_speed+.5*sample
             self.actual_render_hz=self.performance_renders/span
             self.speed_status.setText(f'Цель: {self.speed.currentData()}× · факт: {self.actual_speed:.1f}× · обновление: {self.actual_render_hz:.1f}/с')
-            self.performance_wall=stamp;self.performance_sim=self.sim.time;self.performance_renders=0
+            self.performance_wall=stamp;self.performance_sim=self.model_time();self.performance_renders=0
         delay=(min(self.config.display_interval_ms,max(0,math.ceil((1-self.credit)/self.speed.currentData()*1000)))
                if self.running else self.config.display_interval_ms)
         self.timer.setInterval(delay)
@@ -1060,10 +1106,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if serial > self.last_event:
                 self.log.appendPlainText(f"[{timestamp/60:6.1f} мин] {message}")
                 self.last_event = serial
-        if s.state != MissionState.RUNNING:
-            self.play.setEnabled(False)
-        else:
-            self.play.setEnabled(True)
+        self.play.setEnabled(self.complex_project.running if self.complex_project is not None else s.state==MissionState.RUNNING)
 
 
 def launch(config,landscape=None,session=None):

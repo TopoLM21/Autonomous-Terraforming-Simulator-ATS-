@@ -31,9 +31,39 @@ def _finish_region(sim, region, report, save_path=None):
     report['landscape']=region.report()
 
 
+def _run_project(project,steps,save_landscape=None):
+    for _ in range(steps):
+        if not project.running:break
+        project.step()
+    report=project.report()
+    report['reports']=[dict(id=u.id,report=u.simulation.report()) for u in project.units]
+    if project.landscape is not None:
+        for unit in project.units:
+            if save_landscape:project.commit(unit)
+            else:
+                s=unit.simulation
+                project.landscape.commit_window(s.config.georeference['origin_m'],s.terrain.height,cell_size=s.terrain.cell,soil=s.terrain.soil)
+        if save_landscape:project.landscape.save(save_landscape)
+        report['landscape']=project.landscape.report()
+    return report
+
+
+def _design_outputs(args,config,observation=None):
+    if not args.power_report and not args.save_complex_template:return
+    from .power_design import PowerRequest,calculate_power
+    from .complexes import ComplexTemplate
+    from pathlib import Path
+    request=PowerRequest(work_hours=args.work_hours,start_hour=args.work_start_hour,drone_utilization=args.drone_duty/100,
+                         source='measured' if args.measured_power else 'equipment')
+    report=calculate_power(config,request,observation)
+    if args.power_report:Path(args.power_report).write_text(json.dumps(report,ensure_ascii=False,allow_nan=False,indent=2)+'\n',encoding='utf-8')
+    if args.save_complex_template:ComplexTemplate.capture(config,'Рассчитанный комплекс',report).save(args.save_complex_template)
+
+
 def _resume(args, parser):
     from .checkpoint import load_state,save_state
-    allowed={'--load-state','--save-state','--headless','--steps','--json','--panel-area','--base-batteries'}
+    allowed={'--load-state','--save-state','--headless','--steps','--json','--panel-area','--base-batteries',
+             '--power-report','--save-complex-template','--work-hours','--work-start-hour','--drone-duty','--measured-power'}
     forbidden=[v.split('=')[0] for v in sys.argv[1:] if v.startswith('--') and v.split('=')[0] not in allowed]
     if forbidden:parser.error('Сохранение уже задаёт сценарий; несовместимые параметры: '+', '.join(forbidden))
     session=load_state(args.load_state);sim=session.simulation
@@ -42,8 +72,10 @@ def _resume(args, parser):
     if not args.headless:
         from .gui import launch
         return launch(sim.config,session=session)
-    report=sim.run(args.steps);_finish_region(sim,session.landscape,report)
-    if args.save_state:save_state(args.save_state,sim,session.landscape,session.ui)
+    if session.complex_project is not None:report=_run_project(session.complex_project,args.steps)
+    else:report=sim.run(args.steps);_finish_region(sim,session.landscape,report)
+    _design_outputs(args,sim.config,sim.report(full=False))
+    if args.save_state:save_state(args.save_state,sim,session.landscape,session.ui,session.complex_project)
     _write_report(report,args.json_path)
     return 2 if report['state']=='BLOCKED' else 0
 
@@ -102,6 +134,14 @@ def main():
     parser.add_argument('--save-landscape',help='Save DEM and sparse edits after headless run; requires unloaded and landed machinery')
     parser.add_argument('--dig-rate',type=float,help='Drone soil intake limit, kg/s; standard loose-sand estimate 6')
     parser.add_argument('--soil-profile',choices=('uniform','qattara'),help='Conditional layers; new --qattara runs default to qattara, old saves retain uniform soil')
+    parser.add_argument('--power-report',help='Save a daily solar/storage and spare-pack sizing report JSON')
+    parser.add_argument('--save-complex-template',help='Save the calculated hardware recipe as an .atstemplate')
+    parser.add_argument('--complex-template',help='Start a fresh complex from an .atstemplate hardware recipe')
+    parser.add_argument('--complexes',type=int,default=1,help='Independent complexes on separated sections of one regional channel, 1..8')
+    parser.add_argument('--work-hours',type=float,default=24,help='Design assumption: operating hours per solar day')
+    parser.add_argument('--work-start-hour',type=float,help='Design assumption: shift start in local solar hours')
+    parser.add_argument('--drone-duty',type=float,default=50,help='Design assumption: percent of shift spent flying')
+    parser.add_argument('--measured-power',action='store_true',help='Size from average energy use in the simulated run')
     parser.add_argument('--channel',action='store_true',help='Excavate the saved channel project in --landscape')
     parser.add_argument('--channel-route',help='Channel route JSON: points, coordinates=source/metres and optional dimensions')
     parser.add_argument('--channel-section',type=int,default=1,help='Prepared local channel section, starting at 1')
@@ -109,6 +149,8 @@ def main():
     parser.add_argument('--channel-depth',type=float,help='Positive depth below MSL, e.g. 5 means bottom -5 m MSL')
     parser.add_argument('--shore-offset',type=float,help='Dry start offset along alignment from sea coastline, default 10 m')
     args = parser.parse_args()
+    if not 1<=args.complexes<=8:parser.error('--complexes: от 1 до 8')
+    if args.complex_template and (args.configuration or args.equipment):parser.error('Шаблон комплекса уже задаёт оборудование')
     if (args.channel_width is not None or args.channel_depth is not None or args.shore_offset is not None or args.channel_section!=1) and not (args.channel or args.channel_route):
         parser.error('Параметры канала требуют --channel или --channel-route')
     mode=args.mode or 'logistics'
@@ -133,7 +175,12 @@ def main():
     config.drone.charge_threshold = args.charge_threshold/100
     try:
         from .maps import with_map_size
-        if not args.plan and not args.configuration:
+        if args.complex_template:
+            from .complexes import ComplexTemplate
+            config=ComplexTemplate.load(args.complex_template).config
+            config=with_map_size(config,args.map_size or config.terrain.n*config.terrain.cell_size)
+            if args.mode is None:mode='legacy' if config.logistics is None else 'logistics'
+        if not args.plan and not args.configuration and not args.complex_template:
             config=with_map_size(config,args.map_size if args.map_size is not None else 64.)
         if args.plan:
             from .plan import load_plan
@@ -145,7 +192,7 @@ def main():
         if args.configuration:
             from .experiments import load_configuration
             config=load_configuration(args.configuration)
-        if mode!='legacy' and (not args.configuration or config.logistics is None or args.mode is not None):
+        if mode!='legacy' and (not (args.configuration or args.complex_template) or config.logistics is None or args.mode is not None):
             from .experiments import experiment_config
             profile=args.laser_profile or ('existing_legacy' if config.base.equipment and any(e.enabled for e in config.base.equipment.emitters) else 'laser_off')
             landing=args.charge_slots if args.charge_slots is not None else (config.base.equipment.landing_slots if args.equipment else None)
@@ -244,6 +291,11 @@ def main():
             from .experiments import save_configuration
             save_configuration(args.save_configuration,config)
         config.validate()
+        if args.complexes>1 and (region is None or region.channel_project is None):raise ValueError('Для --complexes нужен общий региональный проект канала')
+        if (args.power_report or args.save_complex_template or args.complexes>1) and (args.batch_experiments or args.compare_fleet):
+            raise ValueError('Расчёт энергоснабжения и клонирование требуют одного проекта')
+        if not args.headless:
+            _design_outputs(args,config)
         if args.headless:
             if args.batch_experiments:
                 from .experiments import run_benchmarks
@@ -253,16 +305,36 @@ def main():
                 report = compare_fleets(config,[int(n) for n in args.compare_fleet.split(',')],args.steps)
             else:
                 sim = Simulation(config)
-                report = sim.run(args.steps)
-                _finish_region(sim,region,report,args.save_landscape)
+                project=None
+                if args.complexes>1:
+                    from .complexes import ComplexProject,ComplexTemplate
+                    project=ComplexProject(sim,region);template=ComplexTemplate.capture(config,'Комплекс');project.templates.append(template)
+                    for _ in range(args.complexes-1):
+                        section=project.find_free_section(template)
+                        if section is None:raise ValueError('В проекте недостаточно свободных непересекающихся участков')
+                        project.add(template,section=section)
+                    report=_run_project(project,args.steps,args.save_landscape)
+                else:
+                    report = sim.run(args.steps)
+                    _finish_region(sim,region,report,args.save_landscape)
+                _design_outputs(args,config,sim.report(full=False))
                 if args.save_state:
                     from .checkpoint import save_state
-                    save_state(args.save_state,sim,region)
+                    save_state(args.save_state,sim,region,complex_project=project)
             _write_report(report,args.json_path)
             blocked=isinstance(report,dict) and report['state']=='BLOCKED'
             if args.batch_experiments:blocked=any(row['state']=='BLOCKED' for row in report)
             return 2 if blocked else 0
         from .gui import launch
+        if args.complexes>1:
+            from .complexes import ComplexProject,ComplexTemplate
+            from .checkpoint import Session
+            sim=Simulation(config);project=ComplexProject(sim,region);template=ComplexTemplate.capture(config,'Комплекс');project.templates.append(template)
+            for _ in range(args.complexes-1):
+                section=project.find_free_section(template)
+                if section is None:raise ValueError('В проекте недостаточно свободных непересекающихся участков')
+                project.add(template,section=section)
+            return launch(config,session=Session(sim,region,{},complex_project=project))
         return launch(config,landscape=region)
     except (ValueError, OSError, KeyError, TypeError) as error:
         parser.error(str(error))

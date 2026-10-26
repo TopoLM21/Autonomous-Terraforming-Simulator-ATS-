@@ -55,6 +55,17 @@ jobs:
           python -m ats --headless --load-state soil-ci.atsstate --steps 125 --json soil-resumed-ci.json > soil-resumed-ci-stdout.json
           python -m ats --headless --soil-profile qattara --steps 200 --json soil-straight-ci.json > soil-straight-ci-stdout.json
           python -c "import json; a=json.load(open('soil-resumed-ci.json',encoding='utf-8')); b=json.load(open('soil-straight-ci.json',encoding='utf-8')); assert a==b; assert a['soil']['max_material_mass_error_kg']<1e-7; assert abs(a['mass_error_kg'])<1e-7; assert abs(a['energy_error_j'])<0.002"
+      - name: Energy sizing and executable equipment template
+        run: |
+          python -m ats --headless --latitude 31 --steps 0 --work-hours 12 --work-start-hour 6 --power-report power-ci.json --save-complex-template complex-ci.atstemplate > power-ci-stdout.json
+          python -m ats --headless --complex-template complex-ci.atstemplate --steps 10 --json template-ci.json > template-ci-stdout.json
+          python -c "import json; p=json.load(open('power-ci.json',encoding='utf-8')); r=json.load(open('template-ci.json',encoding='utf-8')); assert r['state']=='RUNNING'; assert r['panel_area_m2']==p['panel_area_m2']; assert r['base_capacity_kwh']==p['base_capacity_kwh']; assert p['storage_check']['unserved_kwh']<1e-7; assert abs(p['storage_check']['energy_error_kwh'])<1e-7; assert abs(r['energy_error_j'])<0.002"
+      - name: Two complexes on common regional project and exact resume
+        run: |
+          python -m ats --headless --qattara --channel-route docs/ats2/qattara-channel.json --complexes 2 --steps 5 --save-state complexes-ci.atsstate > complexes-ci-stdout.json
+          python -m ats --headless --load-state complexes-ci.atsstate --steps 15 --json complexes-resumed-ci.json > complexes-resumed-ci-stdout.json
+          python -m ats --headless --qattara --channel-route docs/ats2/qattara-channel.json --complexes 2 --steps 20 --json complexes-straight-ci.json > complexes-straight-ci-stdout.json
+          python -c "import json; a=json.load(open('complexes-resumed-ci.json',encoding='utf-8')); b=json.load(open('complexes-straight-ci.json',encoding='utf-8')); assert a==b; assert a['state']=='RUNNING' and a['complex_count']==2 and a['drone_count']==8 and a['time_seconds']==20; assert abs(a['mass_error_kg'])<1e-7; assert abs(a['equipment_mass_error_kg'])<1e-7; assert abs(a['energy_error_j'])<0.002; assert a['delivered_energy_kwh']>0"
       - uses: actions/upload-artifact@v4
         with:
           name: ats2-${{ matrix.os }}-${{ matrix.python }}
@@ -66,3 +77,7 @@ jobs:
             soil-flight-ci.json
             soil-resumed-ci.json
             soil-straight-ci.json
+            power-ci.json
+            template-ci.json
+            complexes-resumed-ci.json
+            complexes-straight-ci.json

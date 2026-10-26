@@ -19,7 +19,7 @@ import numpy as np
 
 
 FORMAT='ATS_SIMULATION'
-VERSION=2
+VERSION=3
 MAX_BYTES=1_500_000_000
 MAX_NODES=2_000_000
 
@@ -27,10 +27,10 @@ MAX_NODES=2_000_000
 def _classes():
     from . import (config,equipment,simulation,solar_base,drone,terrain,planner,dust,
                    logistics,logistics_config,inventory,batteries,excavator,cooperative_lift,
-                   productivity,activity,plan,laser,workfront,landscape,soil)
+                   productivity,activity,plan,laser,workfront,landscape,soil,complexes,power_design)
     modules=(config,equipment,simulation,solar_base,drone,terrain,planner,dust,logistics,
              logistics_config,inventory,batteries,excavator,cooperative_lift,productivity,
-             activity,plan,laser,workfront,landscape,soil)
+             activity,plan,laser,workfront,landscape,soil,complexes,power_design)
     classes=[value for module in modules for value in vars(module).values()
              if isinstance(value,type) and value.__module__==module.__name__]
     return {c.__module__+'.'+c.__name__:c for c in [*classes,SimpleNamespace]}
@@ -42,6 +42,7 @@ class Session:
     landscape: object = None
     ui: dict = None
     runtime: dict = None
+    complex_project: object = None
 
 
 class _Encoder:
@@ -259,12 +260,29 @@ def _validate(session):
         for segment in ui['brush_segments']:segment.validate(s.config,allow_outside=True)
     if 'profile_segment' in ui and ui['profile_segment'] is not None and type(ui['profile_segment']) is not int:
         raise ValueError('Неверный сегмент профиля')
+    if ui.get('power_request') is not None:
+        from .power_design import PowerRequest
+        PowerRequest(**ui['power_request']).validate()
+    if 'complex_templates' in ui:
+        from .complexes import ComplexTemplate
+        if not isinstance(ui['complex_templates'],list) or any(type(t) is not ComplexTemplate for t in ui['complex_templates']):
+            raise ValueError('Неверная библиотека комплексов')
+        for t in ui['complex_templates']:t.validate()
     r=s.report(full=False)
     if not all(math.isfinite(r[key]) for key in ('mass_error_kg','energy_error_j')):
         raise ValueError('Неверные физические балансы')
+    if session.complex_project is not None:
+        from .complexes import ComplexProject
+        p=session.complex_project
+        if type(p) is not ComplexProject or p.landscape is not session.landscape:
+            raise ValueError('Потеряна связь комплекса с общим проектом')
+        p.validate()
+        if p.active.simulation is not s:raise ValueError('Потерян выбранный комплекс')
+        for unit in p.units:
+            if unit.simulation is not s:_validate(Session(unit.simulation,session.landscape,{},{}))
 
 
-def save_state(path, simulation, landscape=None, ui=None):
+def save_state(path, simulation, landscape=None, ui=None,complex_project=None):
     """Save between physical steps, including airborne cargo and active services."""
     path=Path(path);temporary=None
     try:
@@ -272,7 +290,7 @@ def save_state(path, simulation, landscape=None, ui=None):
             temporary=Path(file.name)
             with zipfile.ZipFile(file,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=1) as archive:
                 encoder=_Encoder(archive)
-                root=encoder.encode(dict(simulation=simulation,landscape=landscape,ui=ui or {}))
+                root=encoder.encode(dict(simulation=simulation,landscape=landscape,ui=ui or {},complex_project=complex_project))
                 manifest=dict(format=FORMAT,version=VERSION,root=root,nodes=encoder.nodes,
                               runtime=dict(python=platform.python_version(),numpy=np.__version__))
                 archive.writestr('manifest.json',json.dumps(manifest,ensure_ascii=False,allow_nan=False,separators=(',',':')))
@@ -291,11 +309,11 @@ def load_state(path):
                 raise ValueError('Сохранение превышает допустимый размер')
             if archive.getinfo('manifest.json').file_size>256_000_000:raise ValueError('Слишком большой список объектов')
             manifest=json.loads(archive.read('manifest.json'))
-            if manifest.get('format')!=FORMAT or type(manifest.get('version')) is not int or manifest['version'] not in (1,VERSION):
+            if manifest.get('format')!=FORMAT or type(manifest.get('version')) is not int or manifest['version'] not in (1,2,VERSION):
                 raise ValueError('Неизвестный формат или версия сохранения')
             decoder=_Decoder(archive,manifest['nodes']);root=decoder.decode(manifest['root'])
             if manifest['version']==1:_migrate_v1(decoder)
-        session=Session(root['simulation'],root['landscape'],root['ui'],manifest.get('runtime',{}));_validate(session)
+        session=Session(root['simulation'],root['landscape'],root['ui'],manifest.get('runtime',{}),root.get('complex_project'));_validate(session)
         return session
     except (zipfile.BadZipFile,EOFError,KeyError,TypeError,AttributeError,IndexError,OverflowError,RecursionError) as error:
         raise ValueError('Повреждённое сохранение ATS') from error

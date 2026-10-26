@@ -42,8 +42,12 @@ def profile_rows(profile):
 
 def trial(args, mode, number):
     gc.collect();begin=time.perf_counter();session=session_factory(args.state);sim=session.simulation
-    if sim.state.value!='RUNNING':raise ValueError('Для замера нужно сохранение незавершённой работающей симуляции')
-    start=sim.time;target=start+args.steps
+    project=getattr(session,'complex_project',None)
+    actor=project if project is not None else sim
+    clock=lambda:project.time if project is not None else sim.time
+    running=lambda:project.running if project is not None else sim.state.value=='RUNNING'
+    if not running():raise ValueError('Для замера нужно сохранение незавершённой работающей симуляции')
+    start=clock();target=start+args.steps
     profile=cProfile.Profile() if args.profile and number==0 else None
     window=None
     if mode=='gui':
@@ -58,32 +62,40 @@ def trial(args, mode, number):
         window.speed.setCurrentIndex(window.speed.findData(2000))
         if hasattr(window,'render_mode'):
             window.render_mode.setCurrentIndex(window.render_mode.findData(args.render))
-        original=sim.step
+        actor=project if project is not None else sim
+        original=actor.step
         def step():
             original()
-            if sim.time>=target or sim.state.value!='RUNNING':
+            if clock()>=target or not running():
                 window.running=False;window.credit=0;app.quit()
-        sim.step=step
+        actor.step=step
         window.running=True;window.credit=0.;window.last_wall=time.perf_counter()
         window.timer.start(0)
         deadline=QtCore.QTimer();deadline.setSingleShot(True);deadline.timeout.connect(app.quit)
         deadline.start(round(args.max_wall_seconds*1000))
     ready=time.perf_counter()
     if profile:profile.enable()
-    if window is None:sim.run(args.steps)
+    if window is None:
+        if project is None:sim.run(args.steps)
+        else:
+            for _ in range(args.steps):
+                if not project.running:break
+                project.step()
     else:app.exec()
     if profile:profile.disable()
     elapsed=time.perf_counter()-ready
     if window is not None:
-        window.timer.stop();deadline.stop();sim.step=original
-    report=sim.report();advanced=sim.time-start
+        window.timer.stop();deadline.stop();actor.step=original
+    report=sim.report() if project is None else dict(project.report(),reports=[u.simulation.report() for u in project.units])
+    advanced=clock()-start
     if advanced<=0:raise ValueError('Замер не продвинул модельное время')
     row=dict(mode=mode,render=args.render if mode=='gui' else None,profiled=profile is not None,
         initialization_seconds=ready-begin,wall_seconds=elapsed,model_seconds=advanced,actual_speed=advanced/elapsed,
-        grid_cells=sim.config.terrain.n,drones=len(sim.drones),inventory_items=len(sim.logistics.inventory.items) if sim.logistics else 0,
-        state=sim.state.value,trips=report['trips'],mass_error_kg=report['mass_error_kg'],energy_error_j=report['energy_error_j'],
+        grid_cells=sim.config.terrain.n,drones=len(sim.drones) if project is None else report['drone_count'],
+        inventory_items=(len(sim.logistics.inventory.items) if sim.logistics else 0) if project is None else sum(len(u.simulation.logistics.inventory.items) if u.simulation.logistics else 0 for u in project.units),
+        state=report['state'],trips=report['trips'],mass_error_kg=report['mass_error_kg'],energy_error_j=report['energy_error_j'],
         physical_sha256=hashlib.sha256(json.dumps(report,sort_keys=True).encode()).hexdigest(),
-        wall_limit_reached=mode=='gui' and sim.time<target and sim.state.value=='RUNNING')
+        wall_limit_reached=mode=='gui' and clock()<target and running())
     if profile:
         prefix=Path(args.profile);prefix.parent.mkdir(parents=True,exist_ok=True)
         profile.dump_stats(str(prefix)+f'-{mode}.prof');row.update(profile_rows(profile))

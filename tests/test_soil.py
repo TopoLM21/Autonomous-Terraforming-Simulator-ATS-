@@ -131,7 +131,7 @@ def test_real_v1_files_keep_cargo_density_and_original_continuation(tmp_path,mod
     converted=tmp_path/'converted.atsstate';save_state(converted,s)
     assert path.read_bytes()==original
     assert load_state(converted).simulation.report()==s.report()
-    with zipfile.ZipFile(converted) as archive:assert json.loads(archive.read('manifest.json'))['version']==2
+    with zipfile.ZipFile(converted) as archive:assert json.loads(archive.read('manifest.json'))['version']==3
 
 
 def test_regional_fine_columns_survive_coarsening_and_overlapping_windows(tmp_path):
