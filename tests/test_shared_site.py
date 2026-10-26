@@ -149,25 +149,27 @@ def test_authentic_version_three_regional_group_continues_without_conversion(tmp
     expected=json.loads((folder/'two.json').read_text(encoding='utf-8'))
     session=load_state(path);p=session.complex_project
     assert p.shared_site is None and len(p.units)==2
+    def historical(actual,want,path='report'):
+        # The golden file comes from Linux/Python 3.12. Other libm versions
+        # and Python's changed sum() can round floats by a few ulps. IDs,
+        # states, shapes and counters remain exact. Absolute tolerances are
+        # 1e-10 in reported units, or 1e-6 J for the cancellation residual.
+        if isinstance(want,dict):
+            assert actual.keys()==want.keys(),path
+            for key in want:historical(actual[key],want[key],f'{path}.{key}')
+        elif isinstance(want,list):
+            assert len(actual)==len(want),path
+            for i,(a,b) in enumerate(zip(actual,want)):historical(a,b,f'{path}[{i}]')
+        elif isinstance(want,float):
+            tolerance=1e-6 if path.endswith('energy_error_j') else 1e-10
+            assert actual==pytest.approx(want,rel=2e-14,abs=tolerance),path
+        else:assert actual==want,path
     def compare(want):
-        assert json.loads(json.dumps(p.report()))==want['project']
+        historical(json.loads(json.dumps(p.report())),want['project'])
         for u,target in zip(p.units,want['reports']):
             actual=json.loads(json.dumps(u.simulation.report()))
-            # Platform libm can round this instantaneous power product by one
-            # ulp; the stored energy balances below still match exactly.
-            assert actual['solar_power_w']==pytest.approx(target['solar_power_w'],rel=0,abs=1e-10)
-            actual['solar_power_w']=target['solar_power_w']
-            for kind in ('drones','retired_drones'):
-                for a,b in zip(actual.get(kind,[]),target.get(kind,[])):
-                    for key in ('last24_mass_kg','last24_volume_m3'):
-                        assert a[key]==pytest.approx(b[key],rel=0,abs=1e-11);a[key]=b[key]
-            # Python 3.12 improved sum() accuracy. The fixture was generated
-            # there; rolling statistics on 3.11 can differ by a few ulps.
-            if target.get('excavator') is not None:
-                for key in ('last24_excavated_kg','last24_excavated_m3'):
-                    a,b=actual['excavator'],target['excavator']
-                    assert a[key]==pytest.approx(b[key],rel=0,abs=1e-11);a[key]=b[key]
-            assert actual==target
+            historical(actual,target)
+            assert abs(actual['mass_error_kg'])<1e-7 and abs(actual['energy_error_j'])<.002
     compare(expected['initial'])
     for _ in range(expected['steps']):p.step()
     compare(expected['continued'])
