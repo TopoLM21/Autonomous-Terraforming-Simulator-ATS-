@@ -1,0 +1,357 @@
+{
+  "date": "2026-10-26",
+  "implementation_commit": "9d25e4d952aa50b75901b8a07801802ec1b92f4d",
+  "tested_commit": "093877578f8933db5b5d5f260750fdb0ea6b8c9e",
+  "workflow_run_id": 40378025052,
+  "workflow_url": "https://github.com/TopoLM21/Autonomous-Terraforming-Simulator-ATS-/actions/runs/40378025052",
+  "conclusion": "success",
+  "local": {
+    "python": "3.12.14",
+    "tests_passed": 411,
+    "pytest_wall_seconds": 269.56,
+    "additional_gui_tests_passed": 7,
+    "additional_gui_wall_seconds": 3.09
+  },
+  "matrix": [
+    {
+      "name": "test (ubuntu-latest, 3.11)",
+      "job_id": 121766326062,
+      "conclusion": "success",
+      "tests_passed": 411,
+      "pytest_wall_seconds": 242.64,
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install Qt runtime libraries on Ubuntu",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python -m pip install -e \".[test,dem]\"",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python -m pytest -q",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python -m ats --headless --mode legacy --steps 10000 --seed 42",
+          "conclusion": "success"
+        },
+        {
+          "name": "ATS 2.0 logistics smoke test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Offline real DEM smoke test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Save and resume airborne simulation",
+          "conclusion": "success"
+        },
+        {
+          "name": "Prepared Qattara channel smoke test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Layered soil and complete snapshot continuation",
+          "conclusion": "success"
+        },
+        {
+          "name": "Energy sizing and executable equipment template",
+          "conclusion": "success"
+        },
+        {
+          "name": "Two complexes on common regional project and exact resume",
+          "conclusion": "success"
+        },
+        {
+          "name": "Twenty complexes on one physical map and exact snapshot continuation",
+          "conclusion": "success"
+        },
+        {
+          "name": "Continuous design includes real platform hardware",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "test (ubuntu-latest, 3.12)",
+      "job_id": 121766325976,
+      "conclusion": "success",
+      "tests_passed": 411,
+      "pytest_wall_seconds": 375.34,
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install Qt runtime libraries on Ubuntu",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python -m pip install -e \".[test,dem]\"",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python -m pytest -q",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python -m ats --headless --mode legacy --steps 10000 --seed 42",
+          "conclusion": "success"
+        },
+        {
+          "name": "ATS 2.0 logistics smoke test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Offline real DEM smoke test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Save and resume airborne simulation",
+          "conclusion": "success"
+        },
+        {
+          "name": "Prepared Qattara channel smoke test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Layered soil and complete snapshot continuation",
+          "conclusion": "success"
+        },
+        {
+          "name": "Energy sizing and executable equipment template",
+          "conclusion": "success"
+        },
+        {
+          "name": "Two complexes on common regional project and exact resume",
+          "conclusion": "success"
+        },
+        {
+          "name": "Twenty complexes on one physical map and exact snapshot continuation",
+          "conclusion": "success"
+        },
+        {
+          "name": "Continuous design includes real platform hardware",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "test (windows-latest, 3.11)",
+      "job_id": 121766326191,
+      "conclusion": "success",
+      "tests_passed": 411,
+      "pytest_wall_seconds": 445.23,
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install Qt runtime libraries on Ubuntu",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Run python -m pip install -e \".[test,dem]\"",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python -m pytest -q",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python -m ats --headless --mode legacy --steps 10000 --seed 42",
+          "conclusion": "success"
+        },
+        {
+          "name": "ATS 2.0 logistics smoke test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Offline real DEM smoke test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Save and resume airborne simulation",
+          "conclusion": "success"
+        },
+        {
+          "name": "Prepared Qattara channel smoke test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Layered soil and complete snapshot continuation",
+          "conclusion": "success"
+        },
+        {
+          "name": "Energy sizing and executable equipment template",
+          "conclusion": "success"
+        },
+        {
+          "name": "Two complexes on common regional project and exact resume",
+          "conclusion": "success"
+        },
+        {
+          "name": "Twenty complexes on one physical map and exact snapshot continuation",
+          "conclusion": "success"
+        },
+        {
+          "name": "Continuous design includes real platform hardware",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "test (windows-latest, 3.12)",
+      "job_id": 121766325312,
+      "conclusion": "success",
+      "tests_passed": 411,
+      "pytest_wall_seconds": 239.5,
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install Qt runtime libraries on Ubuntu",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Run python -m pip install -e \".[test,dem]\"",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python -m pytest -q",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python -m ats --headless --mode legacy --steps 10000 --seed 42",
+          "conclusion": "success"
+        },
+        {
+          "name": "ATS 2.0 logistics smoke test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Offline real DEM smoke test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Save and resume airborne simulation",
+          "conclusion": "success"
+        },
+        {
+          "name": "Prepared Qattara channel smoke test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Layered soil and complete snapshot continuation",
+          "conclusion": "success"
+        },
+        {
+          "name": "Energy sizing and executable equipment template",
+          "conclusion": "success"
+        },
+        {
+          "name": "Two complexes on common regional project and exact resume",
+          "conclusion": "success"
+        },
+        {
+          "name": "Twenty complexes on one physical map and exact snapshot continuation",
+          "conclusion": "success"
+        },
+        {
+          "name": "Continuous design includes real platform hardware",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "validation": {
+    "continuous_physics": "continuous-shared-validation.json",
+    "shared_map_performance": "shared-map-benchmark.json",
+    "exact_twenty_team_snapshot": true,
+    "historical_snapshot_versions": [
+      1,
+      2,
+      3
+    ],
+    "current_snapshot_version": 4,
+    "physical_dt_seconds": 1
+  },
+  "notes": [
+    "The simulation implementation is unchanged since implementation_commit. Subsequent commits make only the historical cross-platform fixture comparison numerically portable.",
+    "Same-platform save/load continuation remains exact. Historical reports preserve exact IDs, states and shapes and compare floats with explicit numerical tolerances."
+  ]
+}
