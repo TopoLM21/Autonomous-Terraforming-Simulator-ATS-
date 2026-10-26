@@ -49,6 +49,12 @@ jobs:
         run: |
           python -m ats --headless --qattara --channel-route docs/ats2/qattara-channel.json --steps 0 --json channel-ci.json > channel-ci-stdout.json
           python -c "import json; r=json.load(open('channel-ci.json',encoding='utf-8')); assert r['state']=='RUNNING'; assert r['remaining_cut_m3']>0; assert r['plan_segments']>0; assert r['map_side_m']==512 and r['cell_size_m']==0.5; assert 31<r['latitude_deg']<32; assert r['landscape']['channel']['target_msl']==-5; assert r['landscape']['fine_storage_bytes']==0; assert abs(r['mass_error_kg'])<1e-7"
+      - name: Layered soil and complete snapshot continuation
+        run: |
+          python -m ats --headless --soil-profile qattara --steps 75 --save-state soil-ci.atsstate --json soil-flight-ci.json > soil-flight-ci-stdout.json
+          python -m ats --headless --load-state soil-ci.atsstate --steps 125 --json soil-resumed-ci.json > soil-resumed-ci-stdout.json
+          python -m ats --headless --soil-profile qattara --steps 200 --json soil-straight-ci.json > soil-straight-ci-stdout.json
+          python -c "import json; a=json.load(open('soil-resumed-ci.json',encoding='utf-8')); b=json.load(open('soil-straight-ci.json',encoding='utf-8')); assert a==b; assert a['soil']['max_material_mass_error_kg']<1e-7; assert abs(a['mass_error_kg'])<1e-7; assert abs(a['energy_error_j'])<0.002"
       - uses: actions/upload-artifact@v4
         with:
           name: ats2-${{ matrix.os }}-${{ matrix.python }}
@@ -57,3 +63,6 @@ jobs:
             ats2-strict-ci.json
             dem-ci.json
             channel-ci.json
+            soil-flight-ci.json
+            soil-resumed-ci.json
+            soil-straight-ci.json

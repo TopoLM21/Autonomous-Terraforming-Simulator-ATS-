@@ -1,0 +1,52 @@
+{
+  "local_full_suite": {
+    "command": "python -m pytest -q",
+    "passed": 358,
+    "seconds": 221.58
+  },
+  "additional_test": {
+    "command": "python -m pytest tests/test_soil.py::test_strict_courier_preserves_mixed_container_cargo_through_resume_and_unload -q",
+    "passed": 1,
+    "seconds": 0.64
+  },
+  "total_unique_tests": 359,
+  "new_soil_tests": 23,
+  "legacy_migration": {
+    "source_commit": "ac55b95b34ee2f7a273560c2e662b515f7a7414e",
+    "format_from": 1,
+    "format_to": 2,
+    "fixtures": [
+      "legacy: soil in drone grabber",
+      "logistics: soil in Krot bucket and drones"
+    ],
+    "exact_initial_report": true,
+    "exact_continuation_steps": 160,
+    "original_file_unchanged": true
+  },
+  "qattara_channel": {
+    "grid_n": 1024,
+    "cell_size_m": 0.5,
+    "save_at_seconds": 120,
+    "resume_seconds": 80,
+    "straight_seconds": 200,
+    "exact_report": true,
+    "excavated_m3": 0.7393750000000006,
+    "mass_error_kg": -2.5579538487363607e-13,
+    "energy_error_j": 8.719507604837418e-08,
+    "max_material_mass_error_kg": 2.5579538487363607e-13,
+    "soil_bytes": 524288
+  },
+  "checks": [
+    "Native contacts and exact mass/volume limits",
+    "Independent per-material balance through scoop/dump/reclaim/avalanches",
+    "Partial fill and preserved remainder",
+    "Material identity required by layered APIs",
+    "Strict mixed-container courier pickup, checkpoint and unloading",
+    "Harder drone/Krot work takes longer and consumes more energy",
+    "Mixed cut/fill completes with volume reservations",
+    "Snapshot resumes are exact, including GUI material view",
+    "Old .atsregion and configuration compatibility",
+    "Persistent fine columns survive changed resolution and overlapping windows",
+    "Corrupt density, material amounts and height mismatch rejected"
+  ]
+}

@@ -228,6 +228,7 @@ def resolve_config(config):
     for d in [config.drone,*models]:
         if d.equipment is None:d.equipment=DroneEquipment.from_legacy(d,config.terrain.density,config.terrain.grab_radius)
         d.equipment.resolve(d,config.terrain.density)
+        if config.soil_profile is not None:d.payload=d.equipment.payload_limit_kg
     config.fleet.models=models
     return config
 

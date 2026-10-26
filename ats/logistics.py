@@ -7,6 +7,7 @@ from .config import KWH
 from .drone import DroneState as DS
 from .simulation import MissionState
 from .laser import prepare_links
+from .soil import cargo_volume
 
 
 @dataclass
@@ -158,7 +159,7 @@ class Logistics:
             self.initial_extra_energy+=self.excavator.buffer_j
             for container in self.containers:
                 container.assigned_limit_kg=max(container.capacity_for(self.payload_limit(d),c.hoist_mass_kg,
-                    sim.config.terrain.density) for d in sim.drones)
+                    max(sim.config.soil_profile.densities) if sim.config.soil_profile is not None else sim.config.terrain.density) for d in sim.drones)
                 if self.batch_enabled:
                     self.inventory.move(container.id,L.WORKSITE_RACK,'worksite',self.rack,'EMPTY_AT_EXCAVATOR')
         for d in sim.drones:
@@ -348,7 +349,13 @@ class Logistics:
                 incoming=sum(self.inventory.items[j.resource_ids[0]].soil_kg for j in self.jobs
                     if j.kind=='PICKUP_FULL_CONTAINER' and j.soil_destination=='fill' and j.status in ('QUEUED','ACTIVE'))
                 fill=s.terrain.fill_location() if s.terrain.remaining_fill*s.config.terrain.density>incoming+1e-8 else None
-                dump=fill if fill is not None else s.terrain.dump_location(c.soil_kg/s.config.terrain.density,
+                if s.terrain.soil is not None:
+                    incoming=sum(self.inventory.items[j.resource_ids[0]].soil_volume(s.config.terrain.density) for j in self.jobs
+                        if j.kind=='PICKUP_FULL_CONTAINER' and j.soil_destination=='fill' and j.status in ('QUEUED','ACTIVE'))
+                    incoming+=sum(d.trip.volume or 0. for d in s.drones if d.trip is not None and d.trip.destination=='fill'
+                        and not d.dump_released and d.state not in (DS.RETURN,DS.LANDING))
+                    fill=s.terrain.fill_location() if s.terrain.remaining_fill>incoming+1e-10 else None
+                dump=fill if fill is not None else s.terrain.dump_location(c.soil_volume(s.config.terrain.density),
                     s._reserved_dump(None),s.config.fleet.separation,near=c.position)
                 if dump is not None:
                     job=self.new_job('PICKUP_FULL_CONTAINER',c,c.position,(*dump,s.terrain.sample(*dump)),3)
@@ -800,16 +807,18 @@ class Logistics:
         c=self.inventory.items[job.resource_ids[0]]
         mass=c.soil_kg
         if job.soil_destination=='fill':
-            mass=self.sim.terrain.deposit_fill(*job.destination[:2],mass)
+            mass=self.sim.terrain.deposit_fill(*job.destination[:2],mass,load=c.soil)
             self.sim.filled_mass+=mass;d.filled_mass+=mass
-        else:self.sim.terrain.deposit(*job.destination[:2],mass)
+        else:self.sim.terrain.deposit(*job.destination[:2],mass,load=c.soil)
+        delivered=c.soil.remove(mass) if c.soil is not None else None
+        if delivered is not None and job.soil_destination=='fill':self.sim.filled_volume+=delivered.volume
         c.soil_kg=max(0.,c.soil_kg-mass)
         if c.soil_kg==0:c.cycles+=1;c.wear+=.001
         d.cargo=sum(o.gross_mass for o in self.carried(d))
         d.trips+=1;self.sim.trips+=1;self.delivered_mass+=mass
         d.excavated_mass+=mass
         day=int((self.sim.config.start_hour*3600+self.sim.time)//86400)
-        d.productivity.record(self.sim.time,day,mass,self.sim.config.terrain.density,job.soil_destination)
+        d.productivity.record(self.sim.time,day,mass,self.sim.config.terrain.density,job.soil_destination,volume=delivered.volume if delivered is not None else None)
         self.sim._terrain_active=True;self.progress_at=self.sim.time
 
     def _drop(self, d, job):
@@ -859,15 +868,15 @@ class Logistics:
                 if job.kind=='PICKUP_FULL_CONTAINER':
                     item=self.inventory.items[job.resource_ids[0]]
                     if (job.soil_destination=='dump' and s.terrain.front is not None and
-                            s.terrain.local_dump_space(*job.destination[:2])<item.soil_kg/s.config.terrain.density-1e-12):
-                        dump=s.terrain.dump_location(item.soil_kg/s.config.terrain.density,
+                            s.terrain.local_dump_space(*job.destination[:2])<item.soil_volume(s.config.terrain.density)-1e-12):
+                        dump=s.terrain.dump_location(item.soil_volume(s.config.terrain.density),
                             s._reserved_dump(None),s.config.fleet.separation,near=d.position)
                         if dump is None:s.block('BLOCKED_DUMP_FULL: груз сохранён в контейнере');return
                         job.destination=(*dump,s.terrain.sample(*dump));self.change_phase(d,job,'DESTINATION');return
                     self._unload_soil(d,job)
                     item=self.inventory.items[job.resource_ids[0]]
                     if item.soil_kg>1e-8:
-                        dump=s.terrain.dump_location(item.soil_kg/s.config.terrain.density,near=d.position)
+                        dump=s.terrain.dump_location(item.soil_volume(s.config.terrain.density),near=d.position)
                         if dump is None:s.block('BLOCKED_DUMP_FULL: остаток после засыпки сохранён в контейнере');return
                         job.destination=(*dump,s.terrain.sample(*dump));job.soil_destination='dump'
                         self.change_phase(d,job,'DESTINATION')
@@ -1159,6 +1168,7 @@ class Logistics:
             extra_energy+=self.excavator.buffer_j+self.excavator.consumed_j
             report['excavator']=self.excavator.report(self.inventory,s.time,
                 int((s.config.start_hour*3600+s.time)//86400),s.config.terrain.density)
+            if s.terrain.soil is not None:report['excavator']['excavated_m3']=self.excavator.productivity.total_volume
             report['consumed_kwh']+=self.excavator.consumed_j/KWH
         report['energy_error_j']+=extra_energy-self.initial_extra_energy
         report['initial_energy_kwh']+=self.initial_extra_energy/KWH

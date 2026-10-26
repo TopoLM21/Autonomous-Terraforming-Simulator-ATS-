@@ -1,6 +1,7 @@
 """Closed-boundary, float64 heightfield with conservative sand transfers."""
 import math
 import numpy as np
+from .soil import SoilField,SoilLoad,cargo_volume
 
 
 class Terrain:
@@ -67,8 +68,32 @@ class Terrain:
         if self.design_work is None:self.design_work=self.work_mask
         self.initial_volume = self.volume
         self._initial_surface = self.height.copy()
+        self.soil=None
+        if config.soil_profile is not None:
+            self.soil=SoilField(config.soil_profile,t.n,self.cell,config.initial_soil)
+            if config.initial_soil is None:
+                delta=self.height-self.reference;ids=np.arange(t.n*t.n)
+                self.soil.extract(ids,np.maximum(-delta,0).ravel(),commit=True)
+                if np.any(delta>0):
+                    load=SoilLoad.empty(config.soil_profile)
+                    load.masses[0]=float(np.maximum(delta,0).sum()*self.area)*config.soil_profile.materials[0].density
+                    self.soil.add(ids,np.maximum(delta,0).ravel(),load)
+            else:
+                for y in range(0,t.n,16):
+                    yy,xx=np.mgrid[y:min(t.n,y+16),0:t.n]
+                    change=self.soil.height_delta((yy*t.n+xx).ravel()).reshape(yy.shape)
+                    if not np.allclose(change,(self.height-self.reference)[y:y+16],rtol=0,atol=1e-7):
+                        raise ValueError('Состав грунта не совпадает с загруженным рельефом')
+            self._initial_soil_mass=self.soil.mass_delta
+            self._initial_soil_volume=self.soil.volume_delta_by_material
+            bounds=np.r_[0.,config.soil_profile.boundaries,np.inf]
+            depth=np.maximum(self.reference-t.floor,0)
+            self._native_mass=sum(float(np.maximum(0.,np.minimum(depth,b)-a).sum()*self.area)*m.density
+                                  for a,b,m in zip(bounds[:-1],bounds[1:],config.soil_profile.materials))
         self._relax_dirty=np.zeros(self.height.shape,dtype=bool)
         self._dirty_bounds=None
+        if self.soil is not None and t.roughness>0:
+            self._relax_dirty[:]=True;self._dirty_bounds=(0,t.n,0,t.n)
         self.initial_excavation = self.remaining
         self._pairs = []
         grid = np.arange(t.n*t.n).reshape(t.n, t.n)
@@ -90,10 +115,12 @@ class Terrain:
 
     @property
     def mass(self):
+        if self.soil is not None:return self._native_mass+self.soil.mass_delta
         return self.volume*self.config.terrain.density
 
     @property
     def mass_change(self):
+        if self.soil is not None:return self.soil.mass_delta-self._initial_soil_mass
         # Difference first avoids subtracting huge bedrock columns at MSL.
         return float(np.sum(self.height-self._initial_surface,dtype=np.float64)*self.area*self.config.terrain.density)
 
@@ -200,12 +227,37 @@ class Terrain:
         return patch,np.where(mask[patch]&footprint,np.maximum(self.height[patch]-surface[patch],0),0)
 
     def available_mass(self,x,y,source='cut',radius=None):
+        if self.soil is not None:return self.preview_load(x,y,math.inf,source,radius).mass
         _,excess=self._available_patch(x,y,source,radius)
         return float(excess.sum()*self.area*self.config.terrain.density)
+
+    def _soil_cut(self,x,y,max_mass,source,radius,max_volume,allowed_mask,minimum_height,commit):
+        if math.isnan(max_mass) or max_mass<0 or math.isnan(max_volume) or max_volume<0:
+            raise ValueError('Неверная вместимость захвата')
+        if max_mass==0 or max_volume==0:return SoilLoad.empty(self.soil.profile)
+        patch,excess=self._available_patch(x,y,source,radius)
+        if minimum_height is not None:excess=np.minimum(excess,np.maximum(self.height[patch]-minimum_height,0.))
+        if allowed_mask is not None:excess=np.where(allowed_mask[patch],excess,0.)
+        yy,xx=np.mgrid[patch[0],patch[1]];ids=(yy*self.height.shape[0]+xx).ravel()
+        removed,load=self.soil.extract(ids,excess.ravel(),max_mass,max_volume,commit)
+        if commit and load.mass>0:
+            change=removed.reshape(excess.shape);self.height[patch]-=change
+            self._relax_dirty[patch]|=change>0;self._mark_dirty(patch,change>0);self.revision+=1
+        return load
+
+    def preview_load(self,x,y,max_mass,source='cut',radius=None,max_volume=math.inf,
+                     allowed_mask=None,minimum_height=None):
+        return self._soil_cut(x,y,max_mass,source,radius,max_volume,allowed_mask,minimum_height,False)
+
+    def scoop_load(self,x,y,max_mass,source='cut',radius=None,max_volume=math.inf,
+                   allowed_mask=None,minimum_height=None):
+        return self._soil_cut(x,y,max_mass,source,radius,max_volume,allowed_mask,minimum_height,True)
 
     def scoop(self, x, y, max_mass, source="cut", radius=None, allowed_mask=None, minimum_height=None):
         if not math.isfinite(max_mass) or max_mass < 0:
             raise ValueError("Неверная масса захвата")
+        if self.soil is not None:
+            raise ValueError('Для слоистого грунта используйте scoop_load: груз должен сохранять состав')
         patch, excess = self._available_patch(x, y, source, radius)
         if minimum_height is not None:
             excess=np.minimum(excess,np.maximum(self.height[patch]-minimum_height,0.))
@@ -280,10 +332,13 @@ class Terrain:
         cap=np.where(self.dump_mask[patch]&near,np.maximum(self.dump_cap[patch]-self.height[patch],0),0)
         return float(cap.sum()*self.area)
 
-    def deposit(self, x, y, mass, radius=None):
+    def deposit(self, x, y, mass, radius=None,load=None):
         if not math.isfinite(mass) or mass < 0:
             raise ValueError("Неверная масса выгрузки")
-        volume = mass/self.config.terrain.density
+        if self.soil is not None and mass>0 and (load is None or load.profile!=self.soil.profile):
+            raise ValueError('Выгрузка слоистого грунта требует состава груза')
+        if load is not None:load.validate(mass)
+        volume = cargo_volume(mass,load,self.config.terrain.density)
         capacity = np.where(self.dump_mask, np.maximum(self.dump_cap-self.height, 0), 0)
         if capacity.sum()*self.area < volume-1e-12:
             raise ValueError("Отвал заполнен: груз не выгружен")
@@ -292,7 +347,7 @@ class Terrain:
                 raise ValueError('Локальная площадка отвала заполнена: нужен новый заход с грузом')
             reach=max(2.,self.config.terrain.grab_radius)
             capacity=np.where((self.x-x)**2+(self.y-y)**2<=reach**2,capacity,0.)
-        self._deposit_capacity(x, y, volume, capacity, radius)
+        self._deposit_capacity(x, y, volume, capacity, radius,load)
 
     def fill_location(self, reserved=(), separation=0.0):
         capacity = np.where(self.fill_mask, np.maximum(self.target-self.height, 0), 0)
@@ -303,15 +358,20 @@ class Terrain:
         index = int(np.argmax(capacity))
         return float(self.x.ravel()[index]), float(self.y.ravel()[index])
 
-    def deposit_fill(self, x, y, mass, radius=None):
+    def deposit_fill(self, x, y, mass, radius=None,load=None):
         if not math.isfinite(mass) or mass < 0:
             raise ValueError("Неверная масса засыпки")
+        if self.soil is not None and mass>0 and (load is None or load.profile!=self.soil.profile):
+            raise ValueError('Засыпка слоистым грунтом требует состава груза')
         capacity = np.where(self.fill_mask, np.maximum(self.target-self.height, 0), 0)
-        volume = min(mass/self.config.terrain.density, float(capacity.sum()*self.area))
-        self._deposit_capacity(x, y, volume, capacity, radius)
-        return volume*self.config.terrain.density
+        if load is not None:load.validate(mass)
+        available=cargo_volume(mass,load,self.config.terrain.density)
+        volume = min(available, float(capacity.sum()*self.area))
+        fraction=volume/available if available>0 else 0.
+        self._deposit_capacity(x, y, volume, capacity, radius,load.scaled(fraction) if load is not None else None)
+        return mass*fraction if load is not None else volume*self.config.terrain.density
 
-    def _deposit_capacity(self, x, y, volume, capacity, radius=None):
+    def _deposit_capacity(self, x, y, volume, capacity, radius=None,load=None):
         if volume <= 0:
             return
         radius=self.config.terrain.grab_radius if radius is None else radius
@@ -333,7 +393,13 @@ class Terrain:
         total = float(local_cap.sum()*self.area)
         if total<=0:raise ValueError('Нет места для выгрузки: груз сохранён')
         if volume > 0:
-            self.height[patch] += local_cap*(volume/total)
+            change=local_cap*(volume/total)
+            if self.soil is not None:
+                if load is None:
+                    load=SoilLoad.empty(self.soil.profile);load.masses[0]=volume*self.soil.profile.materials[0].density
+                yy,xx=np.mgrid[patch[0],patch[1]]
+                self.soil.add((yy*self.height.shape[0]+xx).ravel(),change.ravel(),load)
+            self.height[patch] += change
             self._relax_dirty[patch] |= local_cap>0
             self._mark_dirty(patch,local_cap>0)
             self.revision += 1
@@ -370,7 +436,7 @@ class Terrain:
         height = self.height.ravel()
         moved = 0.0
         count=t.avalanche_sweeps if sweeps is None else sweeps
-        pairs=self._local_pairs(count) if self.config.reference_height is not None else self._pairs
+        pairs=self._local_pairs(count) if self.config.reference_height is not None or self.soil is not None else self._pairs
         for _ in range(count):
             sweep_moved = 0.0
             for a, b, limit in pairs:
@@ -390,6 +456,11 @@ class Terrain:
                     continue
                 a, b, difference = a[active], b[active], difference[active]
                 transfer = np.sign(difference)*(np.abs(difference)-limit-t.avalanche_epsilon)*t.relaxation
+                if self.soil is not None:
+                    source=np.where(transfer>0,a,b);destination=np.where(transfer>0,b,a)
+                    amount=np.minimum(np.abs(transfer),np.maximum(height[source]-t.floor,0.))
+                    self.soil.avalanche(source,destination,amount)
+                    transfer=np.sign(transfer)*amount
                 height[a] -= transfer
                 height[b] += transfer
                 if np.any(self.dump_mask.ravel()[a]|self.dump_mask.ravel()[b]):

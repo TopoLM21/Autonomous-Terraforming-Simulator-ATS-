@@ -176,6 +176,9 @@ def save_plan(path, config):
             "angle_deg": config.trench.angle_deg, "base_position": [config.base.x,config.base.y]}
     data.update(reference_height=config.reference_height,georeference=config.georeference,
                 floor=config.terrain.floor,dump_rect=config.terrain.dump_rect,channel=config.plan.channel)
+    from .soil import json_soil_state
+    data.update(soil_profile=asdict(config.soil_profile) if config.soil_profile is not None else None,
+                initial_soil=json_soil_state(config.initial_soil))
     from pathlib import Path
     Path(path).write_text(json.dumps(data, ensure_ascii=False, indent=2)+"\n", encoding="utf-8")
 
@@ -191,6 +194,9 @@ def load_plan(path, config):
     clone.initial_height = data.get("initial_height")
     clone.reference_height = data.get('reference_height')
     clone.georeference = data.get('georeference')
+    from .soil import SoilProfile
+    clone.soil_profile=SoilProfile.from_data(data['soil_profile']) if data.get('soil_profile') is not None else None
+    clone.initial_soil=data.get('initial_soil')
     clone.terrain.floor = data.get('floor',clone.terrain.floor)
     clone.terrain.dump_rect = tuple(data.get('dump_rect',clone.terrain.dump_rect))
     clone.seed, clone.terrain.roughness = data["seed"], data["roughness"]

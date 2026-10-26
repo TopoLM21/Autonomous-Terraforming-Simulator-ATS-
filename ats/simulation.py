@@ -13,6 +13,7 @@ from .dust import Dust
 from .traffic import conflicts
 from .equipment import resolve_config,retained_energy,station_offset
 from .laser import prepare_links
+from .soil import SoilLoad,cargo_volume
 
 
 class MissionState(str, Enum):
@@ -61,6 +62,8 @@ class Simulation:
         self.trips = 0
         self.excavated_mass = 0.0
         self.filled_mass = 0.0
+        self.excavated_volume=0.
+        self.filled_volume=0.
         self.landing_requested = False
         self.pending_equipment = None
         self.retired_drones = []
@@ -179,6 +182,7 @@ class Simulation:
             if (plan.channel or {}).get('project_id')!=self.config.georeference['channel']['project_id']:
                 self.config.georeference.pop('channel')
         self.config.initial_height = t.height.tolist()
+        if t.soil is not None:self.config.initial_soil=t.soil.export()
         self.config.base.x,self.config.base.y = map(float,self.base.position[:2])
         self.state, self.reason = MissionState.RUNNING, ""
         self.landing_requested = False
@@ -247,6 +251,8 @@ class Simulation:
         """Apply stationary base changes now; airborne workshop work waits for landing."""
         from copy import deepcopy
         from dataclasses import asdict
+        if proposed.soil_profile!=self.config.soil_profile:
+            raise ValueError('Свойства грунта задаются до земляных работ; загрузка сохраняет прежний состав')
         if self.logistics is not None:
             # Old live equipment imports remain available in the legacy engine.
             # ATS 2.0 cannot fabricate physical inventory through recipe editing.
@@ -438,12 +444,19 @@ class Simulation:
         digging=0.
         if d.state==DS.SCOOP and d.trip is not None:
             digging=self._scoop_request(d,d.elapsed,self.config.dt)/self.config.terrain.density*d.config.digging_j_m3/self.config.dt
+            if self.terrain.soil is not None:digging=d._scoop_preview.effort_volume*d.config.digging_j_m3/self.config.dt
         return d.power(movement,winching,lift_height=lift_height)+digging
 
     def _scoop_request(self,d,elapsed,dt):
         trip,c=d.trip,d.config
-        duration=c.scoop_duration(trip.mass)
+        duration=c.scoop_duration(trip.mass)*trip.soil_factor
         request=min(max(0.,trip.mass-d.cargo),trip.mass/duration*min(dt,max(0.,duration-elapsed)))
+        if self.terrain.soil is not None:
+            from .equipment import physical_payload_limit
+            request=min(request,max(0.,physical_payload_limit(d)-d.cargo))
+            volume=max(0.,c.equipment.bucket.volume_m3-(d.soil.volume if d.soil is not None else 0.))
+            d._scoop_preview=self.terrain.preview_load(*trip.dig,request,trip.source,c.grab_radius,max_volume=volume)
+            return d._scoop_preview.mass
         return min(request,self.terrain.available_mass(*trip.dig,trip.source,c.grab_radius))
 
     def _clear_slot(self, d):
@@ -551,6 +564,11 @@ class Simulation:
 
     def _choose_trip(self, d, battery=None, unreserved=False, airborne=False):
         incoming = sum(o.trip.mass for o in self.drones if o is not d and o.trip is not None and o.trip.destination == "fill" and not o.dump_released and o.state not in (DS.RETURN,DS.LANDING))
+        if self.terrain.soil is not None:
+            incoming=sum(o.trip.volume or 0. for o in self.drones if o is not d and o.trip is not None and o.trip.destination=='fill' and not o.dump_released and o.state not in (DS.RETURN,DS.LANDING))
+            if self.logistics is not None:
+                incoming+=sum(self.logistics.inventory.items[j.resource_ids[0]].soil_volume(self.config.terrain.density)
+                    for j in self.logistics.jobs if j.kind=='PICKUP_FULL_CONTAINER' and j.soil_destination=='fill' and j.status in ('ACTIVE','QUEUED'))
         home = self.slot_position(d.slot) if d.slot is not None else self.wait_position(d.identifier)
         return self.planner.choose(self.terrain,self.base,d,() if unreserved else self._reserved_dig(d),home,() if unreserved else self._reserved_dump(d),0 if unreserved else incoming,battery,d.position if airborne or self.terrain.front is not None else None)
 
@@ -661,13 +679,20 @@ class Simulation:
             if d.elapsed >= c.winch_seconds:
                 d.transition(DS.SCOOP)
         elif d.state == DS.SCOOP:
-            duration=c.scoop_duration(trip.mass)
+            duration=c.scoop_duration(trip.mass)*trip.soil_factor
             request=self._scoop_request(d,d.elapsed-dt,dt)
-            taken=self.terrain.scoop(*trip.dig,request,trip.source,c.grab_radius)
+            load=None
+            if self.terrain.soil is not None:
+                volume=max(0.,c.equipment.bucket.volume_m3-(d.soil.volume if d.soil is not None else 0.))
+                load=self.terrain.scoop_load(*trip.dig,request,trip.source,c.grab_radius,max_volume=volume)
+                if d.soil is None:d.soil=SoilLoad.empty(self.config.soil_profile)
+                d.soil.add(load);taken=load.mass
+            else:taken=self.terrain.scoop(*trip.dig,request,trip.source,c.grab_radius)
             d.cargo += taken
             if trip.source == "cut":
                 d.excavated_mass += taken
                 self.excavated_mass += taken
+                if load is not None:self.excavated_volume+=load.volume
             else:
                 d.reclaimed_mass += taken
             if taken>0:self._terrain_active = True
@@ -687,26 +712,28 @@ class Simulation:
         elif d.state == DS.DUMP:
             if not d.dump_released:
                 if (trip.destination=='dump' and self.terrain.front is not None and
-                        self.terrain.local_dump_space(*trip.dump)<d.cargo/self.config.terrain.density-1e-12):
-                    point=self.terrain.dump_location(d.cargo/self.config.terrain.density,
+                        self.terrain.local_dump_space(*trip.dump)<cargo_volume(d.cargo,d.soil,self.config.terrain.density)-1e-12):
+                    point=self.terrain.dump_location(cargo_volume(d.cargo,d.soil,self.config.terrain.density),
                         self._reserved_dump(d),self.config.fleet.separation,near=d.position)
                     if point is None:self.block('Нет локального места для груза в боковых отвалах');return
                     trip.dump=point;d.transition(DS.TO_DUMP);return
                 d.grabber_extension = min(1,d.elapsed/c.winch_seconds)
                 if d.elapsed >= c.winch_seconds:
                     try:
-                        mass = self.terrain.deposit_fill(*trip.dump,d.cargo,c.grab_radius) if trip.destination == "fill" else d.cargo
+                        mass = self.terrain.deposit_fill(*trip.dump,d.cargo,c.grab_radius,load=d.soil) if trip.destination == "fill" else d.cargo
                         if trip.destination == "dump":
-                            self.terrain.deposit(*trip.dump,d.cargo,c.grab_radius)
+                            self.terrain.deposit(*trip.dump,d.cargo,c.grab_radius,load=d.soil)
                     except ValueError as error:
                         self.block(str(error)); return
                     d.cargo = max(0, d.cargo-mass)
+                    delivered=d.soil.remove(mass) if d.soil is not None else None
                     stamp=self.time+self.config.dt
                     day=int((self.config.start_hour*3600+stamp)//86400)
-                    d.productivity.record(stamp,day,mass,self.config.terrain.density,trip.destination)
+                    d.productivity.record(stamp,day,mass,self.config.terrain.density,trip.destination,volume=delivered.volume if delivered is not None else None)
                     if trip.destination == "fill":
                         d.filled_mass += mass
                         self.filled_mass += mass
+                        if delivered is not None:self.filled_volume+=delivered.volume
                     d.dump_released = True
                     d.trips += 1
                     self.trips += 1
@@ -719,7 +746,7 @@ class Simulation:
                         point = self.terrain.fill_location(self._reserved_dump(d),self.config.fleet.separation)
                         kind = "fill"
                         if point is None:
-                            point = self.terrain.dump_location(d.cargo/self.config.terrain.density,self._reserved_dump(d),self.config.fleet.separation,near=d.position if self.terrain.front is not None else None)
+                            point = self.terrain.dump_location(cargo_volume(d.cargo,d.soil,self.config.terrain.density),self._reserved_dump(d),self.config.fleet.separation,near=d.position if self.terrain.front is not None else None)
                             kind = "dump"
                         if point is None:
                             self.block("Нет места для оставшегося груза после изменения объёма засыпки");return
@@ -982,4 +1009,19 @@ class Simulation:
         extra['laser_receiver_heat_kwh']=sum(d.receiver_heat_j for d in self.drones+self.retired_drones)/KWH
         for row,drone in zip(extra['retired_drones'],self.retired_drones):row['activity']=drone.activity.report()
         result = {**extra,"state":self.state.value,"reason":self.reason,"time_seconds":self.time,"elapsed_display":elapsed_text(self.time),"solar_clock":self.clock_text,"date":self.date_text,"day_of_year":self.day_of_year,"latitude_deg":b.config.latitude_deg,"base_mass_kg":b.config.mass,"panel_area_m2":b.config.panel_area,"irradiance_w_m2":sun.irradiance,"sun_elevation_deg":sun.elevation_deg,"daylight_hours":sun.daylight_hours,"sunrise_hour":sun.sunrise_hour,"sunset_hour":sun.sunset_hour,"base_motion_power_w":b.motion_power(self.drones) if b.destination is not None else 0.0,"cable_length_m":drone_rows[0]["cable_length_m"],"hour":self.hour,"trips":self.trips,"relocations":b.relocations,"initial_excavation_m3":t.initial_excavation,"remaining_m3":remaining,"completion_percent":max(0,min(100,100*(1-remaining/max(t.initial_excavation,1e-12)))),"excavated_m3":self.excavated_mass/self.config.terrain.density,"excavated_mass_kg":self.excavated_mass,"cargo_kg":cargo,"drone_state":self.drone.state.value,"base_state":b.state.value,"drone_kwh":batteries/KWH,"base_kwh":b.battery/KWH,"solar_power_w":b.solar_power,"solar_generated_kwh":b.generated/KWH,"solar_curtailed_kwh":b.curtailed/KWH,"consumed_kwh":(consumed+b.consumed)/KWH,"charging_losses_kwh":b.charging_losses/KWH,"mass_error_kg":ground_error,"energy_error_j":energy_error,"minimum_drone_kwh":min(d.minimum_charge/KWH for d in self.drones),"initial_energy_kwh":self._initial_energy/KWH,"drone_count":len(self.drones),"charge_slots":len(self.slots),"slot_occupants":[v+1 if v is not None else None for v in self.slots],"queue":[i+1 for i in self.queue],"wait_mode":self.config.fleet.wait_mode,"drones":drone_rows}
-        return self.logistics.update_report(result, full=full) if self.logistics is not None else result
+        if self.logistics is not None:result=self.logistics.update_report(result,full=full)
+        if t.soil is not None:
+            result['excavated_m3']=self.excavated_volume;result['filled_m3']=self.filled_volume
+            loads=[d.soil for d in self.drones if d.soil is not None]
+            if self.logistics is not None:
+                loads.extend(c.soil for c in self.logistics.containers if c.soil is not None)
+                e=self.logistics.excavator
+                if e is not None and e.soil is not None:loads.append(e.soil)
+            error=(t.soil.volume_delta_by_material-t._initial_soil_volume)*t.soil.profile.densities
+            for load in loads:error+=load.masses
+            result['soil']=dict(name=t.soil.profile.name,conditional=True,
+                modified_tiles=len(t.soil.tiles),storage_bytes=sum(a.nbytes for a in t.soil.tiles.values()),
+                materials=[dict(name=m.name,density_kg_m3=m.density,digging_factor=m.digging_factor,
+                    mass_error_kg=float(v)) for m,v in zip(t.soil.profile.materials,error)],
+                max_material_mass_error_kg=float(np.abs(error).max()))
+        return result

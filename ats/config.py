@@ -142,12 +142,18 @@ class Config:
     terrain_display_seconds: float = 0.20
     logistics: object = None  # LogisticsConfig; None preserves the original engine
     legacy_laser_equipment: dict | None = None
+    soil_profile: object = None  # SoilProfile; None preserves pre-layer scenarios/saves
+    initial_soil: dict | None = None  # sparse fine columns for a regional window
 
     def drone_models(self):
         from copy import deepcopy
         return deepcopy(self.fleet.models) if self.fleet.models else [deepcopy(self.drone) for _ in range(self.fleet.count)]
 
     def validate(self):
+        if self.soil_profile is not None:
+            self.soil_profile.validate()
+        elif self.initial_soil is not None:
+            raise ValueError('Состав грунта требует профиля материалов')
         if self.logistics is not None:
             self.logistics.validate()
             if self.logistics.direct_allowed and self.logistics.excavator_enabled and self.fleet.count<2:

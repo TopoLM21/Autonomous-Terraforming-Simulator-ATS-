@@ -167,13 +167,16 @@ class Landscape:
     persistent allocation. All patch edits store FLOAT64 elevation deltas, so a
     cut in one patch and spoil in another are counted in the same volume ledger.
     """
-    def __init__(self, raster, cell_size=.25, tile_cells=64):
+    def __init__(self, raster, cell_size=.25, tile_cells=64,soil_profile=None):
         if not math.isfinite(cell_size) or cell_size <= 0 or not isinstance(tile_cells, int) or not 8 <= tile_cells <= 256:
             raise ValueError('Неверное разрешение или размер блока ландшафта')
         self.raster, self.cell_size, self.tile_cells = raster, cell_size, tile_cells
         self.tiles = {}
         self.corridors = []
         self.channel_project = None
+        self.soil_profile=soil_profile
+        self.soil_tiles={}
+        if soil_profile is not None:soil_profile.validate()
 
     def _window(self, origin, n, cell_size=None):
         if len(origin) != 2 or not all(math.isfinite(v) for v in origin) or not isinstance(n,int) or not 16 <= n <= 1024:
@@ -216,12 +219,19 @@ class Landscape:
         if factor>1:current+=changes
         return baseline, current
 
-    def commit_window(self, origin, height, *, cell_size=None):
+    def commit_window(self, origin, height, *, cell_size=None,soil=None):
         height = np.asarray(height,dtype=float)
         if height.ndim != 2 or height.shape[0] != height.shape[1] or not np.all(np.isfinite(height)):
             raise ValueError('Неверные высоты рабочего участка')
         n = height.shape[0]
         index, baseline,factor = self._window(origin,n,cell_size)
+        if self.soil_profile is not None:
+            if (soil is None or soil.profile!=self.soil_profile or soil.factor!=factor or
+                    soil.fine_cell!=self.cell_size or soil.tile_cells!=self.tile_cells or
+                    not np.array_equal(soil.origin,index) or soil.n!=n):
+                raise ValueError('Для сохранения слоёв нужен состав текущего рабочего участка')
+            soil.validate()
+        elif soil is not None:raise ValueError('Профиль участка не совпадает с ландшафтом')
         delta = height-baseline
         _,previous=self.read_window(origin,n,cell_size=cell_size)
         increments=height-previous
@@ -240,6 +250,19 @@ class Landscape:
                 self.tiles[key] = block
             else:
                 self.tiles.pop(key,None)
+        if soil is not None:
+            for key,local,tile in self._overlaps(index,n*factor):
+                if key not in soil.tiles:continue
+                block=self.soil_tiles.get(key,np.zeros_like(soil.tiles[key])).copy()
+                block[:,tile[0],tile[1]]=soil.tiles[key][:,tile[0],tile[1]]
+                self.soil_tiles[key]=block
+
+    def soil_window(self,origin,n,cell_size):
+        if self.soil_profile is None:return None
+        index,_,factor=self._window(origin,n,cell_size)
+        keys=[key for key,_,_ in self._overlaps(index,n*factor) if key in self.soil_tiles]
+        return dict(fine_cell=self.cell_size,tile_cells=self.tile_cells,origin_m=list(origin),
+                    tiles=[[x,y,self.soil_tiles[x,y].copy()] for x,y in keys])
 
     def report(self):
         report=dict(source=self.raster.metadata,vertical_datum='MSL', extent_m=list(self.raster.extent_m),
@@ -253,11 +276,17 @@ class Landscape:
             report['channel']=dict(project_id=p.identity,length_m=p.length,width_m=p.width_m,depth_m=p.depth_m,
                 target_msl=-p.depth_m,shore_offset_m=p.shore_offset_m,sections=p.section_count,
                 active_section=p.active_section,completed=list(p.completed))
+        if self.soil_profile is not None:
+            report.update(soil_profile=self.soil_profile.name,soil_modified_tiles=len(self.soil_tiles),
+                          soil_storage_bytes=sum(a.nbytes for a in self.soil_tiles.values()))
         return report
 
     def save(self, path):
-        metadata = dict(version=1,raster=self.raster.metadata,cell_size=self.cell_size,tile_cells=self.tile_cells,corridors=self.corridors,channel_project=self.channel_project)
+        from dataclasses import asdict
+        metadata = dict(version=2,raster=self.raster.metadata,cell_size=self.cell_size,tile_cells=self.tile_cells,corridors=self.corridors,channel_project=self.channel_project,
+                        soil_profile=asdict(self.soil_profile) if self.soil_profile is not None else None)
         arrays = {f'tile_{x}_{y}':t for (x,y),t in self.tiles.items()}
+        arrays.update({f'soil_{x}_{y}':t for (x,y),t in self.soil_tiles.items()})
         with open(path,'wb') as f:
             np.savez_compressed(f,height=self.raster.height,metadata=json.dumps(metadata,ensure_ascii=False),**arrays)
 
@@ -265,11 +294,14 @@ class Landscape:
     def load(cls,path):
         with np.load(path,allow_pickle=False) as data:
             m = json.loads(str(data['metadata']))
-            if m.get('version') != 1:
+            if m.get('version') not in (1,2):
                 raise ValueError('Неизвестная версия ландшафта')
             result = cls(ElevationRaster(data['height'],m['raster']),m['cell_size'],m['tile_cells'])
             result.corridors = m.get('corridors',[])
             result.channel_project = m.get('channel_project')
+            if m.get('soil_profile') is not None:
+                from .soil import SoilProfile
+                result.soil_profile=SoilProfile.from_data(m['soil_profile'])
             for name in data.files:
                 if name.startswith('tile_'):
                     _,x,y = name.split('_')
@@ -278,6 +310,13 @@ class Landscape:
                     if min(key) < 0 or t.shape != (result.tile_cells,result.tile_cells) or not np.all(np.isfinite(t)):
                         raise ValueError('Повреждённый блок ландшафта')
                     result.tiles[key] = t
+                elif name.startswith('soil_'):
+                    _,x,y=name.split('_');key=int(x),int(y);t=np.array(data[name],dtype=np.float64)
+                    if (result.soil_profile is None or min(key)<0 or
+                            t.shape!=(len(result.soil_profile.materials)+1,result.tile_cells,result.tile_cells) or
+                            not np.all(np.isfinite(t)) or np.any(t< -1e-9)):
+                        raise ValueError('Повреждён состав грунта ландшафта')
+                    result.soil_tiles[key]=t
             return result
 
 
@@ -301,6 +340,8 @@ def workspace_config(landscape, config, origin, side_m=64.):
     c.base.x, c.base.y = min(10.,side_m*.15625),side_m/2
     c.plan = PlanConfig([])
     c.reference_height, c.initial_height = baseline.tolist(),current.tolist()
+    c.soil_profile=deepcopy(landscape.soil_profile)
+    c.initial_soil=landscape.soil_window(origin,n,cell)
     source = landscape.raster
     anchor = [float(v) for v in source.to_source(*origin)]
     c.georeference = dict(vertical_datum='MSL',source=source.metadata,origin_m=list(origin),

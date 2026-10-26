@@ -19,7 +19,7 @@ import numpy as np
 
 
 FORMAT='ATS_SIMULATION'
-VERSION=1
+VERSION=2
 MAX_BYTES=1_500_000_000
 MAX_NODES=2_000_000
 
@@ -27,10 +27,10 @@ MAX_NODES=2_000_000
 def _classes():
     from . import (config,equipment,simulation,solar_base,drone,terrain,planner,dust,
                    logistics,logistics_config,inventory,batteries,excavator,cooperative_lift,
-                   productivity,activity,plan,laser,workfront,landscape)
+                   productivity,activity,plan,laser,workfront,landscape,soil)
     modules=(config,equipment,simulation,solar_base,drone,terrain,planner,dust,logistics,
              logistics_config,inventory,batteries,excavator,cooperative_lift,productivity,
-             activity,plan,laser,workfront,landscape)
+             activity,plan,laser,workfront,landscape,soil)
     classes=[value for module in modules for value in vars(module).values()
              if isinstance(value,type) and value.__module__==module.__name__]
     return {c.__module__+'.'+c.__name__:c for c in [*classes,SimpleNamespace]}
@@ -152,6 +152,28 @@ class _Decoder:
         raise ValueError('Неверное значение сохранения')
 
 
+def _migrate_v1(decoder):
+    """V1 never contained stratigraphy. Keep its density, cargo and jobs intact."""
+    from .config import Config
+    from .simulation import Simulation
+    from .terrain import Terrain
+    from .drone import Drone
+    from .inventory import SoilContainer
+    from .excavator import Excavator
+    from .planner import Trip
+    from .landscape import Landscape
+    for value in decoder.objects:
+        if isinstance(value,Config):value.soil_profile=None;value.initial_soil=None
+        elif isinstance(value,Terrain):value.soil=None
+        elif isinstance(value,Simulation):
+            value.excavated_volume=value.excavated_mass/value.config.terrain.density
+            value.filled_volume=value.filled_mass/value.config.terrain.density
+        elif isinstance(value,(Drone,SoilContainer)):value.soil=None
+        elif isinstance(value,Excavator):value.soil=None;value.cycle_factor=1.
+        elif isinstance(value,Trip):value.soil_factor=1.;value.volume=None
+        elif isinstance(value,Landscape):value.soil_profile=None;value.soil_tiles={}
+
+
 def _validate(session):
     from .simulation import Simulation,MissionState
     from .drone import DroneState
@@ -164,6 +186,19 @@ def _validate(session):
         array=getattr(t,key)
         if not isinstance(array,np.ndarray) or array.shape!=shape or not np.all(np.isfinite(array)):
             raise ValueError('Повреждён рельеф')
+    if s.config.soil_profile is not None:
+        from .soil import SoilField
+        if not isinstance(t.soil,SoilField) or t.soil.profile!=s.config.soil_profile:
+            raise ValueError('Потерян профиль грунта')
+        t.soil.validate()
+        if t.soil.n!=shape[0] or t.soil.cell!=t.cell:raise ValueError('Сетка грунта не совпадает с рельефом')
+        # Audit independent height and material representations on bounded strips.
+        for y in range(0,shape[0],16):
+            yy,xx=np.mgrid[y:min(shape[0],y+16),0:shape[0]];ids=(yy*shape[0]+xx).ravel()
+            delta=t.soil.height_delta(ids).reshape(yy.shape)
+            if not np.allclose(delta,(t.height-t.reference)[y:y+16],rtol=0,atol=1e-7):
+                raise ValueError('Высоты не совпадают с составом грунта')
+    elif t.soil is not None:raise ValueError('Лишний состав грунта без профиля')
     if not math.isfinite(s.time) or s.time<0:raise ValueError('Неверное модельное время')
     if len(s.drones)!=s.config.fleet.count or [d.identifier for d in s.drones]!=list(range(len(s.drones))):
         raise ValueError('Повреждён состав флота')
@@ -178,6 +213,9 @@ def _validate(session):
             raise ValueError('Неверное состояние дрона')
         if d.position.shape!=(3,) or not np.all(np.isfinite(d.position)) or d.velocity.shape!=(3,) or not np.all(np.isfinite(d.velocity)):
             raise ValueError('Неверная позиция или скорость дрона')
+        if d.soil is not None:
+            d.soil.validate(d.cargo if d.soil.mass>1e-8 else None)
+            if d.soil.profile!=s.config.soil_profile:raise ValueError('Неверный материал груза дрона')
         if d.slot is not None and (not 0<=d.slot<len(s.slots) or s.slots[d.slot]!=d.identifier):
             raise ValueError('Нарушена бронь посадочного места')
     occupants=[value for value in s.slots if value is not None]
@@ -190,6 +228,12 @@ def _validate(session):
         if w.sim is not s or w.battery_service.world is not w or w.active.keys()&w.direct_ids:
             raise ValueError('Нарушены ссылки диспетчера')
         w.inventory.validate()
+        for container in w.containers:
+            if container.soil is not None and container.soil.profile!=s.config.soil_profile:
+                raise ValueError('Неверный материал контейнера')
+        if w.excavator is not None and w.excavator.soil is not None:
+            w.excavator.soil.validate(w.excavator.bucket_kg)
+            if w.excavator.soil.profile!=s.config.soil_profile:raise ValueError('Неверный материал ковша')
         jobs={id(job) for job in w.jobs}
         if any(id(job) not in jobs for job in w.active.values()):raise ValueError('Потеряно активное задание')
         for d in s.drones:
@@ -247,9 +291,10 @@ def load_state(path):
                 raise ValueError('Сохранение превышает допустимый размер')
             if archive.getinfo('manifest.json').file_size>256_000_000:raise ValueError('Слишком большой список объектов')
             manifest=json.loads(archive.read('manifest.json'))
-            if manifest.get('format')!=FORMAT or type(manifest.get('version')) is not int or manifest['version']!=VERSION:
+            if manifest.get('format')!=FORMAT or type(manifest.get('version')) is not int or manifest['version'] not in (1,VERSION):
                 raise ValueError('Неизвестный формат или версия сохранения')
             decoder=_Decoder(archive,manifest['nodes']);root=decoder.decode(manifest['root'])
+            if manifest['version']==1:_migrate_v1(decoder)
         session=Session(root['simulation'],root['landscape'],root['ui'],manifest.get('runtime',{}));_validate(session)
         return session
     except (zipfile.BadZipFile,EOFError,KeyError,TypeError,AttributeError,IndexError,OverflowError,RecursionError) as error:

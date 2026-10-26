@@ -33,6 +33,7 @@ class Drone:
     position: np.ndarray
     battery: float = field(init=False)
     cargo: float = 0.0
+    soil: object = None  # SoilLoad for direct excavation, separate from equipment cargo
     equivalent_load: float | None = None  # cooperative cable tension; physical cargo stays separate
     velocity: np.ndarray = field(default_factory=lambda: np.zeros(3))
     state: DroneState = DroneState.DOCKED

@@ -7,6 +7,7 @@ from .inventory import BatteryModule, SoilContainer, Location as L
 from .config import KWH
 from .activity import ActivityStats
 from .productivity import Productivity
+from .soil import SoilLoad
 
 
 class ExcavatorState(str, Enum):
@@ -35,6 +36,8 @@ class Excavator:
     state: ExcavatorState = ExcavatorState.DEPLOYING_SUPPORTS
     buffer_j: float = 0.
     bucket_kg: float = 0.
+    soil: object = None
+    cycle_factor: float = 1.
     active_container: str | None = None
     elapsed: float = 0.
     supports: bool = False
@@ -94,7 +97,8 @@ class Excavator:
         c=self.config;p=self.position if position is None else np.asarray(position)
         patch=patch if patch is not None else np.s_[:,:]
         distance=np.hypot(terrain.x[patch]-p[0],terrain.y[patch]-p[1])
-        moment=(c.digging_force_n+c.bucket_volume_m3*c.bucket_fill_factor*terrain.config.terrain.density*9.80665)*distance
+        density=max(m.density for m in terrain.soil.profile.materials) if terrain.soil is not None else terrain.config.terrain.density
+        moment=(c.digging_force_n+c.bucket_volume_m3*c.bucket_fill_factor*density*9.80665)*distance
         restoring=(self.mass(inventory)-self.bucket_kg)*9.80665*c.support_half_width_m/c.tipping_margin
         return ((distance<=c.reach_m) & (distance>=c.support_half_width_m+terrain.cell/math.sqrt(2))
                 & (terrain.height[patch]>p[2]-c.local_depth_m+1e-9)
@@ -221,12 +225,16 @@ class Excavator:
             if not self.consume(max(0.,c.digging_power_w-c.idle_power_w),inv):
                 self.reason='BUCKET_AWAITING_POWER';return
             self.state=ExcavatorState.FILLING_CONTAINER
-            if self.elapsed<c.cycle_seconds:return
+            if self.elapsed<c.cycle_seconds*self.cycle_factor:return
             container=inv.items[self.active_container]
-            container.soil_kg+=self.bucket_kg;self.bucket_kg=0.
+            container.soil_kg+=self.bucket_kg
+            if self.soil is not None:
+                if container.soil is None:container.soil=SoilLoad.empty(t.soil.profile)
+                container.soil.add(self.soil);self.soil=None
+            self.bucket_kg=0.
             container.state='PARTIALLY_FILLED';self.cycles+=1
             inv.release('excavator_cycle');self.active_container=None
-            if container.soil_kg>=container.assigned_limit_kg-1e-8 or t.remaining_cut<=s.config.terrain.completion_volume:
+            if container.full(s.config.terrain.density) or t.remaining_cut<=s.config.terrain.completion_volume:
                 container.location=L.FILLED_QUEUE;container.state='FULL_READY'
             self.state=ExcavatorState.IDLE;self.elapsed=0.;logistics.progress_at=s.time
             return
@@ -242,7 +250,7 @@ class Excavator:
                 if container.location==L.WORKSITE_RACK and container.soil_kg>0 and not container.reserved_by:
                     container.location=L.FILLED_QUEUE;container.state='FULL_READY'
             self.state=ExcavatorState.IDLE;self.reason='PAUSED_FOR_PLAN_OR_MAINTENANCE';return
-        cycle_budget=c.digging_power_w*c.cycle_seconds
+        cycle_budget=c.digging_power_w*c.cycle_seconds*(max(t.soil.profile.factors) if t.soil is not None else 1.)
         stop_energy=(max(self.capacity(inv)*c.courier_low_soc,cycle_budget) if logistics.batch_enabled else
                      self.capacity(inv)*c.excavator_reserve+cycle_budget)
         if self.active_container is None and self.energy(inv)<=stop_energy:
@@ -278,7 +286,7 @@ class Excavator:
             return
         containers=[o for o in logistics.containers if o.location==L.WORKSITE_RACK and not o.reserved_by
                     and np.linalg.norm(np.array(o.position[:2])-self.position[:2])<=c.reach_m
-                    and o.soil_kg<o.assigned_limit_kg-1e-8]
+                    and not o.full(s.config.terrain.density)]
         if self.active_container is not None:
             container=inv.items[self.active_container]
         elif not containers:
@@ -288,18 +296,29 @@ class Excavator:
         if self.active_container is None:
             if not inv.reserve([container.id],'excavator_cycle'):return
             self.active_container=container.id;self.elapsed=0.;self.target=point
+            if t.soil is not None:
+                volume=min(c.bucket_volume_m3*c.bucket_fill_factor,max(0.,container.volume_m3-container.soil_volume(s.config.terrain.density)))
+                preview=t.preview_load(*self.target,max(0.,container.assigned_limit_kg-container.soil_kg),radius=.5,
+                    max_volume=volume,allowed_mask=self.reachable_mask(t,inv),minimum_height=self.position[2]-c.local_depth_m)
+                self.cycle_factor=preview.factor
         self.state=ExcavatorState.DIGGING;self.reason='';self.working_seconds+=1.
         if not self.supports or sum(b.max_discharge_w for b in self.batteries(inv))<c.peak_power_w:
             self.state=ExcavatorState.BLOCKED;self.reason='INSUFFICIENT_STABILITY_OR_PEAK_POWER';return
         if not self.consume(max(0.,c.digging_power_w-c.idle_power_w),inv):return
-        if self.elapsed>=c.cycle_seconds/2:
-            max_mass=min(c.bucket_volume_m3*c.bucket_fill_factor*s.config.terrain.density,
-                         container.assigned_limit_kg-container.soil_kg)
-            self.bucket_kg=t.scoop(*self.target,max_mass,radius=.5,
-                allowed_mask=self.reachable_mask(t,inv),minimum_height=self.position[2]-c.local_depth_m)
+        if self.elapsed>=c.cycle_seconds*self.cycle_factor/2:
+            if t.soil is not None:
+                volume=min(c.bucket_volume_m3*c.bucket_fill_factor,max(0.,container.volume_m3-container.soil_volume(s.config.terrain.density)))
+                self.soil=t.scoop_load(*self.target,max(0.,container.assigned_limit_kg-container.soil_kg),radius=.5,
+                    max_volume=volume,allowed_mask=self.reachable_mask(t,inv),minimum_height=self.position[2]-c.local_depth_m)
+                self.bucket_kg=self.soil.mass;s.excavated_volume+=self.soil.volume
+            else:
+                max_mass=min(c.bucket_volume_m3*c.bucket_fill_factor*s.config.terrain.density,
+                             container.assigned_limit_kg-container.soil_kg)
+                self.bucket_kg=t.scoop(*self.target,max_mass,radius=.5,
+                    allowed_mask=self.reachable_mask(t,inv),minimum_height=self.position[2]-c.local_depth_m)
             self.excavated_kg+=self.bucket_kg;s.excavated_mass+=self.bucket_kg
             self.productivity.record(s.time,int((s.config.start_hour*3600+s.time)//86400),
-                                     self.bucket_kg,s.config.terrain.density,'excavated')
+                                     self.bucket_kg,s.config.terrain.density,'excavated',volume=self.soil.volume if self.soil is not None else None)
             s._terrain_active=True
             s.dust.emit(1.,self.position,0.,.15)
             if self.bucket_kg<=1e-8:

@@ -58,6 +58,13 @@ class SoilContainer(Item):
     cycles: int = 0
     wear: float = 0.
     assigned_limit_kg: float = 0.
+    soil: object = None
+
+    def soil_volume(self,density):
+        return self.soil.volume if self.soil is not None else self.soil_kg/density
+
+    def full(self,density):
+        return self.soil_kg>=self.assigned_limit_kg-1e-8 or self.soil_volume(density)>=self.volume_m3-1e-10
 
     @property
     def gross_mass(self):
@@ -141,6 +148,9 @@ class Inventory:
             if isinstance(o, SoilContainer):
                 if o.soil_kg < -1e-8 or o.gross_mass > o.max_gross_kg+1e-7:
                     raise ValueError('Container overloaded')
+                if o.soil is not None:
+                    o.soil.validate(o.soil_kg)
+                    if o.soil.volume>o.volume_m3+1e-9:raise ValueError('Container volume exceeded')
             if isinstance(o, ChargingSlot):
                 if (not isinstance(self.items.get(o.module_id),BatteryModule) or o.module_id in slot_modules
                         or o.location!=Location.BASE_MOUNT or o.holder_id!='base'
@@ -150,8 +160,15 @@ class Inventory:
                 slot_modules.add(o.module_id)
 
     def snapshot(self):
-        return [dict(asdict(o), type=type(o).__name__, gross_mass_kg=o.gross_mass)
-                for o in self.items.values()]
+        rows=[]
+        for o in self.items.values():
+            row=dict(asdict(o),type=type(o).__name__,gross_mass_kg=o.gross_mass)
+            if isinstance(o,SoilContainer):
+                row.pop('soil',None)
+                if o.soil is not None:
+                    row.update(soil_volume_m3=o.soil.volume,soil_materials_kg=o.soil.masses.tolist())
+            rows.append(row)
+        return rows
 
     def grouped(self, query=''):
         """Read-only overview; all instances belong to exactly one group."""

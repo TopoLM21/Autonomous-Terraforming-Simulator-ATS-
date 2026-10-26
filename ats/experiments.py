@@ -42,6 +42,8 @@ def experiment_config(config, mode='logistics',drones=4,containers=8,ports=4,
 def save_configuration(path, config):
     clone=deepcopy(config);resolve_config(clone)
     data={'schema_version':2,'config':asdict(clone),'equipment':equipment_data(clone)}
+    from .soil import json_soil_state
+    data['config']['initial_soil']=json_soil_state(clone.initial_soil)
     Path(path).write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
 
 
@@ -49,6 +51,9 @@ def load_configuration(path):
     data=json.loads(Path(path).read_text(encoding='utf-8'))
     if data.get('schema_version')!=2:raise ValueError('Unknown experiment schema version')
     raw=dict(data['config'])
+    if raw.get('soil_profile') is not None:
+        from .soil import SoilProfile
+        raw['soil_profile']=SoilProfile.from_data(raw['soil_profile'])
     for key,cls in [('trench',TrenchConfig),('terrain',TerrainConfig),('base',BaseConfig),('drone',DroneConfig),('dust',DustConfig)]:
         values=dict(raw[key])
         if 'equipment' in values:values['equipment']=None
@@ -76,7 +81,9 @@ def run_benchmarks(config,steps,output=None):
     results=[]
     cache={}
     for name,c in benchmark_configs(config):
-        key=json.dumps(asdict(c),sort_keys=True)
+        from .soil import json_soil_state
+        values=asdict(c);values['initial_soil']=json_soil_state(c.initial_soil)
+        key=json.dumps(values,sort_keys=True)
         if key not in cache:
             start=time.perf_counter();s=Simulation(c);report=s.run(steps)
             report['wall_seconds']=time.perf_counter()-start;cache[key]=report

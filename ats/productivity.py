@@ -10,9 +10,9 @@ class Productivity:
     total_mass: float=0.0
     total_volume: float=0.0
 
-    def record(self,time,day,mass,density,destination):
+    def record(self,time,day,mass,density,destination,volume=None):
         if mass<=0:return
-        volume=mass/density
+        volume=mass/density if volume is None else volume
         row=self.days.setdefault(day,{"mass_kg":0.,"volume_m3":0.,"fill_mass_kg":0.,"dump_mass_kg":0.,"deliveries":0})
         row["mass_kg"]+=mass;row["volume_m3"]+=volume
         key=destination+"_mass_kg";row[key]=row.get(key,0.)+mass;row["deliveries"]+=1

@@ -23,7 +23,7 @@ def _finish_region(sim, region, report, save_path=None):
                 (w.active or w.group is not None or any(c.soil_kg>0 for c in w.containers) or
                  e and (e.bucket_kg>0 or e.active_container is not None))):
             raise ValueError('Ландшафт не сохранён: завершите рейсы/выгрузку; для сохранения работающей техники используйте --save-state')
-    region.commit_window(sim.config.georeference['origin_m'],sim.terrain.height,cell_size=sim.terrain.cell)
+    region.commit_window(sim.config.georeference['origin_m'],sim.terrain.height,cell_size=sim.terrain.cell,soil=sim.terrain.soil)
     if region.channel_project:
         from .channel import ChannelProject
         project=ChannelProject.from_data(region.channel_project);project.record(report);region.channel_project=project.to_data()
@@ -101,6 +101,7 @@ def main():
     parser.add_argument('--goal-msl',type=float,help='Absolute local trench bottom in metres MSL; DEM starts with no work if omitted')
     parser.add_argument('--save-landscape',help='Save DEM and sparse edits after headless run; requires unloaded and landed machinery')
     parser.add_argument('--dig-rate',type=float,help='Drone soil intake limit, kg/s; standard loose-sand estimate 6')
+    parser.add_argument('--soil-profile',choices=('uniform','qattara'),help='Conditional layers; new --qattara runs default to qattara, old saves retain uniform soil')
     parser.add_argument('--channel',action='store_true',help='Excavate the saved channel project in --landscape')
     parser.add_argument('--channel-route',help='Channel route JSON: points, coordinates=source/metres and optional dimensions')
     parser.add_argument('--channel-section',type=int,default=1,help='Prepared local channel section, starting at 1')
@@ -179,12 +180,22 @@ def main():
             if config.logistics is None:raise ValueError('Courier strategy requires ATS 2.0')
             config.logistics.batch_courier=args.courier_strategy=='batch'
         region=None
+        if args.soil_profile is not None:
+            from .soil import SoilProfile
+            config.soil_profile=SoilProfile.qattara() if args.soil_profile=='qattara' else None
+            config.initial_soil=None
         if args.dem or args.qattara or args.landscape:
             if args.plan or args.configuration or args.compare_fleet or args.batch_experiments:
                 raise ValueError('DEM: начните отдельный локальный запуск без --plan/--configuration/сравнения')
             from .landscape import Landscape,load_dem,qattara_dem,workspace_config
             region=(Landscape.load(args.landscape) if args.landscape else
                     Landscape(qattara_dem() if args.qattara else load_dem(args.dem,crs=args.dem_crs,vertical_datum=args.dem_datum)))
+            if args.soil_profile is not None:
+                if region.tiles or region.soil_tiles:raise ValueError('Профиль грунта выбирается до земляных работ; существующий ландшафт сохранит свой состав')
+                region.soil_profile=config.soil_profile
+            elif args.qattara:
+                from .soil import SoilProfile
+                region.soil_profile=SoilProfile.qattara()
             if args.channel or args.channel_route:
                 if args.work_origin or args.work_lon_lat or args.goal_msl is not None:
                     raise ValueError('Для проекта используйте --channel-section/--channel-depth вместо --work-origin/--goal-msl')

@@ -4,16 +4,17 @@ import pyqtgraph as pg
 import numpy as np
 from .landscape import Landscape,load_dem,qattara_dem,workspace_config,corridor_profile
 from .channel import ChannelProject
+from .soil import SoilProfile
 
 
 class LandscapeDialog(QtWidgets.QDialog):
     def __init__(self, window):
         super().__init__(window)
-        self.window=window;self.region=getattr(window,'landscape',None) or Landscape(qattara_dem())
+        self.window=window;self.region=getattr(window,'landscape',None) or Landscape(qattara_dem(),soil_profile=SoilProfile.qattara())
         self.points=[];self.project=None;self.setWindowTitle('Маршрут и проект канала · офлайн DEM');self.resize(1250,950)
         layout=QtWidgets.QVBoxLayout(self)
         buttons=QtWidgets.QHBoxLayout()
-        for text,handler in [('Каттара / NOAA',self.use_qattara),('Импорт DEM…',self.import_dem),('Открыть ландшафт…',self.load_region),('Сохранить ландшафт…',self.save_region)]:
+        for text,handler in [('Каттара / NOAA',self.use_qattara),('Импорт DEM…',self.import_dem),('Открыть ландшафт…',self.load_region),('Сохранить ландшафт…',self.save_region),('Слои грунта…',self.edit_soil)]:
             button=QtWidgets.QPushButton(text);button.clicked.connect(handler);buttons.addWidget(button)
         self.crs=QtWidgets.QComboBox();self.crs.addItem('ASC: WGS84 (градусы)','EPSG:4326');self.crs.addItem('ASC: локальные метры','LOCAL_METRES')
         self.msl=QtWidgets.QCheckBox('Импорт: метры над MSL');buttons.addWidget(self.crs);buttons.addWidget(self.msl)
@@ -98,6 +99,8 @@ class LandscapeDialog(QtWidgets.QDialog):
             except (ValueError,KeyError,TypeError) as error:self.result.setText(str(error))
         s=self.region.report()
         self.info.setText(f"{r.metadata.get('source','DEM')} · {h.shape[1]}×{h.shape[0]} · шаг {rx:.0f}×{ry:.0f} м · MSL: {finite.min():.0f}…{finite.max():.0f} м\nИзменённых блоков: {s['modified_tiles']} · подробные данные: {s['fine_storage_bytes']/1024:.1f} КиБ. Мелкая сетка интерполирует DEM, точность источника остаётся прежней. Жёлтый участок намного меньше региона; увеличьте масштаб колесом.")
+        profile=self.region.soil_profile
+        self.info.setText(self.info.text()+('\nГрунт: '+profile.name+' · условная модель, без геологической съёмки' if profile is not None else '\nГрунт: однородный, прежняя модель'))
 
     def update_selection(self):
         x,y=self.x.value(),self.y.value();side=self.side.currentData()
@@ -204,7 +207,13 @@ class LandscapeDialog(QtWidgets.QDialog):
         except (ValueError,OSError) as error:self.result.setText(str(error))
 
     def use_qattara(self):
-        self.region=Landscape(qattara_dem());self.show_region()
+        self.region=Landscape(qattara_dem(),soil_profile=SoilProfile.qattara());self.show_region()
+
+    def edit_soil(self):
+        from .soil_ui import SoilDialog
+        editable=not self.region.tiles and not self.region.soil_tiles and getattr(self.window,'landscape',None) is not self.region
+        dialog=SoilDialog(self.region.soil_profile,self,editable)
+        if dialog.exec() and editable:self.region.soil_profile=dialog.result_profile;self.show_region()
 
     def import_dem(self):
         path,_=QtWidgets.QFileDialog.getOpenFileName(self,'Импорт локального DEM','','DEM (*.npz *.asc *.tif *.tiff)')

@@ -143,7 +143,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.map_shortcut.activated.connect(lambda:self.map_fullscreen.toggle())
         self.zoom_label=QtWidgets.QLabel('100%')
         for widget in (self.zoom_out,self.zoom_label,self.zoom_in,self.zoom_fit,self.map_fullscreen):map_tools.addWidget(widget)
+        self.soil_view=QtWidgets.QCheckBox('Грунты');self.soil_view.setToolTip('Цвет материала на поверхности; условные слои задаются в окне ландшафта до начала работ')
+        self.soil_view.toggled.connect(lambda _:self.refresh(True));map_tools.addWidget(self.soil_view)
         map_tools.addStretch();map_layout.addLayout(map_tools)
+        self.soil_legend=QtWidgets.QLabel();self.soil_legend.setWordWrap(True);self.soil_legend.hide();map_layout.addWidget(self.soil_legend)
         self.landscape_button=QtWidgets.QPushButton('Ландшафт / импорт DEM…')
         left_layout.addWidget(self.landscape_button);self.landscape_button.clicked.connect(self.show_landscape)
         self.map_dialog=None
@@ -544,6 +547,14 @@ class MainWindow(QtWidgets.QMainWindow):
                 curves=[self.profile.plot(pen=pg.mkPen(color,width=2),name=p.name if len(data)<=6 else None),self.profile.plot(pen=pg.mkPen(color,width=1,style=QtCore.Qt.PenStyle.DashLine)),self.profile.plot(pen=pg.mkPen("#627789",width=1))]
                 self.profile_extra.extend(curves)
             for curve,values in zip(curves,[p.current,p.target,p.reference]):curve.setData(p.axis,values,connect="finite")
+            if self.sim.terrain.soil is not None:
+                soil=self.sim.terrain.soil.profile
+                for depth,material in zip(soil.boundaries,soil.materials[1:]):
+                    contact=p.reference-depth
+                    contact=np.where(contact<=p.current+1e-9,contact,np.nan)
+                    curve=self.profile.plot(p.axis,contact,pen=pg.mkPen(material.color,width=1,style=QtCore.Qt.PenStyle.DotLine),
+                        name=f'Граница: {material.name}' if index==0 else None,connect='finite')
+                    self.profile_extra.append(curve)
             points.extend([*p.points,(np.nan,np.nan)])
             for boundary in p.boundaries:
                 line=pg.InfiniteLine(pos=boundary,angle=90,pen=pg.mkPen("#627789",style=QtCore.Qt.PenStyle.DotLine));self.profile.addItem(line);self.profile_boundaries.append(line)
@@ -585,7 +596,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if w.group is not None or w.active or any(c.soil_kg>0 for c in w.containers) or e is not None and (e.bucket_kg>0 or e.active_container is not None):
                 raise ValueError('Завершите переносы и выгрузите контейнеры командой «Посадить флот»')
         if self.landscape is not None and self.config.georeference:
-            self.landscape.commit_window(self.config.georeference['origin_m'],s.terrain.height,cell_size=s.terrain.cell)
+            self.landscape.commit_window(self.config.georeference['origin_m'],s.terrain.height,cell_size=s.terrain.cell,soil=s.terrain.soil)
             if self.landscape.channel_project:
                 from .channel import ChannelProject
                 project=ChannelProject.from_data(self.landscape.channel_project);project.record(s.report())
@@ -646,11 +657,13 @@ class MainWindow(QtWidgets.QMainWindow):
                     brush_segments=self.plan_editor.segments,brush_dirty=self.plan_editor.dirty,
                     profile_direction=self.profile_direction.currentData(),profile_segment=self.profile_segment.currentData(),
                     profile_position=self.profile_position.value(),equipment_resume=self._equipment_resume,
-                    render_mode=self.render_mode.currentData() if hasattr(self,'render_mode') else 'auto')
+                    render_mode=self.render_mode.currentData() if hasattr(self,'render_mode') else 'auto',
+                    soil_view=self.soil_view.isChecked())
 
     def restore_session_ui(self, ui):
         self.speed.setCurrentIndex(max(0,self.speed.findData(ui.get('speed',50))))
         if hasattr(self,'render_mode'):self.render_mode.setCurrentIndex(max(0,self.render_mode.findData(ui.get('render_mode','auto'))))
+        self.soil_view.setChecked(bool(ui.get('soil_view',False)))
         if ui.get('view_range') is not None:self.view_box.setRange(xRange=ui['view_range'][0],yRange=ui['view_range'][1],padding=0)
         self.plan_editor.segments=deepcopy(ui.get('brush_segments',self.plan_editor.segments))
         self.plan_editor.dirty=bool(ui.get('brush_dirty',False));self.plan_editor.rebuild()
@@ -772,6 +785,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def new_scenario(self):
         config = deepcopy(self.config)
         config.plan=None;config.initial_height=None
+        config.initial_soil=None
         config.reference_height=None;config.georeference=None;config.terrain.floor=-3.
         q = config.trench
         q.length, q.width, q.depth = self.length.value(), self.width.value(), self.depth.value()
@@ -898,13 +912,25 @@ class MainWindow(QtWidgets.QMainWindow):
             self.latitude.blockSignals(True);self.latitude.setValue(b.config.latitude_deg);self.latitude.blockSignals(False)
         if self.render_mode.currentData()=='off':
             self.refresh_telemetry(s.report(full=False));return
+        self.soil_view.setEnabled(t.soil is not None)
+        self.soil_legend.setVisible(t.soil is not None and self.soil_view.isChecked())
+        if t.soil is not None:
+            self.soil_legend.setText('Условные грунты · '+ ' · '.join(f'<span style="color:{m.color}">■ {m.name}: {m.density:g} кг/м³</span>' for m in t.soil.profile.materials))
         now = time.perf_counter()
         view_range=self.view_box.viewRange();view_key=tuple(tuple(p) for p in view_range)
         if force or (t.revision != self.last_revision or view_key!=self._last_view) and now-self.last_terrain_wall >= self.config.terrain_display_seconds:
             if self.render_mode.currentData()=='auto' and self.running:
                 height,rect,stride=terrain_view(t.height,t.cell,view_range)
             else:height,rect,stride=t.height,(0,0,t.cell*t.height.shape[0],t.cell*t.height.shape[0]),1
-            self.image.setImage(terrain_rgb(height, t.cell*stride, self.config.trench.depth, max(0.5, float(height.max()))), autoLevels=False)
+            rgb=terrain_rgb(height,t.cell*stride,self.config.trench.depth,max(.5,float(height.max())))
+            if t.soil is not None and self.soil_view.isChecked():
+                x0=round(rect[0]/t.cell);y0=round(rect[1]/t.cell);n=t.height.shape[0]
+                yy,xx=np.indices(height.shape);ids=np.minimum(y0+yy*stride+stride//2,n-1)*n+np.minimum(x0+xx*stride+stride//2,n-1)
+                materials=t.soil.surface_ids(ids.ravel()).reshape(height.shape)
+                colors=np.array([[int(m.color[i:i+2],16) for i in (1,3,5)] for m in t.soil.profile.materials])
+                gy,gx=np.gradient(height,t.cell*stride);shade=(.9+.25*(-gx+gy)/np.sqrt(1+gx*gx+gy*gy)).clip(.55,1.1)
+                rgb=(colors[materials]*shade[...,None]).clip(0,255).astype(np.uint8)
+            self.image.setImage(rgb, autoLevels=False)
             self.image.setRect(QtCore.QRectF(*rect))
             self.update_profile()
             self.last_revision = t.revision

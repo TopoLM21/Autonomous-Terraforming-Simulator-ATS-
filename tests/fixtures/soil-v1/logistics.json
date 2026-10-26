@@ -1,0 +1,5690 @@
+{
+  "initial": {
+    "remaining_cut_m3": 0.6890159929290528,
+    "remaining_fill_m3": 0.0,
+    "stockpile_m3": 0.0,
+    "filled_mass_kg": 0.0,
+    "filled_m3": 0.0,
+    "plan_segments": 1,
+    "landing_requested": false,
+    "map_side_m": 32.0,
+    "grid_cells": 128,
+    "cell_size_m": 0.25,
+    "georeference": null,
+    "base_capacity_kwh": 30.0,
+    "base_battery_count": 6,
+    "base_specification": {
+      "body_dimensions_m": [
+        1.5,
+        1.5,
+        1.5
+      ],
+      "landing_zone_dimensions_m": [
+        1.5,
+        10.5
+      ],
+      "solar_field_dimensions_m": null,
+      "installed_equipment_mass_kg": 1060.0,
+      "stored_items_mass_kg": 182.0,
+      "docked_drones_mass_kg": 105.0,
+      "gross_mass_kg": 1347.0
+    },
+    "workfront": null,
+    "base_position_m": [
+      5.0,
+      16.0,
+      0.0
+    ],
+    "base_move_wait": "",
+    "base_move_pending": false,
+    "base_move_status": "на рабочей позиции",
+    "base_equipment": {
+      "chassis_kg": 585.0,
+      "batteries_kg": 300.0,
+      "panels_kg": 80.0,
+      "landing_slots_kg": 80,
+      "charger_kg": 15,
+      "emitters_kg": 0,
+      "total_kg": 1060.0
+    },
+    "equipment_imported_kwh": 0.0,
+    "equipment_exported_kwh": 0.0,
+    "equipment_pending": false,
+    "laser_transfer_enabled": true,
+    "retired_drones": [],
+    "lasers": [
+      {
+        "serial": 1,
+        "position_number": 1,
+        "status": "Нет передатчика",
+        "code": "no_emitter",
+        "limits": [],
+        "input_power_w": 0.0,
+        "received_power_w": 0.0,
+        "receiver_limit_w": 0.0,
+        "distance_m": 0.0,
+        "beam_radius_m": 0.0,
+        "capture_fraction": 0.0,
+        "total_efficiency": 0.0,
+        "source": [
+          5.0,
+          16.0,
+          2.0
+        ],
+        "target": [
+          15.125,
+          16.375,
+          10.0
+        ],
+        "receiver_heat_w": 0.0,
+        "temperature_c": null,
+        "source_heat_w": 0.0,
+        "path_loss_w": 0.0,
+        "atmosphere_factor": 1.0,
+        "dust_factor": 1.0,
+        "profile": "existing_legacy"
+      },
+      {
+        "serial": 2,
+        "position_number": 2,
+        "status": "Нет передатчика",
+        "code": "no_emitter",
+        "limits": [],
+        "input_power_w": 0.0,
+        "received_power_w": 0.0,
+        "receiver_limit_w": 0.0,
+        "distance_m": 0.0,
+        "beam_radius_m": 0.0,
+        "capture_fraction": 0.0,
+        "total_efficiency": 0.0,
+        "source": [
+          5.0,
+          16.0,
+          2.0
+        ],
+        "target": [
+          17.125,
+          16.125,
+          13.0
+        ],
+        "receiver_heat_w": 0.0,
+        "temperature_c": null,
+        "source_heat_w": 0.0,
+        "path_loss_w": 0.0,
+        "atmosphere_factor": 1.0,
+        "dust_factor": 1.0,
+        "profile": "existing_legacy"
+      },
+      {
+        "serial": 3,
+        "position_number": 3,
+        "status": "Нет передатчика",
+        "code": "no_emitter",
+        "limits": [],
+        "input_power_w": 0.0,
+        "received_power_w": 0.0,
+        "receiver_limit_w": 0.0,
+        "distance_m": 0.0,
+        "beam_radius_m": 0.0,
+        "capture_fraction": 0.0,
+        "total_efficiency": 0.0,
+        "source": [
+          5.0,
+          16.0,
+          2.0
+        ],
+        "target": [
+          5.0,
+          13.0,
+          1.5
+        ],
+        "receiver_heat_w": 0.0,
+        "temperature_c": null,
+        "source_heat_w": 0.0,
+        "path_loss_w": 0.0,
+        "atmosphere_factor": 1.0,
+        "dust_factor": 1.0,
+        "profile": "existing_legacy"
+      },
+      {
+        "serial": 4,
+        "position_number": 4,
+        "status": "Нет передатчика",
+        "code": "no_emitter",
+        "limits": [],
+        "input_power_w": 0.0,
+        "received_power_w": 0.0,
+        "receiver_limit_w": 0.0,
+        "distance_m": 0.0,
+        "beam_radius_m": 0.0,
+        "capture_fraction": 0.0,
+        "total_efficiency": 0.0,
+        "source": [
+          5.0,
+          16.0,
+          2.0
+        ],
+        "target": [
+          5.0,
+          22.0,
+          1.5
+        ],
+        "receiver_heat_w": 0.0,
+        "temperature_c": null,
+        "source_heat_w": 0.0,
+        "path_loss_w": 0.0,
+        "atmosphere_factor": 1.0,
+        "dust_factor": 1.0,
+        "profile": "existing_legacy"
+      }
+    ],
+    "laser_input_power_w": 0.0,
+    "laser_received_power_w": 0.0,
+    "laser_input_kwh": 0.0,
+    "laser_received_kwh": 0.0,
+    "laser_losses_kwh": 0.0,
+    "laser_receiver_heat_kwh": 0.0,
+    "state": "RUNNING",
+    "reason": "",
+    "time_seconds": 28.0,
+    "elapsed_display": "0 д 00:00:28",
+    "solar_clock": "09:00:28",
+    "date": "21.06",
+    "day_of_year": 172,
+    "latitude_deg": 55.0,
+    "base_mass_kg": 1242.0,
+    "panel_area_m2": 20.0,
+    "irradiance_w_m2": 698.6962652582291,
+    "sun_elevation_deg": 44.32249854300359,
+    "daylight_hours": 17.100458534062735,
+    "sunrise_hour": 3.4497707329686325,
+    "sunset_hour": 20.55022926703137,
+    "base_motion_power_w": 0.0,
+    "cable_length_m": 1.0,
+    "hour": 9.007777777777777,
+    "trips": 0,
+    "relocations": 0,
+    "initial_excavation_m3": 0.775265992929053,
+    "remaining_m3": 0.6890159929290528,
+    "completion_percent": 11.125213899056341,
+    "excavated_m3": 0.08625,
+    "excavated_mass_kg": 138.0,
+    "cargo_kg": 120.0,
+    "drone_state": "TO_DUMP",
+    "base_state": "PARKED_GENERATING",
+    "drone_kwh": 19.608516254098312,
+    "base_kwh": 30.0,
+    "solar_power_w": 2794.731048330886,
+    "solar_generated_kwh": 0.021725446580201847,
+    "solar_curtailed_kwh": 0.021725446580197247,
+    "consumed_kwh": 0.40482819034613027,
+    "charging_losses_kwh": 0.0,
+    "mass_error_kg": 0.0,
+    "energy_error_j": -1.6589183360338211e-09,
+    "minimum_drone_kwh": 4.802104299740259,
+    "initial_energy_kwh": 76.1,
+    "drone_count": 4,
+    "charge_slots": 4,
+    "slot_occupants": [
+      null,
+      null,
+      3,
+      4
+    ],
+    "queue": [],
+    "wait_mode": "ground",
+    "drones": [
+      {
+        "id": 1,
+        "name": "Тяжёлый 60",
+        "state": "TO_DUMP",
+        "position": [
+          18.316469295688957,
+          18.78633235674277,
+          10.0
+        ],
+        "battery_kwh": 4.802104299740259,
+        "battery_percent": 96.04208599480519,
+        "capacity_kwh": 5.0,
+        "cargo_kg": 60.0,
+        "payload_kg": 60.0,
+        "empty_mass_kg": 105.0,
+        "trips": 0,
+        "excavated_mass_kg": 60.0,
+        "consumed_kwh": 0.19789570025974113,
+        "waiting_seconds": 0.0,
+        "charging_seconds": 0.0,
+        "traffic_yields": 0,
+        "slot": null,
+        "minimum_kwh": 4.802104299740259,
+        "cable_length_m": 1.0,
+        "charge_threshold_percent": 30.0,
+        "charge_requested": false,
+        "charge_cycles": 0,
+        "filled_mass_kg": 0.0,
+        "reclaimed_mass_kg": 0.0,
+        "serial": 1,
+        "created_at_seconds": 0.0,
+        "equipment": {
+          "frame_kg": 60.0,
+          "batteries_kg": 30.0,
+          "bucket_kg": 15.0,
+          "receiver_kg": 0,
+          "total_kg": 105.0,
+          "hook_kg": 0.0
+        },
+        "transported_mass_kg": 0.0,
+        "transported_volume_m3": 0.0,
+        "today_mass_kg": 0.0,
+        "today_volume_m3": 0.0,
+        "last24_mass_kg": 0,
+        "last24_volume_m3": 0,
+        "daily": [],
+        "activity": {
+          "total_seconds": 28.0,
+          "seconds": {
+            "digging": 28.0
+          }
+        },
+        "dig_rate_kg_s": 6.0,
+        "full_scoop_seconds": 10.0,
+        "digging_j_m3": 100000.0,
+        "laser_received_kwh": 0.0,
+        "laser_power_w": 0.0,
+        "laser_status": "Нет передатчика",
+        "flight_power_w": 38294.660910202685,
+        "airborne_seconds": 28.0,
+        "current_flight_seconds": 28.0,
+        "last_flight_seconds": 0.0,
+        "longest_flight_seconds": 28.0,
+        "task": "EXCAVATE_DIRECT",
+        "attachment": "GRABBER",
+        "role": "DIGGER",
+        "transport_payload_kg": 120.0,
+        "battery_ids": [
+          "drone_1_battery_1",
+          "drone_1_battery_2"
+        ],
+        "wait_reason": "",
+        "recall_requested": false,
+        "tool_change_remaining_seconds": 0.0,
+        "battery_swaps": 0,
+        "battery_swap_remaining_seconds": 0.0,
+        "lift_equivalent_kg": null
+      },
+      {
+        "id": 2,
+        "name": "Тяжёлый 60",
+        "state": "LIFT_GRABBER",
+        "position": [
+          17.125,
+          16.125,
+          13.0
+        ],
+        "battery_kwh": 4.8118119543580535,
+        "battery_percent": 96.23623908716107,
+        "capacity_kwh": 5.0,
+        "cargo_kg": 60.0,
+        "payload_kg": 60.0,
+        "empty_mass_kg": 105.0,
+        "trips": 0,
+        "excavated_mass_kg": 60.0,
+        "consumed_kwh": 0.18818804564194472,
+        "waiting_seconds": 0.0,
+        "charging_seconds": 0.0,
+        "traffic_yields": 0,
+        "slot": null,
+        "minimum_kwh": 4.8118119543580535,
+        "cable_length_m": 3.410977260778367,
+        "charge_threshold_percent": 30.0,
+        "charge_requested": false,
+        "charge_cycles": 0,
+        "filled_mass_kg": 0.0,
+        "reclaimed_mass_kg": 0.0,
+        "serial": 2,
+        "created_at_seconds": 0.0,
+        "equipment": {
+          "frame_kg": 60.0,
+          "batteries_kg": 30.0,
+          "bucket_kg": 15.0,
+          "receiver_kg": 0,
+          "total_kg": 105.0,
+          "hook_kg": 0.0
+        },
+        "transported_mass_kg": 0.0,
+        "transported_volume_m3": 0.0,
+        "today_mass_kg": 0.0,
+        "today_volume_m3": 0.0,
+        "last24_mass_kg": 0,
+        "last24_volume_m3": 0,
+        "daily": [],
+        "activity": {
+          "total_seconds": 28.0,
+          "seconds": {
+            "digging": 28.0
+          }
+        },
+        "dig_rate_kg_s": 6.0,
+        "full_scoop_seconds": 10.0,
+        "digging_j_m3": 100000.0,
+        "laser_received_kwh": 0.0,
+        "laser_power_w": 0.0,
+        "laser_status": "Нет передатчика",
+        "flight_power_w": 37731.29012287969,
+        "airborne_seconds": 28.0,
+        "current_flight_seconds": 28.0,
+        "last_flight_seconds": 0.0,
+        "longest_flight_seconds": 28.0,
+        "task": "EXCAVATE_DIRECT",
+        "attachment": "GRABBER",
+        "role": "DIGGER",
+        "transport_payload_kg": 120.0,
+        "battery_ids": [
+          "drone_2_battery_1",
+          "drone_2_battery_2"
+        ],
+        "wait_reason": "",
+        "recall_requested": false,
+        "tool_change_remaining_seconds": 0.0,
+        "battery_swaps": 0,
+        "battery_swap_remaining_seconds": 0.0,
+        "lift_equivalent_kg": null
+      },
+      {
+        "id": 3,
+        "name": "Тяжёлый 60",
+        "state": "TAKEOFF",
+        "position": [
+          5.0,
+          13.0,
+          3.5
+        ],
+        "battery_kwh": 4.9946,
+        "battery_percent": 99.892,
+        "capacity_kwh": 5.0,
+        "cargo_kg": 0.0,
+        "payload_kg": 60.0,
+        "empty_mass_kg": 105.0,
+        "trips": 0,
+        "excavated_mass_kg": 0.0,
+        "consumed_kwh": 0.0054,
+        "waiting_seconds": 27.0,
+        "charging_seconds": 0.0,
+        "traffic_yields": 0,
+        "slot": 3,
+        "minimum_kwh": 4.9946,
+        "cable_length_m": 1.0,
+        "charge_threshold_percent": 30.0,
+        "charge_requested": false,
+        "charge_cycles": 0,
+        "filled_mass_kg": 0.0,
+        "reclaimed_mass_kg": 0.0,
+        "serial": 3,
+        "created_at_seconds": 0.0,
+        "equipment": {
+          "frame_kg": 60.0,
+          "batteries_kg": 30.0,
+          "bucket_kg": 15.0,
+          "receiver_kg": 0,
+          "total_kg": 105.0,
+          "hook_kg": 0.0
+        },
+        "transported_mass_kg": 0.0,
+        "transported_volume_m3": 0.0,
+        "today_mass_kg": 0.0,
+        "today_volume_m3": 0.0,
+        "last24_mass_kg": 0,
+        "last24_volume_m3": 0,
+        "daily": [],
+        "activity": {
+          "total_seconds": 28.0,
+          "seconds": {
+            "idle": 27.0,
+            "digging": 1.0
+          }
+        },
+        "dig_rate_kg_s": 6.0,
+        "full_scoop_seconds": 10.0,
+        "digging_j_m3": 100000.0,
+        "laser_received_kwh": 0.0,
+        "laser_power_w": 0.0,
+        "laser_status": "Нет передатчика",
+        "flight_power_w": 19440.0,
+        "airborne_seconds": 1.0,
+        "current_flight_seconds": 1.0,
+        "last_flight_seconds": 0.0,
+        "longest_flight_seconds": 1.0,
+        "task": "EXCAVATE_DIRECT",
+        "attachment": "GRABBER",
+        "role": "DIGGER",
+        "transport_payload_kg": 120.0,
+        "battery_ids": [
+          "drone_3_battery_1",
+          "drone_3_battery_2"
+        ],
+        "wait_reason": "",
+        "recall_requested": false,
+        "tool_change_remaining_seconds": 0.0,
+        "battery_swaps": 0,
+        "battery_swap_remaining_seconds": 0.0,
+        "lift_equivalent_kg": null
+      },
+      {
+        "id": 4,
+        "name": "Тяжёлый 60",
+        "state": "DOCKED",
+        "position": [
+          5.0,
+          22.0,
+          1.5
+        ],
+        "battery_kwh": 5.0,
+        "battery_percent": 100.0,
+        "capacity_kwh": 5.0,
+        "cargo_kg": 0.0,
+        "payload_kg": 60.0,
+        "empty_mass_kg": 105.0,
+        "trips": 0,
+        "excavated_mass_kg": 0.0,
+        "consumed_kwh": 0.0,
+        "waiting_seconds": 28.0,
+        "charging_seconds": 0.0,
+        "traffic_yields": 0,
+        "slot": 4,
+        "minimum_kwh": 5.0,
+        "cable_length_m": 0.0,
+        "charge_threshold_percent": 30.0,
+        "charge_requested": false,
+        "charge_cycles": 0,
+        "filled_mass_kg": 0.0,
+        "reclaimed_mass_kg": 0.0,
+        "serial": 4,
+        "created_at_seconds": 0.0,
+        "equipment": {
+          "frame_kg": 60.0,
+          "batteries_kg": 30.0,
+          "bucket_kg": 15.0,
+          "receiver_kg": 0,
+          "total_kg": 105.0,
+          "hook_kg": 0.0
+        },
+        "transported_mass_kg": 0.0,
+        "transported_volume_m3": 0.0,
+        "today_mass_kg": 0.0,
+        "today_volume_m3": 0.0,
+        "last24_mass_kg": 0,
+        "last24_volume_m3": 0,
+        "daily": [],
+        "activity": {
+          "total_seconds": 28.0,
+          "seconds": {
+            "idle": 28.0
+          }
+        },
+        "dig_rate_kg_s": 6.0,
+        "full_scoop_seconds": 10.0,
+        "digging_j_m3": 100000.0,
+        "laser_received_kwh": 0.0,
+        "laser_power_w": 0.0,
+        "laser_status": "Нет передатчика",
+        "flight_power_w": 0.0,
+        "airborne_seconds": 0.0,
+        "current_flight_seconds": 0.0,
+        "last_flight_seconds": 0.0,
+        "longest_flight_seconds": 0.0,
+        "task": "",
+        "attachment": "GRABBER",
+        "role": "DIGGER",
+        "transport_payload_kg": 120.0,
+        "battery_ids": [
+          "drone_4_battery_1",
+          "drone_4_battery_2"
+        ],
+        "wait_reason": "Нет свободного доступного участка",
+        "recall_requested": false,
+        "tool_change_remaining_seconds": 0.0,
+        "battery_swaps": 0,
+        "battery_swap_remaining_seconds": 0.0,
+        "lift_equivalent_kg": null
+      }
+    ],
+    "inventory": [
+      {
+        "id": "base_battery_01",
+        "mass_kg": 50.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "base",
+        "capacity_j": 18000000.0,
+        "energy_j": 18000000.0,
+        "max_charge_w": 10000.0,
+        "max_discharge_w": 50000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 50.0
+      },
+      {
+        "id": "base_battery_02",
+        "mass_kg": 50.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "base",
+        "capacity_j": 18000000.0,
+        "energy_j": 18000000.0,
+        "max_charge_w": 10000.0,
+        "max_discharge_w": 50000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 50.0
+      },
+      {
+        "id": "base_battery_03",
+        "mass_kg": 50.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "base",
+        "capacity_j": 18000000.0,
+        "energy_j": 18000000.0,
+        "max_charge_w": 10000.0,
+        "max_discharge_w": 50000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 50.0
+      },
+      {
+        "id": "base_battery_04",
+        "mass_kg": 50.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "base",
+        "capacity_j": 18000000.0,
+        "energy_j": 18000000.0,
+        "max_charge_w": 10000.0,
+        "max_discharge_w": 50000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 50.0
+      },
+      {
+        "id": "base_battery_05",
+        "mass_kg": 50.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "base",
+        "capacity_j": 18000000.0,
+        "energy_j": 18000000.0,
+        "max_charge_w": 10000.0,
+        "max_discharge_w": 50000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 50.0
+      },
+      {
+        "id": "base_battery_06",
+        "mass_kg": 50.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "base",
+        "capacity_j": 18000000.0,
+        "energy_j": 18000000.0,
+        "max_charge_w": 10000.0,
+        "max_discharge_w": 50000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 50.0
+      },
+      {
+        "id": "base_chassis",
+        "mass_kg": 585.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "CHASSIS",
+        "type": "Item",
+        "gross_mass_kg": 585.0
+      },
+      {
+        "id": "base_charger",
+        "mass_kg": 15,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "CHARGER_AND_AUTOMATION",
+        "type": "Item",
+        "gross_mass_kg": 15
+      },
+      {
+        "id": "landing_pad_1",
+        "mass_kg": 20,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          1.5
+        ],
+        "kind": "LANDING_PAD",
+        "type": "Item",
+        "gross_mass_kg": 20
+      },
+      {
+        "id": "landing_pad_2",
+        "mass_kg": 20,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          19.0,
+          1.5
+        ],
+        "kind": "LANDING_PAD",
+        "type": "Item",
+        "gross_mass_kg": 20
+      },
+      {
+        "id": "landing_pad_3",
+        "mass_kg": 20,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          13.0,
+          1.5
+        ],
+        "kind": "LANDING_PAD",
+        "type": "Item",
+        "gross_mass_kg": 20
+      },
+      {
+        "id": "landing_pad_4",
+        "mass_kg": 20,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          22.0,
+          1.5
+        ],
+        "kind": "LANDING_PAD",
+        "type": "Item",
+        "gross_mass_kg": 20
+      },
+      {
+        "id": "solar_panel_001",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_002",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_003",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_004",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_005",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_006",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_007",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_008",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_009",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_010",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_011",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_012",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_013",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_014",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_015",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_016",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_017",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_018",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_019",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_020",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "container_01",
+        "mass_kg": 5.0,
+        "location": "WORKSITE_RACK",
+        "state": "EMPTY_AT_EXCAVATOR",
+        "holder_id": "worksite",
+        "reserved_by": "excavator_cycle",
+        "position": [
+          16.0,
+          14.442962998314473,
+          0.0
+        ],
+        "kind": "Equipment",
+        "volume_m3": 0.055,
+        "max_gross_kg": 90.0,
+        "soil_kg": 0.0,
+        "cycles": 0,
+        "wear": 0.0,
+        "assigned_limit_kg": 85.0,
+        "type": "SoilContainer",
+        "gross_mass_kg": 5.0
+      },
+      {
+        "id": "container_02",
+        "mass_kg": 5.0,
+        "location": "WORKSITE_RACK",
+        "state": "EMPTY_AT_EXCAVATOR",
+        "holder_id": "worksite",
+        "reserved_by": null,
+        "position": [
+          16.0,
+          14.442962998314473,
+          0.0
+        ],
+        "kind": "Equipment",
+        "volume_m3": 0.055,
+        "max_gross_kg": 90.0,
+        "soil_kg": 0.0,
+        "cycles": 0,
+        "wear": 0.0,
+        "assigned_limit_kg": 85.0,
+        "type": "SoilContainer",
+        "gross_mass_kg": 5.0
+      },
+      {
+        "id": "container_03",
+        "mass_kg": 5.0,
+        "location": "WORKSITE_RACK",
+        "state": "EMPTY_AT_EXCAVATOR",
+        "holder_id": "worksite",
+        "reserved_by": null,
+        "position": [
+          16.0,
+          14.442962998314473,
+          0.0
+        ],
+        "kind": "Equipment",
+        "volume_m3": 0.055,
+        "max_gross_kg": 90.0,
+        "soil_kg": 0.0,
+        "cycles": 0,
+        "wear": 0.0,
+        "assigned_limit_kg": 85.0,
+        "type": "SoilContainer",
+        "gross_mass_kg": 5.0
+      },
+      {
+        "id": "container_04",
+        "mass_kg": 5.0,
+        "location": "WORKSITE_RACK",
+        "state": "EMPTY_AT_EXCAVATOR",
+        "holder_id": "worksite",
+        "reserved_by": null,
+        "position": [
+          16.0,
+          14.442962998314473,
+          0.0
+        ],
+        "kind": "Equipment",
+        "volume_m3": 0.055,
+        "max_gross_kg": 90.0,
+        "soil_kg": 0.0,
+        "cycles": 0,
+        "wear": 0.0,
+        "assigned_limit_kg": 85.0,
+        "type": "SoilContainer",
+        "gross_mass_kg": 5.0
+      },
+      {
+        "id": "container_05",
+        "mass_kg": 5.0,
+        "location": "WORKSITE_RACK",
+        "state": "EMPTY_AT_EXCAVATOR",
+        "holder_id": "worksite",
+        "reserved_by": null,
+        "position": [
+          16.0,
+          14.442962998314473,
+          0.0
+        ],
+        "kind": "Equipment",
+        "volume_m3": 0.055,
+        "max_gross_kg": 90.0,
+        "soil_kg": 0.0,
+        "cycles": 0,
+        "wear": 0.0,
+        "assigned_limit_kg": 85.0,
+        "type": "SoilContainer",
+        "gross_mass_kg": 5.0
+      },
+      {
+        "id": "container_06",
+        "mass_kg": 5.0,
+        "location": "WORKSITE_RACK",
+        "state": "EMPTY_AT_EXCAVATOR",
+        "holder_id": "worksite",
+        "reserved_by": null,
+        "position": [
+          16.0,
+          14.442962998314473,
+          0.0
+        ],
+        "kind": "Equipment",
+        "volume_m3": 0.055,
+        "max_gross_kg": 90.0,
+        "soil_kg": 0.0,
+        "cycles": 0,
+        "wear": 0.0,
+        "assigned_limit_kg": 85.0,
+        "type": "SoilContainer",
+        "gross_mass_kg": 5.0
+      },
+      {
+        "id": "container_07",
+        "mass_kg": 5.0,
+        "location": "WORKSITE_RACK",
+        "state": "EMPTY_AT_EXCAVATOR",
+        "holder_id": "worksite",
+        "reserved_by": null,
+        "position": [
+          16.0,
+          14.442962998314473,
+          0.0
+        ],
+        "kind": "Equipment",
+        "volume_m3": 0.055,
+        "max_gross_kg": 90.0,
+        "soil_kg": 0.0,
+        "cycles": 0,
+        "wear": 0.0,
+        "assigned_limit_kg": 85.0,
+        "type": "SoilContainer",
+        "gross_mass_kg": 5.0
+      },
+      {
+        "id": "container_08",
+        "mass_kg": 5.0,
+        "location": "WORKSITE_RACK",
+        "state": "EMPTY_AT_EXCAVATOR",
+        "holder_id": "worksite",
+        "reserved_by": null,
+        "position": [
+          16.0,
+          14.442962998314473,
+          0.0
+        ],
+        "kind": "Equipment",
+        "volume_m3": 0.055,
+        "max_gross_kg": 90.0,
+        "soil_kg": 0.0,
+        "cycles": 0,
+        "wear": 0.0,
+        "assigned_limit_kg": 85.0,
+        "type": "SoilContainer",
+        "gross_mass_kg": 5.0
+      },
+      {
+        "id": "drone_1_battery_1",
+        "mass_kg": 15.0,
+        "location": "DRONE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "drone_1",
+        "reserved_by": null,
+        "position": [
+          18.316469295688957,
+          18.78633235674277,
+          10.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 8643787.739532467,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "drone_1_battery_2",
+        "mass_kg": 15.0,
+        "location": "DRONE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "drone_1",
+        "reserved_by": null,
+        "position": [
+          18.316469295688957,
+          18.78633235674277,
+          10.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 8643787.739532467,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "grabber_1",
+        "mass_kg": 15.0,
+        "location": "DRONE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "drone_1",
+        "reserved_by": "job_00001",
+        "position": [
+          18.316469295688957,
+          18.78633235674277,
+          10.0
+        ],
+        "kind": "GRABBER",
+        "type": "Rigging",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "hook_1",
+        "mass_kg": 2.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "CONTAINER_HOOK",
+        "type": "Rigging",
+        "gross_mass_kg": 2.0
+      },
+      {
+        "id": "hoist_1",
+        "mass_kg": 2.0,
+        "location": "GROUND",
+        "state": "STORED_READY",
+        "holder_id": "drone_1",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          1.5
+        ],
+        "kind": "HOIST",
+        "type": "Rigging",
+        "gross_mass_kg": 2.0
+      },
+      {
+        "id": "drone_2_battery_1",
+        "mass_kg": 15.0,
+        "location": "DRONE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "drone_2",
+        "reserved_by": null,
+        "position": [
+          17.125,
+          16.125,
+          13.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 8661261.517844496,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "drone_2_battery_2",
+        "mass_kg": 15.0,
+        "location": "DRONE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "drone_2",
+        "reserved_by": null,
+        "position": [
+          17.125,
+          16.125,
+          13.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 8661261.517844496,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "grabber_2",
+        "mass_kg": 15.0,
+        "location": "DRONE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "drone_2",
+        "reserved_by": "job_00002",
+        "position": [
+          17.125,
+          16.125,
+          13.0
+        ],
+        "kind": "GRABBER",
+        "type": "Rigging",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "hook_2",
+        "mass_kg": 2.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "CONTAINER_HOOK",
+        "type": "Rigging",
+        "gross_mass_kg": 2.0
+      },
+      {
+        "id": "hoist_2",
+        "mass_kg": 2.0,
+        "location": "GROUND",
+        "state": "STORED_READY",
+        "holder_id": "drone_2",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          19.0,
+          1.5
+        ],
+        "kind": "HOIST",
+        "type": "Rigging",
+        "gross_mass_kg": 2.0
+      },
+      {
+        "id": "drone_3_battery_1",
+        "mass_kg": 15.0,
+        "location": "DRONE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "drone_3",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          13.0,
+          3.5
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 8990280.0,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "drone_3_battery_2",
+        "mass_kg": 15.0,
+        "location": "DRONE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "drone_3",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          13.0,
+          3.5
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 8990280.0,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "grabber_3",
+        "mass_kg": 15.0,
+        "location": "DRONE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "drone_3",
+        "reserved_by": "job_00003",
+        "position": [
+          5.0,
+          13.0,
+          3.5
+        ],
+        "kind": "GRABBER",
+        "type": "Rigging",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "hook_3",
+        "mass_kg": 2.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "CONTAINER_HOOK",
+        "type": "Rigging",
+        "gross_mass_kg": 2.0
+      },
+      {
+        "id": "hoist_3",
+        "mass_kg": 2.0,
+        "location": "GROUND",
+        "state": "STORED_READY",
+        "holder_id": "drone_3",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          13.0,
+          1.5
+        ],
+        "kind": "HOIST",
+        "type": "Rigging",
+        "gross_mass_kg": 2.0
+      },
+      {
+        "id": "drone_4_battery_1",
+        "mass_kg": 15.0,
+        "location": "DRONE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "drone_4",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          22.0,
+          1.5
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 9000000.0,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "drone_4_battery_2",
+        "mass_kg": 15.0,
+        "location": "DRONE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "drone_4",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          22.0,
+          1.5
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 9000000.0,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "grabber_4",
+        "mass_kg": 15.0,
+        "location": "DRONE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "drone_4",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          22.0,
+          1.5
+        ],
+        "kind": "GRABBER",
+        "type": "Rigging",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "hook_4",
+        "mass_kg": 2.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "CONTAINER_HOOK",
+        "type": "Rigging",
+        "gross_mass_kg": 2.0
+      },
+      {
+        "id": "hoist_4",
+        "mass_kg": 2.0,
+        "location": "GROUND",
+        "state": "STORED_READY",
+        "holder_id": "drone_4",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          22.0,
+          1.5
+        ],
+        "kind": "HOIST",
+        "type": "Rigging",
+        "gross_mass_kg": 2.0
+      },
+      {
+        "id": "group_rig",
+        "mass_kg": 12.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "HEAVY_LIFT_RIG",
+        "type": "Rigging",
+        "gross_mass_kg": 12.0
+      },
+      {
+        "id": "excavator_battery_01",
+        "mass_kg": 11.0,
+        "location": "EXCAVATOR_SLOT",
+        "state": "INSTALLED",
+        "holder_id": "excavator",
+        "reserved_by": null,
+        "position": [
+          16.0,
+          14.442962998314473,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "excavator",
+        "capacity_j": 5400000.0,
+        "energy_j": 5375980.0,
+        "max_charge_w": 1500.0,
+        "max_discharge_w": 6000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 11.0
+      },
+      {
+        "id": "excavator_battery_02",
+        "mass_kg": 11.0,
+        "location": "EXCAVATOR_SLOT",
+        "state": "INSTALLED",
+        "holder_id": "excavator",
+        "reserved_by": null,
+        "position": [
+          16.0,
+          14.442962998314473,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "excavator",
+        "capacity_j": 5400000.0,
+        "energy_j": 5375980.0,
+        "max_charge_w": 1500.0,
+        "max_discharge_w": 6000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 11.0
+      },
+      {
+        "id": "excavator_battery_03",
+        "mass_kg": 11.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "excavator",
+        "capacity_j": 5400000.0,
+        "energy_j": 5400000.0,
+        "max_charge_w": 1500.0,
+        "max_discharge_w": 6000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 11.0
+      },
+      {
+        "id": "excavator_battery_04",
+        "mass_kg": 11.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "excavator",
+        "capacity_j": 5400000.0,
+        "energy_j": 5400000.0,
+        "max_charge_w": 1500.0,
+        "max_discharge_w": 6000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 11.0
+      },
+      {
+        "id": "drone_1_spare_1_1",
+        "mass_kg": 15.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 9000000.0,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "drone_1_spare_1_2",
+        "mass_kg": 15.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 9000000.0,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "drone_2_spare_1_1",
+        "mass_kg": 15.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 9000000.0,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "drone_2_spare_1_2",
+        "mass_kg": 15.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 9000000.0,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "drone_3_spare_1_1",
+        "mass_kg": 15.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 9000000.0,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "drone_3_spare_1_2",
+        "mass_kg": 15.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 9000000.0,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "drone_4_spare_1_1",
+        "mass_kg": 15.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 9000000.0,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "drone_4_spare_1_2",
+        "mass_kg": 15.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 9000000.0,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "charge_slot_drone_1_battery_1",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "EMPTY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_1_battery_1",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_1_battery_2",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "EMPTY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_1_battery_2",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_2_battery_1",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "EMPTY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_2_battery_1",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_2_battery_2",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "EMPTY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_2_battery_2",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_3_battery_1",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "EMPTY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_3_battery_1",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_3_battery_2",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "EMPTY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_3_battery_2",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_4_battery_1",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "EMPTY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_4_battery_1",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_4_battery_2",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "EMPTY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_4_battery_2",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_excavator_battery_01",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "EMPTY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "excavator_battery_01",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_excavator_battery_02",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "EMPTY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "excavator_battery_02",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_excavator_battery_03",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "FULL",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "excavator_battery_03",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_excavator_battery_04",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "FULL",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "excavator_battery_04",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_1_spare_1_1",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "FULL",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_1_spare_1_1",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_1_spare_1_2",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "FULL",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_1_spare_1_2",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_2_spare_1_1",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "FULL",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_2_spare_1_1",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_2_spare_1_2",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "FULL",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_2_spare_1_2",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_3_spare_1_1",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "FULL",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_3_spare_1_1",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_3_spare_1_2",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "FULL",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_3_spare_1_2",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_4_spare_1_1",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "FULL",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_4_spare_1_1",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_4_spare_1_2",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "FULL",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_4_spare_1_2",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      }
+    ],
+    "logistics_version": 2,
+    "courier_strategy": "batch",
+    "courier": {
+      "active": false,
+      "reason": "",
+      "drone_serial": null,
+      "batches": 0,
+      "filled_containers": 0,
+      "threshold": 6
+    },
+    "inventory_imported_mass_kg": 0.0,
+    "inventory_exported_mass_kg": 0.0,
+    "battery_deliveries_count": 0,
+    "battery_deliveries": [],
+    "jobs": [
+      {
+        "id": "job_00001",
+        "kind": "EXCAVATE_DIRECT",
+        "resource_ids": [
+          "grabber_1"
+        ],
+        "origin": [
+          15.125,
+          16.375
+        ],
+        "destination": [
+          26.375,
+          24.875
+        ],
+        "priority": 5,
+        "created_at": 0.0,
+        "status": "ACTIVE",
+        "executor": 1,
+        "phase": "PREPARE",
+        "elapsed": 0.0,
+        "estimated_energy_j": 0.0,
+        "eta_seconds": 0.0,
+        "reason": "",
+        "soil_destination": "dump"
+      },
+      {
+        "id": "job_00002",
+        "kind": "EXCAVATE_DIRECT",
+        "resource_ids": [
+          "grabber_2"
+        ],
+        "origin": [
+          17.125,
+          16.125
+        ],
+        "destination": [
+          28.125,
+          25.875
+        ],
+        "priority": 5,
+        "created_at": 0.0,
+        "status": "ACTIVE",
+        "executor": 2,
+        "phase": "PREPARE",
+        "elapsed": 0.0,
+        "estimated_energy_j": 0.0,
+        "eta_seconds": 0.0,
+        "reason": "",
+        "soil_destination": "dump"
+      },
+      {
+        "id": "job_00003",
+        "kind": "EXCAVATE_DIRECT",
+        "resource_ids": [
+          "grabber_3"
+        ],
+        "origin": [
+          15.125,
+          16.375
+        ],
+        "destination": [
+          26.375,
+          26.875
+        ],
+        "priority": 5,
+        "created_at": 27.0,
+        "status": "ACTIVE",
+        "executor": 3,
+        "phase": "PREPARE",
+        "elapsed": 0.0,
+        "estimated_energy_j": 0.0,
+        "eta_seconds": 0.0,
+        "reason": "",
+        "soil_destination": "dump"
+      }
+    ],
+    "container_cycles": 0,
+    "battery_service": {
+      "ports": [],
+      "queue": [],
+      "mode": "individual",
+      "capacity": 20,
+      "module_input_power_w": 0,
+      "robot_swap": null,
+      "drone_swaps": {},
+      "drone_swap_count": 0,
+      "drone_swap_counts": {},
+      "dock_charging_drones": [],
+      "slots": [
+        {
+          "id": "charge_slot_drone_1_battery_1",
+          "module_id": "drone_1_battery_1",
+          "state": "EMPTY",
+          "location": "DRONE_MOUNT",
+          "soc": 0.9604208599480519,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_1_battery_2",
+          "module_id": "drone_1_battery_2",
+          "state": "EMPTY",
+          "location": "DRONE_MOUNT",
+          "soc": 0.9604208599480519,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_2_battery_1",
+          "module_id": "drone_2_battery_1",
+          "state": "EMPTY",
+          "location": "DRONE_MOUNT",
+          "soc": 0.9623623908716107,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_2_battery_2",
+          "module_id": "drone_2_battery_2",
+          "state": "EMPTY",
+          "location": "DRONE_MOUNT",
+          "soc": 0.9623623908716107,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_3_battery_1",
+          "module_id": "drone_3_battery_1",
+          "state": "EMPTY",
+          "location": "DRONE_MOUNT",
+          "soc": 0.99892,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_3_battery_2",
+          "module_id": "drone_3_battery_2",
+          "state": "EMPTY",
+          "location": "DRONE_MOUNT",
+          "soc": 0.99892,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_4_battery_1",
+          "module_id": "drone_4_battery_1",
+          "state": "EMPTY",
+          "location": "DRONE_MOUNT",
+          "soc": 1.0,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_4_battery_2",
+          "module_id": "drone_4_battery_2",
+          "state": "EMPTY",
+          "location": "DRONE_MOUNT",
+          "soc": 1.0,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_excavator_battery_01",
+          "module_id": "excavator_battery_01",
+          "state": "EMPTY",
+          "location": "EXCAVATOR_SLOT",
+          "soc": 0.9955518518518518,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_excavator_battery_02",
+          "module_id": "excavator_battery_02",
+          "state": "EMPTY",
+          "location": "EXCAVATOR_SLOT",
+          "soc": 0.9955518518518518,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_excavator_battery_03",
+          "module_id": "excavator_battery_03",
+          "state": "FULL",
+          "location": "BASE_STORAGE",
+          "soc": 1.0,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_excavator_battery_04",
+          "module_id": "excavator_battery_04",
+          "state": "FULL",
+          "location": "BASE_STORAGE",
+          "soc": 1.0,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_1_spare_1_1",
+          "module_id": "drone_1_spare_1_1",
+          "state": "FULL",
+          "location": "BASE_STORAGE",
+          "soc": 1.0,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_1_spare_1_2",
+          "module_id": "drone_1_spare_1_2",
+          "state": "FULL",
+          "location": "BASE_STORAGE",
+          "soc": 1.0,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_2_spare_1_1",
+          "module_id": "drone_2_spare_1_1",
+          "state": "FULL",
+          "location": "BASE_STORAGE",
+          "soc": 1.0,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_2_spare_1_2",
+          "module_id": "drone_2_spare_1_2",
+          "state": "FULL",
+          "location": "BASE_STORAGE",
+          "soc": 1.0,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_3_spare_1_1",
+          "module_id": "drone_3_spare_1_1",
+          "state": "FULL",
+          "location": "BASE_STORAGE",
+          "soc": 1.0,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_3_spare_1_2",
+          "module_id": "drone_3_spare_1_2",
+          "state": "FULL",
+          "location": "BASE_STORAGE",
+          "soc": 1.0,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_4_spare_1_1",
+          "module_id": "drone_4_spare_1_1",
+          "state": "FULL",
+          "location": "BASE_STORAGE",
+          "soc": 1.0,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_4_spare_1_2",
+          "module_id": "drone_4_spare_1_2",
+          "state": "FULL",
+          "location": "BASE_STORAGE",
+          "soc": 1.0,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        }
+      ]
+    },
+    "collective_lift": null,
+    "collective_lift_count": 0,
+    "delivered_mass_kg": 0.0,
+    "solar_field_deployed": true,
+    "solar_generating_area_m2": 20.0,
+    "solar_field_folding_seconds": 0.0,
+    "base_battery_power_w": 0.0,
+    "base_load_power_w": 0.0,
+    "base_energy_status": "Аккумуляторы базы полностью заряжены",
+    "solar_field_rect": null,
+    "logistics_wait_reason": "",
+    "solar_field_deployment_seconds": 0.0,
+    "energy_drone_kwh": 0.39148374590168583,
+    "energy_excavator_kwh": 0.013344444444444445,
+    "energy_laser_station_kwh": 0.0,
+    "energy_station_mechanics_kwh": 0.0,
+    "drone_flight_time_seconds": 57.0,
+    "excavator": {
+      "state": "DIGGING",
+      "position": [
+        16.0,
+        14.442962998314473,
+        0.0
+      ],
+      "reason": "",
+      "excavated_m3": 0.01125,
+      "activity": {
+        "total_seconds": 28.0,
+        "seconds": {
+          "setup": 9.0,
+          "digging": 19.0
+        }
+      },
+      "today_excavated_kg": 18.0,
+      "today_excavated_m3": 0.01125,
+      "last24_excavated_kg": 18.0,
+      "last24_excavated_m3": 0.01125,
+      "daily_excavation": [
+        {
+          "mission_day": 0,
+          "mass_kg": 18.0,
+          "volume_m3": 0.01125,
+          "fill_mass_kg": 0.0,
+          "dump_mass_kg": 0.0,
+          "deliveries": 1,
+          "excavated_mass_kg": 18.0
+        }
+      ],
+      "battery_ids": [
+        "excavator_battery_01",
+        "excavator_battery_02"
+      ],
+      "energy_kwh": 2.9866555555555556,
+      "capacity_kwh": 3.0,
+      "buffer_kwh": 0.1,
+      "buffer_charge_losses_kwh": 0.0,
+      "mass_kg": 200.0,
+      "bucket_kg": 18.0,
+      "container": "container_01",
+      "excavated_kg": 18.0,
+      "consumed_kwh": 0.013344444444444445,
+      "working_seconds": 19.0,
+      "waiting_seconds": 0.0,
+      "moving_seconds": 0.0,
+      "cycles": 0,
+      "swaps": 0,
+      "relocations": 0,
+      "supports": true
+    }
+  },
+  "continued": {
+    "remaining_cut_m3": 0.3638626276314624,
+    "remaining_fill_m3": 0.0,
+    "stockpile_m3": 0.3207783652975904,
+    "filled_mass_kg": 0.0,
+    "filled_m3": 0.0,
+    "plan_segments": 1,
+    "landing_requested": false,
+    "map_side_m": 32.0,
+    "grid_cells": 128,
+    "cell_size_m": 0.25,
+    "georeference": null,
+    "base_capacity_kwh": 30.0,
+    "base_battery_count": 6,
+    "base_specification": {
+      "body_dimensions_m": [
+        1.5,
+        1.5,
+        1.5
+      ],
+      "landing_zone_dimensions_m": [
+        1.5,
+        10.5
+      ],
+      "solar_field_dimensions_m": null,
+      "installed_equipment_mass_kg": 1060.0,
+      "stored_items_mass_kg": 182.0,
+      "docked_drones_mass_kg": 210.0,
+      "gross_mass_kg": 1452.0
+    },
+    "workfront": null,
+    "base_position_m": [
+      5.0,
+      16.0,
+      0.0
+    ],
+    "base_move_wait": "",
+    "base_move_pending": false,
+    "base_move_status": "на рабочей позиции",
+    "base_equipment": {
+      "chassis_kg": 585.0,
+      "batteries_kg": 300.0,
+      "panels_kg": 80.0,
+      "landing_slots_kg": 80,
+      "charger_kg": 15,
+      "emitters_kg": 0,
+      "total_kg": 1060.0
+    },
+    "equipment_imported_kwh": 0.0,
+    "equipment_exported_kwh": 0.0,
+    "equipment_pending": false,
+    "laser_transfer_enabled": true,
+    "retired_drones": [],
+    "lasers": [
+      {
+        "serial": 1,
+        "position_number": 1,
+        "status": "Нет передатчика",
+        "code": "no_emitter",
+        "limits": [],
+        "input_power_w": 0.0,
+        "received_power_w": 0.0,
+        "receiver_limit_w": 0.0,
+        "distance_m": 0.0,
+        "beam_radius_m": 0.0,
+        "capture_fraction": 0.0,
+        "total_efficiency": 0.0,
+        "source": [
+          5.0,
+          16.0,
+          2.0
+        ],
+        "target": [
+          10.692099788303082,
+          14.897366596101028,
+          10.0
+        ],
+        "receiver_heat_w": 0.0,
+        "temperature_c": null,
+        "source_heat_w": 0.0,
+        "path_loss_w": 0.0,
+        "atmosphere_factor": 1.0,
+        "dust_factor": 1.0,
+        "profile": "existing_legacy"
+      },
+      {
+        "serial": 2,
+        "position_number": 2,
+        "status": "Нет передатчика",
+        "code": "no_emitter",
+        "limits": [],
+        "input_power_w": 0.0,
+        "received_power_w": 0.0,
+        "receiver_limit_w": 0.0,
+        "distance_m": 0.0,
+        "beam_radius_m": 0.0,
+        "capture_fraction": 0.0,
+        "total_efficiency": 0.0,
+        "source": [
+          5.0,
+          16.0,
+          2.0
+        ],
+        "target": [
+          5.0,
+          16.0,
+          1.5
+        ],
+        "receiver_heat_w": 0.0,
+        "temperature_c": null,
+        "source_heat_w": 0.0,
+        "path_loss_w": 0.0,
+        "atmosphere_factor": 1.0,
+        "dust_factor": 1.0,
+        "profile": "existing_legacy"
+      },
+      {
+        "serial": 3,
+        "position_number": 3,
+        "status": "Нет передатчика",
+        "code": "no_emitter",
+        "limits": [],
+        "input_power_w": 0.0,
+        "received_power_w": 0.0,
+        "receiver_limit_w": 0.0,
+        "distance_m": 0.0,
+        "beam_radius_m": 0.0,
+        "capture_fraction": 0.0,
+        "total_efficiency": 0.0,
+        "source": [
+          5.0,
+          16.0,
+          2.0
+        ],
+        "target": [
+          27.375,
+          25.625,
+          16.0
+        ],
+        "receiver_heat_w": 0.0,
+        "temperature_c": null,
+        "source_heat_w": 0.0,
+        "path_loss_w": 0.0,
+        "atmosphere_factor": 1.0,
+        "dust_factor": 1.0,
+        "profile": "existing_legacy"
+      },
+      {
+        "serial": 4,
+        "position_number": 4,
+        "status": "Нет передатчика",
+        "code": "no_emitter",
+        "limits": [],
+        "input_power_w": 0.0,
+        "received_power_w": 0.0,
+        "receiver_limit_w": 0.0,
+        "distance_m": 0.0,
+        "beam_radius_m": 0.0,
+        "capture_fraction": 0.0,
+        "total_efficiency": 0.0,
+        "source": [
+          5.0,
+          16.0,
+          2.0
+        ],
+        "target": [
+          5.0,
+          19.0,
+          1.5
+        ],
+        "receiver_heat_w": 0.0,
+        "temperature_c": null,
+        "source_heat_w": 0.0,
+        "path_loss_w": 0.0,
+        "atmosphere_factor": 1.0,
+        "dust_factor": 1.0,
+        "profile": "existing_legacy"
+      }
+    ],
+    "laser_input_power_w": 0.0,
+    "laser_received_power_w": 0.0,
+    "laser_input_kwh": 0.0,
+    "laser_received_kwh": 0.0,
+    "laser_losses_kwh": 0.0,
+    "laser_receiver_heat_kwh": 0.0,
+    "state": "RUNNING",
+    "reason": "",
+    "time_seconds": 188.0,
+    "elapsed_display": "0 д 00:03:08",
+    "solar_clock": "09:03:08",
+    "date": "21.06",
+    "day_of_year": 172,
+    "latitude_deg": 55.0,
+    "base_mass_kg": 1242.0,
+    "panel_area_m2": 20.0,
+    "irradiance_w_m2": 702.9918645541807,
+    "sun_elevation_deg": 44.667537307892545,
+    "daylight_hours": 17.100458534062735,
+    "sunrise_hour": 3.4497707329686325,
+    "sunset_hour": 20.55022926703137,
+    "base_motion_power_w": 0.0,
+    "cable_length_m": 1.0,
+    "hour": 9.052222222222222,
+    "trips": 10,
+    "relocations": 0,
+    "initial_excavation_m3": 0.775265992929053,
+    "remaining_m3": 0.3638626276314624,
+    "completion_percent": 53.06609203162087,
+    "excavated_m3": 0.4114033652975905,
+    "excavated_mass_kg": 658.2453844761447,
+    "cargo_kg": 60.0,
+    "drone_state": "LOWER_GRABBER",
+    "base_state": "PARKED_GENERATING",
+    "drone_kwh": 16.061210172083037,
+    "base_kwh": 30.0,
+    "solar_power_w": 2811.9140801646754,
+    "solar_generated_kwh": 0.14632069921558144,
+    "solar_curtailed_kwh": 0.1463206992155686,
+    "consumed_kwh": 4.063245383472517,
+    "charging_losses_kwh": 0.0,
+    "mass_error_kg": 0.0,
+    "energy_error_j": -6.111804395914078e-08,
+    "minimum_drone_kwh": 3.9430545618146993,
+    "initial_energy_kwh": 76.1,
+    "drone_count": 4,
+    "charge_slots": 4,
+    "slot_occupants": [
+      2,
+      4,
+      null,
+      null
+    ],
+    "queue": [],
+    "wait_mode": "ground",
+    "drones": [
+      {
+        "id": 1,
+        "name": "Тяжёлый 60",
+        "state": "LOWER_GRABBER",
+        "position": [
+          15.875,
+          16.625,
+          10.0
+        ],
+        "battery_kwh": 3.9768288714408633,
+        "battery_percent": 79.53657742881725,
+        "capacity_kwh": 5.0,
+        "cargo_kg": 0,
+        "payload_kg": 60.0,
+        "empty_mass_kg": 105.0,
+        "trips": 3,
+        "excavated_mass_kg": 131.55517435473797,
+        "consumed_kwh": 1.023171128559138,
+        "waiting_seconds": 31.0,
+        "charging_seconds": 0.0,
+        "traffic_yields": 0,
+        "slot": null,
+        "minimum_kwh": 3.9768288714408633,
+        "cable_length_m": 1.0,
+        "charge_threshold_percent": 30.0,
+        "charge_requested": false,
+        "charge_cycles": 0,
+        "filled_mass_kg": 0.0,
+        "reclaimed_mass_kg": 0.0,
+        "serial": 1,
+        "created_at_seconds": 0.0,
+        "equipment": {
+          "frame_kg": 60.0,
+          "batteries_kg": 30.0,
+          "bucket_kg": 15.0,
+          "receiver_kg": 0,
+          "total_kg": 105.0,
+          "hook_kg": 0.0
+        },
+        "transported_mass_kg": 131.55517435473794,
+        "transported_volume_m3": 0.08222198397171121,
+        "today_mass_kg": 131.55517435473794,
+        "today_volume_m3": 0.08222198397171121,
+        "last24_mass_kg": 131.55517435473794,
+        "last24_volume_m3": 0.08222198397171121,
+        "daily": [
+          {
+            "mission_day": 0,
+            "mass_kg": 131.55517435473794,
+            "volume_m3": 0.08222198397171121,
+            "fill_mass_kg": 0.0,
+            "dump_mass_kg": 131.55517435473794,
+            "deliveries": 3
+          }
+        ],
+        "activity": {
+          "total_seconds": 188.0,
+          "seconds": {
+            "digging": 154.0,
+            "idle": 34.0
+          }
+        },
+        "dig_rate_kg_s": 6.0,
+        "full_scoop_seconds": 10.0,
+        "digging_j_m3": 100000.0,
+        "laser_received_kwh": 0.0,
+        "laser_power_w": 0.0,
+        "laser_status": "Нет передатчика",
+        "flight_power_w": 19440.0,
+        "airborne_seconds": 157.0,
+        "current_flight_seconds": 157.0,
+        "last_flight_seconds": 0.0,
+        "longest_flight_seconds": 157.0,
+        "task": "EXCAVATE_DIRECT",
+        "attachment": "GRABBER",
+        "role": "DIGGER",
+        "transport_payload_kg": 120.0,
+        "battery_ids": [
+          "drone_1_battery_1",
+          "drone_1_battery_2"
+        ],
+        "wait_reason": "",
+        "recall_requested": false,
+        "tool_change_remaining_seconds": 0.0,
+        "battery_swaps": 0,
+        "battery_swap_remaining_seconds": 0.0,
+        "lift_equivalent_kg": null
+      },
+      {
+        "id": 2,
+        "name": "Тяжёлый 60",
+        "state": "DOCKED",
+        "position": [
+          5.0,
+          16.0,
+          1.5
+        ],
+        "battery_kwh": 3.9503381118012753,
+        "battery_percent": 79.00676223602551,
+        "capacity_kwh": 5.0,
+        "cargo_kg": 0,
+        "payload_kg": 60.0,
+        "empty_mass_kg": 105.0,
+        "trips": 3,
+        "excavated_mass_kg": 142.2866754476754,
+        "consumed_kwh": 1.049661888198725,
+        "waiting_seconds": 29.0,
+        "charging_seconds": 0.0,
+        "traffic_yields": 0,
+        "slot": 1,
+        "minimum_kwh": 3.9503381118012753,
+        "cable_length_m": 0.0,
+        "charge_threshold_percent": 30.0,
+        "charge_requested": false,
+        "charge_cycles": 0,
+        "filled_mass_kg": 0.0,
+        "reclaimed_mass_kg": 0.0,
+        "serial": 2,
+        "created_at_seconds": 0.0,
+        "equipment": {
+          "frame_kg": 60.0,
+          "batteries_kg": 30.0,
+          "bucket_kg": 15.0,
+          "receiver_kg": 0,
+          "total_kg": 105.0,
+          "hook_kg": 0.0
+        },
+        "transported_mass_kg": 142.2866754476754,
+        "transported_volume_m3": 0.08892917215479713,
+        "today_mass_kg": 142.2866754476754,
+        "today_volume_m3": 0.08892917215479713,
+        "last24_mass_kg": 142.2866754476754,
+        "last24_volume_m3": 0.08892917215479713,
+        "daily": [
+          {
+            "mission_day": 0,
+            "mass_kg": 142.2866754476754,
+            "volume_m3": 0.08892917215479713,
+            "fill_mass_kg": 0.0,
+            "dump_mass_kg": 142.2866754476754,
+            "deliveries": 3
+          }
+        ],
+        "activity": {
+          "total_seconds": 188.0,
+          "seconds": {
+            "digging": 156.0,
+            "idle": 32.0
+          }
+        },
+        "dig_rate_kg_s": 6.0,
+        "full_scoop_seconds": 10.0,
+        "digging_j_m3": 100000.0,
+        "laser_received_kwh": 0.0,
+        "laser_power_w": 0.0,
+        "laser_status": "Нет передатчика",
+        "flight_power_w": 0.0,
+        "airborne_seconds": 159.0,
+        "current_flight_seconds": 159.0,
+        "last_flight_seconds": 0.0,
+        "longest_flight_seconds": 159.0,
+        "task": "",
+        "attachment": "GRABBER",
+        "role": "DIGGER",
+        "transport_payload_kg": 120.0,
+        "battery_ids": [
+          "drone_2_battery_1",
+          "drone_2_battery_2"
+        ],
+        "wait_reason": "Нет свободного доступного участка",
+        "recall_requested": false,
+        "tool_change_remaining_seconds": 0.0,
+        "battery_swaps": 0,
+        "battery_swap_remaining_seconds": 0.0,
+        "lift_equivalent_kg": null
+      },
+      {
+        "id": 3,
+        "name": "Тяжёлый 60",
+        "state": "DUMP",
+        "position": [
+          27.375,
+          25.625,
+          16.0
+        ],
+        "battery_kwh": 3.9430545618146993,
+        "battery_percent": 78.86109123629399,
+        "capacity_kwh": 5.0,
+        "cargo_kg": 60.0,
+        "payload_kg": 60.0,
+        "empty_mass_kg": 105.0,
+        "trips": 2,
+        "excavated_mass_kg": 179.40353467373143,
+        "consumed_kwh": 1.0569454381853005,
+        "waiting_seconds": 38.0,
+        "charging_seconds": 0.0,
+        "traffic_yields": 0,
+        "slot": null,
+        "minimum_kwh": 3.9430545618146993,
+        "cable_length_m": 10.0,
+        "charge_threshold_percent": 30.0,
+        "charge_requested": false,
+        "charge_cycles": 0,
+        "filled_mass_kg": 0.0,
+        "reclaimed_mass_kg": 0.0,
+        "serial": 3,
+        "created_at_seconds": 0.0,
+        "equipment": {
+          "frame_kg": 60.0,
+          "batteries_kg": 30.0,
+          "bucket_kg": 15.0,
+          "receiver_kg": 0,
+          "total_kg": 105.0,
+          "hook_kg": 0.0
+        },
+        "transported_mass_kg": 119.40353467373137,
+        "transported_volume_m3": 0.07462720917108209,
+        "today_mass_kg": 119.40353467373137,
+        "today_volume_m3": 0.07462720917108209,
+        "last24_mass_kg": 119.40353467373137,
+        "last24_volume_m3": 0.07462720917108209,
+        "daily": [
+          {
+            "mission_day": 0,
+            "mass_kg": 119.40353467373137,
+            "volume_m3": 0.07462720917108209,
+            "fill_mass_kg": 0.0,
+            "dump_mass_kg": 119.40353467373137,
+            "deliveries": 2
+          }
+        ],
+        "activity": {
+          "total_seconds": 188.0,
+          "seconds": {
+            "idle": 40.0,
+            "digging": 148.0
+          }
+        },
+        "dig_rate_kg_s": 6.0,
+        "full_scoop_seconds": 10.0,
+        "digging_j_m3": 100000.0,
+        "laser_received_kwh": 0.0,
+        "laser_power_w": 0.0,
+        "laser_status": "Нет передатчика",
+        "flight_power_w": 35958.01936129878,
+        "airborne_seconds": 150.0,
+        "current_flight_seconds": 150.0,
+        "last_flight_seconds": 0.0,
+        "longest_flight_seconds": 150.0,
+        "task": "EXCAVATE_DIRECT",
+        "attachment": "GRABBER",
+        "role": "DIGGER",
+        "transport_payload_kg": 120.0,
+        "battery_ids": [
+          "drone_3_battery_1",
+          "drone_3_battery_2"
+        ],
+        "wait_reason": "",
+        "recall_requested": false,
+        "tool_change_remaining_seconds": 0.0,
+        "battery_swaps": 0,
+        "battery_swap_remaining_seconds": 0.0,
+        "lift_equivalent_kg": null
+      },
+      {
+        "id": 4,
+        "name": "Тяжёлый 60",
+        "state": "DOCKED",
+        "position": [
+          5.0,
+          19.0,
+          1.5
+        ],
+        "battery_kwh": 4.1909886270262,
+        "battery_percent": 83.819772540524,
+        "capacity_kwh": 5.0,
+        "cargo_kg": 0,
+        "payload_kg": 60.0,
+        "empty_mass_kg": 105.0,
+        "trips": 2,
+        "excavated_mass_kg": 120.0,
+        "consumed_kwh": 0.8090113729737975,
+        "waiting_seconds": 70.0,
+        "charging_seconds": 0.0,
+        "traffic_yields": 0,
+        "slot": 2,
+        "minimum_kwh": 4.1909886270262,
+        "cable_length_m": 0.0,
+        "charge_threshold_percent": 30.0,
+        "charge_requested": false,
+        "charge_cycles": 0,
+        "filled_mass_kg": 0.0,
+        "reclaimed_mass_kg": 0.0,
+        "serial": 4,
+        "created_at_seconds": 0.0,
+        "equipment": {
+          "frame_kg": 60.0,
+          "batteries_kg": 30.0,
+          "bucket_kg": 15.0,
+          "receiver_kg": 0,
+          "total_kg": 105.0,
+          "hook_kg": 0.0
+        },
+        "transported_mass_kg": 120.0,
+        "transported_volume_m3": 0.075,
+        "today_mass_kg": 120.0,
+        "today_volume_m3": 0.075,
+        "last24_mass_kg": 120.0,
+        "last24_volume_m3": 0.075,
+        "daily": [
+          {
+            "mission_day": 0,
+            "mass_kg": 120.0,
+            "volume_m3": 0.075,
+            "fill_mass_kg": 0.0,
+            "dump_mass_kg": 120.0,
+            "deliveries": 2
+          }
+        ],
+        "activity": {
+          "total_seconds": 188.0,
+          "seconds": {
+            "idle": 72.0,
+            "digging": 116.0
+          }
+        },
+        "dig_rate_kg_s": 6.0,
+        "full_scoop_seconds": 10.0,
+        "digging_j_m3": 100000.0,
+        "laser_received_kwh": 0.0,
+        "laser_power_w": 0.0,
+        "laser_status": "Нет передатчика",
+        "flight_power_w": 0.0,
+        "airborne_seconds": 118.0,
+        "current_flight_seconds": 118.0,
+        "last_flight_seconds": 0.0,
+        "longest_flight_seconds": 118.0,
+        "task": "",
+        "attachment": "GRABBER",
+        "role": "DIGGER",
+        "transport_payload_kg": 120.0,
+        "battery_ids": [
+          "drone_4_battery_1",
+          "drone_4_battery_2"
+        ],
+        "wait_reason": "Нет свободного доступного участка",
+        "recall_requested": false,
+        "tool_change_remaining_seconds": 0.0,
+        "battery_swaps": 0,
+        "battery_swap_remaining_seconds": 0.0,
+        "lift_equivalent_kg": null
+      }
+    ],
+    "inventory": [
+      {
+        "id": "base_battery_01",
+        "mass_kg": 50.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "base",
+        "capacity_j": 18000000.0,
+        "energy_j": 18000000.0,
+        "max_charge_w": 10000.0,
+        "max_discharge_w": 50000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 50.0
+      },
+      {
+        "id": "base_battery_02",
+        "mass_kg": 50.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "base",
+        "capacity_j": 18000000.0,
+        "energy_j": 18000000.0,
+        "max_charge_w": 10000.0,
+        "max_discharge_w": 50000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 50.0
+      },
+      {
+        "id": "base_battery_03",
+        "mass_kg": 50.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "base",
+        "capacity_j": 18000000.0,
+        "energy_j": 18000000.0,
+        "max_charge_w": 10000.0,
+        "max_discharge_w": 50000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 50.0
+      },
+      {
+        "id": "base_battery_04",
+        "mass_kg": 50.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "base",
+        "capacity_j": 18000000.0,
+        "energy_j": 18000000.0,
+        "max_charge_w": 10000.0,
+        "max_discharge_w": 50000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 50.0
+      },
+      {
+        "id": "base_battery_05",
+        "mass_kg": 50.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "base",
+        "capacity_j": 18000000.0,
+        "energy_j": 18000000.0,
+        "max_charge_w": 10000.0,
+        "max_discharge_w": 50000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 50.0
+      },
+      {
+        "id": "base_battery_06",
+        "mass_kg": 50.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "base",
+        "capacity_j": 18000000.0,
+        "energy_j": 18000000.0,
+        "max_charge_w": 10000.0,
+        "max_discharge_w": 50000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 50.0
+      },
+      {
+        "id": "base_chassis",
+        "mass_kg": 585.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "CHASSIS",
+        "type": "Item",
+        "gross_mass_kg": 585.0
+      },
+      {
+        "id": "base_charger",
+        "mass_kg": 15,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "CHARGER_AND_AUTOMATION",
+        "type": "Item",
+        "gross_mass_kg": 15
+      },
+      {
+        "id": "landing_pad_1",
+        "mass_kg": 20,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          1.5
+        ],
+        "kind": "LANDING_PAD",
+        "type": "Item",
+        "gross_mass_kg": 20
+      },
+      {
+        "id": "landing_pad_2",
+        "mass_kg": 20,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          19.0,
+          1.5
+        ],
+        "kind": "LANDING_PAD",
+        "type": "Item",
+        "gross_mass_kg": 20
+      },
+      {
+        "id": "landing_pad_3",
+        "mass_kg": 20,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          13.0,
+          1.5
+        ],
+        "kind": "LANDING_PAD",
+        "type": "Item",
+        "gross_mass_kg": 20
+      },
+      {
+        "id": "landing_pad_4",
+        "mass_kg": 20,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          22.0,
+          1.5
+        ],
+        "kind": "LANDING_PAD",
+        "type": "Item",
+        "gross_mass_kg": 20
+      },
+      {
+        "id": "solar_panel_001",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_002",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_003",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_004",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_005",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_006",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_007",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_008",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_009",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_010",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_011",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_012",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_013",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_014",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_015",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_016",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_017",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_018",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_019",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "solar_panel_020",
+        "mass_kg": 4.0,
+        "location": "BASE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "SOLAR_PANEL",
+        "type": "Item",
+        "gross_mass_kg": 4.0
+      },
+      {
+        "id": "container_01",
+        "mass_kg": 5.0,
+        "location": "WORKSITE_RACK",
+        "state": "PARTIALLY_FILLED",
+        "holder_id": "worksite",
+        "reserved_by": "excavator_cycle",
+        "position": [
+          16.0,
+          14.442962998314473,
+          0.0
+        ],
+        "kind": "Equipment",
+        "volume_m3": 0.055,
+        "max_gross_kg": 90.0,
+        "soil_kg": 72.0,
+        "cycles": 0,
+        "wear": 0.0,
+        "assigned_limit_kg": 85.0,
+        "type": "SoilContainer",
+        "gross_mass_kg": 77.0
+      },
+      {
+        "id": "container_02",
+        "mass_kg": 5.0,
+        "location": "WORKSITE_RACK",
+        "state": "EMPTY_AT_EXCAVATOR",
+        "holder_id": "worksite",
+        "reserved_by": null,
+        "position": [
+          16.0,
+          14.442962998314473,
+          0.0
+        ],
+        "kind": "Equipment",
+        "volume_m3": 0.055,
+        "max_gross_kg": 90.0,
+        "soil_kg": 0.0,
+        "cycles": 0,
+        "wear": 0.0,
+        "assigned_limit_kg": 85.0,
+        "type": "SoilContainer",
+        "gross_mass_kg": 5.0
+      },
+      {
+        "id": "container_03",
+        "mass_kg": 5.0,
+        "location": "WORKSITE_RACK",
+        "state": "EMPTY_AT_EXCAVATOR",
+        "holder_id": "worksite",
+        "reserved_by": null,
+        "position": [
+          16.0,
+          14.442962998314473,
+          0.0
+        ],
+        "kind": "Equipment",
+        "volume_m3": 0.055,
+        "max_gross_kg": 90.0,
+        "soil_kg": 0.0,
+        "cycles": 0,
+        "wear": 0.0,
+        "assigned_limit_kg": 85.0,
+        "type": "SoilContainer",
+        "gross_mass_kg": 5.0
+      },
+      {
+        "id": "container_04",
+        "mass_kg": 5.0,
+        "location": "WORKSITE_RACK",
+        "state": "EMPTY_AT_EXCAVATOR",
+        "holder_id": "worksite",
+        "reserved_by": null,
+        "position": [
+          16.0,
+          14.442962998314473,
+          0.0
+        ],
+        "kind": "Equipment",
+        "volume_m3": 0.055,
+        "max_gross_kg": 90.0,
+        "soil_kg": 0.0,
+        "cycles": 0,
+        "wear": 0.0,
+        "assigned_limit_kg": 85.0,
+        "type": "SoilContainer",
+        "gross_mass_kg": 5.0
+      },
+      {
+        "id": "container_05",
+        "mass_kg": 5.0,
+        "location": "WORKSITE_RACK",
+        "state": "EMPTY_AT_EXCAVATOR",
+        "holder_id": "worksite",
+        "reserved_by": null,
+        "position": [
+          16.0,
+          14.442962998314473,
+          0.0
+        ],
+        "kind": "Equipment",
+        "volume_m3": 0.055,
+        "max_gross_kg": 90.0,
+        "soil_kg": 0.0,
+        "cycles": 0,
+        "wear": 0.0,
+        "assigned_limit_kg": 85.0,
+        "type": "SoilContainer",
+        "gross_mass_kg": 5.0
+      },
+      {
+        "id": "container_06",
+        "mass_kg": 5.0,
+        "location": "WORKSITE_RACK",
+        "state": "EMPTY_AT_EXCAVATOR",
+        "holder_id": "worksite",
+        "reserved_by": null,
+        "position": [
+          16.0,
+          14.442962998314473,
+          0.0
+        ],
+        "kind": "Equipment",
+        "volume_m3": 0.055,
+        "max_gross_kg": 90.0,
+        "soil_kg": 0.0,
+        "cycles": 0,
+        "wear": 0.0,
+        "assigned_limit_kg": 85.0,
+        "type": "SoilContainer",
+        "gross_mass_kg": 5.0
+      },
+      {
+        "id": "container_07",
+        "mass_kg": 5.0,
+        "location": "WORKSITE_RACK",
+        "state": "EMPTY_AT_EXCAVATOR",
+        "holder_id": "worksite",
+        "reserved_by": null,
+        "position": [
+          16.0,
+          14.442962998314473,
+          0.0
+        ],
+        "kind": "Equipment",
+        "volume_m3": 0.055,
+        "max_gross_kg": 90.0,
+        "soil_kg": 0.0,
+        "cycles": 0,
+        "wear": 0.0,
+        "assigned_limit_kg": 85.0,
+        "type": "SoilContainer",
+        "gross_mass_kg": 5.0
+      },
+      {
+        "id": "container_08",
+        "mass_kg": 5.0,
+        "location": "WORKSITE_RACK",
+        "state": "EMPTY_AT_EXCAVATOR",
+        "holder_id": "worksite",
+        "reserved_by": null,
+        "position": [
+          16.0,
+          14.442962998314473,
+          0.0
+        ],
+        "kind": "Equipment",
+        "volume_m3": 0.055,
+        "max_gross_kg": 90.0,
+        "soil_kg": 0.0,
+        "cycles": 0,
+        "wear": 0.0,
+        "assigned_limit_kg": 85.0,
+        "type": "SoilContainer",
+        "gross_mass_kg": 5.0
+      },
+      {
+        "id": "drone_1_battery_1",
+        "mass_kg": 15.0,
+        "location": "DRONE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "drone_1",
+        "reserved_by": null,
+        "position": [
+          15.875,
+          16.625,
+          10.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 7158291.968593554,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "drone_1_battery_2",
+        "mass_kg": 15.0,
+        "location": "DRONE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "drone_1",
+        "reserved_by": null,
+        "position": [
+          15.875,
+          16.625,
+          10.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 7158291.968593554,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "grabber_1",
+        "mass_kg": 15.0,
+        "location": "DRONE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "drone_1",
+        "reserved_by": "job_00012",
+        "position": [
+          15.875,
+          16.625,
+          10.0
+        ],
+        "kind": "GRABBER",
+        "type": "Rigging",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "hook_1",
+        "mass_kg": 2.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "CONTAINER_HOOK",
+        "type": "Rigging",
+        "gross_mass_kg": 2.0
+      },
+      {
+        "id": "hoist_1",
+        "mass_kg": 2.0,
+        "location": "GROUND",
+        "state": "STORED_READY",
+        "holder_id": "drone_1",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          1.5
+        ],
+        "kind": "HOIST",
+        "type": "Rigging",
+        "gross_mass_kg": 2.0
+      },
+      {
+        "id": "drone_2_battery_1",
+        "mass_kg": 15.0,
+        "location": "DRONE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "drone_2",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          1.5
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 7110608.6012422955,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "drone_2_battery_2",
+        "mass_kg": 15.0,
+        "location": "DRONE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "drone_2",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          1.5
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 7110608.6012422955,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "grabber_2",
+        "mass_kg": 15.0,
+        "location": "DRONE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "drone_2",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          1.5
+        ],
+        "kind": "GRABBER",
+        "type": "Rigging",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "hook_2",
+        "mass_kg": 2.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "CONTAINER_HOOK",
+        "type": "Rigging",
+        "gross_mass_kg": 2.0
+      },
+      {
+        "id": "hoist_2",
+        "mass_kg": 2.0,
+        "location": "GROUND",
+        "state": "STORED_READY",
+        "holder_id": "drone_2",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          19.0,
+          1.5
+        ],
+        "kind": "HOIST",
+        "type": "Rigging",
+        "gross_mass_kg": 2.0
+      },
+      {
+        "id": "drone_3_battery_1",
+        "mass_kg": 15.0,
+        "location": "DRONE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "drone_3",
+        "reserved_by": null,
+        "position": [
+          27.375,
+          25.625,
+          16.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 7097498.211266459,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "drone_3_battery_2",
+        "mass_kg": 15.0,
+        "location": "DRONE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "drone_3",
+        "reserved_by": null,
+        "position": [
+          27.375,
+          25.625,
+          16.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 7097498.211266459,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "grabber_3",
+        "mass_kg": 15.0,
+        "location": "DRONE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "drone_3",
+        "reserved_by": "job_00011",
+        "position": [
+          27.375,
+          25.625,
+          16.0
+        ],
+        "kind": "GRABBER",
+        "type": "Rigging",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "hook_3",
+        "mass_kg": 2.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "CONTAINER_HOOK",
+        "type": "Rigging",
+        "gross_mass_kg": 2.0
+      },
+      {
+        "id": "hoist_3",
+        "mass_kg": 2.0,
+        "location": "GROUND",
+        "state": "STORED_READY",
+        "holder_id": "drone_3",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          13.0,
+          1.5
+        ],
+        "kind": "HOIST",
+        "type": "Rigging",
+        "gross_mass_kg": 2.0
+      },
+      {
+        "id": "drone_4_battery_1",
+        "mass_kg": 15.0,
+        "location": "DRONE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "drone_4",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          19.0,
+          1.5
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 7543779.52864716,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "drone_4_battery_2",
+        "mass_kg": 15.0,
+        "location": "DRONE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "drone_4",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          19.0,
+          1.5
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 7543779.52864716,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "grabber_4",
+        "mass_kg": 15.0,
+        "location": "DRONE_MOUNT",
+        "state": "INSTALLED",
+        "holder_id": "drone_4",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          19.0,
+          1.5
+        ],
+        "kind": "GRABBER",
+        "type": "Rigging",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "hook_4",
+        "mass_kg": 2.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "CONTAINER_HOOK",
+        "type": "Rigging",
+        "gross_mass_kg": 2.0
+      },
+      {
+        "id": "hoist_4",
+        "mass_kg": 2.0,
+        "location": "GROUND",
+        "state": "STORED_READY",
+        "holder_id": "drone_4",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          22.0,
+          1.5
+        ],
+        "kind": "HOIST",
+        "type": "Rigging",
+        "gross_mass_kg": 2.0
+      },
+      {
+        "id": "group_rig",
+        "mass_kg": 12.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "HEAVY_LIFT_RIG",
+        "type": "Rigging",
+        "gross_mass_kg": 12.0
+      },
+      {
+        "id": "excavator_battery_01",
+        "mass_kg": 11.0,
+        "location": "EXCAVATOR_SLOT",
+        "state": "INSTALLED",
+        "holder_id": "excavator",
+        "reserved_by": null,
+        "position": [
+          16.0,
+          14.442962998314473,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "excavator",
+        "capacity_j": 5400000.0,
+        "energy_j": 5175980.0,
+        "max_charge_w": 1500.0,
+        "max_discharge_w": 6000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 11.0
+      },
+      {
+        "id": "excavator_battery_02",
+        "mass_kg": 11.0,
+        "location": "EXCAVATOR_SLOT",
+        "state": "INSTALLED",
+        "holder_id": "excavator",
+        "reserved_by": null,
+        "position": [
+          16.0,
+          14.442962998314473,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "excavator",
+        "capacity_j": 5400000.0,
+        "energy_j": 5175980.0,
+        "max_charge_w": 1500.0,
+        "max_discharge_w": 6000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 11.0
+      },
+      {
+        "id": "excavator_battery_03",
+        "mass_kg": 11.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "excavator",
+        "capacity_j": 5400000.0,
+        "energy_j": 5400000.0,
+        "max_charge_w": 1500.0,
+        "max_discharge_w": 6000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 11.0
+      },
+      {
+        "id": "excavator_battery_04",
+        "mass_kg": 11.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "excavator",
+        "capacity_j": 5400000.0,
+        "energy_j": 5400000.0,
+        "max_charge_w": 1500.0,
+        "max_discharge_w": 6000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 11.0
+      },
+      {
+        "id": "drone_1_spare_1_1",
+        "mass_kg": 15.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 9000000.0,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "drone_1_spare_1_2",
+        "mass_kg": 15.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 9000000.0,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "drone_2_spare_1_1",
+        "mass_kg": 15.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 9000000.0,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "drone_2_spare_1_2",
+        "mass_kg": 15.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 9000000.0,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "drone_3_spare_1_1",
+        "mass_kg": 15.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 9000000.0,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "drone_3_spare_1_2",
+        "mass_kg": 15.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 9000000.0,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "drone_4_spare_1_1",
+        "mass_kg": 15.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 9000000.0,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "drone_4_spare_1_2",
+        "mass_kg": 15.0,
+        "location": "BASE_STORAGE",
+        "state": "STORED_READY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "Equipment",
+        "compatibility": "drone:2.5:15",
+        "capacity_j": 9000000.0,
+        "energy_j": 9000000.0,
+        "max_charge_w": 4000.0,
+        "max_discharge_w": 60000.0,
+        "charged_energy": 0.0,
+        "swaps": 0,
+        "soh": 1.0,
+        "type": "BatteryModule",
+        "gross_mass_kg": 15.0
+      },
+      {
+        "id": "charge_slot_drone_1_battery_1",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "EMPTY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_1_battery_1",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_1_battery_2",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "EMPTY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_1_battery_2",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_2_battery_1",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "EMPTY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_2_battery_1",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_2_battery_2",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "EMPTY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_2_battery_2",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_3_battery_1",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "EMPTY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_3_battery_1",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_3_battery_2",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "EMPTY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_3_battery_2",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_4_battery_1",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "EMPTY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_4_battery_1",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_4_battery_2",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "EMPTY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_4_battery_2",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_excavator_battery_01",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "EMPTY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "excavator_battery_01",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_excavator_battery_02",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "EMPTY",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "excavator_battery_02",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_excavator_battery_03",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "FULL",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "excavator_battery_03",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_excavator_battery_04",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "FULL",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "excavator_battery_04",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_1_spare_1_1",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "FULL",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_1_spare_1_1",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_1_spare_1_2",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "FULL",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_1_spare_1_2",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_2_spare_1_1",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "FULL",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_2_spare_1_1",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_2_spare_1_2",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "FULL",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_2_spare_1_2",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_3_spare_1_1",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "FULL",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_3_spare_1_1",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_3_spare_1_2",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "FULL",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_3_spare_1_2",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_4_spare_1_1",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "FULL",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_4_spare_1_1",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      },
+      {
+        "id": "charge_slot_drone_4_spare_1_2",
+        "mass_kg": 1.0,
+        "location": "BASE_MOUNT",
+        "state": "FULL",
+        "holder_id": "base",
+        "reserved_by": null,
+        "position": [
+          5.0,
+          16.0,
+          0.0
+        ],
+        "kind": "MODULE_CHARGING_SLOT",
+        "module_id": "drone_4_spare_1_2",
+        "rated_w": 1500.0,
+        "input_power_w": 0.0,
+        "type": "ChargingSlot",
+        "gross_mass_kg": 1.0
+      }
+    ],
+    "logistics_version": 2,
+    "courier_strategy": "batch",
+    "courier": {
+      "active": false,
+      "reason": "",
+      "drone_serial": null,
+      "batches": 0,
+      "filled_containers": 0,
+      "threshold": 6
+    },
+    "inventory_imported_mass_kg": 0.0,
+    "inventory_exported_mass_kg": 0.0,
+    "battery_deliveries_count": 0,
+    "battery_deliveries": [],
+    "jobs": [
+      {
+        "id": "job_00001",
+        "kind": "EXCAVATE_DIRECT",
+        "resource_ids": [
+          "grabber_1"
+        ],
+        "origin": [
+          15.125,
+          16.375
+        ],
+        "destination": [
+          26.375,
+          24.875
+        ],
+        "priority": 5,
+        "created_at": 0.0,
+        "status": "COMPLETED",
+        "executor": 1,
+        "phase": "PREPARE",
+        "elapsed": 0.0,
+        "estimated_energy_j": 0.0,
+        "eta_seconds": 0.0,
+        "reason": "",
+        "soil_destination": "dump"
+      },
+      {
+        "id": "job_00002",
+        "kind": "EXCAVATE_DIRECT",
+        "resource_ids": [
+          "grabber_2"
+        ],
+        "origin": [
+          17.125,
+          16.125
+        ],
+        "destination": [
+          28.125,
+          25.875
+        ],
+        "priority": 5,
+        "created_at": 0.0,
+        "status": "COMPLETED",
+        "executor": 2,
+        "phase": "PREPARE",
+        "elapsed": 0.0,
+        "estimated_energy_j": 0.0,
+        "eta_seconds": 0.0,
+        "reason": "",
+        "soil_destination": "dump"
+      },
+      {
+        "id": "job_00003",
+        "kind": "EXCAVATE_DIRECT",
+        "resource_ids": [
+          "grabber_3"
+        ],
+        "origin": [
+          15.125,
+          16.375
+        ],
+        "destination": [
+          26.375,
+          26.875
+        ],
+        "priority": 5,
+        "created_at": 27.0,
+        "status": "COMPLETED",
+        "executor": 3,
+        "phase": "PREPARE",
+        "elapsed": 0.0,
+        "estimated_energy_j": 0.0,
+        "eta_seconds": 0.0,
+        "reason": "",
+        "soil_destination": "dump"
+      },
+      {
+        "id": "job_00004",
+        "kind": "EXCAVATE_DIRECT",
+        "resource_ids": [
+          "grabber_4"
+        ],
+        "origin": [
+          17.125,
+          16.125
+        ],
+        "destination": [
+          28.125,
+          23.875
+        ],
+        "priority": 5,
+        "created_at": 29.0,
+        "status": "COMPLETED",
+        "executor": 4,
+        "phase": "PREPARE",
+        "elapsed": 0.0,
+        "estimated_energy_j": 0.0,
+        "eta_seconds": 0.0,
+        "reason": "",
+        "soil_destination": "dump"
+      },
+      {
+        "id": "job_00005",
+        "kind": "EXCAVATE_DIRECT",
+        "resource_ids": [
+          "grabber_1"
+        ],
+        "origin": [
+          15.125,
+          16.375
+        ],
+        "destination": [
+          26.125,
+          24.375
+        ],
+        "priority": 5,
+        "created_at": 57.0,
+        "status": "COMPLETED",
+        "executor": 1,
+        "phase": "PREPARE",
+        "elapsed": 0.0,
+        "estimated_energy_j": 0.0,
+        "eta_seconds": 0.0,
+        "reason": "",
+        "soil_destination": "dump"
+      },
+      {
+        "id": "job_00006",
+        "kind": "EXCAVATE_DIRECT",
+        "resource_ids": [
+          "grabber_2"
+        ],
+        "origin": [
+          17.125,
+          16.375
+        ],
+        "destination": [
+          24.625,
+          25.875
+        ],
+        "priority": 5,
+        "created_at": 61.0,
+        "status": "COMPLETED",
+        "executor": 2,
+        "phase": "PREPARE",
+        "elapsed": 0.0,
+        "estimated_energy_j": 0.0,
+        "eta_seconds": 0.0,
+        "reason": "",
+        "soil_destination": "dump"
+      },
+      {
+        "id": "job_00007",
+        "kind": "EXCAVATE_DIRECT",
+        "resource_ids": [
+          "grabber_3"
+        ],
+        "origin": [
+          14.875,
+          16.125
+        ],
+        "destination": [
+          27.125,
+          26.125
+        ],
+        "priority": 5,
+        "created_at": 84.0,
+        "status": "COMPLETED",
+        "executor": 3,
+        "phase": "PREPARE",
+        "elapsed": 0.0,
+        "estimated_energy_j": 0.0,
+        "eta_seconds": 0.0,
+        "reason": "",
+        "soil_destination": "dump"
+      },
+      {
+        "id": "job_00008",
+        "kind": "EXCAVATE_DIRECT",
+        "resource_ids": [
+          "grabber_4"
+        ],
+        "origin": [
+          16.875,
+          16.375
+        ],
+        "destination": [
+          28.375,
+          24.375
+        ],
+        "priority": 5,
+        "created_at": 90.0,
+        "status": "COMPLETED",
+        "executor": 4,
+        "phase": "PREPARE",
+        "elapsed": 0.0,
+        "estimated_energy_j": 0.0,
+        "eta_seconds": 0.0,
+        "reason": "",
+        "soil_destination": "dump"
+      },
+      {
+        "id": "job_00009",
+        "kind": "EXCAVATE_DIRECT",
+        "resource_ids": [
+          "grabber_1"
+        ],
+        "origin": [
+          14.875,
+          16.375
+        ],
+        "destination": [
+          25.625,
+          24.625
+        ],
+        "priority": 5,
+        "created_at": 114.0,
+        "status": "COMPLETED",
+        "executor": 1,
+        "phase": "PREPARE",
+        "elapsed": 0.0,
+        "estimated_energy_j": 0.0,
+        "eta_seconds": 0.0,
+        "reason": "",
+        "soil_destination": "dump"
+      },
+      {
+        "id": "job_00010",
+        "kind": "EXCAVATE_DIRECT",
+        "resource_ids": [
+          "grabber_2"
+        ],
+        "origin": [
+          16.875,
+          16.625
+        ],
+        "destination": [
+          26.625,
+          22.875
+        ],
+        "priority": 5,
+        "created_at": 122.0,
+        "status": "COMPLETED",
+        "executor": 2,
+        "phase": "PREPARE",
+        "elapsed": 0.0,
+        "estimated_energy_j": 0.0,
+        "eta_seconds": 0.0,
+        "reason": "",
+        "soil_destination": "dump"
+      },
+      {
+        "id": "job_00011",
+        "kind": "EXCAVATE_DIRECT",
+        "resource_ids": [
+          "grabber_3"
+        ],
+        "origin": [
+          15.875,
+          16.625
+        ],
+        "destination": [
+          27.375,
+          25.625
+        ],
+        "priority": 5,
+        "created_at": 151.0,
+        "status": "ACTIVE",
+        "executor": 3,
+        "phase": "PREPARE",
+        "elapsed": 0.0,
+        "estimated_energy_j": 0.0,
+        "eta_seconds": 0.0,
+        "reason": "",
+        "soil_destination": "dump"
+      },
+      {
+        "id": "job_00012",
+        "kind": "EXCAVATE_DIRECT",
+        "resource_ids": [
+          "grabber_1"
+        ],
+        "origin": [
+          15.875,
+          16.625
+        ],
+        "destination": [
+          26.375,
+          23.875
+        ],
+        "priority": 5,
+        "created_at": 181.0,
+        "status": "ACTIVE",
+        "executor": 1,
+        "phase": "PREPARE",
+        "elapsed": 0.0,
+        "estimated_energy_j": 0.0,
+        "eta_seconds": 0.0,
+        "reason": "",
+        "soil_destination": "dump"
+      }
+    ],
+    "container_cycles": 0,
+    "battery_service": {
+      "ports": [],
+      "queue": [],
+      "mode": "individual",
+      "capacity": 20,
+      "module_input_power_w": 0,
+      "robot_swap": null,
+      "drone_swaps": {},
+      "drone_swap_count": 0,
+      "drone_swap_counts": {},
+      "dock_charging_drones": [],
+      "slots": [
+        {
+          "id": "charge_slot_drone_1_battery_1",
+          "module_id": "drone_1_battery_1",
+          "state": "EMPTY",
+          "location": "DRONE_MOUNT",
+          "soc": 0.7953657742881727,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_1_battery_2",
+          "module_id": "drone_1_battery_2",
+          "state": "EMPTY",
+          "location": "DRONE_MOUNT",
+          "soc": 0.7953657742881727,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_2_battery_1",
+          "module_id": "drone_2_battery_1",
+          "state": "EMPTY",
+          "location": "DRONE_MOUNT",
+          "soc": 0.7900676223602551,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_2_battery_2",
+          "module_id": "drone_2_battery_2",
+          "state": "EMPTY",
+          "location": "DRONE_MOUNT",
+          "soc": 0.7900676223602551,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_3_battery_1",
+          "module_id": "drone_3_battery_1",
+          "state": "EMPTY",
+          "location": "DRONE_MOUNT",
+          "soc": 0.7886109123629399,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_3_battery_2",
+          "module_id": "drone_3_battery_2",
+          "state": "EMPTY",
+          "location": "DRONE_MOUNT",
+          "soc": 0.7886109123629399,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_4_battery_1",
+          "module_id": "drone_4_battery_1",
+          "state": "EMPTY",
+          "location": "DRONE_MOUNT",
+          "soc": 0.8381977254052401,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_4_battery_2",
+          "module_id": "drone_4_battery_2",
+          "state": "EMPTY",
+          "location": "DRONE_MOUNT",
+          "soc": 0.8381977254052401,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_excavator_battery_01",
+          "module_id": "excavator_battery_01",
+          "state": "EMPTY",
+          "location": "EXCAVATOR_SLOT",
+          "soc": 0.9585148148148148,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_excavator_battery_02",
+          "module_id": "excavator_battery_02",
+          "state": "EMPTY",
+          "location": "EXCAVATOR_SLOT",
+          "soc": 0.9585148148148148,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_excavator_battery_03",
+          "module_id": "excavator_battery_03",
+          "state": "FULL",
+          "location": "BASE_STORAGE",
+          "soc": 1.0,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_excavator_battery_04",
+          "module_id": "excavator_battery_04",
+          "state": "FULL",
+          "location": "BASE_STORAGE",
+          "soc": 1.0,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_1_spare_1_1",
+          "module_id": "drone_1_spare_1_1",
+          "state": "FULL",
+          "location": "BASE_STORAGE",
+          "soc": 1.0,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_1_spare_1_2",
+          "module_id": "drone_1_spare_1_2",
+          "state": "FULL",
+          "location": "BASE_STORAGE",
+          "soc": 1.0,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_2_spare_1_1",
+          "module_id": "drone_2_spare_1_1",
+          "state": "FULL",
+          "location": "BASE_STORAGE",
+          "soc": 1.0,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_2_spare_1_2",
+          "module_id": "drone_2_spare_1_2",
+          "state": "FULL",
+          "location": "BASE_STORAGE",
+          "soc": 1.0,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_3_spare_1_1",
+          "module_id": "drone_3_spare_1_1",
+          "state": "FULL",
+          "location": "BASE_STORAGE",
+          "soc": 1.0,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_3_spare_1_2",
+          "module_id": "drone_3_spare_1_2",
+          "state": "FULL",
+          "location": "BASE_STORAGE",
+          "soc": 1.0,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_4_spare_1_1",
+          "module_id": "drone_4_spare_1_1",
+          "state": "FULL",
+          "location": "BASE_STORAGE",
+          "soc": 1.0,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        },
+        {
+          "id": "charge_slot_drone_4_spare_1_2",
+          "module_id": "drone_4_spare_1_2",
+          "state": "FULL",
+          "location": "BASE_STORAGE",
+          "soc": 1.0,
+          "rated_w": 1500.0,
+          "input_power_w": 0.0
+        }
+      ]
+    },
+    "collective_lift": null,
+    "collective_lift_count": 0,
+    "delivered_mass_kg": 0.0,
+    "solar_field_deployed": true,
+    "solar_generating_area_m2": 20.0,
+    "solar_field_folding_seconds": 0.0,
+    "base_battery_power_w": 0.0,
+    "base_load_power_w": 0.0,
+    "base_energy_status": "Аккумуляторы базы полностью заряжены",
+    "solar_field_rect": null,
+    "logistics_wait_reason": "",
+    "solar_field_deployment_seconds": 0.0,
+    "energy_drone_kwh": 3.9387898279169615,
+    "energy_excavator_kwh": 0.12445555555555556,
+    "energy_laser_station_kwh": 0.0,
+    "energy_station_mechanics_kwh": 0.0,
+    "drone_flight_time_seconds": 584.0,
+    "excavator": {
+      "state": "FILLING_CONTAINER",
+      "position": [
+        16.0,
+        14.442962998314473,
+        0.0
+      ],
+      "reason": "",
+      "excavated_m3": 0.053125,
+      "activity": {
+        "total_seconds": 188.0,
+        "seconds": {
+          "setup": 9.0,
+          "digging": 175.0,
+          "idle": 4.0
+        }
+      },
+      "today_excavated_kg": 85.0,
+      "today_excavated_m3": 0.053125,
+      "last24_excavated_kg": 85.0,
+      "last24_excavated_m3": 0.053125,
+      "daily_excavation": [
+        {
+          "mission_day": 0,
+          "mass_kg": 85.0,
+          "volume_m3": 0.053125,
+          "fill_mass_kg": 0.0,
+          "dump_mass_kg": 0.0,
+          "deliveries": 5,
+          "excavated_mass_kg": 85.0
+        }
+      ],
+      "battery_ids": [
+        "excavator_battery_01",
+        "excavator_battery_02"
+      ],
+      "energy_kwh": 2.8755444444444445,
+      "capacity_kwh": 3.0,
+      "buffer_kwh": 0.1,
+      "buffer_charge_losses_kwh": 0.0,
+      "mass_kg": 195.0,
+      "bucket_kg": 13.0,
+      "container": "container_01",
+      "excavated_kg": 85.0,
+      "consumed_kwh": 0.12445555555555556,
+      "working_seconds": 179.0,
+      "waiting_seconds": 0.0,
+      "moving_seconds": 0.0,
+      "cycles": 4,
+      "swaps": 0,
+      "relocations": 0,
+      "supports": true
+    }
+  },
+  "steps": 160
+}
