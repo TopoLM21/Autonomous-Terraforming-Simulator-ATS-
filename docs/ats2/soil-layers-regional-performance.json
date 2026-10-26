@@ -1,0 +1,54 @@
+{
+  "methodology": "Bundled real NOAA DEM, docs/ats2/qattara-channel.json route; local map 512 m, 1024x1024 active cells, 0.5 m work cells, 0.25 m persistent material columns. 4 drones, warm 150 steps then 400 steps. Two repeats alternating order; no GUI/profiler. New layers remain in sand here. Both implementations already use local avalanche pairs on imported DEM.",
+  "records": [
+    {
+      "mode": "uniform",
+      "repeat": 1,
+      "wall_seconds": 2.1724699550004516,
+      "speed": 184.12222414367835,
+      "mass_error_kg": -5.684341886080802e-14,
+      "energy_error_j": 1.564621925354004e-07,
+      "excavated_m3": 1.6839656197637454,
+      "max_material_mass_error_kg": null,
+      "soil_bytes": null
+    },
+    {
+      "mode": "three_layers",
+      "repeat": 1,
+      "wall_seconds": 2.716255307999745,
+      "speed": 147.26156220365039,
+      "mass_error_kg": -5.684341886080801e-13,
+      "energy_error_j": 1.7136335372924805e-07,
+      "excavated_m3": 1.6931249999999907,
+      "max_material_mass_error_kg": 5.684341886080801e-13,
+      "soil_bytes": 524288
+    },
+    {
+      "mode": "three_layers",
+      "repeat": 2,
+      "wall_seconds": 2.725332726000488,
+      "speed": 146.771069889515,
+      "mass_error_kg": -5.684341886080801e-13,
+      "energy_error_j": 1.7136335372924805e-07,
+      "excavated_m3": 1.6931249999999907,
+      "max_material_mass_error_kg": 5.684341886080801e-13,
+      "soil_bytes": 524288
+    },
+    {
+      "mode": "uniform",
+      "repeat": 2,
+      "wall_seconds": 2.263383385000452,
+      "speed": 176.72657785279276,
+      "mass_error_kg": -5.684341886080802e-14,
+      "energy_error_j": 1.564621925354004e-07,
+      "excavated_m3": 1.6839656197637454,
+      "max_material_mass_error_kg": null,
+      "soil_bytes": null
+    }
+  ],
+  "summary": {
+    "uniform_median_seconds": 2.217926670000452,
+    "three_layers_median_seconds": 2.7207940170001166,
+    "wall_time_change_percent": 22.672857213965614
+  }
+}
