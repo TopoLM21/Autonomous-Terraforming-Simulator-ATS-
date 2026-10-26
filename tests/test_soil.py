@@ -122,8 +122,8 @@ def test_fleet_material_energy_balances_and_exact_active_snapshot(tmp_path,logis
 def test_real_v1_files_keep_cargo_density_and_original_continuation(tmp_path,mode):
     # Captured with unmodified ac55b95, before the soil classes/fields existed.
     fixtures=Path(__file__).parent/'fixtures'/'soil-v1';path=tmp_path/'v1.atsstate'
-    path.write_bytes(base64.b64decode((fixtures/(mode+'.b64')).read_text()))
-    expected=json.loads((fixtures/(mode+'.json')).read_text())
+    path.write_bytes(base64.b64decode((fixtures/(mode+'.b64')).read_text(encoding='ascii')))
+    expected=json.loads((fixtures/(mode+'.json')).read_text(encoding='utf-8'))
     original=path.read_bytes();s=load_state(path).simulation
     assert s.config.soil_profile is None and s.terrain.soil is None
     assert json.loads(json.dumps(s.report()))==expected['initial']
