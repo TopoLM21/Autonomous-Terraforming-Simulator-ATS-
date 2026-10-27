@@ -147,28 +147,47 @@ class Inventory:
 
     def validate(self,*,dynamic=False):
         slot_modules=set()
-        entries=((o.id,o) for o in self.mutable_items()) if dynamic else self.items.items()
-        for key, o in entries:
-            if key != o.id or not o.holder_id or not isinstance(o.location, Location):
-                raise ValueError('Invalid inventory identity/location')
-            if not math.isfinite(o.mass_kg) or o.mass_kg <= 0:
-                raise ValueError('Invalid inventory mass')
-            if isinstance(o, BatteryModule):
-                if o.capacity_j <= 0 or not -1e-7 <= o.energy_j <= o.capacity_j+1e-7:
+        if not dynamic:
+            self._validation_entries_signature=None;self._validation_entries=[]
+        signature=(id(self.items),len(self.items))
+        cache=getattr(self,'_validated_structure',None) if dynamic and getattr(self,'_validated_signature',None)==signature else None
+        if cache is None:self._validated_structure=cache={}
+        self._validated_signature=signature
+        def kind(o):
+            return 1 if isinstance(o,BatteryModule) else 2 if isinstance(o,SoilContainer) else 3 if isinstance(o,ChargingSlot) else 0
+        if dynamic:
+            if getattr(self,'_validation_entries_signature',None)!=signature:
+                self._validation_entries_signature=signature
+                self._validation_entries=[(o.id,o,kind(o)) for o in self.mutable_items()]
+            entries=self._validation_entries
+        else:entries=((key,o,kind(o)) for key,o in self.items.items())
+        for key,o,marker in entries:
+            battery=marker==1;container=marker==2;slot=marker==3
+            stamp=(o.id,o.holder_id,o.location,o.mass_kg)
+            if battery:stamp+=(o.capacity_j,)
+            if slot:stamp+=(o.module_id,o.rated_w,type(self.items.get(o.module_id)).__name__)
+            if not dynamic or cache.get(key)!=stamp:
+                if key!=o.id or self.items.get(key) is not o or not o.holder_id or not isinstance(o.location,Location):
+                    raise ValueError('Invalid inventory identity/location')
+                if not math.isfinite(o.mass_kg) or o.mass_kg<=0:raise ValueError('Invalid inventory mass')
+                if battery and o.capacity_j<=0:raise ValueError('Battery SOC outside physical capacity')
+                if slot and (not isinstance(self.items.get(o.module_id),BatteryModule) or o.location!=Location.BASE_MOUNT
+                        or o.holder_id!='base' or not math.isfinite(o.rated_w) or o.rated_w<0):
+                    raise ValueError('Invalid individual battery charging slot')
+                if o.kind not in {'SOLAR_PANEL','LANDING_PAD','CHASSIS','PLATFORM_CHASSIS','CHARGER_AND_AUTOMATION','LASER_TRANSMITTER'}:cache[key]=stamp
+            if battery:
+                if not -1e-7 <= o.energy_j <= o.capacity_j+1e-7:
                     raise ValueError('Battery SOC outside physical capacity')
                 if o.location == Location.BASE_CHARGER and o.reserved_by:
                     raise ValueError('Battery cannot charge while reserved for transport')
-            if isinstance(o, SoilContainer):
+            if container:
                 if o.soil_kg < -1e-8 or o.gross_mass > o.max_gross_kg+1e-7:
                     raise ValueError('Container overloaded')
                 if o.soil is not None:
                     o.soil.validate(o.soil_kg)
                     if o.soil.volume>o.volume_m3+1e-9:raise ValueError('Container volume exceeded')
-            if isinstance(o, ChargingSlot):
-                if (not isinstance(self.items.get(o.module_id),BatteryModule) or o.module_id in slot_modules
-                        or o.location!=Location.BASE_MOUNT or o.holder_id!='base'
-                        or not math.isfinite(o.rated_w) or o.rated_w<0
-                        or not math.isfinite(o.input_power_w) or not 0<=o.input_power_w<=o.rated_w+1e-7):
+            if slot:
+                if (o.module_id in slot_modules or not math.isfinite(o.input_power_w) or not 0<=o.input_power_w<=o.rated_w+1e-7):
                     raise ValueError('Invalid individual battery charging slot')
                 slot_modules.add(o.module_id)
 

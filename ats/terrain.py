@@ -156,7 +156,11 @@ class Terrain:
 
     @property
     def stockpile_volume(self):
-        return float(np.maximum(self.height-self.reference, 0)[self.dump_mask].sum()*self.area)
+        if getattr(self,'_stockpile_revision',None)!=self.revision:
+            indices=np.flatnonzero(self.dump_mask)
+            self._stockpile_cache=float(np.maximum(self.height.ravel()[indices]-self.reference.ravel()[indices],0).sum()*self.area)
+            self._stockpile_revision=self.revision
+        return self._stockpile_cache
 
     def set_plan(self, plan):
         from .plan import target_surface
@@ -194,6 +198,31 @@ class Terrain:
         ix = min(max(int(x/self.cell), 0), self.height.shape[1]-1)
         iy = min(max(int(y/self.cell), 0), self.height.shape[0]-1)
         return float(self.height[iy, ix])
+
+    def sample_many(self, points):
+        """The scalar nearest-cell convention, batched without Python cell reads."""
+        height,cell=self.height,self.cell
+        indices=(np.asarray(points)[...,:2]/cell).astype(np.intp)
+        ix=np.clip(indices[...,0],0,height.shape[1]-1)
+        iy=np.clip(indices[...,1],0,height.shape[0]-1)
+        return height[iy,ix]
+
+    def route_token(self,bounds):
+        """Versions of only the terrain blocks touched by a ground route."""
+        versions=getattr(self,'_route_versions',None)
+        shape=((self.height.shape[0]+31)//32,(self.height.shape[1]+31)//32)
+        if versions is None or versions.shape!=shape:
+            self._route_versions=versions=np.zeros(shape,dtype=np.uint64)
+        x0,y0,x1,y1=bounds;cell=self.cell
+        a=max(0,min(shape[0]-1,int(y0/cell)//32));b=max(a,min(shape[0]-1,int(y1/cell)//32))
+        c=max(0,min(shape[1]-1,int(x0/cell)//32));d=max(c,min(shape[1]-1,int(x1/cell)//32))
+        return tuple(map(int,versions[a:b+1,c:d+1].ravel()))
+
+    def _touch_route_cells(self,iy,ix):
+        versions=getattr(self,'_route_versions',None)
+        if versions is not None:
+            ids=np.unique((np.asarray(iy)//32)*versions.shape[1]+np.asarray(ix)//32)
+            versions.ravel()[ids]+=1
 
     def source_excess(self, source="cut"):
         mask, surface = (self.dump_mask, self.reference) if source == "stockpile" else (self.excavation, self.target)
@@ -274,21 +303,51 @@ class Terrain:
         self.revision += 1
         return volume*self.config.terrain.density
 
+    def _dump_geometry(self):
+        key=(id(self.dump_mask),self.height.shape,self.cell)
+        if getattr(self,'_dump_geometry_key',None)!=key:
+            self._dump_geometry_key=key;n=self.height.shape[1]
+            indices=self._dump_indices
+            self._dump_rows=self.axis[np.unique(indices//n)]
+            self._dump_columns=self.axis[np.unique(indices%n)]
+
+    def _dump_available(self):
+        dump_revision=getattr(self,'_dump_content_revision',0)
+        if getattr(self,'_dump_revision',None)!=dump_revision:
+            indices=self._dump_indices
+            capacity=np.maximum(self.dump_cap.ravel()[indices]-self.height.ravel()[indices],0)
+            self._dump_free=float(capacity.sum()*self.area)
+            if self.front is not None:
+                signed=self.front.signed.ravel()[indices]
+                heights=np.maximum(self.height.ravel()[indices]-self.reference.ravel()[indices],0)
+                self._lighter_bank=1 if heights[signed>0].sum()<=heights[signed<0].sum() else -1
+            self._dump_revision=dump_revision
+        return self._dump_free
+
+    def _exclude_dump_reservations(self,useful,patch,reserved,separation):
+        if len(reserved)==0 or separation<=0:return
+        ys,xs=patch;axis=self.axis
+        for point in reserved:
+            px,py=point[:2]
+            if px+separation<axis[xs.start] or px-separation>axis[xs.stop-1] or py+separation<axis[ys.start] or py-separation>axis[ys.stop-1]:continue
+            ry,rx=self.patch(px,py,separation)
+            y0,y1=max(ys.start,ry.start),min(ys.stop,ry.stop)
+            x0,x1=max(xs.start,rx.start),min(xs.stop,rx.stop)
+            if y0>=y1 or x0>=x1:continue
+            sub=np.s_[y0:y1,x0:x1]
+            useful[y0-ys.start:y1-ys.start,x0-xs.start:x1-xs.start]&=(self.x[sub]-px)**2+(self.y[sub]-py)**2>=separation**2
+
     def dump_location(self, volume, reserved=(), separation=0.0, near=None):
         if near is not None:
-            dump_revision=getattr(self,'_dump_content_revision',0)
-            if getattr(self,'_dump_revision',None)!=dump_revision:
-                indices=self._dump_indices
-                capacity=np.maximum(self.dump_cap.ravel()[indices]-self.height.ravel()[indices],0)
-                self._dump_free=float(capacity.sum()*self.area)
-                if self.front is not None:
-                    signed=self.front.signed.ravel()[indices]
-                    heights=np.maximum(self.height.ravel()[indices]-self.reference.ravel()[indices],0)
-                    self._lighter_bank=1 if heights[signed>0].sum()<=heights[signed<0].sum() else -1
-                self._dump_revision=dump_revision
-            if self._dump_free<volume-1e-12:return None
+            if self._dump_available()<volume-1e-12:return None
+            self._dump_geometry()
+            if not len(self._dump_rows):return None
             # Search increasing local windows; no repeated sort of the full map.
             radius=max(4.,self.config.fleet.separation*2)
+            # Independent projections give a conservative lower distance bound
+            # for arbitrary masks, including bends and disconnected banks.
+            lower=math.hypot(float(np.abs(self._dump_columns-near[0]).min()),float(np.abs(self._dump_rows-near[1]).min()))
+            while radius<lower-1e-12:radius*=2
             side=self.height.shape[0]*self.cell
             while radius<=side*2:
                 patch=self.patch(*near[:2],radius)
@@ -297,7 +356,7 @@ class Terrain:
                 xx,yy=self.x[patch],self.y[patch]
                 distance=(xx-near[0])**2+(yy-near[1])**2
                 useful &= distance<=radius**2
-                for point in reserved:useful &= (xx-point[0])**2+(yy-point[1])**2>=separation**2
+                self._exclude_dump_reservations(useful,patch,reserved,separation)
                 if np.any(useful):
                     score=np.where(useful,distance+np.maximum(self.height[patch]-self.reference[patch],0)**2,np.inf)
                     if self.front is not None:
@@ -306,7 +365,11 @@ class Terrain:
                         score+=np.where(self.front.signed[patch]*self._lighter_bank<0,
                                         float(distance[useful].min())*.1,0.)
                     candidates=np.flatnonzero(useful)
+                    first=int(candidates[int(np.argmin(score.ravel()[candidates]))])
+                    i=np.unravel_index(first,score.shape);point=float(xx[i]),float(yy[i])
+                    if self.front is None or self.local_dump_space(*point)>=volume-1e-12:return point
                     for k in candidates[np.argsort(score.ravel()[candidates],kind='stable')]:
+                        if int(k)==first:continue
                         i=np.unravel_index(int(k),score.shape)
                         point=float(xx[i]),float(yy[i])
                         if self.front is None or self.local_dump_space(*point)>=volume-1e-12:return point
@@ -339,6 +402,15 @@ class Terrain:
             raise ValueError('Выгрузка слоистого грунта требует состава груза')
         if load is not None:load.validate(mass)
         volume = cargo_volume(mass,load,self.config.terrain.density)
+        if self.front is not None:
+            if self._dump_available()<volume-1e-12:raise ValueError('Отвал заполнен: груз не выгружен')
+            reach=max(2.,self.config.terrain.grab_radius);bounds=self.patch(x,y,reach)
+            near=(self.x[bounds]-x)**2+(self.y[bounds]-y)**2<=reach**2
+            capacity=np.where(self.dump_mask[bounds]&near,np.maximum(self.dump_cap[bounds]-self.height[bounds],0),0.)
+            if float(capacity.sum()*self.area)<volume-1e-12:
+                raise ValueError('Локальная площадка отвала заполнена: нужен новый заход с грузом')
+            self._deposit_capacity(x,y,volume,capacity,radius,load,bounds)
+            return
         capacity = np.where(self.dump_mask, np.maximum(self.dump_cap-self.height, 0), 0)
         if capacity.sum()*self.area < volume-1e-12:
             raise ValueError("Отвал заполнен: груз не выгружен")
@@ -371,15 +443,18 @@ class Terrain:
         self._deposit_capacity(x, y, volume, capacity, radius,load.scaled(fraction) if load is not None else None)
         return mass*fraction if load is not None else volume*self.config.terrain.density
 
-    def _deposit_capacity(self, x, y, volume, capacity, radius=None,load=None):
+    def _deposit_capacity(self, x, y, volume, capacity, radius=None,load=None,bounds=None):
         if volume <= 0:
             return
         radius=self.config.terrain.grab_radius if radius is None else radius
         expanded=False
         while True:
             patch=self.patch(x,y,radius)
+            if bounds is not None:
+                patch=tuple(slice(max(a.start,b.start),min(a.stop,b.stop)) for a,b in zip(patch,bounds))
             distance=(self.x[patch]-x)**2+(self.y[patch]-y)**2
-            local_cap=np.where(distance<=radius**2,capacity[patch],0)
+            cap_patch=(tuple(slice(a.start-b.start,a.stop-b.start) for a,b in zip(patch,bounds)) if bounds is not None else patch)
+            local_cap=np.where(distance<=radius**2,capacity[cap_patch],0)
             if local_cap.sum()*self.area>=volume-1e-12:break
             radius*=2;expanded=True
             if radius>self.height.shape[0]*self.cell*4:raise ValueError('Нет места для выгрузки')
@@ -407,6 +482,7 @@ class Terrain:
     def _mark_dirty(self,patch,mask):
         yy,xx=np.nonzero(mask)
         if not len(xx):return
+        self._touch_route_cells(yy+patch[0].start,xx+patch[1].start)
         if np.any(self.dump_mask[patch]&mask):self._dump_content_revision=getattr(self,'_dump_content_revision',0)+1
         self._grow_bounds(int(yy.min())+patch[0].start,int(yy.max())+patch[0].start+1,
                           int(xx.min())+patch[1].start,int(xx.max())+patch[1].start+1)
@@ -463,6 +539,9 @@ class Terrain:
                     transfer=np.sign(transfer)*amount
                 height[a] -= transfer
                 height[b] += transfer
+                n=self.height.shape[0]
+                if getattr(self,'_route_versions',None) is not None:
+                    self._touch_route_cells(np.r_[a//n,b//n],np.r_[a%n,b%n])
                 if np.any(self.dump_mask.ravel()[a]|self.dump_mask.ravel()[b]):
                     self._dump_content_revision=getattr(self,'_dump_content_revision',0)+1
                 self._relax_dirty.ravel()[a]=True;self._relax_dirty.ravel()[b]=True

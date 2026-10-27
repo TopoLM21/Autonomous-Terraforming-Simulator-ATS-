@@ -47,7 +47,15 @@ def trial(args, mode, number):
     clock=lambda:project.time if project is not None else sim.time
     running=lambda:project.running if project is not None else sim.state.value=='RUNNING'
     if not running():raise ValueError('Для замера нужно сохранение незавершённой работающей симуляции')
+    for _ in range(getattr(args,'warmup',0)):
+        if not running():break
+        actor.step()
     start=clock();target=start+args.steps
+    robots=[u.simulation.logistics.excavator for u in project.units] if project is not None else [sim.logistics.excavator] if sim.logistics else []
+    robots=[e for e in robots if e is not None]
+    robot_before=dict(moving=sum(e.moving_seconds for e in robots),working=sum(e.working_seconds for e in robots),
+        relocations=sum(e.relocations for e in robots))
+    robot_states={state:sum(e.state.value==state for e in robots) for state in sorted({e.state.value for e in robots})}
     profile=cProfile.Profile() if args.profile and number==0 else None
     window=None
     if mode=='gui':
@@ -76,11 +84,9 @@ def trial(args, mode, number):
     ready=time.perf_counter()
     if profile:profile.enable()
     if window is None:
-        if project is None:sim.run(args.steps)
-        else:
-            for _ in range(args.steps):
-                if not project.running:break
-                project.step()
+        for _ in range(args.steps):
+            if not running() or time.perf_counter()-ready>=args.max_wall_seconds:break
+            actor.step()
     else:app.exec()
     if profile:profile.disable()
     elapsed=time.perf_counter()-ready
@@ -95,7 +101,11 @@ def trial(args, mode, number):
         inventory_items=(len(sim.logistics.inventory.items) if sim.logistics else 0) if project is None else sum(len(u.simulation.logistics.inventory.items) if u.simulation.logistics else 0 for u in project.units),
         state=report['state'],trips=report['trips'],mass_error_kg=report['mass_error_kg'],energy_error_j=report['energy_error_j'],
         physical_sha256=hashlib.sha256(json.dumps(report,sort_keys=True).encode()).hexdigest(),
-        wall_limit_reached=mode=='gui' and clock()<target and running())
+        wall_limit_reached=clock()<target and running(),
+        engine_path=str(Path(inspect.getfile(type(sim))).resolve()),initial_time=start,robot_states_at_start=robot_states,
+        robot_moving_seconds=sum(e.moving_seconds for e in robots)-robot_before['moving'],
+        robot_working_seconds=sum(e.working_seconds for e in robots)-robot_before['working'],
+        robot_relocations=sum(e.relocations for e in robots)-robot_before['relocations'])
     if profile:
         prefix=Path(args.profile);prefix.parent.mkdir(parents=True,exist_ok=True)
         profile.dump_stats(str(prefix)+f'-{mode}.prof');row.update(profile_rows(profile))
@@ -111,12 +121,13 @@ def main():
     parser.add_argument('--mode',choices=('headless','gui','both'),default='headless')
     parser.add_argument('--render',choices=('auto','detail','off'),default='auto')
     parser.add_argument('--steps',type=int,default=1200);parser.add_argument('--trials',type=int,default=3)
+    parser.add_argument('--warmup',type=int,default=0,help='Untimed model steps after each load; use the same value in comparisons')
     parser.add_argument('--max-wall-seconds',type=float,default=300.)
     parser.add_argument('--offscreen',action='store_true',help='Use Qt offscreen instead of a visible desktop window')
     parser.add_argument('--profile',help='Write first-trial cProfile files and timing tables; profiler affects speed')
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args()
-    if args.steps<1 or not 1<=args.trials<=100 or args.max_wall_seconds<=0:parser.error('steps > 0; trials 1..100; max wall > 0')
+    if args.steps<1 or args.warmup<0 or not 1<=args.trials<=100 or args.max_wall_seconds<=0:parser.error('steps > 0; warmup >= 0; trials 1..100; max wall > 0')
     rows=[];modes=('headless','gui') if args.mode=='both' else (args.mode,)
     for number in range(args.trials):
         for mode in modes:

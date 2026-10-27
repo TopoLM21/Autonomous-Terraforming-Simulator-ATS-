@@ -52,8 +52,18 @@ class BatteryService:
         return len(self.slots) if self.world.config.individual_chargers else self.world.config.charger_ports
 
     def ready(self, compatibility, location=L.BASE_STORAGE, minimum_soc=.999999):
-        return [b for b in self.world.inventory.select(BatteryModule,location)
+        packs=self.world.inventory.select(BatteryModule) if compatibility=='base' else self.modules()
+        return [b for b in packs if b.location==location
                 if b.compatibility==compatibility and b.soc>=minimum_soc and not b.reserved_by]
+
+    def modules(self):
+        """Spare/mobile packs only; the base accumulator uses the shared bus."""
+        w=self.world;inv=w.inventory
+        if w.config.individual_chargers:return [inv.items[id] for id in self.slots]
+        key=(id(inv.items),len(inv.items))
+        if getattr(self,'_module_key',None)!=key:
+            self._module_key=key;self._modules=[b for b in inv.select(BatteryModule) if b.compatibility!='base']
+        return self._modules
 
     def generate_jobs(self):
         w=self.world;e=w.excavator;c=w.config
@@ -81,7 +91,7 @@ class BatteryService:
     def charging(self):
         w=self.world;inv=w.inventory;c=w.config
         eligible={}
-        for b in inv.select(BatteryModule):
+        for b in self.modules():
             if b.reserved_by or b.soc>=1-1e-12:continue
             if b.location in (L.BASE_STORAGE,L.BASE_CHARGER):eligible[b.id]=b
         for id in list(self.queue):
@@ -94,7 +104,7 @@ class BatteryService:
         self._charge_before={id:inv.items[id].charged_energy for id in self.ports}
         self._module_power={}
         for slot in self.slots.values():slot.input_power_w=0.
-        for b in inv.select(BatteryModule):
+        for b in self.modules():
             if b.location==L.BASE_CHARGER and b.id not in self.ports:
                 b.location=L.BASE_STORAGE;b.state='QUEUED_FOR_CHARGE'
         consumers=[]
@@ -102,14 +112,19 @@ class BatteryService:
             b=inv.items[id]
             if b.location!=L.DRONE_MOUNT:b.location=L.BASE_CHARGER
             b.state='CHARGING'
-            consumers.append((ChargePort(b),min(c.port_power_w,b.max_charge_w)))
+            adapters=getattr(self,'_adapters',None)
+            if adapters is None:self._adapters=adapters={}
+            port=adapters.get(id)
+            if port is None or port.pack is not b:adapters[id]=port=ChargePort(b)
+            port.config.battery=b.capacity_j
+            consumers.append((port,min(c.port_power_w,b.max_charge_w)))
         return consumers
 
     def after_charging(self):
         w=self.world
         self._module_power={id:max(0.,w.inventory.items[id].charged_energy-before)/w.sim.base.config.charge_efficiency
                             for id,before in self._charge_before.items()}
-        for b in w.inventory.select(BatteryModule):
+        for b in self.modules():
             if b.state=='CHARGING' and b.soc>=1-1e-12:
                 b.state='INSTALLED' if b.location==L.DRONE_MOUNT else 'STORED_READY'
                 if b.location==L.BASE_CHARGER:b.location=L.BASE_STORAGE

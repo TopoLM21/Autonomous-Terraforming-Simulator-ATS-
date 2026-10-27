@@ -84,9 +84,11 @@ class Planner:
             heights = excess.ravel()[candidates]
             order = np.argsort(-heights, kind="stable")[:32]
         best = None
-        altitude = max(float(terrain.reference.max()), t.dump_max_height) + d.work_height + self.config.base.roof_height
+        shared=local and getattr(terrain,'shared_site',None) is not None
+        shared_dump=None;shared_dump_volume=0.
         if self.config.reference_height is not None or getattr(terrain,'shared_site',None) is not None:
             altitude = terrain.clearance_surface+d.work_height+self.config.base.roof_height
+        else:altitude = max(float(terrain.reference.max()), t.dump_max_height) + d.work_height + self.config.base.roof_height
         altitude += (drone.identifier if drone is not None else 0)*self.config.fleet.altitude_spacing
         for index in candidates[order]:
             dig = (float(terrain.x.ravel()[index]), float(terrain.y.ravel()[index]))
@@ -102,7 +104,23 @@ class Planner:
                 mass = min(mass, fill_mass)
             if mass <= 1e-9:
                 continue
-            dump = fill_point if fill_point is not None else terrain.dump_location(load.volume if load is not None else mass/t.density,reserved_dump,self.config.fleet.separation,near=dig if local else None)
+            if fill_point is not None:dump=fill_point
+            elif shared:
+                # One nearby unloading allocation is reused while scoring the
+                # pickups. Keep comparing payload/energy so tiny leftovers at
+                # the nearest cell do not displace a useful full bucket.
+                if shared_dump is None:
+                    shared_dump_volume=d.equipment.bucket.volume_m3 if load is not None else d.payload/t.density
+                    shared_dump=terrain.dump_location(shared_dump_volume,reserved_dump,self.config.fleet.separation,near=dig)
+                    if shared_dump is None:
+                        shared_dump_volume=load.volume if load is not None else mass/t.density
+                        shared_dump=terrain.dump_location(shared_dump_volume,reserved_dump,self.config.fleet.separation,near=dig)
+                    if shared_dump is None:return None
+                if load is not None and load.volume>shared_dump_volume+1e-12:
+                    load=terrain.preview_load(*dig,limit,source,d.grab_radius,max_volume=shared_dump_volume);mass=load.mass
+                elif load is None:mass=min(mass,shared_dump_volume*t.density)
+                dump=shared_dump
+            else:dump=terrain.dump_location(load.volume if load is not None else mass/t.density,reserved_dump,self.config.fleet.separation,near=dig if local else None)
             if dump is None:
                 return None
             min_surface = terrain.minimum_surface

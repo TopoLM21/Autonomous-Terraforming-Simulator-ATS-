@@ -230,6 +230,7 @@ class SharedSite:
         self.core=replacement;self.owners=ownership;self._mass_revision=-1
         for u in self.project.units:
             s=u.simulation;s.terrain.core=replacement
+            if s.logistics is not None and s.logistics.excavator is not None:s.logistics.excavator._drive_cache=None
             s.config.terrain=deepcopy(c.terrain);s.config.plan=deepcopy(c.plan)
             s.config.initial_height=c.initial_height;s.config.reference_height=c.reference_height;s.config.initial_soil=c.initial_soil
             s.config.local_reference=c.local_reference
@@ -302,6 +303,16 @@ class SharedSite:
                     seen.add(row);_,xx,yy,ww,hh,_=row
                     if x<xx+ww+2 and x+w+2>xx and y<yy+hh+2 and y+h+2>yy:return True
         return False
+
+    def ground_token(self,owner,bounds):
+        """Actual nearby obstacle geometry; distant moving units do not invalidate routes."""
+        self._ensure_geometry();x,y,x1,y1=bounds;rows=set()
+        for gx in range(math.floor((x-2)/16),math.floor((x1+2)/16)+1):
+            for gy in range(math.floor((y-2)/16),math.floor((y1+2)/16)+1):
+                for row in self._ground_grid.get((gx,gy),()):
+                    other,xx,yy,w,h,_=row
+                    if other!=owner and x<xx+w+2 and x1+2>xx and y<yy+h+2 and y1+2>yy:rows.add(row)
+        return tuple(sorted(rows))
 
     def invalidate_geometry(self):self._geometry_time=None
 

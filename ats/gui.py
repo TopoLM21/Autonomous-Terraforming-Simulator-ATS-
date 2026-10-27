@@ -998,7 +998,6 @@ class MainWindow(QtWidgets.QMainWindow):
             if self.render_mode.currentData()=='auto' and self.running:
                 height,rect,stride=terrain_view(t.height,t.cell,view_range)
             else:height,rect,stride=t.height,(0,0,t.cell*t.height.shape[0],t.cell*t.height.shape[0]),1
-            rgb=terrain_rgb(height,t.cell*stride,self.config.trench.depth,max(.5,float(height.max())))
             if t.soil is not None and self.soil_view.isChecked():
                 x0=round(rect[0]/t.cell);y0=round(rect[1]/t.cell);n=t.height.shape[0]
                 yy,xx=np.indices(height.shape);ids=np.minimum(y0+yy*stride+stride//2,n-1)*n+np.minimum(x0+xx*stride+stride//2,n-1)
@@ -1006,6 +1005,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 colors=np.array([[int(m.color[i:i+2],16) for i in (1,3,5)] for m in t.soil.profile.materials])
                 gy,gx=np.gradient(height,t.cell*stride);shade=(.9+.25*(-gx+gy)/np.sqrt(1+gx*gx+gy*gy)).clip(.55,1.1)
                 rgb=(colors[materials]*shade[...,None]).clip(0,255).astype(np.uint8)
+            else:rgb=terrain_rgb(height,t.cell*stride,self.config.trench.depth,max(.5,float(height.max())))
             self.image.setImage(rgb, autoLevels=False)
             self.image.setRect(QtCore.QRectF(*rect))
             self.update_profile()

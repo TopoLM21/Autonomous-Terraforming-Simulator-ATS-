@@ -170,17 +170,58 @@ class Excavator:
                     if air_site is None:air_site=p
         return air_site
 
-    def can_drive(self, destination, terrain):
+    def _path_clear(self,destination,terrain):
         length=np.linalg.norm(destination[:2]-self.position[:2])
         samples=max(2,int(math.ceil(length/(terrain.cell/2)))+1)
-        previous=self.position
-        for p in np.linspace(self.position,destination,samples):
-            if not self.stable(p,terrain):return False
-            z=terrain.sample(*p[:2]);horizontal=np.linalg.norm(p[:2]-previous[:2])
-            if horizontal>0 and abs(z-previous[2])>math.tan(math.radians(self.config.max_slope_deg))*horizontal+1e-9:
-                return False
-            previous=np.array([*p[:2],z])
+        points=np.linspace(self.position,destination,samples)[:,:2]
+        c=self.config;radius=c.support_half_width_m;cell=terrain.cell;side=terrain.height.shape[0]*cell
+        if np.any(points<radius+cell) or np.any(points>side-radius-cell):return False
+        heights=terrain.sample_many(points);limit=math.tan(math.radians(c.max_slope_deg))
+        for dx,dy in ((radius,0),(-radius,0),(0,radius),(0,-radius),(radius,radius),(-radius,-radius)):
+            if np.any(np.abs(terrain.sample_many(points+[dx,dy])-heights)>limit*math.hypot(dx,dy)+1e-9):return False
+        horizontal=np.linalg.norm(np.diff(points,axis=0),axis=1)
+        if np.any(np.abs(np.diff(heights))>limit*horizontal+1e-9):return False
+        site=getattr(terrain,'shared_site',None)
+        if site is not None:
+            bounds=self._route_bounds(destination)
+            for _,x,y,w,h,_ in site.ground_token(terrain.owner_id,bounds):
+                if np.any((points[:,0]-radius<x+w+2)&(points[:,0]+radius+2>x)&
+                          (points[:,1]-radius<y+h+2)&(points[:,1]+radius+2>y)):return False
         return True
+
+    def _route_bounds(self,destination):
+        radius=self.config.support_half_width_m
+        a=np.minimum(self.position[:2],destination[:2])-radius
+        b=np.maximum(self.position[:2],destination[:2])+radius
+        return (*map(float,a),*map(float,b))
+
+    def can_drive(self,destination,terrain):
+        clear=self._path_clear(destination,terrain)
+        self._drive_cache=None
+        if clear:
+            bounds=self._route_bounds(destination);site=getattr(terrain,'shared_site',None)
+            self._drive_cache=dict(terrain=getattr(terrain,'core',terrain),destination=tuple(destination),
+                start=self.position[:2].copy(),bounds=bounds,terrain_token=terrain.route_token(bounds),
+                obstacles=site.ground_token(terrain.owner_id,bounds) if site is not None else (),
+                parameters=(self.config.support_half_width_m,self.config.max_slope_deg))
+        return clear
+
+    def _safe_drive_step(self,terrain):
+        cache=getattr(self,'_drive_cache',None);destination=self.destination
+        valid=(cache is not None and cache['terrain'] is getattr(terrain,'core',terrain)
+               and cache['destination']==tuple(destination)
+               and cache['parameters']==(self.config.support_half_width_m,self.config.max_slope_deg))
+        if valid:
+            delta=destination[:2]-cache['start'];length2=float(delta@delta)
+            fraction=float((self.position[:2]-cache['start'])@delta)/length2 if length2 else 0.
+            valid=(-1e-9<=fraction<=1+1e-9 and np.linalg.norm(self.position[:2]-cache['start']-fraction*delta)<1e-7)
+            site=getattr(terrain,'shared_site',None)
+            valid=valid and cache['terrain_token']==terrain.route_token(cache['bounds'])
+            if site is not None:valid=valid and cache['obstacles']==site.ground_token(terrain.owner_id,cache['bounds'])
+        if not valid and not self.can_drive(destination,terrain):return False
+        delta=destination-self.position;length=np.linalg.norm(delta[:2])
+        next_point=self.position+delta*min(1.,self.config.excavator_speed/max(length,1e-9))
+        return self._path_clear(next_point,terrain)
 
     def tick(self, logistics):
         s,c,inv=logistics.sim,self.config,logistics.inventory;t=s.terrain
@@ -201,7 +242,7 @@ class Excavator:
         if self.state==ExcavatorState.WAITING_RELOCATION:
             self.waiting_seconds+=1.;return
         if self.state==ExcavatorState.MOVING_LOCAL:
-            if not self.can_drive(self.destination,t):
+            if not self._safe_drive_step(t):
                 self.state=ExcavatorState.WAITING_RELOCATION;self.reason='LOCAL_PATH_BLOCKED';return
             horizontal=float(np.linalg.norm(self.destination[:2]-self.position[:2]))
             grade=abs(self.destination[2]-self.position[2])/max(horizontal,t.cell)

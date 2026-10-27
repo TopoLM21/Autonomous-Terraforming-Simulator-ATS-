@@ -329,9 +329,19 @@ class Logistics:
                        f'ввоз {energy/KWH:.3f} кВт·ч и {mass:g} кг вместе со слотами')
         return [b.id for b in packs]
 
+    def mobile_items(self):
+        # Installed base packs are already counted by the base equipment and
+        # use their own bus synchronization. Locations of the returned items
+        # remain live; only this structural selection is cached.
+        signature=(id(self.inventory.items),len(self.inventory.items),id(self.base_battery_ids),len(self.base_battery_ids))
+        if getattr(self,'_mobile_signature',None)!=signature:
+            self._mobile_signature=signature;base=set(self.base_battery_ids)
+            self._mobile_items=[o for o in self.inventory.mutable_items() if o.id not in base]
+        return self._mobile_items
+
     def update_base_mass(self):
         self.sim.base.config.mass=self.sim.base.config.equipment.mass+sum(
-            o.gross_mass for o in self.inventory.mutable_items()
+            o.gross_mass for o in self.mobile_items()
             if o.holder_id=='base' and (o.location in (L.BASE_STORAGE,L.BASE_CHARGER) or isinstance(o,ChargingSlot)))
 
     def _tool_mass(self, d, tool_mass):
@@ -943,15 +953,15 @@ class Logistics:
             item.position=tuple(p)
 
     def sync_batteries(self):
-        mounted=[item for item in self.inventory.mutable_items() if item.location==L.DRONE_MOUNT]
-        for d in self.sim.drones:
-            for item in mounted:
-                if item.holder_id==f'drone_{d.serial}':
-                    item.position=tuple(d.position)
+        mounted=[item for item in self.mobile_items() if item.location==L.DRONE_MOUNT]
+        positions={f'drone_{d.serial}':tuple(d.position) for d in self.sim.drones}
+        for item in mounted:
+            if item.holder_id in positions:item.position=positions[item.holder_id]
+        base_position=tuple(self.sim.base.position);base_energy=self.sim.base.battery;base_capacity=self.sim.base.config.battery
         for id in self.base_battery_ids:
             b=self.inventory.items[id]
-            b.energy_j=self.sim.base.battery*b.capacity_j/self.sim.base.config.battery
-            b.position=tuple(self.sim.base.position)
+            b.energy_j=base_energy*b.capacity_j/base_capacity
+            b.position=base_position
         for d in self.sim.drones:
             packs=[self.inventory.items[id] for id in d.battery_ids]
             total=sum(b.energy_j for b in packs)
@@ -962,7 +972,7 @@ class Logistics:
                 if difference<0 and total>0:b.energy_j=max(0.,b.energy_j*d.battery/total)
                 elif difference>0 and room>0:
                     b.energy_j=min(b.capacity_j,b.energy_j+difference*(b.capacity_j-b.energy_j)/room)
-                b.position=tuple(d.position)
+                b.position=positions[f'drone_{d.serial}']
         self.battery_service.update_slot_states()
         self.inventory.validate(dynamic=int(self.sim.time)%60!=0)
         mounted=set()
