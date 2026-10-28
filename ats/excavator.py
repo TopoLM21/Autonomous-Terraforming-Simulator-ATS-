@@ -237,6 +237,7 @@ class Excavator:
                 stored=energy*.9;self.buffer_j+=stored
                 self.consumed_j-=stored;self.buffer_charge_losses_j+=energy-stored
         idle=c.sleep_power_w if not self.battery_ids or self.energy(inv)<self.capacity(inv)*c.sleep_soc else c.idle_power_w
+        if getattr(s,'regional_stage',None) in ('PACK','DRIVE','ARRIVE','DEPLOY') and self.state!=ExcavatorState.MOVING_LOCAL:idle=c.sleep_power_w
         if not self.consume(idle,inv,control=True):
             self.state=ExcavatorState.LOW_BATTERY;self.reason='CONTROL_OFF_WAITING_DOCK_POWER';return
         if self.state==ExcavatorState.WAITING_RELOCATION:

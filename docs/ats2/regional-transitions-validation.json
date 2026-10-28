@@ -1,0 +1,781 @@
+{
+  "date": "2026-10-28",
+  "base_commit": "f15d750bbc80761c29e41d02e25981f7c7da71d2",
+  "branch": "regional-transitions",
+  "publication": "local only; no push or main merge",
+  "save_format": 5,
+  "compatible_read_versions": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "machine": {
+    "system": "Linux-6.18.55-x86_64-with-glibc2.41",
+    "python": "3.12.14",
+    "numpy": "2.5.4",
+    "cpu": "AMD EPYC 9V74 80-Core Processor",
+    "visible_cpus": 5,
+    "cpu_quota": "400000 100000"
+  },
+  "performance_scenario": {
+    "complexes": 14,
+    "drones_per_complex": 4,
+    "side_m": 512,
+    "grid_cells": 1048576,
+    "cell_m": 0.5,
+    "fine_soil_cell_m": 0.25,
+    "soil": "conditional Qattara layers",
+    "real_dem": false,
+    "continuous_equipment": true,
+    "inventory_items": 41944,
+    "panel_area_per_base_m2": 2479.0,
+    "base_capacity_per_base_kwh": 1565.0,
+    "steps": 60,
+    "warmup_steps": 1,
+    "trials_per_build_and_mode": 5,
+    "trial_order": "before/after, then after/before",
+    "profiled": false,
+    "physical_dt_seconds": 1
+  },
+  "timings": {
+    "headless": {
+      "before": {
+        "trials": [
+          {
+            "mode": "headless",
+            "render": null,
+            "profiled": false,
+            "initialization_seconds": 4.324276025000017,
+            "wall_seconds": 2.4565773939998508,
+            "model_seconds": 60.0,
+            "actual_speed": 24.42422540667719,
+            "grid_cells": 1024,
+            "drones": 56,
+            "inventory_items": 41944,
+            "state": "RUNNING",
+            "trips": 92,
+            "mass_error_kg": 2.2737367544323206e-13,
+            "energy_error_j": -7.992610335350037e-05,
+            "physical_sha256": "b3fcb0a9a5e6b90445404b386c5bee70f971f380d04dee7075862b3028bf380c",
+            "wall_limit_reached": false,
+            "engine_path": "/tmp/ats-transit-baseline-20261028/ats/simulation.py",
+            "initial_time": 41.0,
+            "robot_states_at_start": {
+              "FILLING_CONTAINER": 1,
+              "MOVING_LOCAL": 8,
+              "WAITING_RELOCATION": 5
+            },
+            "robot_moving_seconds": 261.0,
+            "robot_working_seconds": 60.0,
+            "robot_relocations": 1
+          },
+          {
+            "mode": "headless",
+            "render": null,
+            "profiled": false,
+            "initialization_seconds": 4.598278228000254,
+            "wall_seconds": 2.3279026609998255,
+            "model_seconds": 60.0,
+            "actual_speed": 25.774273557568005,
+            "grid_cells": 1024,
+            "drones": 56,
+            "inventory_items": 41944,
+            "state": "RUNNING",
+            "trips": 92,
+            "mass_error_kg": 2.2737367544323206e-13,
+            "energy_error_j": -7.992610335350037e-05,
+            "physical_sha256": "b3fcb0a9a5e6b90445404b386c5bee70f971f380d04dee7075862b3028bf380c",
+            "wall_limit_reached": false,
+            "engine_path": "/tmp/ats-transit-baseline-20261028/ats/simulation.py",
+            "initial_time": 41.0,
+            "robot_states_at_start": {
+              "FILLING_CONTAINER": 1,
+              "MOVING_LOCAL": 8,
+              "WAITING_RELOCATION": 5
+            },
+            "robot_moving_seconds": 261.0,
+            "robot_working_seconds": 60.0,
+            "robot_relocations": 1
+          },
+          {
+            "mode": "headless",
+            "render": null,
+            "profiled": false,
+            "initialization_seconds": 4.812012248999963,
+            "wall_seconds": 2.3145708600000034,
+            "model_seconds": 60.0,
+            "actual_speed": 25.92273195731839,
+            "grid_cells": 1024,
+            "drones": 56,
+            "inventory_items": 41944,
+            "state": "RUNNING",
+            "trips": 92,
+            "mass_error_kg": 2.2737367544323206e-13,
+            "energy_error_j": -7.992610335350037e-05,
+            "physical_sha256": "b3fcb0a9a5e6b90445404b386c5bee70f971f380d04dee7075862b3028bf380c",
+            "wall_limit_reached": false,
+            "engine_path": "/tmp/ats-transit-baseline-20261028/ats/simulation.py",
+            "initial_time": 41.0,
+            "robot_states_at_start": {
+              "FILLING_CONTAINER": 1,
+              "MOVING_LOCAL": 8,
+              "WAITING_RELOCATION": 5
+            },
+            "robot_moving_seconds": 261.0,
+            "robot_working_seconds": 60.0,
+            "robot_relocations": 1
+          },
+          {
+            "mode": "headless",
+            "render": null,
+            "profiled": false,
+            "initialization_seconds": 4.495424731000185,
+            "wall_seconds": 2.731628833999821,
+            "model_seconds": 60.0,
+            "actual_speed": 21.964916775367417,
+            "grid_cells": 1024,
+            "drones": 56,
+            "inventory_items": 41944,
+            "state": "RUNNING",
+            "trips": 92,
+            "mass_error_kg": 2.2737367544323206e-13,
+            "energy_error_j": -7.992610335350037e-05,
+            "physical_sha256": "b3fcb0a9a5e6b90445404b386c5bee70f971f380d04dee7075862b3028bf380c",
+            "wall_limit_reached": false,
+            "engine_path": "/tmp/ats-transit-baseline-20261028/ats/simulation.py",
+            "initial_time": 41.0,
+            "robot_states_at_start": {
+              "FILLING_CONTAINER": 1,
+              "MOVING_LOCAL": 8,
+              "WAITING_RELOCATION": 5
+            },
+            "robot_moving_seconds": 261.0,
+            "robot_working_seconds": 60.0,
+            "robot_relocations": 1
+          },
+          {
+            "mode": "headless",
+            "render": null,
+            "profiled": false,
+            "initialization_seconds": 4.683345931000076,
+            "wall_seconds": 2.514969727999869,
+            "model_seconds": 60.0,
+            "actual_speed": 23.857146005378528,
+            "grid_cells": 1024,
+            "drones": 56,
+            "inventory_items": 41944,
+            "state": "RUNNING",
+            "trips": 92,
+            "mass_error_kg": 2.2737367544323206e-13,
+            "energy_error_j": -7.992610335350037e-05,
+            "physical_sha256": "b3fcb0a9a5e6b90445404b386c5bee70f971f380d04dee7075862b3028bf380c",
+            "wall_limit_reached": false,
+            "engine_path": "/tmp/ats-transit-baseline-20261028/ats/simulation.py",
+            "initial_time": 41.0,
+            "robot_states_at_start": {
+              "FILLING_CONTAINER": 1,
+              "MOVING_LOCAL": 8,
+              "WAITING_RELOCATION": 5
+            },
+            "robot_moving_seconds": 261.0,
+            "robot_working_seconds": 60.0,
+            "robot_relocations": 1
+          }
+        ],
+        "median_actual_speed": 24.42422540667719,
+        "minimum_actual_speed": 21.964916775367417,
+        "maximum_actual_speed": 25.92273195731839
+      },
+      "after": {
+        "trials": [
+          {
+            "mode": "headless",
+            "render": null,
+            "profiled": false,
+            "initialization_seconds": 4.305560024999977,
+            "wall_seconds": 2.2670468779997464,
+            "model_seconds": 60.0,
+            "actual_speed": 26.466148795713924,
+            "grid_cells": 1024,
+            "drones": 56,
+            "inventory_items": 41944,
+            "state": "RUNNING",
+            "trips": 92,
+            "mass_error_kg": 2.2737367544323206e-13,
+            "energy_error_j": -7.992610335350037e-05,
+            "physical_sha256": "b3fcb0a9a5e6b90445404b386c5bee70f971f380d04dee7075862b3028bf380c",
+            "wall_limit_reached": false,
+            "engine_path": "/workspace/ats-project/ats/simulation.py",
+            "initial_time": 41.0,
+            "robot_states_at_start": {
+              "FILLING_CONTAINER": 1,
+              "MOVING_LOCAL": 8,
+              "WAITING_RELOCATION": 5
+            },
+            "robot_moving_seconds": 261.0,
+            "robot_working_seconds": 60.0,
+            "robot_relocations": 1
+          },
+          {
+            "mode": "headless",
+            "render": null,
+            "profiled": false,
+            "initialization_seconds": 4.01970062800001,
+            "wall_seconds": 2.4689057630002935,
+            "model_seconds": 60.0,
+            "actual_speed": 24.30226414437385,
+            "grid_cells": 1024,
+            "drones": 56,
+            "inventory_items": 41944,
+            "state": "RUNNING",
+            "trips": 92,
+            "mass_error_kg": 2.2737367544323206e-13,
+            "energy_error_j": -7.992610335350037e-05,
+            "physical_sha256": "b3fcb0a9a5e6b90445404b386c5bee70f971f380d04dee7075862b3028bf380c",
+            "wall_limit_reached": false,
+            "engine_path": "/workspace/ats-project/ats/simulation.py",
+            "initial_time": 41.0,
+            "robot_states_at_start": {
+              "FILLING_CONTAINER": 1,
+              "MOVING_LOCAL": 8,
+              "WAITING_RELOCATION": 5
+            },
+            "robot_moving_seconds": 261.0,
+            "robot_working_seconds": 60.0,
+            "robot_relocations": 1
+          },
+          {
+            "mode": "headless",
+            "render": null,
+            "profiled": false,
+            "initialization_seconds": 4.323453645999962,
+            "wall_seconds": 2.5222383770001215,
+            "model_seconds": 60.0,
+            "actual_speed": 23.78839389136656,
+            "grid_cells": 1024,
+            "drones": 56,
+            "inventory_items": 41944,
+            "state": "RUNNING",
+            "trips": 92,
+            "mass_error_kg": 2.2737367544323206e-13,
+            "energy_error_j": -7.992610335350037e-05,
+            "physical_sha256": "b3fcb0a9a5e6b90445404b386c5bee70f971f380d04dee7075862b3028bf380c",
+            "wall_limit_reached": false,
+            "engine_path": "/workspace/ats-project/ats/simulation.py",
+            "initial_time": 41.0,
+            "robot_states_at_start": {
+              "FILLING_CONTAINER": 1,
+              "MOVING_LOCAL": 8,
+              "WAITING_RELOCATION": 5
+            },
+            "robot_moving_seconds": 261.0,
+            "robot_working_seconds": 60.0,
+            "robot_relocations": 1
+          },
+          {
+            "mode": "headless",
+            "render": null,
+            "profiled": false,
+            "initialization_seconds": 4.268759850000151,
+            "wall_seconds": 2.222900539999955,
+            "model_seconds": 60.0,
+            "actual_speed": 26.99176095391169,
+            "grid_cells": 1024,
+            "drones": 56,
+            "inventory_items": 41944,
+            "state": "RUNNING",
+            "trips": 92,
+            "mass_error_kg": 2.2737367544323206e-13,
+            "energy_error_j": -7.992610335350037e-05,
+            "physical_sha256": "b3fcb0a9a5e6b90445404b386c5bee70f971f380d04dee7075862b3028bf380c",
+            "wall_limit_reached": false,
+            "engine_path": "/workspace/ats-project/ats/simulation.py",
+            "initial_time": 41.0,
+            "robot_states_at_start": {
+              "FILLING_CONTAINER": 1,
+              "MOVING_LOCAL": 8,
+              "WAITING_RELOCATION": 5
+            },
+            "robot_moving_seconds": 261.0,
+            "robot_working_seconds": 60.0,
+            "robot_relocations": 1
+          },
+          {
+            "mode": "headless",
+            "render": null,
+            "profiled": false,
+            "initialization_seconds": 4.196449808000125,
+            "wall_seconds": 2.51131300499992,
+            "model_seconds": 60.0,
+            "actual_speed": 23.891884396943947,
+            "grid_cells": 1024,
+            "drones": 56,
+            "inventory_items": 41944,
+            "state": "RUNNING",
+            "trips": 92,
+            "mass_error_kg": 2.2737367544323206e-13,
+            "energy_error_j": -7.992610335350037e-05,
+            "physical_sha256": "b3fcb0a9a5e6b90445404b386c5bee70f971f380d04dee7075862b3028bf380c",
+            "wall_limit_reached": false,
+            "engine_path": "/workspace/ats-project/ats/simulation.py",
+            "initial_time": 41.0,
+            "robot_states_at_start": {
+              "FILLING_CONTAINER": 1,
+              "MOVING_LOCAL": 8,
+              "WAITING_RELOCATION": 5
+            },
+            "robot_moving_seconds": 261.0,
+            "robot_working_seconds": 60.0,
+            "robot_relocations": 1
+          }
+        ],
+        "median_actual_speed": 24.30226414437385,
+        "minimum_actual_speed": 23.78839389136656,
+        "maximum_actual_speed": 26.99176095391169
+      },
+      "after_before_ratio": 0.9950065453346988
+    },
+    "gui": {
+      "before": {
+        "trials": [
+          {
+            "mode": "gui",
+            "render": "detail",
+            "profiled": false,
+            "initialization_seconds": 5.058496011999978,
+            "wall_seconds": 3.4461617220003973,
+            "model_seconds": 60.0,
+            "actual_speed": 17.410674495325697,
+            "grid_cells": 1024,
+            "drones": 56,
+            "inventory_items": 41944,
+            "state": "RUNNING",
+            "trips": 92,
+            "mass_error_kg": 2.2737367544323206e-13,
+            "energy_error_j": -7.992610335350037e-05,
+            "physical_sha256": "b3fcb0a9a5e6b90445404b386c5bee70f971f380d04dee7075862b3028bf380c",
+            "wall_limit_reached": false,
+            "engine_path": "/tmp/ats-transit-baseline-20261028/ats/simulation.py",
+            "initial_time": 41.0,
+            "robot_states_at_start": {
+              "FILLING_CONTAINER": 1,
+              "MOVING_LOCAL": 8,
+              "WAITING_RELOCATION": 5
+            },
+            "robot_moving_seconds": 261.0,
+            "robot_working_seconds": 60.0,
+            "robot_relocations": 1
+          },
+          {
+            "mode": "gui",
+            "render": "detail",
+            "profiled": false,
+            "initialization_seconds": 4.802436546000081,
+            "wall_seconds": 3.887636161000046,
+            "model_seconds": 60.0,
+            "actual_speed": 15.433543036230466,
+            "grid_cells": 1024,
+            "drones": 56,
+            "inventory_items": 41944,
+            "state": "RUNNING",
+            "trips": 92,
+            "mass_error_kg": 2.2737367544323206e-13,
+            "energy_error_j": -7.992610335350037e-05,
+            "physical_sha256": "b3fcb0a9a5e6b90445404b386c5bee70f971f380d04dee7075862b3028bf380c",
+            "wall_limit_reached": false,
+            "engine_path": "/tmp/ats-transit-baseline-20261028/ats/simulation.py",
+            "initial_time": 41.0,
+            "robot_states_at_start": {
+              "FILLING_CONTAINER": 1,
+              "MOVING_LOCAL": 8,
+              "WAITING_RELOCATION": 5
+            },
+            "robot_moving_seconds": 261.0,
+            "robot_working_seconds": 60.0,
+            "robot_relocations": 1
+          },
+          {
+            "mode": "gui",
+            "render": "detail",
+            "profiled": false,
+            "initialization_seconds": 5.056924479999907,
+            "wall_seconds": 3.449563632000263,
+            "model_seconds": 60.0,
+            "actual_speed": 17.39350433875267,
+            "grid_cells": 1024,
+            "drones": 56,
+            "inventory_items": 41944,
+            "state": "RUNNING",
+            "trips": 92,
+            "mass_error_kg": 2.2737367544323206e-13,
+            "energy_error_j": -7.992610335350037e-05,
+            "physical_sha256": "b3fcb0a9a5e6b90445404b386c5bee70f971f380d04dee7075862b3028bf380c",
+            "wall_limit_reached": false,
+            "engine_path": "/tmp/ats-transit-baseline-20261028/ats/simulation.py",
+            "initial_time": 41.0,
+            "robot_states_at_start": {
+              "FILLING_CONTAINER": 1,
+              "MOVING_LOCAL": 8,
+              "WAITING_RELOCATION": 5
+            },
+            "robot_moving_seconds": 261.0,
+            "robot_working_seconds": 60.0,
+            "robot_relocations": 1
+          },
+          {
+            "mode": "gui",
+            "render": "detail",
+            "profiled": false,
+            "initialization_seconds": 4.8139274199998,
+            "wall_seconds": 3.268429293000281,
+            "model_seconds": 60.0,
+            "actual_speed": 18.357441639779978,
+            "grid_cells": 1024,
+            "drones": 56,
+            "inventory_items": 41944,
+            "state": "RUNNING",
+            "trips": 92,
+            "mass_error_kg": 2.2737367544323206e-13,
+            "energy_error_j": -7.992610335350037e-05,
+            "physical_sha256": "b3fcb0a9a5e6b90445404b386c5bee70f971f380d04dee7075862b3028bf380c",
+            "wall_limit_reached": false,
+            "engine_path": "/tmp/ats-transit-baseline-20261028/ats/simulation.py",
+            "initial_time": 41.0,
+            "robot_states_at_start": {
+              "FILLING_CONTAINER": 1,
+              "MOVING_LOCAL": 8,
+              "WAITING_RELOCATION": 5
+            },
+            "robot_moving_seconds": 261.0,
+            "robot_working_seconds": 60.0,
+            "robot_relocations": 1
+          },
+          {
+            "mode": "gui",
+            "render": "detail",
+            "profiled": false,
+            "initialization_seconds": 4.679749556999923,
+            "wall_seconds": 3.5075076939997416,
+            "model_seconds": 60.0,
+            "actual_speed": 17.106163474036393,
+            "grid_cells": 1024,
+            "drones": 56,
+            "inventory_items": 41944,
+            "state": "RUNNING",
+            "trips": 92,
+            "mass_error_kg": 2.2737367544323206e-13,
+            "energy_error_j": -7.992610335350037e-05,
+            "physical_sha256": "b3fcb0a9a5e6b90445404b386c5bee70f971f380d04dee7075862b3028bf380c",
+            "wall_limit_reached": false,
+            "engine_path": "/tmp/ats-transit-baseline-20261028/ats/simulation.py",
+            "initial_time": 41.0,
+            "robot_states_at_start": {
+              "FILLING_CONTAINER": 1,
+              "MOVING_LOCAL": 8,
+              "WAITING_RELOCATION": 5
+            },
+            "robot_moving_seconds": 261.0,
+            "robot_working_seconds": 60.0,
+            "robot_relocations": 1
+          }
+        ],
+        "median_actual_speed": 17.39350433875267,
+        "minimum_actual_speed": 15.433543036230466,
+        "maximum_actual_speed": 18.357441639779978
+      },
+      "after": {
+        "trials": [
+          {
+            "mode": "gui",
+            "render": "detail",
+            "profiled": false,
+            "initialization_seconds": 5.28628917900005,
+            "wall_seconds": 3.6962969399996837,
+            "model_seconds": 60.0,
+            "actual_speed": 16.232462103005485,
+            "grid_cells": 1024,
+            "drones": 56,
+            "inventory_items": 41944,
+            "state": "RUNNING",
+            "trips": 92,
+            "mass_error_kg": 2.2737367544323206e-13,
+            "energy_error_j": -7.992610335350037e-05,
+            "physical_sha256": "b3fcb0a9a5e6b90445404b386c5bee70f971f380d04dee7075862b3028bf380c",
+            "wall_limit_reached": false,
+            "engine_path": "/workspace/ats-project/ats/simulation.py",
+            "initial_time": 41.0,
+            "robot_states_at_start": {
+              "FILLING_CONTAINER": 1,
+              "MOVING_LOCAL": 8,
+              "WAITING_RELOCATION": 5
+            },
+            "robot_moving_seconds": 261.0,
+            "robot_working_seconds": 60.0,
+            "robot_relocations": 1
+          },
+          {
+            "mode": "gui",
+            "render": "detail",
+            "profiled": false,
+            "initialization_seconds": 4.856187379000403,
+            "wall_seconds": 3.777029649999804,
+            "model_seconds": 60.0,
+            "actual_speed": 15.885498807244765,
+            "grid_cells": 1024,
+            "drones": 56,
+            "inventory_items": 41944,
+            "state": "RUNNING",
+            "trips": 92,
+            "mass_error_kg": 2.2737367544323206e-13,
+            "energy_error_j": -7.992610335350037e-05,
+            "physical_sha256": "b3fcb0a9a5e6b90445404b386c5bee70f971f380d04dee7075862b3028bf380c",
+            "wall_limit_reached": false,
+            "engine_path": "/workspace/ats-project/ats/simulation.py",
+            "initial_time": 41.0,
+            "robot_states_at_start": {
+              "FILLING_CONTAINER": 1,
+              "MOVING_LOCAL": 8,
+              "WAITING_RELOCATION": 5
+            },
+            "robot_moving_seconds": 261.0,
+            "robot_working_seconds": 60.0,
+            "robot_relocations": 1
+          },
+          {
+            "mode": "gui",
+            "render": "detail",
+            "profiled": false,
+            "initialization_seconds": 4.99246737500016,
+            "wall_seconds": 3.8771450240001286,
+            "model_seconds": 60.0,
+            "actual_speed": 15.475304542025304,
+            "grid_cells": 1024,
+            "drones": 56,
+            "inventory_items": 41944,
+            "state": "RUNNING",
+            "trips": 92,
+            "mass_error_kg": 2.2737367544323206e-13,
+            "energy_error_j": -7.992610335350037e-05,
+            "physical_sha256": "b3fcb0a9a5e6b90445404b386c5bee70f971f380d04dee7075862b3028bf380c",
+            "wall_limit_reached": false,
+            "engine_path": "/workspace/ats-project/ats/simulation.py",
+            "initial_time": 41.0,
+            "robot_states_at_start": {
+              "FILLING_CONTAINER": 1,
+              "MOVING_LOCAL": 8,
+              "WAITING_RELOCATION": 5
+            },
+            "robot_moving_seconds": 261.0,
+            "robot_working_seconds": 60.0,
+            "robot_relocations": 1
+          },
+          {
+            "mode": "gui",
+            "render": "detail",
+            "profiled": false,
+            "initialization_seconds": 4.921646799999962,
+            "wall_seconds": 3.1749543680002716,
+            "model_seconds": 60.0,
+            "actual_speed": 18.897909401384776,
+            "grid_cells": 1024,
+            "drones": 56,
+            "inventory_items": 41944,
+            "state": "RUNNING",
+            "trips": 92,
+            "mass_error_kg": 2.2737367544323206e-13,
+            "energy_error_j": -7.992610335350037e-05,
+            "physical_sha256": "b3fcb0a9a5e6b90445404b386c5bee70f971f380d04dee7075862b3028bf380c",
+            "wall_limit_reached": false,
+            "engine_path": "/workspace/ats-project/ats/simulation.py",
+            "initial_time": 41.0,
+            "robot_states_at_start": {
+              "FILLING_CONTAINER": 1,
+              "MOVING_LOCAL": 8,
+              "WAITING_RELOCATION": 5
+            },
+            "robot_moving_seconds": 261.0,
+            "robot_working_seconds": 60.0,
+            "robot_relocations": 1
+          },
+          {
+            "mode": "gui",
+            "render": "detail",
+            "profiled": false,
+            "initialization_seconds": 4.630123626000113,
+            "wall_seconds": 3.5198790660001578,
+            "model_seconds": 60.0,
+            "actual_speed": 17.046040183471835,
+            "grid_cells": 1024,
+            "drones": 56,
+            "inventory_items": 41944,
+            "state": "RUNNING",
+            "trips": 92,
+            "mass_error_kg": 2.2737367544323206e-13,
+            "energy_error_j": -7.992610335350037e-05,
+            "physical_sha256": "b3fcb0a9a5e6b90445404b386c5bee70f971f380d04dee7075862b3028bf380c",
+            "wall_limit_reached": false,
+            "engine_path": "/workspace/ats-project/ats/simulation.py",
+            "initial_time": 41.0,
+            "robot_states_at_start": {
+              "FILLING_CONTAINER": 1,
+              "MOVING_LOCAL": 8,
+              "WAITING_RELOCATION": 5
+            },
+            "robot_moving_seconds": 261.0,
+            "robot_working_seconds": 60.0,
+            "robot_relocations": 1
+          }
+        ],
+        "median_actual_speed": 16.232462103005485,
+        "minimum_actual_speed": 15.475304542025304,
+        "maximum_actual_speed": 18.897909401384776
+      },
+      "after_before_ratio": 0.9332485154725039
+    }
+  },
+  "correctness": {
+    "identical_physical_result_all_20_trials": true,
+    "physical_sha256": "b3fcb0a9a5e6b90445404b386c5bee70f971f380d04dee7075862b3028bf380c",
+    "max_mass_error_kg": 2.2737367544323206e-13,
+    "max_energy_error_j": 7.992610335350037e-05,
+    "baseline_v4_snapshot_loaded": true
+  },
+  "large_transfer": {
+    "scenario": {
+      "complexes": 14,
+      "drones_per_complex": 4,
+      "cell_m": 1,
+      "side_m": 512,
+      "origin_m": [
+        64,
+        64
+      ],
+      "destination_origin_m": [
+        320,
+        64
+      ],
+      "flat": true,
+      "layered_soil": false,
+      "containers_per_complex": 0,
+      "panels_per_base_m2": 20,
+      "field_deployment_seconds": 2,
+      "normal_speeds": true,
+      "unprofiled_functional_run": true,
+      "wall_time_not_used_for_performance_comparison": true
+    },
+    "result": {
+      "completed": true,
+      "wall_seconds": 83.74194695000006,
+      "model_seconds": 20678.0,
+      "complexes": 14,
+      "drones": 56,
+      "same_inventory_ids": true,
+      "same_simulations": true,
+      "all_clocks_match": true,
+      "mass_error_kg": 0.0,
+      "energy_error_j": 3.9709779230179265e-05,
+      "equipment_mass_error_kg": 0.0,
+      "transition": null,
+      "window_history": [
+        {
+          "status": "COMPLETED",
+          "from_origin_m": [
+            64.0,
+            64.0
+          ],
+          "to_origin_m": [
+            320.0,
+            64.0
+          ],
+          "started_at": 0.0,
+          "finished_at": 20678.0,
+          "complex_ids": [
+            "complex_1",
+            "complex_2",
+            "complex_3",
+            "complex_4",
+            "complex_5",
+            "complex_6",
+            "complex_7",
+            "complex_8",
+            "complex_9",
+            "complex_10",
+            "complex_11",
+            "complex_12",
+            "complex_13",
+            "complex_14"
+          ],
+          "consumed_kwh": 6.376199976400534
+        }
+      ]
+    }
+  },
+  "cli_groups": [
+    {
+      "name": "python -m ats --headless --mode legacy --steps 10000 --seed 42",
+      "exit_code": 0
+    },
+    {
+      "name": "ATS 2.0 logistics smoke test",
+      "exit_code": 0
+    },
+    {
+      "name": "Offline real DEM smoke test",
+      "exit_code": 0
+    },
+    {
+      "name": "Save and resume airborne simulation",
+      "exit_code": 0
+    },
+    {
+      "name": "Prepared Qattara channel smoke test",
+      "exit_code": 0
+    },
+    {
+      "name": "Layered soil and complete snapshot continuation",
+      "exit_code": 0
+    },
+    {
+      "name": "Energy sizing and executable equipment template",
+      "exit_code": 0
+    },
+    {
+      "name": "Two complexes on common regional project and exact resume",
+      "exit_code": 0
+    },
+    {
+      "name": "Twenty complexes on one physical map and exact snapshot continuation",
+      "exit_code": 0
+    },
+    {
+      "name": "Continuous design includes real platform hardware",
+      "exit_code": 0
+    }
+  ],
+  "cli_in_motion": {
+    "passed": true,
+    "checkpoint_time": 275.0,
+    "final_time": 679.0,
+    "complex_count": 2,
+    "active_id": "complex_2",
+    "mass_error_kg": 0.0,
+    "energy_error_j": 4.260800778865814e-07,
+    "exact_resume": true
+  },
+  "validation": {
+    "regional_tests_passed": 21,
+    "ci": "Not run: local work only",
+    "full_pytest_passed": 441,
+    "full_pytest_wall_seconds": 256.5,
+    "final_ui_and_regional_checks_passed": 26,
+    "final_ui_and_regional_checks_wall_seconds": 22.71
+  },
+  "caveats": [
+    "GUI measured with Qt offscreen, without a real window server or display driver.",
+    "Observed GUI median is about 7% lower; trial ranges overlap. Headless medians differ by 0.5%.",
+    "No claim to reproduce the user machine or its observed 0.5x.",
+    "Full 14-complex journey uses standard equipment, no containers and a short deployment setting. Live cargo and layered A-B-A are separate regression scenarios.",
+    "Regional ground vehicles move sequentially through an overlap. No full-world automatic streaming or air transfer over an impassable ground barrier."
+  ]
+}

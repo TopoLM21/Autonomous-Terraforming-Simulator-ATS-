@@ -120,6 +120,7 @@ class ComplexUnit:
 
 class ComplexProject:
     shared_site=None
+    transition=None
     """One clock/project; each complex owns an exclusive, separated work zone.
 
     Existing simulators keep their physical inventories and routing. Overlapping
@@ -215,6 +216,7 @@ class ComplexProject:
 
     def add_shared(self,template,position=None):
         """Deliver a real independent complex onto the existing physical map."""
+        if self.transition is not None:raise ValueError('Сначала завершите или отмените региональный переезд')
         if len(self.units)>=20:raise ValueError('Одновременно допускается до 20 рабочих комплексов')
         template.validate();site=self.enable_shared();source=self.units[0].simulation.config
         from .power_design import equipment_copy
@@ -287,6 +289,7 @@ class ComplexProject:
 
     def step(self):
         if not self.running:return
+        if self.transition is not None:self.transition.before_step()
         if self.shared_site is not None:self.shared_site.start_tick()
         for unit in self.units:
             s=unit.simulation
@@ -301,8 +304,41 @@ class ComplexProject:
                     for slot in s.logistics.battery_service.slots.values():slot.input_power_w=0.
             if self.shared_site is None and s.state.value=='COMPLETED' and not unit.committed:
                 self.commit(unit);unit.committed=True
-        if self.shared_site is not None:self.shared_site.advance_tasks()
+        if self.shared_site is not None and self.transition is None:self.shared_site.advance_tasks()
         self.time+=1.
+        if self.transition is not None:self.transition.after_step()
+
+    def move_window(self,origin=None,*,section=None):
+        from .regional import RegionalTransition
+        if self.transition is not None:raise ValueError('Переезд группы уже выполняется; дождитесь завершения или отмените его')
+        move=RegionalTransition.prepare(self,origin,section)
+        self.transition=move;move.start()
+        return move
+
+    def cancel_window_move(self):
+        if self.transition is None:return False
+        self.transition.cancel();return True
+
+    def persist_window(self):
+        """Commit a parked whole shared group, including unfinished earthwork."""
+        if self.transition is not None:raise ValueError('Сохраните переезд всей группы в .atsstate; регион можно экспортировать после остановки')
+        if self.shared_site is None:
+            for u in self.units:self.commit(u)
+            return
+        if self.landscape is None:return
+        for u in self.units:
+            s=u.simulation;w=s.logistics;e=w.excavator if w else None
+            if (s.base.destination is not None or not all(d.grounded and abs(d.cargo)<1e-8 for d in s.drones)
+                    or w and (w.active or w.group or any(c.soil_kg for c in w.containers) or e and (e.bucket_kg or e.active_container))):
+                raise ValueError('Сначала посадите все комплексы и завершите перевозки всей группы')
+        t=self.shared_site.core;s=self.units[0].simulation
+        self.landscape.commit_window(s.config.georeference['origin_m'],t.height,cell_size=t.cell,soil=t.soil)
+        if self.landscape.channel_project is not None and t.remaining<=self.shared_site.completion_volume:
+            from .channel import ChannelProject
+            channel=ChannelProject.from_data(self.landscape.channel_project);r=self.report()
+            r.update(state='COMPLETED',georeference=s.config.georeference,
+                     solar_generated_kwh=sum(u.simulation.base.generated for u in self.units)/3_600_000)
+            channel.record(r);self.landscape.channel_project=channel.to_data()
 
     def commit(self,unit):
         if self.landscape is None:return
@@ -347,6 +383,8 @@ class ComplexProject:
                     excavated_m3=sum(r['excavated_m3'] for r in rows),consumed_kwh=sum(r['consumed_kwh'] for r in rows),
                     drone_count=sum(r['drones'] for r in rows),complex_count=len(rows),
                     trips=sum(u.simulation.trips for u in self.units))
+        if self.transition is not None:result['regional_transition']=self.transition.report()
+        if hasattr(self,'window_history'):result['window_history']=self.window_history
         if self.shared_site is not None:
             site=self.shared_site;errors=site.material_errors()
             result['shared_worksite']=dict(remaining_m3=site.core.remaining,assignments=site.assignments,
@@ -379,6 +417,10 @@ class ComplexProject:
                 if self.shared_site is None and a[0]<b[0]+b[2]+gap and a[0]+a[2]+gap>b[0] and a[1]<b[1]+b[3]+gap and a[1]+a[3]+gap>b[1]:
                     raise ValueError('Сохранение содержит пересекающиеся рабочие участки')
         if self.shared_site is not None:self.shared_site.validate()
+        if self.transition is not None:
+            from .regional import RegionalTransition
+            if type(self.transition) is not RegionalTransition or self.transition.project is not self:raise ValueError('Потеряна связь с переездом группы')
+            self.transition.validate()
         for t in self.templates:t.validate()
         initial=sum((u.simulation._initial_energy+(u.simulation.logistics.initial_extra_energy if u.simulation.logistics else 0.))/3_600_000 for u in self.units)
         if (not all(math.isfinite(v) and v>=0 for v in (self.initial_energy_kwh,self.delivered_energy_kwh,self.initial_equipment_mass,self.delivered_equipment_mass)) or

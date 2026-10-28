@@ -156,6 +156,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.soil_legend=QtWidgets.QLabel();self.soil_legend.setWordWrap(True);self.soil_legend.hide();map_layout.addWidget(self.soil_legend)
         self.landscape_button=QtWidgets.QPushButton('Ландшафт / импорт DEM…')
         left_layout.addWidget(self.landscape_button);self.landscape_button.clicked.connect(self.show_landscape)
+        self.transition_status=QtWidgets.QLabel();self.transition_status.setWordWrap(True);self.transition_status.hide()
+        left_layout.addWidget(self.transition_status)
         self.map_dialog=None
         self.map = pg.PlotWidget(viewBox=self.view_box)
         self.map.setAspectLocked(True)
@@ -407,6 +409,7 @@ class MainWindow(QtWidgets.QMainWindow):
         return result
 
     def setup_map(self):
+        self._display_origin=deepcopy((self.sim.config.georeference or {}).get('origin_m'))
         t = self.sim.terrain
         if self.complex_project is not None and self.complex_project.shared_site is not None:t=self.complex_project.shared_site.core
         self._assignment_revision=None
@@ -617,6 +620,8 @@ class MainWindow(QtWidgets.QMainWindow):
         dialog=LandscapeDialog(self);dialog.exec()
 
     def commit_landscape(self):
+        if self.complex_project is not None and self.complex_project.shared_site is not None:
+            self.complex_project.persist_window();return
         s=self.sim
         if not all(d.grounded and d.cargo==0 for d in s.drones):
             raise ValueError('Сначала посадите флот и выгрузите грунт через «Кисть / план → Посадить флот»')
@@ -918,6 +923,10 @@ class MainWindow(QtWidgets.QMainWindow):
             while self.credit >= 1 and steps < self.config.max_frame_steps and time.perf_counter() < deadline:
                 if self.complex_project is not None:self.complex_project.step()
                 else:self.sim.step()
+                if getattr(self,'_display_origin',None)!=(self.sim.config.georeference or {}).get('origin_m'):
+                    running=self.running;path=self._session_path
+                    self.install_simulation(self.sim,self.landscape,self.complex_project)
+                    self._session_path=path;self.running=running;self.play.setText('⏸ Pause' if running else '▶ Start')
                 if self.sim.config is not self.config:self.sync_equipment()
                 self.credit -= 1
                 steps += 1
@@ -935,7 +944,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     robot_ready=all(u.simulation.logistics is None or (not u.simulation.logistics.active and not u.simulation.logistics.group and
                         all(c.soil_kg==0 for c in u.simulation.logistics.containers) and (u.simulation.logistics.excavator is None or u.simulation.logistics.excavator.bucket_kg==0)) for u in self.complex_project.units)
                 requested=any(u.simulation.landing_requested for u in self.complex_project.units) if shared else self.sim.landing_requested
-                if requested and robot_ready and grounded:
+                if requested and robot_ready and grounded and not (self.complex_project is not None and self.complex_project.transition is not None):
                     self.running=False;self.credit=0;self.play.setText("▶ Start")
                     self.plan_editor.info.setText("Флот приземлён. Можно применить нарисованный план.")
                     break
@@ -968,6 +977,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.timer.setInterval(delay)
 
     def refresh(self, force=False):
+        moving=self.complex_project is not None and self.complex_project.transition is not None
+        self.transition_status.setVisible(moving)
+        if moving:
+            move=self.complex_project.transition
+            progress=f'{move.actor_index}/{len(move.actors)} наземных маршрутов · ' if move.actors else ''
+            self.transition_status.setText(f'Переезд всей группы\n{move.reason}\n{progress}{move.project.time-move.started_at:.0f} с')
         s, t, d, b = self.sim, self.sim.terrain, self.sim.drone, self.sim.base
         channel=(self.config.georeference or {}).get('channel')
         self.channel_status.setVisible(channel is not None)

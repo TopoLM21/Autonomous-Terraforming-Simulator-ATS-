@@ -81,7 +81,7 @@ class SharedSite:
 
     def partition(self):
         t=self.core;indices=np.flatnonzero(t.work_mask)
-        if not len(indices):return
+        if not len(indices):self._refresh();return
         fixed=self.reserved_mask().ravel()[indices]
         free=indices[~fixed];units=self.project.units
         if t.front is not None:
@@ -136,6 +136,7 @@ class SharedSite:
         if changed:self.assignments+=1;self._refresh()
 
     def apply_plan(self,plan):
+        if self.project.transition is not None:raise ValueError('Сначала завершите или отмените региональный переезд')
         from copy import copy
         from .simulation import MissionState
         for u in self.project.units:
@@ -178,6 +179,7 @@ class SharedSite:
 
     def enlarge(self,side_m):
         """Extend a live map, conserving edited fine material and all machinery."""
+        if self.project.transition is not None:raise ValueError('Сначала завершите или отмените региональный переезд')
         from .maps import workspace_cell
         from .power_design import equipment_copy
         from .plan import PlanConfig,PlanSegment
@@ -402,12 +404,14 @@ class SharedSite:
                 if w.excavator:soil+=w.excavator.bucket_kg
         if getattr(self,'_mass_revision',None)!=self.core.revision:
             self._ground_mass=self.core.mass_change;self._mass_revision=self.core.revision
-        return self._ground_mass+soil
+        return self._ground_mass+soil+getattr(self,'archived_mass_error',0.)
 
     def material_errors(self):
         t=self.core
         if t.soil is None:return None
         error=(t.soil.volume_delta_by_material-t._initial_soil_volume)*t.soil.profile.densities
+        archived=getattr(self,'archived_material_errors',None)
+        if archived is not None:error+=archived
         for load in self.loads():error+=load.masses
         return error
 

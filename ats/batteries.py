@@ -73,10 +73,11 @@ class BatteryService:
         distance=float(((e.position[:2]-w.sim.base.position[:2])**2).sum()**.5)
         lead=2*distance/min(d.config.loaded_speed for d in w.sim.drones)+2*c.battery_swap_seconds+90.
         threshold=capacity*c.excavator_reserve+c.digging_power_w*lead
-        due=e.energy(w.inventory)<=threshold or len(e.battery_ids)<c.excavator_battery_slots
+        required=getattr(e,'regional_energy_required',0.)
+        due=e.energy(w.inventory)<=max(threshold,required) or len(e.battery_ids)<c.excavator_battery_slots
         if w.batch_enabled and not w.courier_active:
             due=(len(e.battery_ids)<c.excavator_battery_slots or
-                 e.energy(w.inventory)<capacity*c.courier_low_soc or e.state.value=='LOW_BATTERY')
+                 e.energy(w.inventory)<max(capacity*c.courier_low_soc,required) or e.state.value=='LOW_BATTERY')
         if due:
             rack=self.ready('excavator',L.WORKSITE_RACK)
             incoming=[j for j in w.jobs if j.kind=='DELIVER_EXCAVATOR_BATTERY' and j.status in ('QUEUED','ACTIVE')]
@@ -146,7 +147,7 @@ class BatteryService:
         if self.robot_swap is None:
             ready=self.ready('excavator',L.WORKSITE_RACK,minimum_soc=.5 if not e.battery_ids else .999999)
             if (len(ready)>=c.excavator_battery_slots and e.bucket_kg==0 and e.active_container is None
-                    and (e.energy(inv)<e.capacity(inv)*.5 or len(e.battery_ids)<c.excavator_battery_slots)):
+                    and (e.energy(inv)<max(e.capacity(inv)*.5,getattr(e,'regional_energy_required',0.)) or len(e.battery_ids)<c.excavator_battery_slots)):
                 ids=[b.id for b in ready[:c.excavator_battery_slots]]
                 if inv.reserve(ids+e.battery_ids,'excavator_swap'):
                     self.robot_swap={'ids':ids,'index':0,'elapsed':0.}

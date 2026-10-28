@@ -376,6 +376,14 @@ class Logistics:
 
     def generate_jobs(self):
         s=self.sim
+        regional=getattr(s,'regional_stage',None)
+        if regional=='COLLECT':
+            for item in self.inventory.mutable_items():
+                if item.location in (L.WORKSITE_RACK,L.FILLED_QUEUE,L.DUMP_SITE,L.GROUND):
+                    if item.kind=='HOIST' and item.holder_id.startswith('drone_'):continue
+                    self.new_job('PACK_FOR_RELOCATION',item,item.position,s.base.position,2)
+            return
+        if regional in ('PACK','DRIVE','ARRIVE','DEPLOY'):return
         self.battery_service.generate_jobs()
         for c in self.containers:
             # Reservations already own an immutable route until pickup. Do not
@@ -398,9 +406,9 @@ class Logistics:
                     if job is not None:job.soil_destination='fill' if fill is not None else 'dump'
                 else:
                     s.block('BLOCKED_DUMP_FULL: нет места для контейнерного груза')
-            elif c.location==L.BASE_STORAGE and c.soil_kg==0 and self.excavator is not None:
+            elif regional is None and c.location==L.BASE_STORAGE and c.soil_kg==0 and self.excavator is not None:
                 self.new_job('DELIVER_EMPTY_CONTAINER',c,c.position,self.rack,4)
-            elif (c.location==L.WORKSITE_RACK and c.soil_kg==0 and self.excavator is not None
+            elif (regional is None and c.location==L.WORKSITE_RACK and c.soil_kg==0 and self.excavator is not None
                   and np.linalg.norm(np.array(c.position[:2])-self.rack[:2])>self.config.reach_m):
                 self.new_job('RETURN_EMPTY_CONTAINER',c,c.position,self.rack,4)
 
@@ -447,7 +455,8 @@ class Logistics:
                 continue
             for job in pending:
                 if job.status!='QUEUED':continue
-                if s.landing_requested and job.kind!='PICKUP_FULL_CONTAINER':continue
+                if s.landing_requested and job.kind!='PICKUP_FULL_CONTAINER' and not (
+                        getattr(s,'regional_stage',None) and job.kind in ('PACK_FOR_RELOCATION','DELIVER_EXCAVATOR_BATTERY','RECOVER_EMPTY_EXCAVATOR_BATTERY')):continue
                 energy,eta=self.estimate(d,job)
                 if energy > d.battery-d.config.battery*d.config.reserve:
                     job.reason='WAITING_ENERGY_OR_PAYLOAD'
@@ -466,6 +475,7 @@ class Logistics:
                 break
 
     def try_lift(self):
+        if getattr(self.sim,'regional_stage',None):return
         from .cooperative_lift import CollectiveLift,lift_check
         from copy import copy
         e=self.excavator;s=self.sim
@@ -557,7 +567,7 @@ class Logistics:
         low=(not e.battery_ids or e.energy(self.inventory)<capacity*self.config.courier_low_soc)
         finishing=s.terrain.remaining_cut<=s.config.terrain.completion_volume or s.landing_requested
         stranded=e.state.value in ('WAITING_TRANSPORT','WAITING_EMPTY_CONTAINER','LOW_BATTERY')
-        reason=('LOW_SOC' if low else 'FILLED_THRESHOLD' if filled>=threshold else
+        reason=('REGIONAL_MOVE' if getattr(s,'regional_stage',None) and pending else 'LOW_SOC' if low else 'FILLED_THRESHOLD' if filled>=threshold else
                 'FINISH_BATCH' if finishing and filled else 'RELOCATION' if relocating and pending else
                 'CLEAR_WORKSITE' if stranded and pending else '')
         if not self.courier_active and reason:
@@ -568,7 +578,7 @@ class Logistics:
             self.courier_active=False;self.courier_reason=''
             s.event('Партия курьера завершена: возвращается к копанию')
         if not self.courier_active:
-            if self.courier_id is not None:
+            if self.courier_id is not None and not getattr(s,'regional_stage',None):
                 self.request_tool(s.drones[self.courier_id],'GRABBER')
             self.courier_id=None
             return
@@ -751,7 +761,7 @@ class Logistics:
 
     def generating_area(self):
         """Only physically unfolded panels contribute, including partial deployment."""
-        if self.sim.base.destination is not None:return 0.
+        if self.sim.base.destination is not None or getattr(self,'regional_folded',False):return 0.
         seconds=max(1.,self.config.field_deployment_seconds)
         fraction=(max(0.,1-self.base_pack_elapsed/seconds) if self.base_pack_elapsed else
                   1. if self.field_ready else min(1.,self.field_elapsed/seconds))
@@ -775,6 +785,7 @@ class Logistics:
         return True
 
     def try_base_move(self):
+        if getattr(self.sim,'regional_stage',None):return
         s=self.sim
         channel=s.terrain.front is not None
         if self.field_rect is not None and not channel:return
@@ -859,7 +870,7 @@ class Logistics:
 
     def _drop(self, d, job):
         item=self.inventory.items[job.resource_ids[0]]
-        at_base=job.kind=='RECOVER_EMPTY_EXCAVATOR_BATTERY'
+        at_base=job.kind in ('RECOVER_EMPTY_EXCAVATOR_BATTERY','PACK_FOR_RELOCATION')
         location=L.BASE_STORAGE if at_base else L.WORKSITE_RACK
         holder='base' if at_base else 'excavator'
         state='QUEUED_FOR_CHARGE' if isinstance(item,BatteryModule) and at_base else (
@@ -953,6 +964,12 @@ class Logistics:
             item.position=tuple(p)
 
     def sync_batteries(self):
+        if getattr(self,'regional_cleanup_pending',False) and not getattr(self.sim,'regional_stage',None):
+            for d in self.sim.drones:
+                if d.grounded and hasattr(d,'regional_mass'):
+                    d.config.empty_mass,d.config.hover_power=d.regional_mass;del d.regional_mass
+                    self.inventory.move(f'hoist_{d.serial}',L.GROUND,f'drone_{d.serial}',d.position,'STORED_READY')
+            self.regional_cleanup_pending=any(hasattr(d,'regional_mass') for d in self.sim.drones)
         mounted=[item for item in self.mobile_items() if item.location==L.DRONE_MOUNT]
         positions={f'drone_{d.serial}':tuple(d.position) for d in self.sim.drones}
         for item in mounted:
@@ -1021,9 +1038,11 @@ class Logistics:
         area=s.base.config.panel_area
         setup=bool(self.base_pack_elapsed or not self.field_ready)
         if not self.field_ready:
-            if s.base.destination is None and (s.relocation_pending is None or self.field_rect is not None) and self.use_station(200.):
+            if not getattr(self,'regional_folded',False) and s.base.destination is None and (s.relocation_pending is None or self.field_rect is not None) and self.use_station(200.):
                 self.field_elapsed+=1.
-            if self.field_elapsed>=self.config.field_deployment_seconds:self.field_ready=True
+            if not getattr(self,'regional_folded',False) and self.field_elapsed>=self.config.field_deployment_seconds:self.field_ready=True
+        if getattr(s,'regional_stage',None)=='PACK' and not getattr(self,'regional_folded',False):
+            if self.use_station(200.):self.base_pack_elapsed+=1.
         generating_area=self.generating_area()
         if setup:
             # Deployment and motion must retain their own energy reserve;
@@ -1053,7 +1072,7 @@ class Logistics:
             self.base_move_job.status='COMPLETED';self.inventory.release(self.base_move_job.id)
             self.base_move_job=None;self.progress_at=s.time
             s.base_move_wait=''
-            if not self.field_ready and s.base.config.panel_area>20:
+            if not getattr(self,'regional_folded',False) and not self.field_ready and s.base.config.panel_area>20:
                 try:self.field_rect=self.solar_field_site(s.base.config.panel_area)
                 except ValueError as error:s.block(str(error))
         self.battery_service.after_charging()
@@ -1101,7 +1120,7 @@ class Logistics:
         self.base_battery_power_w=s.base.battery-battery_before
         self.base_load_power_w=s.base.consumed+s.base.charging_input+s.base.laser_input-before_bus
         self.detect_stall()
-        if (s.terrain.remaining<=s.config.terrain.completion_volume and not s._terrain_active
+        if (not getattr(s,'regional_stage',None) and s.terrain.remaining<=s.config.terrain.completion_volume and not s._terrain_active
                 and s.base.destination is None and self.base_move_job is None
                 and not self.battery_service.drone_swaps and not self.battery_service.robot_swap
                 and not self.active and all(c.soil_kg==0 for c in self.containers)
@@ -1127,6 +1146,7 @@ class Logistics:
         self.archived_jobs.extend(removed);self.jobs[:]=[j for j in self.jobs if id(j) not in keys]
 
     def detect_stall(self):
+        if getattr(self.sim,'regional_stage',None):return
         s=self.sim
         if s.base.destination is not None or s.relocation_pending is not None:return
         if s.state!=MissionState.RUNNING or self.active or s.landing_requested:return

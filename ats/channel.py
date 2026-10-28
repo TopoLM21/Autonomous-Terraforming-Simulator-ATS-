@@ -234,9 +234,9 @@ class ChannelProject:
         return PlanConfig(segments,channel=dict(start=p[0].tolist(),tangent=tangent.tolist(),project_id=self.identity,
             chainage_starts=starts,first_edges=first))
 
-    def configuration(self,landscape,config,index=None):
+    def configuration(self,landscape,config,index=None,*,origin=None):
         index=self.active_section if index is None else index
-        self.validate();origin=self.origin(landscape.raster,index)
+        self.validate();origin=self.origin(landscape.raster,index) if origin is None else origin
         c=workspace_config(landscape,config,origin,self.side_m)
         c.trench.angle_deg=self.angle_deg;c.terrain.dump_max_height=self.spoil_height_m
         c.plan=self.plan(origin)
@@ -338,6 +338,7 @@ def latitude_at(georeference,x,y,fallback=55.):
     if source['crs']=='EPSG:4326':
         from .landscape import EARTH_RADIUS
         return source['y0']+(origin[1]+y)/(EARTH_RADIUS*math.pi/180)
+    if source['crs']=='LOCAL_METRES':return source.get('latitude_deg',fallback)
     if 'latitude_deg' in source:
         try:
             from rasterio.warp import transform

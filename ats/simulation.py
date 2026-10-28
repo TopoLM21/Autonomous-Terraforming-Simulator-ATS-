@@ -299,6 +299,7 @@ class Simulation:
 
     def request_equipment(self,proposed):
         """Apply stationary base changes now; airborne workshop work waits for landing."""
+        if getattr(self,'regional_stage',None) in ('PACK','DRIVE','ARRIVE'):raise ValueError('Сначала завершите или отмените движение; поставки запасных батарей доступны на складе')
         from copy import deepcopy
         from dataclasses import asdict
         if proposed.soil_profile!=self.config.soil_profile:
@@ -811,7 +812,10 @@ class Simulation:
                     else:
                         self._continue_or_return(d)
         elif d.state == DS.RETURN:
-            self._move(d,[*d.destination[:2],self.cruise(d)],DS.LANDING,dt)
+            if getattr(d,'regional_launch',False):
+                self._move(d,[*d.position[:2],self.cruise(d)],DS.RETURN,dt)
+                if d.position[2]>=self.cruise(d)-1e-8:d.regional_launch=False
+            else:self._move(d,[*d.destination[:2],self.cruise(d)],DS.LANDING,dt)
         elif d.state == DS.LANDING:
             air_wait = d.slot is None and d.charge_requested and not self.landing_requested and self.relocation_pending is None and self.config.fleet.wait_mode == "air" and self.terrain.remaining > self.config.terrain.completion_volume and (self.logistics is None or d.identifier not in self.logistics.recall_ids)
             goal = [*d.destination[:2],self.cruise(d)] if air_wait else d.destination

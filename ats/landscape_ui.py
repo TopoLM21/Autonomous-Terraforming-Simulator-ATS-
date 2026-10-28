@@ -63,6 +63,15 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.next_button=QtWidgets.QPushButton('Следующий участок · новая расстановка');self.next_button.clicked.connect(self.next_section)
         for b in (self.prepare_button,self.start_button,self.next_button):launch.addWidget(b)
         layout.addLayout(launch)
+        travel=QtWidgets.QHBoxLayout()
+        self.move_button=QtWidgets.QPushButton('Переехать всей группой в выбранное окно')
+        self.move_button.clicked.connect(self.move_group)
+        self.move_next_button=QtWidgets.QPushButton('Переехать на следующий участок канала')
+        self.move_next_button.clicked.connect(self.move_next)
+        self.cancel_move_button=QtWidgets.QPushButton('Отменить переезд на текущих позициях')
+        self.cancel_move_button.clicked.connect(self.cancel_move)
+        for button in (self.move_button,self.move_next_button,self.cancel_move_button):travel.addWidget(button)
+        layout.addLayout(travel)
         self.profile=pg.PlotWidget();self.profile.setLabel('left','Высота MSL',units='m');self.profile.setLabel('bottom','Вдоль коридора',units='m')
         self.ground=self.profile.plot(pen='#efce8b');self.design=self.profile.plot(pen=pg.mkPen('#59cde4',style=QtCore.Qt.PenStyle.DashLine));layout.addWidget(self.profile,1)
         self.result=QtWidgets.QLabel('ЛКМ выбирает участок; в режиме коридора добавляет вершины линии. Оценка коридора не запускает земляные работы и не выбирает оптимальный маршрут.');self.result.setWordWrap(True);layout.addWidget(self.result)
@@ -70,6 +79,42 @@ class LandscapeDialog(QtWidgets.QDialog):
         for s in (self.x,self.y):s.valueChanged.connect(self.update_selection)
         self.side.currentIndexChanged.connect(self.update_selection)
         self.show_region()
+        group=getattr(window,'complex_project',None);moving=group is not None and group.transition is not None
+        self.cancel_move_button.setEnabled(moving)
+        self.move_button.setEnabled(not moving);self.move_next_button.setEnabled(not moving)
+        if moving:self.result.setText(group.transition.reason)
+
+    def move_group(self):
+        try:
+            if self.region is not self.window.landscape:raise ValueError('Для переезда выберите действующий регион; импорт другого DEM создаёт отдельный запуск')
+            from .complexes import ComplexProject
+            p=self.window.complex_project
+            if p is None:
+                p=ComplexProject(self.window.sim,self.region)
+                p.templates.extend(self.window.template_library)
+            section=self.section.value()-1 if self.project is not None else None
+            p.move_window([self.x.value(),self.y.value()],section=section)
+            self.window.complex_project=p;self.window.template_library=p.templates
+            self.window.running=True;self.window.credit=0.;self.window.play.setText('⏸ Pause')
+            self.accept()
+        except (ValueError,TypeError,KeyError) as error:self.result.setText(str(error))
+
+    def move_next(self):
+        if self.project is None:self.result.setText('Сначала откройте проект канала');return
+        current=(self.window.config.georeference or {}).get('channel',{}).get('section',self.project.active_section)
+        if current+1>=self.project.section_count:self.result.setText('Достигнут последний участок проекта');return
+        self.section.setValue(current+2);self.move_group()
+
+    def cancel_move(self):
+        p=self.window.complex_project
+        if p is not None:p.cancel_window_move()
+        self.accept();self.window.refresh(True)
+
+    def _new_run_allowed(self):
+        p=self.window.complex_project
+        if p is not None and p.transition is not None:
+            self.result.setText('Сначала завершите или отмените переезд группы');return False
+        return True
 
     def show_region(self):
         r=self.region.raster;h=r.height
@@ -81,6 +126,11 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.image.setRect(QtCore.QRectF(-rx/2,-ry/2,w+rx,t+ry))
         self.map.setRange(xRange=(0,w),yRange=(0,t),padding=.01)
         active=self.window.config.georeference
+        if getattr(self.window,'landscape',None) is self.region and active:
+            side=self.window.config.terrain.n*self.window.config.terrain.cell_size
+            index=self.side.findData(side)
+            if index<0:self.side.addItem(f'{side:g} м',side);index=self.side.count()-1
+            self.side.setCurrentIndex(index)
         origin=active['origin_m'] if getattr(self.window,'landscape',None) is self.region and active else (w/2,t/2)
         cell=self.region.cell_size
         self.x.setValue(round(origin[0]/cell)*cell);self.y.setValue(round(origin[1]/cell)*cell);self.clear_route(forget=False);self.update_selection()
@@ -118,6 +168,7 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.x.setValue(max(0,round((point[0]-side/2)/c)*c));self.y.setValue(max(0,round((point[1]-side/2)/c)*c))
 
     def clear_route(self,checked=False,*,forget=True):
+        if forget and not self._new_run_allowed():return
         self.points=[];self.route.clear();self.ground.clear();self.design.clear()
         self.endpoints.clear();self.project=None
         self.project_info.setText('Нарисуйте маршрут от моря в сухую впадину и нажмите «Разметить канал».')
@@ -133,6 +184,7 @@ class LandscapeDialog(QtWidgets.QDialog):
         except (ValueError,TypeError) as error:self.result.setText(str(error))
 
     def example_corridor(self):
+        if not self._new_run_allowed():return
         r=self.region.raster
         if 'ETOPO1' not in r.metadata.get('source','') or r.metadata['crs']!='EPSG:4326':
             self.result.setText('Этот пример предназначен для встроенного DEM Каттары.');return
@@ -146,6 +198,7 @@ class LandscapeDialog(QtWidgets.QDialog):
             angle_deg=self.angle.value(),side_m=self.project_side.currentData(),spoil_height_m=self.spoil.value())
 
     def prepare_channel(self):
+        if not self._new_run_allowed():return False
         try:
             candidate=ChannelProject.create(self.region.raster,self.points,**self.parameters())
             if self.project and self.project.identity==candidate.identity:
@@ -163,7 +216,7 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.design.setData(profile['distance_m'],[-p.depth_m]*len(profile['distance_m']))
         start=r.to_source(*p.points[0]);end=r.to_source(*p.points[-1])
         start_z=float(r.sample(*p.points[0]));end_z=float(r.sample(*p.points[-1]))
-        self.project_info.setText(f'Канал: {p.length/1000:.2f} км · дно шириной {p.width_m:g} м, отметка −{p.depth_m:g} м MSL · участков {p.section_count}, завершено {len(p.completed)}.\nНачало: {start[0]:.6f}, {start[1]:.6f}, {start_z:+.3f} м MSL, отступ по линии {p.shore_offset_m:g} м от берега DEM. Конец: {end[0]:.6f}, {end[1]:.6f}, {end_z:+.3f} м MSL — первый вход в выбранную сухую впадину.\nПлан выемки создаётся автоматически. После завершения участка сохраните прогресс и выберите следующий; новая расстановка начинает отдельный локальный запуск оборудования.')
+        self.project_info.setText(f'Канал: {p.length/1000:.2f} км · дно шириной {p.width_m:g} м, отметка −{p.depth_m:g} м MSL · участков {p.section_count}, завершено {len(p.completed)}.\nНачало: {start[0]:.6f}, {start[1]:.6f}, {start_z:+.3f} м MSL, отступ по линии {p.shore_offset_m:g} м от берега DEM. Конец: {end[0]:.6f}, {end[1]:.6f}, {end_z:+.3f} м MSL — первый вход в выбранную сухую впадину.\n«Переехать» сохраняет всю группу, заряды и общие часы. «Новая расстановка» создаёт отдельный локальный запуск оборудования.')
         self.result.setText(f"Готовый проект: ориентировочная выемка {profile['estimated_cut_m3']/1e6:.2f} млн м³. Точность берега определяется DEM ({r.resolution_m[0]:.0f}×{r.resolution_m[1]:.0f} м).")
         self.select_section()
 
@@ -175,6 +228,7 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.region.channel_project=self.project.to_data()
 
     def start_channel(self):
+        if not self._new_run_allowed():return
         if not self.prepare_channel():return
         try:
             self.window.commit_landscape()
@@ -192,6 +246,7 @@ class LandscapeDialog(QtWidgets.QDialog):
         except (ValueError,OSError,KeyError) as error:self.result.setText(str(error))
 
     def next_section(self):
+        if not self._new_run_allowed():return
         try:
             self.window.commit_landscape()
             if self.region.channel_project:self.project=ChannelProject.from_data(self.region.channel_project)
@@ -237,6 +292,7 @@ class LandscapeDialog(QtWidgets.QDialog):
         except (OSError,ValueError) as error:self.result.setText(str(error))
 
     def open_workspace(self):
+        if not self._new_run_allowed():return
         try:
             # Validate the new field before touching the current run.
             cell=self.region.cell_size
