@@ -90,7 +90,7 @@ def test_saved_run_and_hardware_template_retain_the_design(tmp_path):
 def test_cli_winter_preset_reports_actual_equipment_and_does_not_change_manual_mode(tmp_path):
     path=tmp_path/'power.json'
     result=subprocess.run([sys.executable,'-m','ats','--headless','--energy-preset','winter24h','--latitude','31','--steps','0','--power-report',str(path)],capture_output=True,check=True)
-    r=json.loads(result.stdout);power=json.loads(path.read_text())
+    r=json.loads(result.stdout);power=json.loads(path.read_text(encoding='utf-8'))
     assert r['energy_design_status']['state']=='ready'
     assert r['panel_area_m2']==power['panel_area_m2']
     assert r['day_of_year']==172 and power['day_of_year']==354
