@@ -8,7 +8,7 @@ from copy import copy,deepcopy
 from dataclasses import dataclass,asdict
 import math
 import numpy as np
-from .equipment import BatteryModule,PanelModule,KWH,resolve_config
+from .equipment import BatteryModule,PanelModule,KWH,resolve_config,PANEL_QUANTITY_LIMIT,BASE_BATTERY_LIMIT
 from .solar import sunlight
 
 
@@ -107,7 +107,7 @@ def _buffer_test(generation,load,capacity,reserve,step_hours,charge_limit_kw=mat
             minimum=min(minimum,stored)
         if day==0:first_day_final=stored
     solar=float(np.sum(generation)*step_hours*2);demand=float(np.sum(load)*step_hours*2)
-    return dict(unserved_kwh=float(unserved),curtailed_kwh=float(curtailed/2),minimum_kwh=float(minimum),
+    return dict(unserved_kwh=float(unserved),curtailed_kwh=float(curtailed/2),minimum_kwh=float(minimum),first_day_final_kwh=float(first_day_final),
                 initial_kwh=float(capacity),final_kwh=float(stored),solar_kwh=solar,demand_kwh=demand,
                 daily_storage_drift_kwh=float(stored-first_day_final),
                 energy_error_kwh=float(capacity+solar-stored-(demand-unserved)-curtailed))
@@ -215,7 +215,7 @@ def calculate_power(config,request=None,observation=None):
     if log and inverter>log.inverter_power_w/1000:warnings.append('Мощность преобразователя текущей базы меньше расчётной')
     if not log:warnings.append('В прежнем режиме нет сменных модулей: оценка запасов относится к комплексу ATS 2.0')
     elif not log.individual_chargers:warnings.append('Подбор нового комплекса выполняется для индивидуальных зарядных слотов')
-    if count is not None and count>10000:warnings.append('Требуется больше 10 000 стандартных панелей; уменьшите нагрузку или измените тип панели')
+    if count is not None and count>PANEL_QUANTITY_LIMIT:warnings.append(f'Требуется больше {PANEL_QUANTITY_LIMIT} стандартных панелей; уменьшите нагрузку или измените тип панели')
     if storage_count is not None and storage_count>1000:warnings.append('Требуется больше 1000 аккумуляторов базы')
     if max_spare>64 or robot_spares>128:warnings.append('Запас сменных батарей превышает предел одного комплекса')
     mobile_capacity=sum(d.battery/KWH*(1+max_spare) for d in models)
@@ -246,7 +246,7 @@ def sized_configuration(config,result):
     """New hardware recipe only; never mutate a live inventory or its energy."""
     if result['panel_count'] is None:raise ValueError('Для выбранного дня нет солнечного решения')
     if config.logistics is None:raise ValueError('Расчётный шаблон со сменными батареями требует режима ATS 2.0')
-    if result['panel_count']>10000 or result['base_battery_count']>1000 or result['drone_spare_sets']>64 or result['excavator_spare_modules']>128:
+    if result['panel_count']>PANEL_QUANTITY_LIMIT or result['base_battery_count']>BASE_BATTERY_LIMIT or result['drone_spare_sets']>64 or result['excavator_spare_modules']>128:
         raise ValueError('Расчёт превышает пределы одного комплекса')
     if any(row['spare_sets'] is None for row in result['drones']):raise ValueError('Включите зарядные устройства модулей')
     c=equipment_copy(config);p=PanelModule(**result['panel_type']);p.quantity=result['panel_count']

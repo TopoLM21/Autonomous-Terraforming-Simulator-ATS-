@@ -85,7 +85,7 @@ def test_gui_accepts_ten_thousand_panels_and_refreshes_the_live_passport(monkeyp
     host=MainWindow(experiment_config(with_map_size(Config(),160)));host.timer.stop()
     dialog=EquipmentDialog(host.config);original=host.sim
     try:
-        assert dialog.base.panel_quantities.controls[0].maximum()==10000
+        assert dialog.base.panel_quantities.controls[0].maximum()==PANEL_QUANTITY_LIMIT
         dialog.base.panel_quantities.controls[0].setValue(10000)
         assert host.apply_equipment(dialog.value())=='applied'
         assert host.sim is original and original.time==0 and host.panels.value()==10000

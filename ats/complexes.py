@@ -31,6 +31,9 @@ class ComplexTemplate:
         # Initial staging-map estimate only. Real field placement is checked by
         # Simulation; vehicle dimensions are deliberately not inferred from it.
         side=max(64,math.ceil((math.sqrt(c.base.panel_area)+32)/32)*32)
+        if c.energy_design:side=max(side,math.ceil(c.energy_design['required_map_side_m']/32)*32)
+        from .maps import workspace_cell
+        c.terrain.cell_size=workspace_cell(min(1024,side),c.terrain.cell_size)
         c.terrain.n=round(min(1024,side)/c.terrain.cell_size)
         c.validate()
         return cls(name.strip(),c,deepcopy(power_result['request']) if power_result else None,deepcopy(power_result))

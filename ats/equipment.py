@@ -19,7 +19,7 @@ def station_offset(index,spacing):
 
 KWH=3_600_000.0
 BASE_BATTERY_LIMIT=1000
-PANEL_QUANTITY_LIMIT=10000
+PANEL_QUANTITY_LIMIT=100000
 
 
 def positive(value,label,zero=False):

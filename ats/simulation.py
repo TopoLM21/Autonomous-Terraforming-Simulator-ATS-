@@ -1086,4 +1086,9 @@ class Simulation:
                     mass_error_kg=float(v)) for m,v in zip(t.soil.profile.materials,error)],
                 max_material_mass_error_kg=float(np.abs(error).max()))
         if self.shared_site is not None:result['mass_error_kg']=self.shared_site.mass_error()
+        if full and getattr(self.config,'energy_design',None):
+            from .winter_power import design_status
+            result['energy_design']=self.config.energy_design
+            state,message=design_status(self.config)
+            result['energy_design_status']=dict(state=state,message=message)
         return result

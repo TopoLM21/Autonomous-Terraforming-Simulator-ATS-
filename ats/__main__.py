@@ -53,6 +53,12 @@ def _design_outputs(args,config,observation=None):
     from .power_design import PowerRequest,calculate_power
     from .complexes import ComplexTemplate
     from pathlib import Path
+    if config.energy_design is not None and not args.continuous_design and not args.measured_power:
+        from .winter_power import design_report
+        report=design_report(config,config.energy_design)
+        if args.power_report:Path(args.power_report).write_text(json.dumps(report,ensure_ascii=False,allow_nan=False,indent=2)+'\n',encoding='utf-8')
+        if args.save_complex_template:ComplexTemplate.capture(config,'Суточный зимний комплекс').save(args.save_complex_template)
+        return
     request=PowerRequest(work_hours=args.work_hours,start_hour=args.work_start_hour,drone_utilization=args.drone_duty/100,
                          source='measured' if args.measured_power else 'equipment')
     if args.continuous_design:
@@ -162,6 +168,7 @@ def main():
     parser.add_argument('--complexes',type=int,default=1,help='Working complexes, 1..20; use --shared-site for one physical map')
     parser.add_argument('--shared-site',action='store_true',help='One shared physical terrain, work dispatcher and airspace for all complexes')
     parser.add_argument('--continuous-design',action='store_true',help='Automatically size 24-hour solar/storage and modular crawler platforms')
+    parser.add_argument('--energy-preset',choices=('winter24h','manual'),help='Winter-checked 24h startup recipe; automatic for a new uncustomized GUI, explicit for headless experiments')
     parser.add_argument('--work-hours',type=float,default=24,help='Design assumption: operating hours per solar day')
     parser.add_argument('--work-start-hour',type=float,help='Design assumption: shift start in local solar hours')
     parser.add_argument('--drone-duty',type=float,default=50,help='Design assumption: percent of shift spent flying')
@@ -321,6 +328,20 @@ def main():
                 from .complexes import ComplexTemplate
                 desired=ComplexTemplate.capture(config).config.terrain.n*config.terrain.cell_size
                 config=with_map_size(config,max(desired,config.terrain.n*config.terrain.cell_size))
+        prepared_sim=None
+        manual_hardware=any((args.configuration,args.equipment,args.complex_template,args.plan,
+            args.panel_area is not None,args.base_batteries is not None,args.battery_modules is not None,
+            args.drone_spare_sets is not None,args.excavator_spare_batteries is not None,
+            args.continuous_design,args.batch_experiments,args.compare_fleet,args.complexes>1,args.shared_site,
+            args.dem,args.qattara,args.landscape))
+        winter_default=(args.energy_preset=='winter24h' or args.energy_preset is None and
+                        not args.headless and mode!='legacy' and not manual_hardware)
+        if winter_default:
+            if mode=='legacy':raise ValueError('Зимний суточный комплекс требует ATS 2.0')
+            if initial_stock:raise ValueError('Шаблон содержит дополнительный запас: сохраните его комплектацию или выполните новый подбор через интерфейс')
+            from .winter_power import ready_simulation
+            prepared_sim,design=ready_simulation(config,allow_resize=args.map_size is None)
+            config=prepared_sim.config
         if args.save_configuration:
             from .experiments import save_configuration
             save_configuration(args.save_configuration,config)
@@ -338,7 +359,7 @@ def main():
                 from .comparison import compare_fleets
                 report = compare_fleets(config,[int(n) for n in args.compare_fleet.split(',')],args.steps)
             else:
-                sim = Simulation(config,initial_stock=initial_stock)
+                sim = prepared_sim or Simulation(config,initial_stock=initial_stock)
                 project=_make_project(sim,region,args)
                 if project is not None:
                     report=_run_project(project,args.steps,args.save_landscape)
@@ -354,6 +375,10 @@ def main():
             if args.batch_experiments:blocked=any(row['state']=='BLOCKED' for row in report)
             return 2 if blocked else 0
         from .gui import launch
+        if prepared_sim is not None:
+            from .checkpoint import Session
+            project=_make_project(prepared_sim,region,args)
+            return launch(config,session=Session(prepared_sim,region,{},complex_project=project))
         if args.complexes>1 or args.shared_site or initial_stock:
             from .checkpoint import Session
             sim=Simulation(config,initial_stock=initial_stock);project=_make_project(sim,region,args)

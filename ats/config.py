@@ -146,6 +146,7 @@ class Config:
     legacy_laser_equipment: dict | None = None
     soil_profile: object = None  # SoilProfile; None preserves pre-layer scenarios/saves
     initial_soil: dict | None = None  # sparse fine columns for a regional window
+    energy_design: dict | None = None  # reviewed hardware/climate design; no live SOC is stored here
 
     def drone_models(self):
         from copy import deepcopy
@@ -236,3 +237,10 @@ class Config:
             require(bool(np.all(h>=t.floor)), "DEM ниже неподвижного основания")
         require(0 < d.winch_efficiency <= 1 and d.gravity > 0, "Неверные параметры лебёдки/гравитации")
         require(dust.downsample >= 1 and isinstance(dust.downsample, int) and dust.lifetime > 0 and dust.diffusion >= 0 and dust.strength >= 0 and dust.height_scale > 0 and dust.concentration_scale > 0, "Неверная модель пыли")
+        if self.energy_design is not None:
+            info=self.energy_design
+            require(isinstance(info,dict) and info.get('version')==1 and
+                    info.get('mode') in ('renewable','one_day_storage'), 'Неверный расчёт энергетической комплектации')
+            require(isinstance(info.get('signature'),str) and len(info['signature'])==64, 'Потерян паспорт энергетической комплектации')
+            from .power_design import PowerRequest
+            PowerRequest(**info['request']).validate()

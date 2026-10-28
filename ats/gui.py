@@ -55,7 +55,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.complex_project=getattr(session,'complex_project',None) if session else None
         self.template_library=(self.complex_project.templates if self.complex_project is not None else
                                list((session.ui or {}).get('complex_templates',[])) if session else [])
-        self.power_request_state=(session.ui or {}).get('power_request') if session else None
+        self.power_request_state=((session.ui or {}).get('power_request') if session else None) or (
+            (self.config.energy_design or {}).get('request'))
         self._session_path=None
         self.running = False
         self._equipment_resume = None
@@ -136,6 +137,9 @@ class MainWindow(QtWidgets.QMainWindow):
         legend = QtWidgets.QLabel("Рельеф: синий — выемка, песочный — исходный уровень, светлый — насыпь | План: голубой — выемка, зелёный — засыпка, оранжевый — отвал; розовый — профиль")
         legend.setWordWrap(True)
         left_layout.addWidget(legend)
+        self.energy_status=QtWidgets.QLabel();self.energy_status.setWordWrap(True)
+        self.energy_status.linkActivated.connect(lambda _:self.show_power_design())
+        left_layout.addWidget(self.energy_status)
         self.plan_editor=PlanEditor(config,self)
         left_layout.addWidget(self.plan_editor);self.plan_editor.hide()
         self.view_box=BrushViewBox()
@@ -813,6 +817,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.season.blockSignals(False)
         power = sun.irradiance*self.panels.value()*self.config.base.panel_efficiency/1000
         self.panel_info.setText(f"Ясное небо, горизонтальные панели. Полдень: {sun.irradiance:.0f} Вт/м² → {power:.2f} кВт; световой день {sun.daylight_hours:.1f} ч.\nВремя — местное солнечное; календарь 365 дней.")
+        self.update_energy_status()
+
+    def update_energy_status(self):
+        from .winter_power import design_status
+        state,message=design_status(self.config,self.latitude.value())
+        if abs(self.panels.value()-self.config.base.panel_area)>1e-6:
+            state='stale';message='Площадь в предпросмотре изменена · требуется перепроверка энергетики'
+        self.energy_status.setText(f'<a href="power">{message}</a>')
+        self.energy_status.setProperty('designState',state)
+        self.energy_status.setToolTip('Открыть расчёт. Широта и ручные настройки не заменяют оборудование автоматически. Зимний статус относится к расчётному профилю нагрузки, не к запасу заряда в эту секунду.')
 
     def replace_simulation(self, config):
         sim = Simulation(config)  # validate before discarding the current state
@@ -1089,6 +1103,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.refresh_telemetry(report)
 
     def refresh_telemetry(self, report):
+        self.update_energy_status()
         s,t,d,b=self.sim,self.sim.terrain,self.sim.drone,self.sim.base
         spec=report['base_specification']
         body=' × '.join(f'{value:.2f}' for value in spec['body_dimensions_m'])

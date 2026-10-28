@@ -45,7 +45,10 @@ class PowerDesignDialog(QtWidgets.QDialog):
         self.source.setCurrentIndex(max(0,self.source.findData(request.source)));form.addRow('Профиль нагрузки',self.source)
         self.name=QtWidgets.QLineEdit('Рабочий комплекс');form.addRow('Название шаблона',self.name)
         self.auto_layout=QtWidgets.QCheckBox('Автокомпоновка платформ · круглосуточно');form.addRow(self.auto_layout)
+        self.winter_check=QtWidgets.QCheckBox('Проверять зимний минимум этой широты')
+        self.winter_check.setChecked(bool(host.config.energy_design));form.addRow(self.winter_check)
         self.continuous_button=QtWidgets.QPushButton('Подобрать комплекс 24/7');self.continuous_button.clicked.connect(self.calculate_continuous);form.addRow(self.continuous_button)
+        self.winter_button=QtWidgets.QPushButton('Подобрать 24 ч + зимний минимум');self.winter_button.clicked.connect(self.calculate_winter);form.addRow(self.winter_button)
         self.calculate_button=QtWidgets.QPushButton('Рассчитать');self.calculate_button.clicked.connect(self.calculate);form.addRow(self.calculate_button)
         self.save_button=QtWidgets.QPushButton('Сохранить рассчитанный шаблон…');self.save_button.clicked.connect(self.save_template);form.addRow(self.save_button)
         self.start_button=QtWidgets.QPushButton('Новая миссия с этой комплектацией');self.start_button.clicked.connect(self.start_template);form.addRow(self.start_button)
@@ -60,6 +63,7 @@ class PowerDesignDialog(QtWidgets.QDialog):
         self.table.setMinimumHeight(150);self.table.setMaximumHeight(225);profile_layout.addWidget(self.table)
         self.info=QtWidgets.QLabel();self.info.setWordWrap(True);layout.addWidget(self.info)
         layout.insertWidget(1,self.continuous_button)
+        layout.insertWidget(2,self.winter_button)
         footer=QtWidgets.QHBoxLayout()
         for button in (self.calculate_button,self.save_button,self.start_button):footer.addWidget(button)
         layout.addLayout(footer)
@@ -68,8 +72,18 @@ class PowerDesignDialog(QtWidgets.QDialog):
         fit_window(self,1180,790)
 
     def calculate_continuous(self):
+        self.winter_check.setChecked(False)
         self.auto_layout.setChecked(True);self.controls['work_hours'].setValue(24);self.source.setCurrentIndex(0)
         self.controls['drone_utilization'].setValue(85);self.controls['excavator_utilization'].setValue(100);self.controls['energy_margin'].setValue(30);self.calculate()
+
+    def calculate_winter(self):
+        self.auto_layout.setChecked(True);self.winter_check.setChecked(True);self.source.setCurrentIndex(0)
+        from .winter_power import default_request
+        values=asdict(default_request())
+        fractions={'drone_utilization','excavator_utilization','payload_fraction','solar_factor','reserve_soc','energy_margin','laser_coverage'}
+        for key,control in self.controls.items():
+            if values.get(key) is not None:control.setValue(values[key]*100 if key in fractions else values[key])
+        self.calculate()
 
     def request(self):
         values={k:s.value() for k,s in self.controls.items()}
@@ -79,10 +93,16 @@ class PowerDesignDialog(QtWidgets.QDialog):
     def calculate(self):
         try:
             request=self.request();self.design_source=equipment_copy(self.host.config)
-            if self.auto_layout.isChecked():
+            self.design_source.base.latitude_deg=self.host.latitude.value()
+            self.design_source.base.start_day_of_year=self.host.calendar.date().dayOfYear()
+            if self.auto_layout.isChecked() or self.winter_check.isChecked():
                 request.work_hours=24.;request.source='equipment';self.controls['work_hours'].setValue(24);self.source.setCurrentIndex(0)
             observation=self.host.sim.report(full=False) if request.source=='measured' else None
-            if self.auto_layout.isChecked():
+            if self.winter_check.isChecked():
+                from .winter_power import design_winter,design_report
+                self.design_source,design=design_winter(self.design_source,request)
+                result=design_report(self.design_source,design)
+            elif self.auto_layout.isChecked():
                 from .base_layout import design_continuous
                 self.design_source,result=design_continuous(self.design_source,request)
             else:result=calculate_power(self.design_source,request,observation)
@@ -122,11 +142,20 @@ class PowerDesignDialog(QtWidgets.QDialog):
                 notes.append(f"Двухсуточная проверка: недопоставка {result['storage_check']['unserved_kwh']:.6f} кВт·ч; баланс {result['storage_check']['energy_error_kwh']:.2g} кВт·ч.")
             notes.append('Расчёт сменных комплектов предполагает отдельный зарядный слот для каждого модуля. Фактическая работа проверяется симуляцией маршрутов и очередей.')
             self.info.setText('\n'.join(notes));self.save_button.setEnabled(template is not None);self.start_button.setEnabled(template is not None)
+            if self.winter_check.isChecked():
+                d=result['winter_design'];audit=d['winter']
+                status='повторяемый суточный режим обеспечен' if audit['repeatable'] else 'ежедневное солнечное восполнение не обеспечено'
+                self.info.setText(f"Зимний контроль: день {d['winter_day_of_year']}, {d['latitude_deg']:+.3f}° · {status}.\n"
+                    f"Первые сутки: остаток {audit['first_day_final_kwh']:.1f} кВт·ч; дефицит {audit['first_day_unserved_kwh']:.6f} кВт·ч. "
+                    f"Изменение запаса на следующих сутках: {audit['storage_check']['daily_storage_drift_kwh']:+.6f} кВт·ч. "
+                    f"Без солнца запас базы: {audit['no_sun_base_autonomy_hours']:.1f} ч.\n"+self.info.text())
+                self.chart.setTitle('Зимний расчётный день · установленная комплектация')
         except (ValueError,TypeError,KeyError) as error:
             self.result=None;self.info.setText(str(error));self.save_button.setEnabled(False);self.start_button.setEnabled(False)
 
     def make_template(self):
         if self.result is None:raise ValueError('Сначала выполните расчёт')
+        if self.winter_check.isChecked():return ComplexTemplate.capture(self.design_source,self.name.text())
         return ComplexTemplate.capture(self.design_source,self.name.text(),self.result)
 
     def start_template(self):
@@ -134,7 +163,16 @@ class PowerDesignDialog(QtWidgets.QDialog):
             from .power_design import sized_configuration
             from .maps import with_map_size
             from .simulation import Simulation
-            template=self.make_template();c=sized_configuration(self.design_source,self.result)
+            template=self.make_template()
+            if self.winter_check.isChecked():
+                from .winter_power import ready_simulation
+                request=PowerRequest(**self.result['winter_design']['request'])
+                sim,_=ready_simulation(self.design_source,request,allow_resize=self.design_source.reference_height is None)
+                region=self.host.landscape if sim.config.georeference else None
+                self.host.install_simulation(sim,region);self.host.template_library.append(template)
+                self.host.refresh(True);self.info.setText('Зимний комплекс готов. Начат новый запуск с явно учтённым стартовым зарядом; нажмите Start.')
+                return
+            c=sized_configuration(self.design_source,self.result)
             if c.reference_height is None:
                 side=max(c.terrain.n*c.terrain.cell_size,template.config.terrain.n*template.config.terrain.cell_size)
                 c=with_map_size(c,side)
