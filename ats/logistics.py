@@ -767,20 +767,47 @@ class Logistics:
                 d.transition(DS.TRANSFER_TAKEOFF)
                 s.drone_event(d,f'возвращается в слот {slot+1} для смены инструмента')
 
+    def dock_service_ready(self):
+        """The workshop needs a stationary base and real bus power, not all PV.
+
+        Historical aggregate fields retain their original commissioning policy.
+        Existing swaps may finish while a local move is pending; BatteryService
+        separately prevents starting another swap during that preparation.
+        """
+        s=self.sim
+        if s.base.destination is not None or getattr(self,'regional_folded',False):return False
+        if getattr(s,'regional_stage',None) in ('PACK','DRIVE','ARRIVE'):return False
+        if getattr(self,'solar_array',None) is not None:return True
+        return self.field_ready and not self.base_pack_elapsed
+
     def tick_tool_changes(self):
         """Reserve workshop power before battery chargers, without changing inventory early."""
         s=self.sim
-        if not self.field_ready or self.base_pack_elapsed or s.base.destination is not None or s.relocation_pending is not None:return
+        if not self.dock_service_ready() or s.relocation_pending is not None:return
         for d in s.drones:
             if (d.identifier not in self.tool_targets or not d.docked or d.charge_requested
                     or d.identifier in self.active or d.identifier in self.direct_ids or d.identifier in self.recall_ids
                     or d.serial in self.battery_service.drone_swaps):continue
+            if self.group is not None and any(member is d for member in self.group.participants):
+                self.wait_reasons[d.identifier]='Ожидание завершения совместного переноса';continue
             owner=f'tool_{d.serial}'
             ids=[f'hook_{d.serial}',f'grabber_{d.serial}']
-            if not self.inventory.reserve(ids,owner):continue
+            missing=[id for id in ids if id not in self.inventory.items]
+            if missing:
+                self.wait_reasons[d.identifier]='Нет инструмента в инвентаре: '+', '.join(missing);continue
+            mounted=f'grabber_{d.serial}' if d.attachment=='GRABBER' else f'hook_{d.serial}'
+            wanted=f'grabber_{d.serial}' if self.tool_targets[d.identifier]=='GRABBER' else f'hook_{d.serial}'
+            current,target=self.inventory.items[mounted],self.inventory.items[wanted]
+            if current.location!=L.DRONE_MOUNT or current.holder_id!=f'drone_{d.serial}':
+                self.wait_reasons[d.identifier]='Текущее крепление инструмента требует восстановления';continue
+            if target.location!=L.BASE_STORAGE or target.holder_id!='base':
+                self.wait_reasons[d.identifier]=f'Инструмент {wanted} ещё не доставлен на базу';continue
+            if not self.inventory.reserve(ids,owner):
+                self.wait_reasons[d.identifier]='Инструмент зарезервирован другим заданием';continue
             d.state=DS.CHANGING_TOOL
             if not self.use_station(100.):
                 self.wait_reasons[d.identifier]='нет энергии для привода станции';continue
+            self.wait_reasons[d.identifier]='работает станция'
             elapsed=self.tool_changes.get(d.serial,0.)+1
             self.tool_changes[d.serial]=elapsed
             if elapsed<self.config.attachment_seconds:continue
@@ -791,6 +818,7 @@ class Logistics:
             self.inventory.move(mounted,L.DRONE_MOUNT,f'drone_{d.serial}',d.position,'INSTALLED',owner)
             d.attachment=target;self._tool_mass(d,self.inventory.items[mounted].mass_kg)
             self.inventory.release(owner);self.tool_targets.pop(d.identifier);self.tool_changes.pop(d.serial)
+            self.wait_reasons.pop(d.identifier,None)
             d.state=DS.DOCKED;s.drone_event(d,f'установлен инструмент {target}')
 
     def yield_service_pads(self):
@@ -869,7 +897,8 @@ class Logistics:
             return 'Зарядка до 100%' if d.docked else 'Очередь к зарядному доку'
         if d.identifier in self.tool_targets:
             if d.state==DS.CHANGING_TOOL:return 'Смена инструмента: '+self.wait_reasons.get(d.identifier,'работает станция')
-            return 'Ожидание станции смены инструмента' if d.docked else 'Очередь к станции смены инструмента'
+            detail=self.wait_reasons.get(d.identifier,'')
+            return ('Ожидание станции смены инструмента'+(': '+detail if detail else '')) if d.docked else 'Очередь к станции смены инструмента'
         if self.group is not None:return 'Подготовка совместного переноса'
         if self.excavator is not None and self.excavator.state.value=='WAITING_RELOCATION':
             return 'Сбор команды для переноса Крота'
@@ -1151,7 +1180,7 @@ class Logistics:
                 if d.docked and s.base.destination is None:d.state=DS.CHARGING;d.charging_seconds+=1.
                 elif d.state==DS.WAIT_GROUND:s._enqueue(d)
         s._assign_slots()
-        if s.base.destination is None and self.field_ready and not self.base_pack_elapsed:
+        if self.dock_service_ready():
             self.battery_service.tick_drone_swaps()
         self.tick_tool_changes()
         consumers=self.battery_service.charging()

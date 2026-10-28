@@ -1,0 +1,302 @@
+{
+  "stage": "Dock servicing during physical solar assembly",
+  "base_commit": "de22c4e5c64a3ced11e38b652562f05d6424f893",
+  "branch": "main",
+  "fix_published": false,
+  "source_sha256": "1aa0d6cd864d109255091866b1bac0e577390b789da81fa28f9e20846d5c7263",
+  "tests_sha256": "f04c69f8269c1e6216f0b19818fe61f61843e2ffabf1434a496da5ad12b7f616",
+  "environment": {
+    "python": "3.12.14",
+    "numpy": "2.5.4",
+    "qt": "6.12.0",
+    "platform": "linux"
+  },
+  "pytest": {
+    "tests": 512,
+    "shards": [
+      {
+        "tests": 133,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "shard": 0,
+        "seconds": 157.317
+      },
+      {
+        "tests": 158,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "shard": 1,
+        "seconds": 157.562
+      },
+      {
+        "tests": 221,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "shard": 2,
+        "seconds": 158.627
+      }
+    ],
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "files": 44,
+    "new_regressions": 14
+  },
+  "cli_groups": [
+    {
+      "name": "python -m ats --headless --mode legacy --steps 10000 --seed 42",
+      "exit_code": 0
+    },
+    {
+      "name": "ATS 2.0 logistics smoke test",
+      "exit_code": 0
+    },
+    {
+      "name": "Offline real DEM smoke test",
+      "exit_code": 0
+    },
+    {
+      "name": "Save and resume airborne simulation",
+      "exit_code": 0
+    },
+    {
+      "name": "Prepared Qattara channel smoke test",
+      "exit_code": 0
+    },
+    {
+      "name": "Layered soil and complete snapshot continuation",
+      "exit_code": 0
+    },
+    {
+      "name": "Energy sizing and executable equipment template",
+      "exit_code": 0
+    },
+    {
+      "name": "Two complexes on common regional project and exact resume",
+      "exit_code": 0
+    },
+    {
+      "name": "Twenty complexes on one physical map and exact snapshot continuation",
+      "exit_code": 0
+    },
+    {
+      "name": "Continuous design includes real platform hardware",
+      "exit_code": 0
+    }
+  ],
+  "static_checks": [
+    "compileall ats",
+    "git diff --check"
+  ],
+  "published_base_ci": {
+    "commit": "de22c4e5c64a3ced11e38b652562f05d6424f893",
+    "run_id": 40708250298,
+    "url": "https://github.com/TopoLM21/Autonomous-Terraforming-Simulator-ATS-/actions/runs/40708250298",
+    "conclusion": "success",
+    "tests_per_job": 498,
+    "jobs": [
+      {
+        "name": "test (ubuntu-latest, 3.11)",
+        "conclusion": "success"
+      },
+      {
+        "name": "test (windows-latest, 3.12)",
+        "conclusion": "success"
+      },
+      {
+        "name": "test (ubuntu-latest, 3.12)",
+        "conclusion": "success"
+      },
+      {
+        "name": "test (windows-latest, 3.11)",
+        "conclusion": "success"
+      }
+    ],
+    "applies_to_new_local_fix": false
+  },
+  "reproduction": {
+    "published_commit_regression_tests_failed": 2,
+    "started_tool_elapsed_s": 10,
+    "after_20_seconds_of_pv_assembly_elapsed_s": 10,
+    "base_energy_j": 108000000,
+    "tools_reserved_by": "tool_1",
+    "controlled_battery_soc": 0.2,
+    "physical_field_before_fix_state": "CHARGING",
+    "roof_only_before_fix_state": "SWAPPING_BATTERIES",
+    "full_compatible_spare_modules_in_control": 2
+  },
+  "standard_winter_preset": {
+    "latitude": 55.0,
+    "panels_m2": 30115.0,
+    "base_kwh": 3050.0,
+    "landing_slots": 4,
+    "spare_sets_per_drone": 12,
+    "spare_modules": 96,
+    "stock_soc": [
+      1.0
+    ],
+    "swap_station": true,
+    "swap_seconds": 60.0,
+    "port_w": 1500.0,
+    "charge_eff": 0.9,
+    "slot_count": 108,
+    "drones": [
+      {
+        "serial": 1,
+        "capacity_kwh": 5.0,
+        "modules": [
+          "drone_1_battery_1",
+          "drone_1_battery_2"
+        ],
+        "threshold": 0.3,
+        "reserve": 0.2,
+        "initial_soc": 1.0
+      },
+      {
+        "serial": 2,
+        "capacity_kwh": 5.0,
+        "modules": [
+          "drone_2_battery_1",
+          "drone_2_battery_2"
+        ],
+        "threshold": 0.3,
+        "reserve": 0.2,
+        "initial_soc": 1.0
+      },
+      {
+        "serial": 3,
+        "capacity_kwh": 5.0,
+        "modules": [
+          "drone_3_battery_1",
+          "drone_3_battery_2"
+        ],
+        "threshold": 0.3,
+        "reserve": 0.2,
+        "initial_soc": 1.0
+      },
+      {
+        "serial": 4,
+        "capacity_kwh": 5.0,
+        "modules": [
+          "drone_4_battery_1",
+          "drone_4_battery_2"
+        ],
+        "threshold": 0.3,
+        "reserve": 0.2,
+        "initial_soc": 1.0
+      }
+    ],
+    "rotation": [
+      {
+        "number": 1,
+        "name": "Тяжёлый 60",
+        "modules_per_set": 2,
+        "flight_kw": 38.29466091020269,
+        "battery_kw": 38.29466091020269,
+        "mean_charging_kw": 34.03969858684683,
+        "laser_input_kw": 0.0,
+        "usable_kwh": 3.5,
+        "active_minutes": 5.483793171388301,
+        "recharge_minutes": 77.77777777777777,
+        "spare_sets": 12,
+        "recharge_input_kwh": 3.888888888888889,
+        "empty_to_full_input_kwh": 5.555555555555555,
+        "total_sets": 13,
+        "max_utilization": 0.8457692937503308,
+        "allocated_spare_sets": 12
+      },
+      {
+        "number": 2,
+        "name": "Тяжёлый 60",
+        "modules_per_set": 2,
+        "flight_kw": 38.29466091020269,
+        "battery_kw": 38.29466091020269,
+        "mean_charging_kw": 34.03969858684683,
+        "laser_input_kw": 0.0,
+        "usable_kwh": 3.5,
+        "active_minutes": 5.483793171388301,
+        "recharge_minutes": 77.77777777777777,
+        "spare_sets": 12,
+        "recharge_input_kwh": 3.888888888888889,
+        "empty_to_full_input_kwh": 5.555555555555555,
+        "total_sets": 13,
+        "max_utilization": 0.8457692937503308,
+        "allocated_spare_sets": 12
+      },
+      {
+        "number": 3,
+        "name": "Тяжёлый 60",
+        "modules_per_set": 2,
+        "flight_kw": 38.29466091020269,
+        "battery_kw": 38.29466091020269,
+        "mean_charging_kw": 34.03969858684683,
+        "laser_input_kw": 0.0,
+        "usable_kwh": 3.5,
+        "active_minutes": 5.483793171388301,
+        "recharge_minutes": 77.77777777777777,
+        "spare_sets": 12,
+        "recharge_input_kwh": 3.888888888888889,
+        "empty_to_full_input_kwh": 5.555555555555555,
+        "total_sets": 13,
+        "max_utilization": 0.8457692937503308,
+        "allocated_spare_sets": 12
+      },
+      {
+        "number": 4,
+        "name": "Тяжёлый 60",
+        "modules_per_set": 2,
+        "flight_kw": 38.29466091020269,
+        "battery_kw": 38.29466091020269,
+        "mean_charging_kw": 34.03969858684683,
+        "laser_input_kw": 0.0,
+        "usable_kwh": 3.5,
+        "active_minutes": 5.483793171388301,
+        "recharge_minutes": 77.77777777777777,
+        "spare_sets": 12,
+        "recharge_input_kwh": 3.888888888888889,
+        "empty_to_full_input_kwh": 5.555555555555555,
+        "total_sets": 13,
+        "max_utilization": 0.8457692937503308,
+        "allocated_spare_sets": 12
+      }
+    ]
+  },
+  "bounded_natural_start": {
+    "before_model_seconds": 871,
+    "after_model_seconds": 632,
+    "wall_budget_seconds": 45,
+    "same_user_save": false,
+    "observed_reported_charging_symptom": false,
+    "conclusion": "Bounded natural starts did not reproduce the user episode. Both defects were separately reproduced with controlled state."
+  },
+  "runtime_menu": {
+    "commit": "de22c4e5c64a3ced11e38b652562f05d6424f893",
+    "path": [
+      "Управление ▾",
+      "Склад / диспетчер",
+      "Диспетчер"
+    ],
+    "action_visible": true,
+    "action_enabled": true,
+    "trigger_opens_window": true,
+    "reset_enabled_in_ats2": true,
+    "reset_enabled_in_legacy": false,
+    "sidebar_button_present": false,
+    "screenshot": "management-menu-runtime.png"
+  },
+  "compatibility": {
+    "snapshot_version": 7,
+    "new_schema": false,
+    "legacy_aggregate_commissioning_policy_preserved": true,
+    "real_v1_v2_v3_fixtures_in_full_suite": true
+  },
+  "limits": [
+    "This is a confirmed controlled reproduction, not a diagnosis of the user save.",
+    "The 24h energy preset sizes mobile spare turnover; it does not simulate all dock queues.",
+    "Published CI verifies de22c4e only; this fix has local Linux checks and no new push.",
+    "No flying-drone assembly jobs, wheeled battery carriers, per-pack platform anchors or new battery strategy were added."
+  ]
+}
