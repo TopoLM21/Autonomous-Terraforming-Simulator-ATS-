@@ -54,6 +54,7 @@ class BatteryService:
     def ready(self, compatibility, location=L.BASE_STORAGE, minimum_soc=.999999):
         packs=self.world.inventory.select(BatteryModule) if compatibility=='base' else self.modules()
         return [b for b in packs if b.location==location
+                if not self.world.battery_platforms or location!=L.BASE_STORAGE or self.world.battery_platforms.service_ready(module_id=b.id) and b.id not in self.world.battery_platforms.returns
                 if b.compatibility==compatibility and b.soc>=minimum_soc and not b.reserved_by]
 
     def modules(self):
@@ -87,13 +88,17 @@ class BatteryService:
         for b in w.inventory.select(BatteryModule,L.WORKSITE_RACK):
             if b.compatibility=='excavator' and (b.state=='AWAITING_PICKUP' or
                     b.state=='STORED_READY' and b.soc<.999999):
-                w.new_job('RECOVER_EMPTY_EXCAVATOR_BATTERY',b,b.position,w.sim.base.position,2)
+                if w.battery_platforms and not w.battery_platforms.service_ready(module_id=b.id):continue
+                destination=w.battery_platforms.receiving_position(b.id) if w.battery_platforms else w.sim.base.position
+                w.new_job('RECOVER_EMPTY_EXCAVATOR_BATTERY',b,b.position,destination,2)
 
     def charging(self):
         w=self.world;inv=w.inventory;c=w.config
         eligible={}
         for b in self.modules():
             if b.reserved_by or b.soc>=1-1e-12:continue
+            if w.battery_platforms and b.id in w.battery_platforms.returns:continue
+            if w.battery_platforms and not w.battery_platforms.service_ready(module_id=b.id):continue
             if b.location in (L.BASE_STORAGE,L.BASE_CHARGER):eligible[b.id]=b
         for id in list(self.queue):
             if id not in eligible:self.queue.remove(id)
@@ -109,6 +114,14 @@ class BatteryService:
             if b.location==L.BASE_CHARGER and b.id not in self.ports:
                 b.location=L.BASE_STORAGE;b.state='QUEUED_FOR_CHARGE'
         consumers=[]
+        budgets={}
+        if w.battery_platforms:
+            p=w.battery_platforms
+            budgets={id:p.settings['service_bus_kw']*1000-(p.settings['handling_w'] if id in p.handlers else 0.) for id in p.carriers}
+            for d in w.sim.drones:
+                if d.docked and d.charge_requested and d.serial not in self.drone_swaps:
+                    id=p.dock_carrier(d.slot)
+                    if id in budgets:budgets[id]-=min(w.sim.base.config.charge_power,sum(inv.items[key].max_charge_w for key in d.battery_ids))
         for id in self.ports:
             b=inv.items[id]
             if b.location!=L.DRONE_MOUNT:b.location=L.BASE_CHARGER
@@ -118,7 +131,10 @@ class BatteryService:
             port=adapters.get(id)
             if port is None or port.pack is not b:adapters[id]=port=ChargePort(b)
             port.config.battery=b.capacity_j
-            consumers.append((port,min(c.port_power_w,b.max_charge_w)))
+            power=min(c.port_power_w,b.max_charge_w)
+            if w.battery_platforms:
+                id=w.battery_platforms.bindings[b.id]['platform_id'];power=max(0.,min(power,budgets[id]));budgets[id]-=power
+            consumers.append((port,power))
         return consumers
 
     def after_charging(self):
@@ -182,7 +198,8 @@ class BatteryService:
         w=self.world;c=w.config;inv=w.inventory
         if not c.swap_station or c.inverter_power_w<200.:return
         for d in w.sim.drones:
-            if not d.docked or not d.charge_requested:continue
+            if not d.docked or not d.charge_requested and d.serial not in self.drone_swaps:continue
+            if not w.dock_service_ready(d.slot,continuing=d.serial in self.drone_swaps):continue
             owner=f'drone_swap_{d.serial}'
             if d.serial not in self.drone_swaps:
                 if w.sim.relocation_pending is not None or d.identifier in w.recall_ids:continue
@@ -190,15 +207,27 @@ class BatteryService:
                 ids=[]
                 for old in mounted:
                     ready=self.ready(old.compatibility)
+                    if w.battery_platforms:
+                        import numpy as np
+                        ready.sort(key=lambda b:(float(np.linalg.norm(np.asarray(b.position)-d.position)),b.id))
                     match=next((b for b in ready if b.id not in ids and b.capacity_j==old.capacity_j and b.mass_kg==old.mass_kg),None)
                     if match is None:break
                     ids.append(match.id)
                 if len(ids)==len(mounted) and inv.reserve(ids+d.battery_ids,owner):
                     self.drone_swaps[d.serial]={'ids':ids,'old_ids':list(d.battery_ids),'elapsed':0.}
+                    if w.battery_platforms:
+                        if not all(w.battery_platforms.service_ready(module_id=id) for id in [*ids,*d.battery_ids]):
+                            inv.release(owner);del self.drone_swaps[d.serial];continue
+                        if not w.battery_platforms.acquire(owner,d.slot,[*ids,*d.battery_ids]):
+                            inv.release(owner);del self.drone_swaps[d.serial];continue
+                        self.drone_swaps[d.serial].update(phase='FETCH',cancelled=False)
+                        self._handling_leg(d,self.drone_swaps[d.serial],'FETCH')
                     w.sim.drone_event(d,f'смена батарей: {", ".join(d.battery_ids)} → {", ".join(ids)}; {c.drone_swap_seconds:g} с')
             swap=self.drone_swaps.get(d.serial)
             if swap is None:continue
             d.state=DS.SWAPPING_BATTERIES
+            if w.battery_platforms:
+                self._physical_drone_swap(d,swap,owner);continue
             # Mechanical dock uses finite base energy, separately from charging.
             power=200.
             if not w.use_station(power):continue
@@ -215,6 +244,64 @@ class BatteryService:
             self.drone_swap_counts[d.serial]=self.drone_swap_counts.get(d.serial,0)+1
             w.sim.drone_event(d,'роботизированная смена батарей завершена')
             w.progress_at=w.sim.time
+
+    def _handling_leg(self,d,swap,phase):
+        """Powered transfer carriage between fixed rack mounts and exchange bay."""
+        import math
+        import numpy as np
+        w=self.world;p=w.battery_platforms.settings;inv=w.inventory;owner=f'drone_swap_{d.serial}'
+        ids=swap['ids'] if phase in ('FETCH','ABORT') else swap['old_ids']
+        swap.update(phase=phase,elapsed=0.,starts={id:list(inv.items[id].position) for id in ids})
+        targets={id:(d.position.tolist() if phase=='FETCH' else w.battery_platforms.slot_position(id).tolist()) for id in ids}
+        swap['targets']=targets
+        swap['paths']={id:w.battery_platforms.handling_path(swap['starts'][id],targets[id]) for id in ids}
+        segments={id:np.diff(np.asarray(path),axis=0) for id,path in swap['paths'].items()}
+        distance=max((float(np.linalg.norm(v,axis=1).sum()) for v in segments.values()),default=0.)
+        swap['duration']=max(p['handling_min_seconds'],math.ceil(distance/p['handling_speed_m_s']))
+        swap['handling_j']=sum(inv.items[id].mass_kg*(9.80665*(float(np.maximum(v[:,2],0).sum())+.1*float(np.linalg.norm(v[:,:2],axis=1).sum()))+p['handling_speed_m_s']**2)/.8 for id,v in segments.items())
+        for id in ids:inv.move(id,L.IN_TRANSFER,f'station_transfer_{d.serial}',inv.items[id].position,'BATTERY_HANDLING',owner)
+
+    def _physical_drone_swap(self,d,swap,owner):
+        import numpy as np
+        from .drone import DroneState as DS
+        w=self.world;inv=w.inventory;phase=swap['phase'];p=w.battery_platforms.settings
+        if swap.get('cancelled') and phase=='FETCH':
+            self._handling_leg(d,swap,'ABORT');phase='ABORT'
+        power=200. if phase=='SWAP' else p['handling_w']+swap['handling_j']/swap['duration']
+        if not w.use_station(power):
+            w.wait_reasons[d.identifier]='Нет питания механизма замены батарей';return
+        swap['elapsed']+=1.
+        duration=w.config.drone_swap_seconds if phase=='SWAP' else swap['duration']
+        if phase!='SWAP':
+            from .battery_platforms import path_position
+            for id,start in swap['starts'].items():
+                inv.items[id].position=tuple(path_position(swap['paths'][id],min(1.,swap['elapsed']/duration)))
+        if swap['elapsed']<duration:return
+        if phase=='FETCH':swap.update(phase='SWAP',elapsed=0.);return
+        if phase=='SWAP':
+            for id in swap['old_ids']:inv.move(id,L.IN_TRANSFER,f'station_transfer_{d.serial}',d.position,'BATTERY_HANDLING',owner)
+            for id in swap['ids']:
+                inv.move(id,L.DRONE_MOUNT,f'drone_{d.serial}',d.position,'INSTALLED',owner);inv.items[id].swaps+=1
+            d.battery_ids=list(swap['ids']);d.battery=sum(inv.items[id].energy_j for id in d.battery_ids);d.charge_cycles+=1
+            self._handling_leg(d,swap,'RETURN');return
+        ids=swap['ids'] if phase=='ABORT' else swap['old_ids']
+        for id in ids:inv.move(id,L.BASE_STORAGE,'base',w.battery_platforms.slot_position(id),'STORED_READY' if inv.items[id].soc>=1-1e-12 else 'QUEUED_FOR_CHARGE',owner)
+        inv.release(owner);del self.drone_swaps[d.serial];d.state=DS.DOCKED
+        w.battery_platforms.release(owner)
+        if phase!='ABORT':
+            d.charge_requested=False;self.drone_swap_count+=1;self.drone_swap_counts[d.serial]=self.drone_swap_counts.get(d.serial,0)+1
+        w.progress_at=w.sim.time
+        w.sim.drone_event(d,'Замена завершена; отработанные модули закреплены в зарядных гнёздах' if phase!='ABORT' else 'Замена отменена; модули возвращены в шкаф')
+
+    def cancel_drone_swap(self,serial):
+        swap=self.drone_swaps.get(serial)
+        if swap is None:return False
+        if self.world.battery_platforms:
+            swap['cancelled']=True
+            if swap['phase']=='SWAP':self._handling_leg(next(d for d in self.world.sim.drones if d.serial==serial),swap,'ABORT')
+        else:
+            self.drone_swaps.pop(serial);self.world.inventory.release(f'drone_swap_{serial}')
+        return True
 
     def slot_snapshot(self):
         inv=self.world.inventory

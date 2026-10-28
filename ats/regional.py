@@ -109,6 +109,7 @@ def own_ground_clear(actor,terrain,a,b,*,base=False):
         return True
     own=s.base;r=own.config.radius;margin=actor.config.support_half_width_m+.2
     boxes=list(layout_footprints(own.layout_spec,own.position)) if own.config.layout is not None else [(own.position[0]-r,own.position[1]-r,2*r,2*r)]
+    if s.logistics.battery_platforms:boxes.extend(s.logistics.battery_platforms.rectangles())
     return not any(np.any((points[:,0]>x-margin)&(points[:,0]<x+w+margin)&(points[:,1]>y-margin)&(points[:,1]<y+h+margin)) for x,y,w,h in boxes)
 
 
@@ -152,7 +153,10 @@ class RegionalTransition:
             from .base_layout import layout_footprints
             def footprint(point):
                 boxes=list(layout_footprints(b.layout_spec,point)) if b.config.layout is not None else [(point[0]-r,point[1]-r,2*r,2*r)]
-                if p.shared_site:boxes.append(p.shared_site.pads_bounds(s.config,point))
+                if p.shared_site:boxes.append(p.shared_site.pads_bounds(s.config,point,getattr(b,'layout_spec',None)))
+                if s.logistics.battery_platforms:
+                    from .battery_platforms import deployment_rectangles
+                    boxes.extend(deployment_rectangles(b.layout_spec,point))
                 return (min(x for x,y,w,h in boxes),min(y for x,y,w,h in boxes),
                         max(x+w for x,y,w,h in boxes)-min(x for x,y,w,h in boxes),
                         max(y+h for x,y,w,h in boxes)-min(y for x,y,w,h in boxes))
@@ -171,10 +175,13 @@ class RegionalTransition:
                 if not probe.safe_path(point,s.terrain):continue
                 probe.position=np.r_[point+offset,self.preview.sample(*(point+offset))]
                 if not probe.safe_path(point+offset,self.preview):continue
-                if p.shared_site and not p.shared_site.pads_clear(s.config,point):continue
+                from .battery_platforms import deployment_safe
+                if b.config.layout is not None and not deployment_safe(b.layout_spec,point,s.terrain):continue
+                if p.shared_site and not p.shared_site.pads_clear(s.config,point,getattr(b,'layout_spec',None)):continue
                 if p.shared_site:
                     target_site=copy(p.shared_site);target_site.core=self.preview
-                    if not target_site.pads_clear(s.config,point+offset):continue
+                    if not target_site.pads_clear(s.config,point+offset,getattr(b,'layout_spec',None)):continue
+                if b.config.layout is not None and not deployment_safe(b.layout_spec,point+offset,self.preview):continue
                 e=s.logistics.excavator;eg=None
                 if e:
                     support=e.config.support_half_width_m
@@ -216,7 +223,7 @@ class RegionalTransition:
             s=u.simulation;w=s.logistics;e=w.excavator
             if self.phase=='ARRIVE' and s._terrain_active:return False
             if (s.pending_equipment is not None or w.active or w.group or w.direct_ids or w.tool_changes or w.tool_targets or w.battery_service.robot_swap or
-                    w.battery_service.drone_swaps or s.base.destination is not None or
+                    w.battery_service.drone_swaps or w.battery_platforms and w.battery_platforms.returns or s.base.destination is not None or
                     any(not d.grounded or abs(d.cargo)>1e-8 for d in s.drones) or
                     any(c.soil_kg>1e-8 for c in w.containers) or e and (e.bucket_kg>1e-8 or e.active_container)):
                 return False
@@ -227,11 +234,15 @@ class RegionalTransition:
         # Omit them only from this future-route preview, never live collisions.
         fields=[u.simulation.logistics.field_rect for u in self.project.units]
         try:
-            for u in self.project.units:u.simulation.logistics.field_rect=None
+            for u in self.project.units:
+                w=u.simulation.logistics;w.field_rect=None
+                if w.battery_platforms:w.battery_platforms.route_preview=True
             self.project.shared_site.invalidate_geometry()
             result=self._routes_without_fields()
         finally:
-            for u,field in zip(self.project.units,fields):u.simulation.logistics.field_rect=field
+            for u,field in zip(self.project.units,fields):
+                w=u.simulation.logistics;w.field_rect=field
+                if w.battery_platforms:w.battery_platforms.route_preview=False
             self.project.shared_site.invalidate_geometry()
         self.last_failed_route=None if result else self._route_environment()
         return result
@@ -293,6 +304,8 @@ class RegionalTransition:
             array=getattr(w,'solar_array',None)
             handling=2*array.energy_budget() if array else 400*w.field_setup_seconds()
             required=cost*1.3+b.config.idle_power*(duration+2*w.field_setup_seconds())+handling
+            if w.battery_platforms:
+                required+=2*w.battery_platforms.energy_budget()+2*b.config.idle_power*sum(w.battery_platforms.settings[k] for k in ('support_seconds','apron_seconds','connect_seconds'))
             budget[u.id]=[required,0.,b.motion_power(s.drones,s.terrain)]
             e=w.excavator
             if e:
@@ -311,11 +324,11 @@ class RegionalTransition:
             required,robot_required,drive_power=budget[u.id]
             if required>b.config.battery:self.reason=f'{u.name}: ёмкости базы недостаточно для переезда; добавьте аккумуляторы';ready=False
             elif b.battery<required:self.reason=f'{u.name}: ждём заряд базы для переезда';ready=False
-            if drive_power>min(w.config.inverter_power_w,sum(w.inventory.items[id].max_discharge_w for id in w.base_battery_ids)):
+            if drive_power>min(w.config.inverter_power_w,w.storage_power('discharge')):
                 self.reason=f'{u.name}: недостаточная мощность привода/инвертора';ready=False
             blocked=getattr(self,'blocked_power',None)
             if blocked and blocked[0]==u.id and blocked[2]==self.project.shared_site.core.revision:
-                if min(w.config.inverter_power_w,sum(w.inventory.items[id].max_discharge_w for id in w.base_battery_ids))<blocked[1]:
+                if min(w.config.inverter_power_w,w.storage_power('discharge'))<blocked[1]:
                     self.reason=f'{u.name}: недостаточная мощность для подъёма; требуется {blocked[1]/1000:.1f} кВт';ready=False
             e=w.excavator
             if e:
@@ -385,7 +398,7 @@ class RegionalTransition:
             needed=actor.motion_power(s.drones,s.terrain)*min(1.,distance/actor.config.speed)
             needed+=mass*9.80665*max(0.,s.terrain.sample(*point)-actor.position[2])/efficiency
             w=s.logistics
-            if needed>min(w.config.inverter_power_w,sum(w.inventory.items[pack].max_discharge_w for pack in w.base_battery_ids)):
+            if needed>min(w.config.inverter_power_w,w.storage_power('discharge')):
                 self.blocked_power=(id,needed,self.project.shared_site.core.revision)
                 reason=f'{id}: недостаточно мощности для следующего шага'
         if reason:
@@ -394,7 +407,8 @@ class RegionalTransition:
     def after_step(self):
         p=self.project
         if self.phase=='DEPLOY':
-            if all(u.simulation.logistics.field_ready and not getattr(u.simulation.logistics,'regional_folded',False) for u in p.units):self._release('COMPLETED')
+            if all(u.simulation.logistics.field_ready and not getattr(u.simulation.logistics,'regional_folded',False) and
+                   (u.simulation.logistics.battery_platforms is None or u.simulation.logistics.battery_platforms.ready) for u in p.units):self._release('COMPLETED')
             return
         if self.phase=='DRAIN' and self._settled():
             if not self._plan_routes():self.retry_at=p.time+30;self._stage('ENERGY',self.reason);return
@@ -426,13 +440,15 @@ class RegionalTransition:
                         tool=w.inventory.items[f'grabber_{d.serial}' if d.attachment=='GRABBER' else f'hook_{d.serial}']
                         w._tool_mass(d,tool.mass_kg+hoist.mass_kg)
                         w.inventory.move(hoist.id,L.DRONE_MOUNT,f'drone_{d.serial}',d.position,'INSTALLED')
-                self._stage('PACK','Складывание солнечных полей');return
+                    if w.battery_platforms:w.battery_platforms.request('PACK')
+                self._stage('PACK','Сборка солнечных и батарейных платформ');return
         if self.phase=='PACK':
             for u in p.units:
                 w=u.simulation.logistics
                 if w.base_pack_elapsed>=w.field_setup_seconds():
                     w.regional_folded=True;w.field_rect=None;w.field_ready=False;w.field_elapsed=0.;w.base_pack_elapsed=0.
-            if all(getattr(u.simulation.logistics,'regional_folded',False) for u in p.units):
+            if all(getattr(u.simulation.logistics,'regional_folded',False) and
+                   (u.simulation.logistics.battery_platforms is None or u.simulation.logistics.battery_platforms.stowed) for u in p.units):
                 p.shared_site.invalidate_geometry();self.retry_at=0.;self._stage('DRIVE','Движение всей группы')
             return
         if self.phase=='DRIVE' and self.actor_index>=len(self.actors):
@@ -455,6 +471,7 @@ class RegionalTransition:
         self.actor_index=0;self.retry_at=self.project.time+30
         for u in self.project.units:
             s=u.simulation;w=s.logistics;s.base.destination=None
+            if w.battery_platforms:w.battery_platforms.request('DEPLOY')
             if w.excavator:
                 w.excavator.destination=None
                 if w.excavator.state==ES.MOVING_LOCAL:w.excavator.state=ES.IDLE
@@ -517,6 +534,7 @@ class RegionalTransition:
         for u in p.units:
             s=u.simulation
             if s.terrain.front is not None:s._base_front_anchor=s.terrain.front.start
+            if s.logistics.battery_platforms:s.logistics.battery_platforms.request('DEPLOY')
         self._stage('DEPLOY','Развёртывание солнечных полей на новом участке');self.retry_at=0.
         self._deploy_fields()
 
@@ -537,6 +555,7 @@ class RegionalTransition:
         for u in p.units:
             s=u.simulation;w=s.logistics
             s.base.destination=None;s.regional_stage=None;s.landing_requested=self.previous_landing[u.id]
+            if w.battery_platforms:w.battery_platforms.request('DEPLOY')
             for job in w.jobs:
                 if job.kind=='PACK_FOR_RELOCATION' and job.status=='QUEUED':w.cancel_job(job.id)
             if w.excavator:

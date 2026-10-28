@@ -338,12 +338,14 @@ class SharedSite:
         k=int(np.argmax(np.diff(bounds)));wanted=(bounds[k]+bounds[k+1])/2
         index=ids[int(np.argmin(abs(along-wanted)))];return np.array([t.x.ravel()[index],t.y.ravel()[index]])
 
-    def pads_bounds(self,config,point):
+    def pads_bounds(self,config,point,spec=None):
         from .equipment import station_offset
         from .base_layout import rotate_offset
         f=config.fleet
-        points=np.array([np.asarray(point)+rotate_offset(config.base.layout,[dx,station_offset(i,f.pad_spacing)])
-            for i in range(max(f.count,f.charge_slots)) for dx in (0.,-f.waiting_offset)])
+        offsets=(spec or {}).get('dock_offsets',[])
+        distance=max(f.waiting_offset,config.base.radius+3.+f.separation) if offsets else f.waiting_offset
+        points=np.array([np.asarray(point)+rotate_offset(config.base.layout,[dx,offsets[i][1] if i<len(offsets) else station_offset(i,f.pad_spacing)])
+            for i in range(max(f.count,f.charge_slots)) for dx in (0.,-distance)])
         lower=points.min(axis=0)-f.separation;upper=points.max(axis=0)+f.separation
         return (*lower,*(upper-lower))
 
@@ -358,25 +360,29 @@ class SharedSite:
             boxes=list(layout_footprints(b.layout_spec,b.position)) if b.config.layout is not None else [(b.position[0]-r,b.position[1]-r,2*r,2*r)]
             top=float(b.position[2]+b.config.roof_height);self._obstacle_top=max(self._obstacle_top,top)
             boxes=[(*box,top) for box in boxes]
-            boxes.append((*self.pads_bounds(s.config,b.position[:2]),float(b.position[2])))
+            boxes.append((*self.pads_bounds(s.config,b.position[:2],getattr(b,'layout_spec',None)),float(b.position[2])))
             if s.logistics and s.logistics.excavator and s.logistics.excavator.state.value!='AIR_TRANSPORT':
                 e=s.logistics.excavator;q=e.config.support_half_width_m
                 boxes.append((e.position[0]-q,e.position[1]-q,2*q,2*q,float(e.position[2]+1.)))
             if s.logistics:
                 for rect in s.logistics.solar_ground_rects():boxes.append((*rect,float(b.position[2]+1.4)))
+                if s.logistics.battery_platforms:
+                    for rect in s.logistics.battery_platforms.rectangles():boxes.append((*rect,float(b.position[2]+.5)))
             for xx,yy,ww,hh,z in boxes:
                 margin=b.config.speed if b.destination is not None else 0.
                 row=(unit.id,float(xx-margin),float(yy-margin),float(ww+2*margin),float(hh+2*margin),z)
                 for gx in range(math.floor(row[1]/16),math.floor((row[1]+row[3])/16)+1):
                     for gy in range(math.floor(row[2]/16),math.floor((row[2]+row[4])/16)+1):self._ground_grid.setdefault((gx,gy),[]).append(row)
 
-    def pads_clear(self,config,point):
+    def pads_clear(self,config,point,spec=None):
         from .equipment import station_offset
         from .base_layout import rotate_offset
         t=self.core;f=config.fleet;n=t.height.shape[0];side=n*t.cell
+        offsets=(spec or {}).get('dock_offsets',[])
+        distance=max(f.waiting_offset,config.base.radius+3.+f.separation) if offsets else f.waiting_offset
         for i in range(max(f.count,f.charge_slots)):
-            for dx in (0.,-f.waiting_offset):
-                x,y=point+rotate_offset(config.base.layout,[dx,station_offset(i,f.pad_spacing)])
+            for dx in (0.,-distance):
+                x,y=point+rotate_offset(config.base.layout,[dx,offsets[i][1] if i<len(offsets) else station_offset(i,f.pad_spacing)])
                 if not t.cell<x<side-t.cell or not t.cell<y<side-t.cell:return False
                 patch=t.patch(x,y,f.separation)
                 mask=(t.x[patch]-x)**2+(t.y[patch]-y)**2<f.separation**2

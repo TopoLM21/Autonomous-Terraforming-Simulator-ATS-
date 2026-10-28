@@ -135,8 +135,10 @@ def calculate_power(config,request=None,observation=None):
         charge=(sum(m.quantity*min(log.port_power_w,log.drone_pack_charge_w) for m in d.equipment.batteries)/1000
                 if log is not None else b.charge_power/1000/max(1,len(models)))
         battery_kw=max(0.,active[i]-laser_out[i]);input_kw=battery_kw*duty/eff
+        from .battery_platforms import enabled
+        handling=20. if enabled(c) else 0.  # local rack feed/return; congestion remains a mission effect
         rotation=_rotation(d.battery/KWH,max(d.reserve,d.charge_threshold),battery_kw,duty,charge,eff,
-                           swap_seconds=log.drone_swap_seconds if log else 0.)
+                           swap_seconds=log.drone_swap_seconds+handling if log else 0.)
         if rotation['spare_sets'] is None:warnings.append(f'{d.name}: зарядная мощность равна нулю')
         if duty>rotation['max_utilization']+1e-9:warnings.append(f'{d.name}: смена модулей ограничивает заданную долю полёта')
         rows.append(dict(number=i+1,name=d.name,modules_per_set=packs,flight_kw=active[i],battery_kw=battery_kw,
@@ -197,12 +199,15 @@ def calculate_power(config,request=None,observation=None):
             storage=max(storage,200*2*log.field_deployment_seconds/KWH/(1-request.reserve_soc))
         storage_count=max(0,math.ceil(storage/battery.capacity_kwh-1e-12)) if demand>0 else 0
         # Verify capacity and the same 2C/10C limits as physical base modules.
+        from .battery_platforms import converter_rating
+        converter=converter_rating(c,storage_count,battery)
         test=_buffer_test(generation,load,storage_count*battery.capacity_kwh,request.reserve_soc,step,
-                          storage_count*battery.capacity_kwh*2,storage_count*battery.capacity_kwh*10)
+                          min(converter,storage_count*battery.capacity_kwh*2),min(converter,storage_count*battery.capacity_kwh*10))
         while (test['unserved_kwh']>1e-7 or test['daily_storage_drift_kwh']< -1e-7) and storage_count<=1000:
             storage_count+=1
+            converter=converter_rating(c,storage_count,battery)
             test=_buffer_test(generation,load,storage_count*battery.capacity_kwh,request.reserve_soc,step,
-                              storage_count*battery.capacity_kwh*2,storage_count*battery.capacity_kwh*10)
+                              min(converter,storage_count*battery.capacity_kwh*2),min(converter,storage_count*battery.capacity_kwh*10))
     max_spare=max((row['spare_sets'] or 0 for row in rows),default=0)
     spare_modules=max_spare*sum(row['modules_per_set'] for row in rows)
     for row in rows:row['allocated_spare_sets']=max_spare

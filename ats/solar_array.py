@@ -194,6 +194,9 @@ class SolarArray:
             a,b=np.array(first[0]),np.array(first[1]);lo=np.minimum(a,b)-1.;hi=np.maximum(a,b)+1.
             self.reserved_rects.append((*lo,*(hi-lo)))
         self.issue=''
+        if world.battery_platforms:
+            self.storage_mounts={q.id:world.battery_platforms.slot_position(q.id) for q in self.sections}
+        self._cycle_seconds=None
 
     def add_inventory(self,world):
         from .inventory import Item,Location as L
@@ -203,7 +206,7 @@ class SolarArray:
         world.inventory.add_many(items)
         self.support_ids=[o.id for o in items]
         for q in self.sections:
-            for id in [q.id,*q.panel_ids]:world.inventory.items[id].position=tuple(self.crews[q.carrier].mount)
+            for id in [q.id,*q.panel_ids]:world.inventory.items[id].position=tuple(getattr(self,'storage_mounts',{}).get(q.id,self.crews[q.carrier].mount))
         for crew in self.crews:world.inventory.items[crew.id].position=tuple(crew.mount)
 
     @property
@@ -218,7 +221,9 @@ class SolarArray:
     def duration(self):
         if getattr(self,'_cycle_seconds',None) is not None:return self._cycle_seconds
         p=self.settings
-        self._cycle_seconds=max((sum(2*sum(math.ceil(float(np.linalg.norm(np.array(b)-a))/p['speed_m_s']) for a,b in zip(self.sections[i].route,self.sections[i].route[1:]))+max(p['install_seconds'],p['fold_seconds'])+90 for i in c.sections) for c in self.crews),default=0.)+1.
+        self._cycle_seconds=max((sum(2*sum(math.ceil(float(np.linalg.norm(np.array(b)-a))/p['speed_m_s']) for a,b in zip(self.sections[i].route,self.sections[i].route[1:]))+max(p['install_seconds'],p['fold_seconds'])+
+            2*max(45.,float(np.linalg.norm(getattr(self,'storage_mounts',{}).get(self.sections[i].id,c.mount)-c.home))/p['speed_m_s'])+
+            (max(45.,float(np.linalg.norm(getattr(self,'storage_mounts',{}).get(self.sections[i].id,c.mount)-c.mount))/p['speed_m_s']) if hasattr(self,'storage_mounts') else 0.) for i in c.sections) for c in self.crews),default=0.)+1.
         return self._cycle_seconds
 
     def energy_budget(self):
@@ -293,6 +298,9 @@ class SolarArray:
             if location==L.GROUND and id!=section.id:position[2]+=self.settings['support_height_m']
             world.inventory.move(id,location,holder,position,state)
 
+    def _store_target(self,crew,q):
+        return getattr(self,'storage_mounts',{}).get(q.id,crew.mount) if crew.carrying else crew.mount
+
     def step(self,world):
         from .inventory import Location as L
         p=self.settings;s=world.sim;t=s.terrain
@@ -311,9 +319,9 @@ class SolarArray:
                 world.inventory.move(crew.id,L.IN_TRANSFER,crew.id,crew.position,'SOLAR_SERVICE')
             q=self.sections[crew.active]
             if self.mode=='FOLD' and crew.phase=='LOAD_OUT':
-                crew.phase='STORE';self._lift_start(world,crew,q,crew.mount)
-            if crew.phase in ('LOAD_OUT','LEAVE_BASE','STORE'):
-                target=crew.mount if crew.phase=='STORE' else crew.home
+                crew.phase='STORE';self._lift_start(world,crew,q,self._store_target(crew,q))
+            if crew.phase in ('LOAD_OUT','LEAVE_BASE','STORE','RETURN_MOUNT'):
+                target=(self._store_target(crew,q) if crew.phase=='STORE' else crew.mount) if crew.phase in ('STORE','RETURN_MOUNT') else crew.home
                 joules=sum(world.inventory.items[id].mass_kg*9.80665*(max(0.,target[2]-origin[2])+p['rolling_resistance']*float(np.linalg.norm(target[:2]-origin[:2])))/p['drive_efficiency'] for id,origin in crew.payload_origins.items())
                 joules+=p['installer_mass_kg']*9.80665*(max(0.,target[2]-crew.lift_origin[2])+p['rolling_resistance']*float(np.linalg.norm(target[:2]-crew.lift_origin[:2])))/p['drive_efficiency']
                 if not world.use_station(p['mechanism_power_w']+joules/crew.lift_duration):continue
@@ -325,8 +333,12 @@ class SolarArray:
                 if crew.elapsed>=crew.lift_duration:
                     if crew.phase=='STORE':
                         if crew.carrying:q.state='STOWED';self._items(world,q,crew,L.BASE_MOUNT,'INSTALLED')
+                        if crew.carrying and hasattr(self,'storage_mounts'):
+                            crew.carrying=False;crew.phase='RETURN_MOUNT';self._lift_start(world,crew,q,crew.mount);continue
                         world.inventory.move(crew.id,L.BASE_STORAGE,'base',crew.mount,'STORED_READY')
                         crew.active=None;crew.phase='IDLE';crew.carrying=False
+                    elif crew.phase=='RETURN_MOUNT':
+                        world.inventory.move(crew.id,L.BASE_STORAGE,'base',crew.mount,'STORED_READY');crew.active=None;crew.phase='IDLE'
                     else:crew.phase='OUT' if crew.carrying else 'FETCH'
                 continue
             # A cancellation never teleports an outgoing loaded cassette home.
@@ -352,7 +364,7 @@ class SolarArray:
                         if crew.phase=='OUT':crew.phase='ASSEMBLE';q.state='ASSEMBLING';q.elapsed=0.;q.work_start_fraction=q.open_fraction
                         elif crew.phase=='FETCH':crew.phase='FOLD';q.state='FOLDING';q.elapsed=0.;q.work_start_fraction=q.open_fraction
                         else:
-                            crew.carrying=crew.phase=='RETURN_LOAD';crew.phase='STORE';self._lift_start(world,crew,q,crew.mount)
+                            crew.carrying=crew.phase=='RETURN_LOAD';crew.phase='STORE';self._lift_start(world,crew,q,self._store_target(crew,q))
             elif crew.phase in ('ASSEMBLE','FOLD'):
                 folding=crew.phase=='FOLD' or self.mode=='FOLD'
                 if not folding and not footprint_safe(t,q.rect,t.design_work|t.dump_mask,grade_deg=p['max_grade_deg'],relief_m=p['support_travel_m']):
@@ -372,6 +384,7 @@ class SolarArray:
         count=max(1,len(self.sections));duration=max(1.,self.duration())
         world.field_ready=self.ready;world.field_elapsed=duration*sum(q.state=='DEPLOYED' for q in self.sections)/count
         world.base_pack_elapsed=(duration*(sum(q.state=='STOWED' for q in self.sections)/count) if self.mode=='FOLD' else 0.)
+        if self.mode=='FOLD' and not self.stowed:world.base_pack_elapsed=min(world.base_pack_elapsed,duration*.999)
         if self.mode=='FOLD' and self.stowed:world.base_pack_elapsed=duration
         elif self.mode=='DEPLOY' and self.ready:world.field_elapsed=duration
 

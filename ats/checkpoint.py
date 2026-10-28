@@ -19,7 +19,7 @@ import numpy as np
 
 
 FORMAT='ATS_SIMULATION'
-VERSION=7
+VERSION=8
 MAX_BYTES=1_500_000_000
 MAX_NODES=2_000_000
 
@@ -27,10 +27,10 @@ MAX_NODES=2_000_000
 def _classes():
     from . import (config,equipment,simulation,solar_base,drone,terrain,planner,dust,
                    logistics,logistics_config,inventory,batteries,excavator,cooperative_lift,
-                   productivity,activity,plan,laser,workfront,landscape,soil,complexes,power_design,shared_site,regional,solar_array)
+                   productivity,activity,plan,laser,workfront,landscape,soil,complexes,power_design,shared_site,regional,solar_array,battery_platforms)
     modules=(config,equipment,simulation,solar_base,drone,terrain,planner,dust,logistics,
              logistics_config,inventory,batteries,excavator,cooperative_lift,productivity,
-             activity,plan,laser,workfront,landscape,soil,complexes,power_design,shared_site,regional,solar_array)
+             activity,plan,laser,workfront,landscape,soil,complexes,power_design,shared_site,regional,solar_array,battery_platforms)
     classes=[value for module in modules for value in vars(module).values()
              if isinstance(value,type) and value.__module__==module.__name__]
     return {c.__module__+'.'+c.__name__:c for c in [*classes,SimpleNamespace]}
@@ -229,6 +229,8 @@ def _validate(session):
         if w.sim is not s or w.battery_service.world is not w or w.active.keys()&w.direct_ids:
             raise ValueError('Нарушены ссылки диспетчера')
         w.inventory.validate()
+        if w.battery_platforms:
+            w.battery_platforms.validate();w.battery_platforms.audit_site()
         w.audit_solar_site()
         for container in w.containers:
             if container.soil is not None and container.soil.profile!=s.config.soil_profile:
@@ -310,7 +312,7 @@ def load_state(path):
                 raise ValueError('Сохранение превышает допустимый размер')
             if archive.getinfo('manifest.json').file_size>256_000_000:raise ValueError('Слишком большой список объектов')
             manifest=json.loads(archive.read('manifest.json'))
-            if manifest.get('format')!=FORMAT or type(manifest.get('version')) is not int or manifest['version'] not in (1,2,3,4,5,6,VERSION):
+            if manifest.get('format')!=FORMAT or type(manifest.get('version')) is not int or manifest['version'] not in (1,2,3,4,5,6,7,VERSION):
                 raise ValueError('Неизвестный формат или версия сохранения')
             decoder=_Decoder(archive,manifest['nodes']);root=decoder.decode(manifest['root'])
             if manifest['version']==1:_migrate_v1(decoder)
@@ -324,6 +326,7 @@ def load_state(path):
                 if isinstance(value,Config) and 'slope_model' not in vars(value):value.slope_model='legacy'
                 if isinstance(value,TerrainConfig) and 'compact_spoil' not in vars(value):value.compact_spoil=False
                 if isinstance(value,LogisticsConfig) and 'solar' not in vars(value):value.solar=None
+                if isinstance(value,LogisticsConfig) and 'battery_platforms' not in vars(value):value.battery_platforms=None
                 if isinstance(value,Terrain) and not hasattr(value,'dump_slope'):value.dump_slope=value.slope
         session=Session(root['simulation'],root['landscape'],root['ui'],manifest.get('runtime',{}),root.get('complex_project'))
         if session.landscape is not None:

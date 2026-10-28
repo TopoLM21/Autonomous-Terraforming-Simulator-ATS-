@@ -93,6 +93,11 @@ class ComplexTemplate:
                 from .solar_array import recipe,parameters
                 _,crews,frames,_=recipe(c.base.equipment.panels,log.solar)
                 mass+=frames+crews*parameters(log.solar)['installer_mass_kg']
+            from .battery_platforms import enabled
+            if enabled(c):
+                from .base_layout import solve_layout
+                extra=[(r['mass_kg']+(log.charger_slot_mass_kg if log.individual_chargers else 0.),r['capacity_kwh']) for r in self.stock or [] for _ in range(r['count'])]
+                mass+=solve_layout(c,extra=extra)['battery_hardware_kg']
         return float(mass)
 
     @classmethod
@@ -243,7 +248,9 @@ class ComplexProject:
         solar_hours=source.start_hour+self.time/3600;c.start_hour=solar_hours%24
         c.base.start_day_of_year=(source.base.start_day_of_year-1+int(solar_hours//24))%365+1
         id=f'complex_{self.next_id}';view=WorkTerrain(site.core,c,site,id)
-        extra=[(r['count']*(r['mass_kg']+(c.logistics.charger_slot_mass_kg if c.logistics and c.logistics.individual_chargers else 0.)),r['count']*r['capacity_kwh']) for r in template.stock or []]
+        extra=[]
+        for r in template.stock or []:
+            for _ in range(r['count']):extra.append((r['mass_kg']+(c.logistics.charger_slot_mass_kg if c.logistics and c.logistics.individual_chargers else 0.),r['capacity_kwh'],f'initial_stock_{len(extra)+1:05}'))
         spec=configure_layout(c,extra=extra);side=site.core.height.shape[0]*site.core.cell
         goal=site.placement_goal()
         extra_sites=[(p[1],p[2]) for p in (c.plan.channel or {}).get('operations',{}).get('base_sites',[])] if c.plan else []
@@ -255,10 +262,13 @@ class ComplexProject:
         for point in candidates:
             point=np.asarray(point,dtype=float)
             if point.shape!=(2,) or not np.all(np.isfinite(point)):raise ValueError('Неверные координаты базы')
-            rect=site.pads_bounds(c,point)
-            if site.ground_occupied(id,rect) or not site.pads_clear(c,point):continue
+            rect=site.pads_bounds(c,point,spec)
+            if site.ground_occupied(id,rect) or not site.pads_clear(c,point,spec):continue
             base=SolarBase(c.base,np.r_[point,view.sample(*point)])
             if spec:base.layout_spec=spec
+            if spec:
+                from .battery_platforms import deployment_safe
+                if not deployment_safe(spec,point,view):continue
             if base.safe_path(point,view):chosen=point;break
         if chosen is None:raise ValueError('Нет безопасного места для комплекса на общей карте. Увеличьте карту или уменьшите комплектацию')
         c.base.x,c.base.y=map(float,chosen)

@@ -32,9 +32,11 @@ def signature(config,latitude=None):
     # Canonical hardware is independent of a drone's current tool/SOC. Resolving
     # this detached copy must never reset the mounted tool mass in a live run.
     data=equipment_data(equipment_copy(config))
+    log=asdict(config.logistics) if config.logistics else None
+    if log is not None and log.get('battery_platforms') is None:log.pop('battery_platforms',None)
     data.update(latitude=float(config.base.latitude_deg if latitude is None else latitude),
                 peak=float(config.base.peak_irradiance),idle=float(config.base.idle_power),
-                logistics=asdict(config.logistics) if config.logistics else None)
+                logistics=log)
     return hashlib.sha256(json.dumps(data,sort_keys=True,allow_nan=False).encode()).hexdigest()
 
 
@@ -48,8 +50,10 @@ def audit_day(config,request,day):
                          for h in hours])*watts_per_irradiance*request.solar_factor/1000
     load=np.full(1440,reference['mean_power_kw'])
     capacity=c.base.battery/KWH
-    check=_buffer_test(generation,load,capacity,request.reserve_soc,1/60,
-                       capacity*2,capacity*10)
+    layout=configure_layout(c) if c.base.layout is not None else None
+    converter=layout.get('converter_power_w',float('inf'))/1000 if layout else float('inf')
+    charge=min(capacity*2,converter);discharge=min(capacity*10,converter)
+    check=_buffer_test(generation,load,capacity,request.reserve_soc,1/60,charge,discharge)
     # The discharge bus must also cover the bounded connected consumer peak.
     peak=reference['connected_peak_kw'];bus=c.logistics.inverter_power_w/1000
     solar=float(generation.sum()/60);demand=float(load.sum()/60)
@@ -60,9 +64,9 @@ def audit_day(config,request,day):
     stored=capacity;unserved=0.
     for pv,wanted in zip(generation,load):
         balance=float(pv-wanted)/60
-        if balance>=0:stored=min(capacity,stored+min(balance,capacity*2/60))
+        if balance>=0:stored=min(capacity,stored+min(balance,charge/60))
         else:
-            supplied=min(-balance,capacity*10/60,max(0.,stored-capacity*request.reserve_soc))
+            supplied=min(-balance,discharge/60,max(0.,stored-capacity*request.reserve_soc))
             stored-=supplied;unserved+=-balance-supplied
     one_day=one_day and unserved<1e-7 and bus>=peak-1e-7
     autonomy=capacity*(1-request.reserve_soc)/max(reference['mean_power_kw'],1e-12)

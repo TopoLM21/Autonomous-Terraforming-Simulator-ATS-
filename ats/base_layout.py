@@ -62,7 +62,7 @@ def equipment_totals(config,world=None,panels=None,batteries=None,extra=()):
         from .inventory import BatteryModule
         items=list(world.inventory.items.values())
         # Base batteries are replaced as a recipe; mobile packs keep real IDs.
-        mass=sum(o.mass_kg for o in items if o.kind not in ('CHASSIS','PLATFORM_CHASSIS','SOLAR_PANEL','SOLAR_FRAME','SOLAR_INSTALLER') and
+        mass=sum(o.mass_kg for o in items if o.kind not in ('CHASSIS','PLATFORM_CHASSIS','SOLAR_PANEL','SOLAR_FRAME','SOLAR_INSTALLER','BATTERY_PLATFORM_HARDWARE') and
                  o.id not in world.base_battery_ids)
         mass+=panel_mass+battery_mass+sum(d.config.equipment.frame_mass_kg for d in world.sim.drones)
         if world.excavator:mass+=log.excavator_dry_mass_kg
@@ -74,14 +74,17 @@ def equipment_totals(config,world=None,panels=None,batteries=None,extra=()):
         from .solar_array import recipe,parameters
         _,crews,solar_frame_mass,solar_volume=recipe(panel_recipes,log.solar)
         mass+=solar_frame_mass+crews*parameters(log.solar)['installer_mass_kg']
-    for mass_kg,kwh in extra:mass+=mass_kg;capacity+=kwh;battery_mass+=mass_kg
+    for entry in extra:
+        mass_kg,kwh=entry[:2];mass+=mass_kg;capacity+=kwh;battery_mass+=mass_kg
     return dict(payload_kg=float(mass),battery_kwh=float(capacity),panel_area_m2=float(area),
                 panel_mass_kg=panel_mass,battery_mass_kg=battery_mass,drones=len(c.fleet.models),pads=b.landing_slots,
                 solar_packed_m3=solar_volume,solar_frame_mass_kg=solar_frame_mass)
 
 
-def solve_layout(config,world=None,panels=None,batteries=None,extra=()):
+def solve_layout(config,world=None,panels=None,batteries=None,extra=(),base_records=None):
     p=parameters(config.base.layout);totals=equipment_totals(config,world,panels,batteries,extra)
+    from .battery_platforms import enabled,solve
+    if enabled(config):return solve(config,p,totals,world,panels,batteries,extra,base_records)
     length,width,height=p['platform_length_m'],p['platform_width_m'],p['platform_height_m']
     deck=length*width;dry=p['frame_base_kg']+deck*p['frame_kg_m2']+p['drive_mass_kg']
     volume=(totals['battery_kwh']*p['battery_litres_kwh']/1000+
@@ -120,7 +123,7 @@ def configure_layout(config,extra=()):
     if config.base.layout['auto_heading']:config.base.layout['heading_deg']=plan_heading(config)
     spec=solve_layout(config,extra=extra)
     config.base.equipment.chassis_mass_kg=spec['chassis_mass_kg']
-    config.base.radius=spec['dimensions_m'][0]/2;config.base.roof_height=spec['dimensions_m'][2]
+    config.base.radius=spec['dimensions_m'][0]/2;config.base.roof_height=spec.get('deck_height_m',spec['dimensions_m'][2])
     config.base.idle_power=spec['control_power_w']
     config.base.equipment.resolve(config.base,config.fleet)
     return spec
@@ -184,16 +187,37 @@ def support_report(base,terrain,drones=(),point=None,spec=None):
     p=spec['parameters'];point=base.position[:2] if point is None else np.asarray(point)
     actual=base.config.mass+sum(d.config.empty_mass+d.cargo for d in drones if d.docked)
     scale=actual/spec['packed_gross_mass_kg'];rows=[]
+    if 'bindings' not in spec:
+        # Historical missions keep their original aggregate reactions and cost.
+        for module in spec['platforms']:
+            centre=point+rotate_offset(p,module['offset_m']);bearing,traction,rolling=ground_properties(terrain,centre,p)
+            pressure=module['pressure_kpa']*scale
+            rows.append(dict(id=module['id'],pressure_kpa=pressure,bearing_kpa=bearing,
+                traction=traction,rolling_resistance=rolling,safe=pressure<=bearing))
+        return dict(platforms=rows,max_pressure_kpa=max(r['pressure_kpa'] for r in rows),
+            minimum_bearing_kpa=min(r['bearing_kpa'] for r in rows),safe=all(r['safe'] for r in rows),
+            rolling_resistance=max(r['rolling_resistance'] for r in rows),traction=min(r['traction'] for r in rows),
+            tipping_slope_x=p['platform_width_m']/2/max(.01,spec['centre_of_gravity_m'][2])/1.3,
+            tipping_slope_y=p['platform_length_m']/2/max(.01,spec['centre_of_gravity_m'][2])/1.3)
+    from .battery_platforms import owner_world
+    world=owner_world(base,terrain)
+    manager=getattr(world,'battery_platforms',None)
+    loads=manager.loads() if manager and spec is base.layout_spec else None
     for module in spec['platforms']:
         centre=point+rotate_offset(p,module['offset_m']);bearing,traction,rolling=ground_properties(terrain,centre,p)
-        pressure=module['pressure_kpa']*scale
+        mass=loads[module['id']]['mass_kg'] if loads else module['gross_mass_kg']*scale
+        cg=loads[module['id']]['centre_of_gravity_m'] if loads else [module['centre_of_gravity_m'][0],module['centre_of_gravity_m'][1]-module['offset_m'][1],module['centre_of_gravity_m'][2]]
+        pressure=mass*G/module['contact_area_m2']/1000
+        loaded=mass-module['dry_mass_kg']<=p['platform_payload_kg']+1e-7
+        balanced=abs(cg[0])<p['platform_width_m']/2/1.3 and abs(cg[1])<p['platform_length_m']/2/1.3
         rows.append(dict(id=module['id'],pressure_kpa=pressure,bearing_kpa=bearing,
-            traction=traction,rolling_resistance=rolling,safe=pressure<=bearing))
+            mass_kg=mass,centre_of_gravity_m=cg,overloaded=not loaded,balanced=balanced,
+            traction=traction,rolling_resistance=rolling,safe=pressure<=bearing and loaded and balanced))
     return dict(platforms=rows,max_pressure_kpa=max(r['pressure_kpa'] for r in rows),
         minimum_bearing_kpa=min(r['bearing_kpa'] for r in rows),safe=all(r['safe'] for r in rows),
         rolling_resistance=max(r['rolling_resistance'] for r in rows),traction=min(r['traction'] for r in rows),
-        tipping_slope_x=p['platform_width_m']/2/max(.01,spec['centre_of_gravity_m'][2])/1.3,
-        tipping_slope_y=p['platform_length_m']/2/max(.01,spec['centre_of_gravity_m'][2])/1.3)
+        tipping_slope_x=min((p['platform_width_m']/2-abs(r['centre_of_gravity_m'][0]))/max(.01,r['centre_of_gravity_m'][2])/1.3 for r in rows),
+        tipping_slope_y=min((p['platform_length_m']/2-abs(r['centre_of_gravity_m'][1]))/max(.01,r['centre_of_gravity_m'][2])/1.3 for r in rows))
 
 
 def layout_footprints(spec,point):
@@ -225,8 +249,9 @@ def apply_live_layout(world,spec):
     world.imported_mass_kg+=max(0.,delta);world.exported_mass_kg+=max(0.,-delta)
     eq.chassis_mass_kg=spec['chassis_mass_kg'];s.base.layout_spec=spec
     s.base.config.layout=dict(spec['parameters'])
-    s.base.config.radius=spec['dimensions_m'][0]/2;s.base.config.roof_height=spec['dimensions_m'][2]
+    s.base.config.radius=spec['dimensions_m'][0]/2;s.base.config.roof_height=spec.get('deck_height_m',spec['dimensions_m'][2])
     s.base.config.idle_power=spec['control_power_w']
+    if getattr(world,'battery_platforms',None) is not None:world.battery_platforms.install(spec)
     if s.shared_site is not None:s.shared_site.invalidate_geometry()
 
 
@@ -236,6 +261,8 @@ def preview_live_layout(world,**changes):
     base=deepcopy(world.sim.base);base.layout_spec=spec
     base.config.radius=spec['dimensions_m'][0]/2
     if not base.safe_path(base.position[:2],world.sim.terrain):raise ValueError('Новая компоновка платформ не помещается на текущей площадке')
+    from .battery_platforms import deployment_safe
+    if not deployment_safe(spec,base.position,world.sim.terrain,solar_rects=world.solar_ground_rects()):raise ValueError('Нет места для опор или сервисных проходов батарейных платформ')
     for x,y,w,h in layout_footprints(spec,base.position):
         for xx,yy,ww,hh in world.solar_ground_rects():
             if x<xx+ww and x+w>xx and y<yy+hh and y+h>yy:
@@ -254,6 +281,8 @@ def design_continuous(config,request=None):
     previous=None
     for _ in range(16):
         r=calculate_power(c,request);c=sized_configuration(c,r);spec=configure_layout(c)
+        if spec.get('battery_platforms'):
+            c.logistics.inverter_power_w=max(c.logistics.inverter_power_w,spec['drive_power_kw']*1000)
         key=(r['panel_count'],r['base_battery_count'],spec['platform_count'],c.base.idle_power)
         if key==previous:
             for name,value in site.items():setattr(c,name,value)

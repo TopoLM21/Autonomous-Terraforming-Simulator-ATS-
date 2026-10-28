@@ -11,7 +11,9 @@ from ats.checkpoint import save_state,load_state
 
 
 def config(side=128):
-    c=experiment_config(with_map_size(Config(),side));c.base.layout={};return c
+    c=experiment_config(with_map_size(Config(),side));c.base.layout={}
+    c.logistics.battery_platforms=None  # retain the historical aggregate-layout regressions
+    return c
 
 
 def test_layout_carries_equipment_with_real_frames_volume_and_contact_area():

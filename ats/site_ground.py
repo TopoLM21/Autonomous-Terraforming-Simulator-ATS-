@@ -72,6 +72,8 @@ def equipment_mask(terrain,simulations=()):
                 paint_rect(terrain,mask,(p[0]-.5,p[1]-.5,1.,1.),s.config.fleet.separation)
         w=s.logistics
         if w:
+            if w.battery_platforms:
+                for rect in w.battery_platforms.rectangles():paint_rect(terrain,mask,rect)
             array=getattr(w,'solar_array',None)
             if array is not None:
                 for rect in w.solar_ground_rects():paint_rect(terrain,mask,rect)

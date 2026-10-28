@@ -105,6 +105,7 @@ class MainWindow(QtWidgets.QMainWindow):
         header.addWidget(self.reset_button)
         from .ui_windows import menu_button,hidden_action
         actions_menu=menu_button(header,self,'Управление ▾')
+        actions_menu.addAction('Батарейные платформы…',self.show_battery_platforms)
         fleet_button=QtWidgets.QPushButton("Оборудование")
         fleet_button.clicked.connect(self.edit_fleet);hidden_action(actions_menu,self,fleet_button)
         daily_button=QtWidgets.QPushButton("Статистика")
@@ -781,6 +782,11 @@ class MainWindow(QtWidgets.QMainWindow):
         from .base_layout_ui import BaseLayoutDialog
         if hasattr(self,'base_layout_window'):self.base_layout_window.close()
         self.base_layout_window=BaseLayoutDialog(self);self.base_layout_window.show()
+
+    def show_battery_platforms(self):
+        from .battery_platforms_ui import BatteryPlatformsWindow
+        if hasattr(self,'battery_platforms_window'):self.battery_platforms_window.close()
+        self.battery_platforms_window=BatteryPlatformsWindow(self);self.battery_platforms_window.show()
 
     def show_complexes(self):
         from .complexes import ComplexProject,ComplexTemplate

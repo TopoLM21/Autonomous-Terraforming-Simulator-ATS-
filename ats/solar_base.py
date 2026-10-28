@@ -77,6 +77,10 @@ class SolarBase:
         flags = charging if isinstance(charging, list) else [charging]*len(drones)
         self.laser_input_power=0.
         if self.destination is not None:
+            from .battery_platforms import owner_world
+            world=owner_world(self,terrain) if terrain is not None else None;platforms=getattr(world,'battery_platforms',None)
+            if platforms and not platforms.stowed:
+                self.destination=None;return 'Движение запрещено: сначала уберите опоры батарейных платформ'
             self.state = BaseState.MOVING
             self.solar_power = 0.0
             distance = float(np.linalg.norm(self.destination-self.position[:2]))
@@ -88,6 +92,9 @@ class SolarBase:
                   else self.motion_power(drone)/b.move_power*b.reference_total_mass)
             efficiency=self.layout_spec['parameters']['drive_efficiency'] if b.layout is not None else .8
             needed+=mass*9.80665*max(0.,ground-self.position[2])/efficiency
+            if needed>min(bus_limit_w if bus_limit_w is not None else float('inf'),storage_discharge_w if storage_discharge_w is not None else float('inf'))*dt:
+                self.destination=None;self.state=BaseState.WAITING_FOR_SUN
+                return 'База остановилась: ограничение мощности BESS или общей шины'
             if b.layout is not None and (needed>self.layout_spec['drive_power_kw']*1000*dt or not self.safe_path(point,terrain)):
                 self.destination=None;self.state=BaseState.WAITING_FOR_SUN
                 return 'База остановилась: ограничение привода или несущей способности грунта'

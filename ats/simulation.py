@@ -37,7 +37,9 @@ class Simulation:
         resolve_config(self.config);self.config.validate()
         from .base_layout import configure_layout
         self.initial_stock=initial_stock or []
-        extra=[(r['count']*(r['mass_kg']+(self.config.logistics.charger_slot_mass_kg if self.config.logistics and self.config.logistics.individual_chargers else 0.)),r['count']*r['capacity_kwh']) for r in self.initial_stock]
+        extra=[]
+        for r in self.initial_stock:
+            for _ in range(r['count']):extra.append((r['mass_kg']+(self.config.logistics.charger_slot_mass_kg if self.config.logistics and self.config.logistics.individual_chargers else 0.),r['capacity_kwh'],f'initial_stock_{len(extra)+1:05}'))
         layout=configure_layout(self.config,extra)
         self.terrain = Terrain(self.config) if terrain is None else terrain
         b = self.config.base
@@ -46,7 +48,8 @@ class Simulation:
             self.base.layout_spec=layout
             side=self.terrain.cell*self.config.terrain.n
             def pads_clear():
-                return all(self._safe_pad(self.slot_position(i)) for i in range(self.config.fleet.charge_slots)) and all(
+                from .battery_platforms import deployment_safe
+                return deployment_safe(layout,self.base.position,self.terrain) and all(self._safe_pad(self.slot_position(i)) for i in range(self.config.fleet.charge_slots)) and all(
                     self._safe_pad(self.wait_position(i)) for i in range(self.config.fleet.count))
             if not self.base.safe_path(self.base.position[:2],self.terrain) or not pads_clear():
                 original=self.base.position.copy()
@@ -131,8 +134,10 @@ class Simulation:
         offset = station_offset(slot,self.config.fleet.pad_spacing)
         if self.base.config.layout is None:return self.base.position+np.array([0,offset,self.config.base.roof_height])
         from .base_layout import rotate_offset
-        xy=rotate_offset(self.base.config.layout,[0,offset])
-        return self.base.position+np.array([*xy,self.config.base.roof_height])
+        spec=getattr(self.base,'layout_spec',{})
+        position=spec.get('dock_offsets',[])
+        xy=self.base.position[:2]+rotate_offset(self.base.config.layout,position[slot] if slot is not None and slot<len(position) else [0,offset])
+        return np.r_[xy,self.terrain.sample(*xy)+self.config.base.roof_height] if position else self.base.position+np.array([*(xy-self.base.position[:2]),self.config.base.roof_height])
 
     def base_specification(self):
         """Nominal envelope from existing geometry; live mass from actual equipment."""
@@ -141,6 +146,8 @@ class Simulation:
         docked=sum(d.config.empty_mass+d.cargo for d in self.drones if d.docked)
         rect=self.logistics.field_rect if self.logistics is not None else None
         mounted=b.config.equipment.mass
+        if self.logistics and self.logistics.battery_platforms:
+            mounted+=sum(o.mass_kg for o in self.logistics.inventory.items.values() if o.kind=='BATTERY_PLATFORM_HARDWARE')
         array=getattr(self.logistics,'solar_array',None) if self.logistics else None
         if array:mounted-=array.offboard_panel_mass()
         result=dict(body_dimensions_m=[diameter,diameter,b.config.roof_height],
@@ -160,7 +167,11 @@ class Simulation:
         f = self.config.fleet
         from .base_layout import rotate_offset
         if self.base.config.layout is None:x,y=self.base.position[0]-f.waiting_offset,self.base.position[1]+station_offset(index,f.pad_spacing)
-        else:x,y=self.base.position[:2]+rotate_offset(self.base.config.layout,[-f.waiting_offset,station_offset(index,f.pad_spacing)])
+        else:
+            offsets=getattr(self.base,'layout_spec',{}).get('dock_offsets',[])
+            offset=offsets[index][1] if index<len(offsets) else station_offset(index,f.pad_spacing)
+            distance=max(f.waiting_offset,self.base.config.radius+3.+f.separation) if offsets else f.waiting_offset
+            x,y=self.base.position[:2]+rotate_offset(self.base.config.layout,[-distance,offset])
         return np.array([x, y, self.terrain.sample(x, y)+f.ground_clearance])
 
     def cruise(self, d):
@@ -245,6 +256,7 @@ class Simulation:
         if self.relocation_pending is None:return False
         self.relocation_pending=None;self.base_move_wait='';self._relocation_attempt_time=self.time
         w=self.logistics
+        if w is not None and w.battery_platforms:w.battery_platforms.request('DEPLOY')
         if w is not None and getattr(w,'solar_array',None) and w.solar_array.mode=='FOLD':w.solar_array.request_deploy()
         if w is not None and w.base_pack_elapsed:
             # Reverse only the part already folded. Deployed area is unchanged
@@ -295,12 +307,16 @@ class Simulation:
         if self.base.destination is not None or not all(d.grounded for d in self.drones) or self.logistics.group:
             raise ValueError('Для изменения шасси остановите базу и посадите дронов')
         c=equipment_copy(self.config);c.base.layout=parameters(settings)
+        # Existing runs retain their service model. Installing new chassis must
+        # not silently assign historical aggregate batteries to physical racks.
+        if self.logistics.battery_platforms is None:c.logistics.battery_platforms=None
         if c.base.layout['auto_heading']:c.base.layout['heading_deg']=plan_heading(c)
         spec=solve_layout(c,self.logistics);candidate=deepcopy(self.base);candidate.config=c.base;candidate.layout_spec=spec
-        c.base.radius=spec['dimensions_m'][0]/2;c.base.roof_height=spec['dimensions_m'][2]
+        c.base.radius=spec['dimensions_m'][0]/2;c.base.roof_height=spec.get('deck_height_m',spec['dimensions_m'][2])
         c.base.mass=self.base.config.mass+spec['chassis_mass_kg']-self.base.config.equipment.chassis_mass_kg
         if not candidate.safe_path(candidate.position[:2],self.terrain):raise ValueError('Платформы не помещаются на текущей площадке или превышают несущую способность')
-        self.base.config.layout=c.base.layout;apply_live_layout(self.logistics,spec);self.logistics.update_base_mass()
+        self.base.config.layout=c.base.layout;self.config.logistics.battery_platforms=c.logistics.battery_platforms
+        apply_live_layout(self.logistics,spec);self.logistics.update_base_mass()
         for d in self.drones:
             if d.docked:d.position=self.slot_position(d.slot)
         self.event(f"Автокомпоновка: {spec['platform_count']} платформ, шасси {spec['chassis_mass_kg']:.0f} кг")
@@ -648,6 +664,7 @@ class Simulation:
         d.charge_requested = True
 
     def _charging_needed(self, d):
+        if self.logistics is not None and self.logistics.battery_platforms and d.serial in self.logistics.battery_service.drone_swaps:return True
         if d.charge_requested and d.battery >= d.config.battery-1e-7:
             d.charge_requested = False
             d.charge_cycles += 1

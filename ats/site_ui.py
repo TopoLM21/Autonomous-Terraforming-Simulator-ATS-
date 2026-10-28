@@ -10,7 +10,9 @@ def initialize(host):
     host.solar_deployed=pg.PlotDataItem(pen=pg.mkPen('#64b8ff',width=2))
     host.solar_active=pg.PlotDataItem(pen=pg.mkPen('#ffd166',width=2))
     host.solar_installers=pg.ScatterPlotItem(size=8,symbol='s',brush='#ffd166')
-    for item in (host.solar_planned,host.solar_deployed,host.solar_active,host.solar_installers):host.map.addItem(item)
+    host.battery_platform_contours=pg.PlotDataItem(pen=pg.mkPen('#b09bff',width=2))
+    host.battery_platform_reserves=pg.PlotDataItem(pen=pg.mkPen('#b09bff',width=1,style=QtCore.Qt.PenStyle.DotLine))
+    for item in (host.solar_planned,host.solar_deployed,host.solar_active,host.solar_installers,host.battery_platform_contours,host.battery_platform_reserves):host.map.addItem(item)
 
 
 def _rect(points,rect,supports=False):
@@ -22,9 +24,16 @@ def _rect(points,rect,supports=False):
 def refresh(host,terrain):
     project=host.complex_project
     simulations=[u.simulation for u in project.units] if project and project.shared_site else [host.sim]
-    planned=[];deployed=[];active=[];installers=[]
+    planned=[];deployed=[];active=[];installers=[];battery=[];reserves=[]
     for s in simulations:
         w=s.logistics;a=getattr(w,'solar_array',None) if w else None
+        if w and w.battery_platforms:
+            p=w.battery_platforms
+            for c,rect in zip(p.carriers.values(),p.rectangles(planned=True)):
+                if c.mode=='DEPLOY' or c.state!='STOWED':_rect(reserves,rect)
+                fraction=max(c.supports,c.apron)
+                if fraction:
+                    x,y,ww,hh=rect;_rect(battery,(x+(1-fraction)*ww/2,y+(1-fraction)*hh/2,ww*fraction,hh*fraction),True)
         if a is None:continue
         if w.solar_ground_rects():
             for rect in a.reserved_rects:_rect(planned,rect)
@@ -32,7 +41,7 @@ def refresh(host,terrain):
             if q.state=='DEPLOYED':_rect(deployed,q.rect,True)
             elif q.state in ('ASSEMBLING','FOLDING'):_rect(active,q.rect,True)
         installers.extend(tuple(c.position[:2]) for c in a.crews)
-    for item,points in ((host.solar_planned,planned),(host.solar_deployed,deployed),(host.solar_active,active)):
+    for item,points in ((host.solar_planned,planned),(host.solar_deployed,deployed),(host.solar_active,active),(host.battery_platform_contours,battery),(host.battery_platform_reserves,reserves)):
         if points:
             values=np.asarray(points);item.setData(values[:,0],values[:,1],connect='finite')
         else:item.clear()

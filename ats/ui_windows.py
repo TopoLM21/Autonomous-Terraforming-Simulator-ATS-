@@ -56,6 +56,7 @@ def compact_workspace(host,split,right,right_layout,telemetry_scroll,settings_sc
         ('Дроны',lambda:show_window(host.fleet_window)),('Профили',lambda:show_window(host.profile_window)),
         ('Телеметрия',lambda:show_window(host.telemetry_window)),('Журнал',lambda:show_window(host.events_window)),
         ('Паспорт и платформы',host.show_base_layout),
+        ('Батарейные платформы',host.show_battery_platforms),
         ('Пыль и ветер',lambda:settings(2))]
     for i,(text,command) in enumerate(commands):
         button=QtWidgets.QPushButton(text);button.clicked.connect(command);grid.addWidget(button,i,0)

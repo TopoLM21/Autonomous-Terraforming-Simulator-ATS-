@@ -68,6 +68,7 @@ class LogisticsConfig:
     courier_fill_fraction: float = .75
     courier_low_soc: float = .10
     solar: dict | None = field(default_factory=dict)  # None preserves aggregate historical arrays
+    battery_platforms: dict | None = field(default_factory=dict)  # None retains historical rack/service model
 
     def validate(self):
         from dataclasses import asdict
@@ -75,6 +76,9 @@ class LogisticsConfig:
         if self.solar is not None:
             from .solar_array import parameters
             self.solar=parameters(self.solar)
+        if self.battery_platforms is not None:
+            from .battery_platforms import parameters
+            self.battery_platforms=parameters(self.battery_platforms)
         if any(isinstance(v, (int, float)) and not math.isfinite(v) for v in values.values()):
             raise ValueError('Non-finite logistics configuration')
         for name in ('container_count','excavator_battery_count','drone_spare_sets'):
