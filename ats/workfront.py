@@ -54,14 +54,15 @@ def bank_layout(terrain, plan, work, protected):
             (distance < radii[bins]+settings['setback_m']+settings['bank_width_m']))
     # Erode each bank to form stable, bounded heaps with zero height at its rim.
     inside = mask.copy(); depth = np.zeros(mask.shape)
-    limit = math.ceil(c.terrain.dump_max_height/(terrain.slope*c.terrain.dump_slope_factor*cell))+2
+    dump_slope=getattr(terrain,'dump_slope',terrain.slope)
+    limit = math.ceil(c.terrain.dump_max_height/(dump_slope*c.terrain.dump_slope_factor*cell))+2
     for layer in range(limit):
         inside = ~expand(~inside)
         inside[[0,-1],:] = False; inside[:,[0,-1]] = False
         if not np.any(inside):break
         depth[inside] = (layer+1)*cell
     cap = terrain.reference+np.minimum(c.terrain.dump_max_height,
-        depth*terrain.slope*c.terrain.dump_slope_factor)
+        depth*dump_slope*c.terrain.dump_slope_factor)
     return mask, cap, along, signed
 
 

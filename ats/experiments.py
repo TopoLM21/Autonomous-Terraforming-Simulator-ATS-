@@ -59,6 +59,7 @@ def load_configuration(path):
 def configuration_from_data(data):
     if data.get('schema_version')!=2:raise ValueError('Unknown experiment schema version')
     raw=dict(data['config'])
+    raw.setdefault('slope_model','legacy')
     if raw.get('soil_profile') is not None:
         from .soil import SoilProfile
         raw['soil_profile']=SoilProfile.from_data(raw['soil_profile'])

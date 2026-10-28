@@ -182,6 +182,7 @@ class ComplexProject:
         from .landscape import workspace_config
         from .channel import ChannelProject
         c=deepcopy(template.config)
+        c.slope_model=self.active.simulation.config.slope_model
         if section is not None:
             if self.landscape.channel_project is None:raise ValueError('Сначала разметьте общий проект канала')
             project=ChannelProject.from_data(self.landscape.channel_project)
@@ -228,6 +229,7 @@ class ComplexProject:
         from .simulation import Simulation
         from .solar_base import SolarBase
         c=equipment_copy(template.config)
+        c.slope_model=source.slope_model
         for key in ('terrain','trench','plan','georeference'):setattr(c,key,deepcopy(getattr(source,key)))
         for key in ('initial_height','reference_height','initial_soil','soil_profile','local_reference'):setattr(c,key,getattr(source,key))
         c.base.latitude_deg=source.base.latitude_deg

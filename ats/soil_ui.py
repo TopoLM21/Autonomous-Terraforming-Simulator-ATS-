@@ -11,12 +11,13 @@ class SoilDialog(QtWidgets.QDialog):
         layout=QtWidgets.QVBoxLayout(self)
         note=QtWidgets.QLabel('Приближение для сценария Каттары, без геологической съёмки. Глубины отсчитываются от исходной поверхности. Коэффициент копания увеличивает время и энергию; 1 — рыхлый песок. Нижний материал — выветрелая порода, доступная ковшу, а не монолитная скала.')
         note.setWordWrap(True);layout.addWidget(note)
+        note.setText(note.text()+' Углы массива и насыпи — отдельные приближённые параметры устойчивости. Тяга и качение относятся к движению гусениц. Сцепление породы и обрушение свесов не рассчитываются.')
         self.enabled=QtWidgets.QCheckBox('Использовать условные слои');self.enabled.setChecked(profile is not None)
         layout.addWidget(self.enabled)
         self.settings=QtWidgets.QWidget();grid=QtWidgets.QGridLayout(self.settings)
-        for col,title in enumerate(('Материал','Плотность, кг/м³','Копание','Толщина, м','Опора, кПа','Сцепление','Качение')):
+        for col,title in enumerate(('Материал','Плотность, кг/м³','Копание','Толщина, м','Опора, кПа','Тяга гусениц','Качение','Откос в массиве, °','Осыпание насыпи, °')):
             grid.addWidget(QtWidgets.QLabel(title),0,col)
-        self.densities=[];self.factors=[];self.thicknesses=[];self.mechanics=[]
+        self.densities=[];self.factors=[];self.thicknesses=[];self.mechanics=[];self.angles=[]
         for i,m in enumerate(self.profile.materials):
             grid.addWidget(QtWidgets.QLabel(m.name),i+1,0)
             density=QtWidgets.QDoubleSpinBox();density.setRange(100,5000);density.setDecimals(1);density.setSingleStep(50);density.setValue(m.density)
@@ -31,6 +32,10 @@ class SoilDialog(QtWidgets.QDialog):
             for col,key,lo,hi in ((4,'bearing_kpa',.1,10000),(5,'traction',.01,1),(6,'rolling_resistance',.001,.99)):
                 value=QtWidgets.QDoubleSpinBox();value.setDecimals(3);value.setRange(lo,hi);value.setValue(getattr(m,key));grid.addWidget(value,i+1,col);mechanical.append(value)
             self.mechanics.append(mechanical)
+            angles=[]
+            for col,key in ((7,'native_angle_deg'),(8,'loose_angle_deg')):
+                value=QtWidgets.QDoubleSpinBox();value.setRange(5,75);value.setValue(getattr(m,key));grid.addWidget(value,i+1,col);angles.append(value)
+            self.angles.append(angles)
         scroll=QtWidgets.QScrollArea();scroll.setWidgetResizable(True);scroll.setWidget(self.settings);layout.addWidget(scroll)
         self.enabled.setEnabled(editable);self.settings.setEnabled(editable and self.enabled.isChecked())
         self.enabled.toggled.connect(lambda enabled:self.settings.setEnabled(editable and enabled))
@@ -46,5 +51,9 @@ class SoilDialog(QtWidgets.QDialog):
         profile=deepcopy(self.profile)
         for m,d,f in zip(profile.materials,self.densities,self.factors):m.density=d.value();m.digging_factor=f.value()
         for m,values in zip(profile.materials,self.mechanics):m.bearing_kpa,m.traction,m.rolling_resistance=[v.value() for v in values]
-        profile.thicknesses=[s.value() for s in self.thicknesses];profile.validate()
+        for m,values in zip(profile.materials,self.angles):m.native_angle_deg,m.loose_angle_deg=[v.value() for v in values]
+        profile.thicknesses=[s.value() for s in self.thicknesses]
+        try:profile.validate()
+        except ValueError as error:
+            QtWidgets.QMessageBox.warning(self,'Свойства грунта',str(error));return
         self.result_profile=profile if self.enabled.isChecked() else None;self.accept()

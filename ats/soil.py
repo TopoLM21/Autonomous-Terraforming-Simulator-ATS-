@@ -18,6 +18,8 @@ class SoilMaterial:
     bearing_kpa: float = 60.
     traction: float = .55
     rolling_resistance: float = .10
+    native_angle_deg: float = 35.
+    loose_angle_deg: float = 35.
 
 
 @dataclass
@@ -28,9 +30,9 @@ class SoilProfile:
 
     @classmethod
     def qattara(cls):
-        return cls([SoilMaterial('Песчаные отложения',1600.,1.,'#dbc18a',60.,.55,.10),
-                    SoilMaterial('Песчано-глинистые отложения',1850.,1.5,'#ae8162',100.,.6,.07),
-                    SoilMaterial('Выветрелая известняковая порода',2200.,3.,'#a9b6bc',500.,.7,.03)], [2.,6.])
+        return cls([SoilMaterial('Песчаные отложения',1600.,1.,'#dbc18a',60.,.55,.10,32.,32.),
+                    SoilMaterial('Песчано-глинистые отложения',1850.,1.5,'#ae8162',100.,.6,.07,40.,34.),
+                    SoilMaterial('Выветрелая известняковая порода',2200.,3.,'#a9b6bc',500.,.7,.03,60.,38.)], [2.,6.])
 
     @classmethod
     def from_data(cls, data):
@@ -43,6 +45,8 @@ class SoilProfile:
             raise ValueError('Грунт: требуется 1–3 материала и толщины верхних слоёв')
         if not isinstance(self.name,str) or not self.name.strip():raise ValueError('Нужно название профиля грунта')
         for m in self.materials:
+            if not all(math.isfinite(v) and 5<=v<=75 for v in (m.native_angle_deg,m.loose_angle_deg)) or m.native_angle_deg<m.loose_angle_deg:
+                raise ValueError('Углы грунта: 5–75°, снятый материал не прочнее ненарушенного')
             if (not all(math.isfinite(v) for v in (m.bearing_kpa,m.traction,m.rolling_resistance)) or
                     m.bearing_kpa<=0 or not 0<m.traction<=1 or not 0<m.rolling_resistance<1):
                 raise ValueError('Неверная несущая способность или параметры сцепления грунта')
@@ -57,7 +61,7 @@ class SoilProfile:
             raise ValueError('Толщины слоёв должны быть положительными')
 
     @property
-    def densities(self):return np.array([m.density for m in self.materials])
+    def densities(self):return np.array([m.density for m in self.materials],dtype=np.float64)
 
     @property
     def factors(self):return np.array([m.digging_factor for m in self.materials])

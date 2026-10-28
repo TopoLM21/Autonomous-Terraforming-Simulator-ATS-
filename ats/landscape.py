@@ -355,14 +355,14 @@ def workspace_config(landscape, config, origin, side_m=64.):
     return c
 
 
-def corridor_profile(raster, points, target_msl=-5., width_m=20., spacing_m=500., angle_deg=35.):
+def corridor_profile(raster, points, target_msl=-5., width_m=20., spacing_m=500., angle_deg=35.,soil_profile=None):
     """Coarse route screening, suitable as the cost API for a future optimizer.
 
     Integrates cross sections from sampled centre heights and fixed side slopes. This never
     digs or allocates fine tiles, and is not a geotechnical quantity survey.
     """
     from .plan import sample_line
-    if not math.isfinite(target_msl) or not math.isfinite(width_m) or width_m <= 0 or not math.isfinite(spacing_m) or spacing_m <= 0 or not 5 <= angle_deg <= 55:
+    if not math.isfinite(target_msl) or not math.isfinite(width_m) or width_m <= 0 or not math.isfinite(spacing_m) or spacing_m <= 0 or (angle_deg is not None and not 5 <= angle_deg <= 75):
         raise ValueError('Неверные параметры коридора')
     p = np.asarray(points,dtype=float)
     if p.ndim != 2 or p.shape[1] != 2 or len(p) < 2 or not np.all(np.isfinite(p)):
@@ -374,7 +374,11 @@ def corridor_profile(raster, points, target_msl=-5., width_m=20., spacing_m=500.
         raise ValueError('Длина коридора должна быть положительной')
     ground = raster.sample(line[:,0],line[:,1])
     depth = np.maximum(ground-target_msl,0.)
-    area = width_m*depth+depth**2/math.tan(math.radians(angle_deg))
+    if angle_deg is None and soil_profile:
+        bounds=np.r_[0.,soil_profile.boundaries,np.inf];area=width_m*depth
+        for lo,hi,m in zip(bounds[:-1],bounds[1:],soil_profile.materials):
+            area+=(np.minimum(depth,hi)**2-np.minimum(depth,lo)**2)/math.tan(math.radians(m.native_angle_deg))
+    else:area = width_m*depth+depth**2/math.tan(math.radians(angle_deg or 35.))
     volume = float(np.sum((area[:-1]+area[1:])/2*np.diff(axis)))
     return dict(distance_m=axis.tolist(),ground_msl=ground.tolist(),target_msl=target_msl,
                 estimated_cut_m3=volume,length_m=float(axis[-1]),width_m=width_m,

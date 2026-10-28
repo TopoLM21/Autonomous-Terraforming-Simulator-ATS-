@@ -145,7 +145,7 @@ def test_gui_climate_review_is_explicit_and_preserves_the_running_complex():
     dialog.close();w.close();app.processEvents()
 
 
-def test_materials_change_digging_effort_but_not_the_common_slope_limit():
+def test_materials_change_digging_effort_and_the_physical_slopes():
     from ats.soil import SoilProfile,SoilMaterial
     from ats.terrain import Terrain
     fields=[];factors=[]
@@ -157,7 +157,7 @@ def test_materials_change_digging_effort_but_not_the_common_slope_limit():
         for _ in range(12):t.relax()
         fields.append(t.height.copy());assert abs(t.mass_change)<1e-7
     assert factors[1]>2*factors[0]
-    np.testing.assert_allclose(fields[0],fields[1],rtol=0,atol=1e-12)
+    assert np.max(np.abs(fields[0]-fields[1]))>1e-4
 
 
 @pytest.mark.parametrize('latitude',[31,55,70])

@@ -291,13 +291,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.grid_info=QtWidgets.QLabel()
         self.cx = self.spin(0.5, side-.5, config.trench.x, 0.25)
         self.cy = self.spin(0.5, side-.5, config.trench.y, 0.25)
-        self.angle = self.spin(5, 55, config.trench.angle_deg, 1)
+        self.angle = self.spin(0, 75, config.trench.angle_deg or 0, 1)
+        self.angle.setSpecialValueText('Авто · минимальная ширина')
+        self.angle.setToolTip('0: наиболее крутой устойчивый профиль по слоям; число: проектный угол к горизонту. Устойчивость грунта задаётся отдельно.')
         self.start_hour = self.spin(0, 23.99, config.start_hour, 0.5)
         self.roughness = self.spin(0, 0.03, config.terrain.roughness, 0.005, 3)
         self.seed = QtWidgets.QSpinBox()
         self.seed.setRange(0, 2147483647)
         self.seed.setValue(config.seed)
-        for label, widget in [("Длина дна", self.length), ("Ширина дна", self.width), ("Глубина", self.depth), ("Центр X", self.cx), ("Центр Y", self.cy), ("Откос, °", self.angle), ("Стартовый час", self.start_hour), ("Неровности, ±м", self.roughness), ("Seed", self.seed)]:
+        for label, widget in [("Длина дна", self.length), ("Ширина дна", self.width), ("Глубина", self.depth), ("Центр X", self.cx), ("Центр Y", self.cy), ("Проектный откос, °", self.angle), ("Стартовый час", self.start_hour), ("Неровности, ±м", self.roughness), ("Seed", self.seed)]:
             form.addRow(label, widget)
         form.addRow('Сторона новой карты',self.map_size);form.addRow(self.grid_info)
         self.map_size.valueChanged.connect(self.update_map_size_controls);self.update_map_size_controls()
@@ -850,7 +852,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.update_map_size_controls()
         self.cx.setValue(config.trench.x);self.cy.setValue(config.trench.y)
         self.length.setValue(config.trench.length);self.width.setValue(config.trench.width)
-        self.depth.setValue(config.trench.depth);self.angle.setValue(config.trench.angle_deg)
+        self.depth.setValue(config.trench.depth);self.angle.setValue(config.trench.angle_deg or 0)
         self.seed.setValue(config.seed);self.roughness.setValue(config.terrain.roughness)
         self.start_hour.setValue(config.start_hour)
         self.calendar.setDate(QtCore.QDate(2025,1,1).addDays(config.base.start_day_of_year-1))
@@ -875,7 +877,7 @@ class MainWindow(QtWidgets.QMainWindow):
         config.reference_height=None;config.georeference=None;config.terrain.floor=-3.
         q = config.trench
         q.length, q.width, q.depth = self.length.value(), self.width.value(), self.depth.value()
-        q.x, q.y, q.angle_deg = self.cx.value(), self.cy.value(), self.angle.value()
+        q.x, q.y, q.angle_deg = self.cx.value(), self.cy.value(), self.angle.value() or None
         config.seed = self.seed.value()
         config.start_hour = self.start_hour.value()
         config.terrain.roughness = self.roughness.value()
@@ -1146,6 +1148,8 @@ class MainWindow(QtWidgets.QMainWindow):
             ("Зарядные слоты",f"{sum(v is not None for v in s.slots)} / {len(s.slots)} · {b.config.charge_power/1000:.1f} кВт всего"),
             ("Проект / остаток", f"{report['initial_excavation_m3']:.3f} / {report['remaining_m3']:.3f} м³"),
             ("Выемка / засыпка осталось",f"{report['remaining_cut_m3']:.3f} / {report['remaining_fill_m3']:.3f} м³"),
+            ("Проектный откос",'Авто · минимальная устойчивая ширина' if s.config.trench.angle_deg is None else f'{s.config.trench.angle_deg:g}°'),
+            ("Устойчивость грунта",'По слоям и составу насыпи' if s.config.slope_model=='materials' and t.soil else 'Однородный грунт · физический угол' if s.config.slope_model=='materials' else 'Прежний общий угол · сохранённый расчёт'),
             ("Вынуто / рейсы", f"{report['excavated_m3']:.3f} м³ / {s.trips}"),
             ("Общий груз", f"{report['cargo_kg']:.1f} кг"),
             ("База / панели", f"{b.config.mass:.0f} кг / {b.config.panel_area:.1f} м²"),

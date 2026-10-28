@@ -17,9 +17,9 @@ from ats.power_design import PowerRequest
 from ats.base_layout import design_continuous
 
 
-def run(steps,latitude=31.,day=172,checkpoint=None,resume=None):
+def run(steps,latitude=31.,day=172,checkpoint=None,resume=None,cell=.5,max_wall=None):
     c=experiment_config(with_map_size(Config(),128));c.base.latitude_deg=latitude;c.base.start_day_of_year=day;c.start_hour=6.
-    c.terrain.cell_size=.5;c.terrain.n=256
+    c.terrain.cell_size=cell;c.terrain.n=round(128/cell);c.terrain.grab_radius=max(c.terrain.grab_radius,cell)
     c.trench.x=52.;c.trench.y=64.
     c.plan=PlanConfig([PlanSegment([[48,64],[56,64]],'dig',2,-.3)])
     c,design=design_continuous(c,PowerRequest(drone_utilization=.85,excavator_utilization=1.,energy_margin=.3))
@@ -36,7 +36,7 @@ def run(steps,latitude=31.,day=172,checkpoint=None,resume=None):
             from ats.checkpoint import save_state
             save_state(checkpoint,s,ui=dict(design=design,cycles=cycles,mode=mode,samples=samples,minimum=minimum,
                 peak_error=peak_error,peak_mass=peak_mass,night_idle=night_idle,night_excavated=night_excavated))
-    while s.time<steps:
+    while s.time<steps and (max_wall is None or time.perf_counter()-start<max_wall):
         if s.state.value=='BLOCKED':break
         if s.state.value=='COMPLETED':
             next_mode='fill' if mode=='dig' else 'dig'
@@ -55,19 +55,24 @@ def run(steps,latitude=31.,day=172,checkpoint=None,resume=None):
                 excavated_m3=r['excavated_m3'],consumed_kwh=r['consumed_kwh'],solar_generated_kwh=r['solar_generated_kwh']))
             print(json.dumps(samples[-1]),flush=True)
             save_progress()
+    save_progress()
     report=s.report(full=False);elapsed=time.perf_counter()-start
     return dict(design=design,steps=s.time,measurement_start_seconds=start_time,wall_seconds=elapsed,actual_speed=(s.time-start_time)/elapsed,plan_changes=cycles,
         minimum_base_soc=minimum,night_grounded_seconds=night_idle,night_excavated_kg=night_excavated,max_mass_error_kg=max(peak_mass,abs(report['mass_error_kg'])),
-        max_energy_error_j=max(peak_error,abs(report['energy_error_j'])),samples=samples,report=report)
+        max_energy_error_j=max(peak_error,abs(report['energy_error_j'])),samples=samples,report=report,
+        cell_m=s.terrain.cell,wall_limit_reached=s.time<steps and s.state.value=='RUNNING')
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--steps',type=int,default=172800)
     parser.add_argument('--latitude',type=float,default=31.);parser.add_argument('--day',type=int,default=172)
     parser.add_argument('--checkpoint',type=Path);parser.add_argument('--resume',type=Path)
+    parser.add_argument('--cell',type=float,choices=(.5,1.),default=.5)
+    parser.add_argument('--max-wall-seconds',type=float,help='Bound this run and checkpoint progress for continuation')
     parser.add_argument('--output',type=Path,required=True);args=parser.parse_args()
     if args.steps<1:parser.error('steps > 0')
-    r=run(args.steps,args.latitude,args.day,args.checkpoint,args.resume);args.output.write_text(json.dumps(r,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    if args.max_wall_seconds is not None and args.max_wall_seconds<=0:parser.error('max wall > 0')
+    r=run(args.steps,args.latitude,args.day,args.checkpoint,args.resume,args.cell,args.max_wall_seconds);args.output.write_text(json.dumps(r,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     print(json.dumps({k:r[k] for k in ('steps','wall_seconds','actual_speed','plan_changes','minimum_base_soc','max_mass_error_kg','max_energy_error_j')}))
     if r['report']['state']=='BLOCKED':raise SystemExit(r['report']['reason'])
 

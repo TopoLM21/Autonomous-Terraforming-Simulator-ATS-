@@ -40,13 +40,15 @@ class LandscapeDialog(QtWidgets.QDialog):
         channel=QtWidgets.QGridLayout()
         self.depth=QtWidgets.QDoubleSpinBox();self.depth.setRange(.01,500);self.depth.setValue(5);self.depth.setSuffix(' м ниже моря')
         self.offset=QtWidgets.QDoubleSpinBox();self.offset.setRange(.01,10000);self.offset.setValue(10);self.offset.setSuffix(' м')
-        self.angle=QtWidgets.QDoubleSpinBox();self.angle.setRange(5,55);self.angle.setValue(35);self.angle.setSuffix('°')
+        self.angle=QtWidgets.QDoubleSpinBox();self.angle.setRange(0,75);self.angle.setValue(0);self.angle.setSuffix('°')
+        self.angle.setSpecialValueText('Авто · минимальная ширина')
+        self.angle.setToolTip('Авто: минимальная устойчивая выемка по слоям. Число задаёт проектный угол; параметры грунта от него не меняются.')
         self.project_side=QtWidgets.QComboBox()
         for size in (32,64,128,256,512,1024):self.project_side.addItem(f'{size} м',size)
         self.project_side.setCurrentIndex(self.project_side.findData(512))
         self.spoil=QtWidgets.QDoubleSpinBox();self.spoil.setRange(.1,200);self.spoil.setValue(20);self.spoil.setSuffix(' м')
         self.section=QtWidgets.QSpinBox();self.section.setRange(1,1)
-        for i,(label,widget) in enumerate([('Ширина дна',self.width),('Глубина дна',self.depth),('Отступ от берега',self.offset),('Откос',self.angle),('Карта рабочего участка',self.project_side),('Высота отвала',self.spoil),('Участок проекта',self.section)]):
+        for i,(label,widget) in enumerate([('Ширина дна',self.width),('Глубина дна',self.depth),('Отступ от берега',self.offset),('Проектный откос',self.angle),('Карта рабочего участка',self.project_side),('Высота отвала',self.spoil),('Участок проекта',self.section)]):
             channel.addWidget(QtWidgets.QLabel(label),i//4*2,i%4);channel.addWidget(widget,i//4*2+1,i%4)
         layout.addLayout(channel)
         self.depth.valueChanged.connect(lambda v:self.target.setValue(-v))
@@ -143,7 +145,7 @@ class LandscapeDialog(QtWidgets.QDialog):
                 self.project=ChannelProject.from_data(self.region.channel_project)
                 p=self.project;self.points=p.raw_points
                 self.width.setValue(p.width_m);self.depth.setValue(p.depth_m);self.offset.setValue(p.shore_offset_m)
-                self.angle.setValue(p.angle_deg);self.spoil.setValue(p.spoil_height_m)
+                self.angle.setValue(p.angle_deg or 0);self.spoil.setValue(p.spoil_height_m)
                 self.project_side.setCurrentIndex(self.project_side.findData(p.side_m))
                 self.show_project()
             except (ValueError,KeyError,TypeError) as error:self.result.setText(str(error))
@@ -195,7 +197,7 @@ class LandscapeDialog(QtWidgets.QDialog):
 
     def parameters(self):
         return dict(width_m=self.width.value(),depth_m=self.depth.value(),shore_offset_m=self.offset.value(),
-            angle_deg=self.angle.value(),side_m=self.project_side.currentData(),spoil_height_m=self.spoil.value())
+            angle_deg=self.angle.value() or None,side_m=self.project_side.currentData(),spoil_height_m=self.spoil.value())
 
     def prepare_channel(self):
         if not self._new_run_allowed():return False
@@ -212,7 +214,7 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.section.blockSignals(True);self.section.setRange(1,p.section_count);self.section.setValue(p.active_section+1);self.section.blockSignals(False)
         self.route.setData(np.asarray(p.points))
         self.endpoints.setData([dict(pos=p.points[0],brush='#63e5b1'),dict(pos=p.points[-1],brush='#ffbd69')])
-        profile=p.profile(r);self.ground.setData(profile['distance_m'],profile['ground_msl'])
+        profile=p.profile(r,self.region.soil_profile);self.ground.setData(profile['distance_m'],profile['ground_msl'])
         self.design.setData(profile['distance_m'],[-p.depth_m]*len(profile['distance_m']))
         start=r.to_source(*p.points[0]);end=r.to_source(*p.points[-1])
         start_z=float(r.sample(*p.points[0]));end_z=float(r.sample(*p.points[-1]))

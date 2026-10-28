@@ -1,0 +1,366 @@
+{
+  "version": 1,
+  "date_utc": "2026-10-28",
+  "base_commit": "d85608c17a24adca0061b744b67ddb016994bcbe",
+  "environment": {
+    "python": "3.12.14",
+    "platform": "Linux",
+    "gui": "Qt offscreen",
+    "note": "Control workloads, not the user computer or save. Some checks ran alongside pytest."
+  },
+  "physics": {
+    "law": "Exposed face integral dz/tan(angle); equal volume transfer; volume weighted loose tan(angle)",
+    "native_angles_deg": [
+      32,
+      40,
+      60
+    ],
+    "loose_angles_deg": [
+      32,
+      34,
+      38
+    ],
+    "conditional_qattara_thickness_m": [
+      2,
+      6
+    ],
+    "uniform_physical_angle_deg": 35,
+    "project_angle_default": null,
+    "auto_meaning": "Least-width stable excavation",
+    "native_test": {
+      "top_thickness_m": 0.5,
+      "native_angles_deg": [
+        30,
+        60
+      ],
+      "depth_m": 2,
+      "layered_cut_m3": 15.66870593369526,
+      "all_30_degree_cut_m3": 49.919041814908255,
+      "relaxation_moved_after_exact_cut_m3": 0.0,
+      "material_mass_error_kg": 3.637978807091713e-12
+    }
+  },
+  "fragmented_dump": {
+    "profiled_before": {
+      "status": "completed",
+      "wall_seconds": 12.464499468000213,
+      "local_capacity_checks": 674273,
+      "point": null,
+      "global_free_m3": 0.7500000000047566,
+      "grid": 1024
+    },
+    "profiled_after": {
+      "status": "completed",
+      "wall_seconds": 0.11851373900026374,
+      "local_capacity_checks": 4,
+      "point": null,
+      "global_free_m3": 0.7500000000047566,
+      "grid": 1024
+    },
+    "operation_speedup": 105.17345561068218,
+    "final_repeated_probe": {
+      "scenario": "Prescribed fragmented bank, not a user snapshot",
+      "grid_cells": 1024,
+      "map_side_m": 512,
+      "bank_rectangle_m": [
+        150,
+        80,
+        250,
+        300
+      ],
+      "free_height_m": 1e-05,
+      "requested_volume_m3": 0.03,
+      "total_free_m3": 0.7500000000047566,
+      "searches": 3,
+      "scalar_local_capacity_checks": 12,
+      "search_wall_seconds": [
+        0.14586991000032867,
+        0.031209493001369992,
+        0.030720564001967432
+      ],
+      "max_search_wall_seconds": 0.14586991000032867,
+      "terrain_unchanged": true
+    }
+  },
+  "long_commissioning": {
+    "configuration": "4 ordinary drones + excavator; 128m map, 1m cells; latitude31 day172 start06:00; designed continuous hardware; repeated dig/fill plans width2 bottom-.3m",
+    "initial_model_seconds": 0,
+    "first_leg_end_seconds": 52684.0,
+    "first_leg_wall_seconds": 85.12297762800154,
+    "first_leg_max_step_seconds": 0.022186869999131886,
+    "second_leg_start_seconds": 52684.0,
+    "final_model_seconds": 90000.0,
+    "second_leg_wall_seconds": 80.15765200200258,
+    "second_leg_max_step_seconds": 0.04972632499993779,
+    "hours_crossed_in_second_leg": [
+      15.0,
+      16.0,
+      17.0,
+      18.0,
+      19.0,
+      20.0,
+      21.0,
+      22.0,
+      23.0,
+      24.0,
+      25.0
+    ],
+    "mass_error_kg": -5.263700586510822e-11,
+    "energy_error_j": -0.0017018318176269531,
+    "actual_v5_checkpoint_load_preserves_report": true,
+    "minute_long_freeze_reproduced": false
+  },
+  "late_runtime": [
+    {
+      "mode": "headless",
+      "render": null,
+      "profiled": false,
+      "initialization_seconds": 0.25000616300167167,
+      "wall_seconds": 3.473793092998676,
+      "model_seconds": 1200.0,
+      "actual_speed": 345.4437175370529,
+      "grid_cells": 128,
+      "drones": 4,
+      "inventory_items": 2996,
+      "state": "RUNNING",
+      "trips": 4894,
+      "mass_error_kg": -5.297806637827307e-11,
+      "energy_error_j": -0.0017110109329223633,
+      "physical_sha256": "2f94bacb9144ffcc7e3ca25e6e7ac38478cffd76277462d5e1170b2744e03caf",
+      "wall_limit_reached": false,
+      "max_step_wall_seconds": 0.014546971000527265,
+      "p99_step_wall_seconds": 0.00619844199900399,
+      "max_gui_event_gap_seconds": null,
+      "engine_path": "ats/simulation.py",
+      "initial_time": 90000.0,
+      "robot_states_at_start": {
+        "DIGGING": 1
+      },
+      "robot_moving_seconds": 0.0,
+      "robot_working_seconds": 1171.0,
+      "robot_relocations": 0
+    },
+    {
+      "mode": "gui",
+      "render": "auto",
+      "profiled": false,
+      "initialization_seconds": 0.6637683040025877,
+      "wall_seconds": 4.397373747997335,
+      "model_seconds": 1200.0,
+      "actual_speed": 272.8901541622446,
+      "grid_cells": 128,
+      "drones": 4,
+      "inventory_items": 2996,
+      "state": "RUNNING",
+      "trips": 4894,
+      "mass_error_kg": -5.297806637827307e-11,
+      "energy_error_j": -0.0017110109329223633,
+      "physical_sha256": "2f94bacb9144ffcc7e3ca25e6e7ac38478cffd76277462d5e1170b2744e03caf",
+      "wall_limit_reached": false,
+      "max_step_wall_seconds": 0.014290683997387532,
+      "p99_step_wall_seconds": 0.007710505000432022,
+      "max_gui_event_gap_seconds": 0.0962121720003779,
+      "engine_path": "ats/simulation.py",
+      "initial_time": 90000.0,
+      "robot_states_at_start": {
+        "DIGGING": 1
+      },
+      "robot_moving_seconds": 0.0,
+      "robot_working_seconds": 1171.0,
+      "robot_relocations": 0
+    }
+  ],
+  "previous_14_complex_snapshot": [
+    {
+      "mode": "headless",
+      "render": null,
+      "profiled": false,
+      "initialization_seconds": 9.677208483997674,
+      "wall_seconds": 6.6537843470032385,
+      "model_seconds": 200.0,
+      "actual_speed": 30.05808267442225,
+      "grid_cells": 1024,
+      "drones": 56,
+      "inventory_items": 41944,
+      "state": "RUNNING",
+      "trips": 139,
+      "mass_error_kg": -2.5579538487363607e-12,
+      "energy_error_j": 2.9534101486206055e-05,
+      "physical_sha256": "298eb87d5e4a61021f3e608fc2b4ffcf90252e115817788d2228d6f952a6e608",
+      "wall_limit_reached": false,
+      "max_step_wall_seconds": 0.07393167299960623,
+      "p99_step_wall_seconds": 0.07262302700110013,
+      "max_gui_event_gap_seconds": null,
+      "engine_path": "ats/simulation.py",
+      "initial_time": 140.0,
+      "robot_states_at_start": {
+        "FILLING_CONTAINER": 1,
+        "WAITING_EMPTY_CONTAINER": 1,
+        "WAITING_RELOCATION": 12
+      },
+      "robot_moving_seconds": 0.0,
+      "robot_working_seconds": 200.0,
+      "robot_relocations": 0
+    },
+    {
+      "mode": "gui",
+      "render": "auto",
+      "profiled": false,
+      "initialization_seconds": 9.43760179200035,
+      "wall_seconds": 8.74610168199797,
+      "model_seconds": 200.0,
+      "actual_speed": 22.867330757388558,
+      "grid_cells": 1024,
+      "drones": 56,
+      "inventory_items": 41944,
+      "state": "RUNNING",
+      "trips": 139,
+      "mass_error_kg": -2.5579538487363607e-12,
+      "energy_error_j": 2.9534101486206055e-05,
+      "physical_sha256": "298eb87d5e4a61021f3e608fc2b4ffcf90252e115817788d2228d6f952a6e608",
+      "wall_limit_reached": false,
+      "max_step_wall_seconds": 0.1018804880004609,
+      "p99_step_wall_seconds": 0.0906903280010738,
+      "max_gui_event_gap_seconds": 0.1890813280006114,
+      "engine_path": "ats/simulation.py",
+      "initial_time": 140.0,
+      "robot_states_at_start": {
+        "FILLING_CONTAINER": 1,
+        "WAITING_EMPTY_CONTAINER": 1,
+        "WAITING_RELOCATION": 12
+      },
+      "robot_moving_seconds": 0.0,
+      "robot_working_seconds": 200.0,
+      "robot_relocations": 0
+    }
+  ],
+  "new_material_14_complex_run": {
+    "complexes": 14,
+    "continuous_template": true,
+    "initialization_seconds": 8.1397396809989,
+    "wall_seconds": 12.467503908999788,
+    "model_seconds": 300.0,
+    "actual_speed": 24.062555118466182,
+    "physical_dt_seconds": 1,
+    "cell_m": 0.5,
+    "layers": true,
+    "wall_limit_reached": false,
+    "terrain_arrays_bytes": 68018984,
+    "height_arrays": 1,
+    "inventory_items": 41944,
+    "teams_excavating": 14,
+    "ground_sha256": "96cb0c459b47383ebde630503c24225c28e09f5b243b25d236d879e18f0d87bf"
+  },
+  "new_material_14_complex_balances": {
+    "state": "RUNNING",
+    "time_seconds": 300.0,
+    "mass_error_kg": -7.958078640513122e-13,
+    "equipment_mass_error_kg": 0.0,
+    "energy_error_j": 4.141032695770264e-05
+  },
+  "new_material_14_complex_gui": [
+    {
+      "mode": "gui",
+      "render": "auto",
+      "profiled": false,
+      "initialization_seconds": 6.478017936999095,
+      "wall_seconds": 10.263160909002181,
+      "model_seconds": 200.0,
+      "actual_speed": 19.487173763842378,
+      "grid_cells": 1024,
+      "drones": 56,
+      "inventory_items": 41944,
+      "state": "RUNNING",
+      "trips": 257,
+      "mass_error_kg": -3.0127011996228248e-12,
+      "energy_error_j": -8.33272933959961e-05,
+      "physical_sha256": "f855ef005530035bdc0d334f1909985792f2837ca71bdbe5492963be1ce888de",
+      "wall_limit_reached": false,
+      "max_step_wall_seconds": 0.1098822050007584,
+      "p99_step_wall_seconds": 0.10696950499914237,
+      "max_gui_event_gap_seconds": 0.1854249610005354,
+      "engine_path": "ats/simulation.py",
+      "initial_time": 300.0,
+      "robot_states_at_start": {
+        "DIGGING": 1,
+        "MOVING_LOCAL": 2,
+        "WAITING_EMPTY_CONTAINER": 1,
+        "WAITING_RELOCATION": 10
+      },
+      "robot_moving_seconds": 189.0,
+      "robot_working_seconds": 200.0,
+      "robot_relocations": 0
+    }
+  ],
+  "validation": {
+    "full_suite_passed": 474,
+    "full_suite_wall_seconds": 327.04,
+    "new_material_tests": 13,
+    "cli_groups": [
+      {
+        "name": "python -m ats --headless --mode legacy --steps 10000 --seed 42",
+        "exit_code": 0
+      },
+      {
+        "name": "ATS 2.0 logistics smoke test",
+        "exit_code": 0
+      },
+      {
+        "name": "Offline real DEM smoke test",
+        "exit_code": 0
+      },
+      {
+        "name": "Save and resume airborne simulation",
+        "exit_code": 0
+      },
+      {
+        "name": "Prepared Qattara channel smoke test",
+        "exit_code": 0
+      },
+      {
+        "name": "Layered soil and complete snapshot continuation",
+        "exit_code": 0
+      },
+      {
+        "name": "Energy sizing and executable equipment template",
+        "exit_code": 0
+      },
+      {
+        "name": "Two complexes on common regional project and exact resume",
+        "exit_code": 0
+      },
+      {
+        "name": "Twenty complexes on one physical map and exact snapshot continuation",
+        "exit_code": 0
+      },
+      {
+        "name": "Continuous design includes real platform hardware",
+        "exit_code": 0
+      }
+    ],
+    "bounded_commissioning_script_exact_resume": true,
+    "historical_snapshots": "Existing authentic v1-v4 fixtures, v5 graph migration regression and actual generated pre-change v5 25h checkpoint",
+    "ci": "Not run: current work is local; no new push was authorized"
+  },
+  "compatibility": {
+    "snapshot_write_version": 6,
+    "snapshot_read_versions": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "old_mission_physics": "Preserved common-angle legacy model; no silent geomechanics conversion",
+    "hardware_clone": "Inherits physical slope policy of the existing site"
+  },
+  "limitations": [
+    "The exact user 23h episode was not reproduced and its settings/build/save were unavailable.",
+    "The fragmented dump is a prescribed adversarial fixture, not a user snapshot.",
+    "Intact/loose angles are editable scenario approximations, not geotechnical guarantees.",
+    "No cohesion, cracks, block failure, overhangs, vertical walls, hydrology or water erosion.",
+    "Coarsened working cells use averaged column properties while retaining fine material mass.",
+    "Benchmark workloads and phases differ; operation speedup is not a whole application speedup."
+  ]
+}

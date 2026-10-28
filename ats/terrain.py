@@ -21,13 +21,19 @@ class Terrain:
             self.reference = self.height.copy()
         if config.initial_height is not None:
             self.height = np.asarray(config.initial_height, dtype=np.float64).copy()
-        self.slope = math.tan(math.radians(q.angle_deg))
+        self._initialize_soil()
+        from .slopes import minimum_slope
+        self.slope = minimum_slope(config)
+        self.dump_slope = minimum_slope(config,loose=True)
         dx = np.maximum(np.abs(self.x-q.x)-q.length/2, 0)
         dy = np.maximum(np.abs(self.y-q.y)-q.width/2, 0)
         self.bottom = (dx == 0) & (dy == 0)
-        self.target = np.minimum(self.reference, -q.depth + self.slope*np.hypot(dx, dy))
+        from .slopes import envelope
+        self.target = np.minimum(self.reference, envelope(self,np.hypot(dx,dy),-q.depth,'dig'))
         if config.reference_height is not None:
             self.target = self.reference.copy()  # imported terrain starts without an implicit cut to zero
+        from .slopes import validate_target
+        if config.reference_height is None:validate_target(self,self.target,self.target<self.reference-1e-12)
         self.excavation = self.target < self.reference - 1e-12
         self.fill_mask = np.zeros(self.height.shape, dtype=bool)
         self.segment_labels = np.zeros(self.height.shape, dtype=np.int16)
@@ -38,7 +44,7 @@ class Terrain:
         # The cap is a stable tent with a one-cell setback. It reserves space for
         # avalanches and prevents sand leaving the designated dump rectangle.
         distance = np.maximum(0, np.minimum.reduce([self.x-x, x+w-self.x, self.y-y, y+h-self.y])-self.cell)
-        self.dump_cap = self.reference + np.where(self.dump_mask, np.minimum(t.dump_max_height, distance*self.slope*t.dump_slope_factor), 0)
+        self.dump_cap = self.reference + np.where(self.dump_mask, np.minimum(t.dump_max_height, distance*self.dump_slope*t.dump_slope_factor), 0)
         self.revision = 0
         self._dump_content_revision=0
         self.front = None
@@ -48,7 +54,8 @@ class Terrain:
             from types import SimpleNamespace
             from .plan import target_surface,channel_shore
             from .workfront import bank_layout
-            original=SimpleNamespace(height=self.reference,reference=self.reference,x=self.x,y=self.y,slope=self.slope)
+            original=SimpleNamespace(height=self.reference,reference=self.reference,x=self.x,y=self.y,slope=self.slope,config=config,
+                soil=SoilField(config.soil_profile,t.n,self.cell) if config.soil_profile else None)
             _,labels=target_surface(original,config.plan)
             protected,_=channel_shore(original,config.plan)
             self.protected=protected
@@ -68,6 +75,27 @@ class Terrain:
         if self.design_work is None:self.design_work=self.work_mask
         self.initial_volume = self.volume
         self._initial_surface = self.height.copy()
+        self._relax_dirty=np.zeros(self.height.shape,dtype=bool)
+        self._dirty_bounds=None
+        if self.soil is not None and t.roughness>0:
+            self._relax_dirty[:]=True;self._dirty_bounds=(0,t.n,0,t.n)
+        self.initial_excavation = self.remaining
+        self._pairs = []
+        grid = np.arange(t.n*t.n).reshape(t.n, t.n)
+        # Eight-neighbour slopes, split into disjoint matchings. Sequential
+        # equal-and-opposite pair updates cannot overshoot or double-spend sand.
+        for oy, ox in [(0, 1), (1, 0), (1, 1), (1, -1)]:
+            ya = slice(0, t.n-oy)
+            xa = slice(max(0, -ox), min(t.n, t.n-ox))
+            yb = slice(oy, t.n)
+            xb = slice(max(0, ox), min(t.n, t.n+ox))
+            a, b = grid[ya, xa], grid[yb, xb]
+            colors = np.indices(a.shape)[1 if oy == 0 else 0] % 2
+            for color in [0, 1]:
+                self._pairs.append((a[colors == color], b[colors == color], self.slope*self.cell*math.hypot(oy, ox)))
+
+    def _initialize_soil(self):
+        t=self.config.terrain;config=self.config
         self.soil=None
         if config.soil_profile is not None:
             self.soil=SoilField(config.soil_profile,t.n,self.cell,config.initial_soil)
@@ -90,24 +118,6 @@ class Terrain:
             depth=np.maximum(self.reference-t.floor,0)
             self._native_mass=sum(float(np.maximum(0.,np.minimum(depth,b)-a).sum()*self.area)*m.density
                                   for a,b,m in zip(bounds[:-1],bounds[1:],config.soil_profile.materials))
-        self._relax_dirty=np.zeros(self.height.shape,dtype=bool)
-        self._dirty_bounds=None
-        if self.soil is not None and t.roughness>0:
-            self._relax_dirty[:]=True;self._dirty_bounds=(0,t.n,0,t.n)
-        self.initial_excavation = self.remaining
-        self._pairs = []
-        grid = np.arange(t.n*t.n).reshape(t.n, t.n)
-        # Eight-neighbour slopes, split into disjoint matchings. Sequential
-        # equal-and-opposite pair updates cannot overshoot or double-spend sand.
-        for oy, ox in [(0, 1), (1, 0), (1, 1), (1, -1)]:
-            ya = slice(0, t.n-oy)
-            xa = slice(max(0, -ox), min(t.n, t.n-ox))
-            yb = slice(oy, t.n)
-            xb = slice(max(0, ox), min(t.n, t.n+ox))
-            a, b = grid[ya, xa], grid[yb, xb]
-            colors = np.indices(a.shape)[1 if oy == 0 else 0] % 2
-            for color in [0, 1]:
-                self._pairs.append((a[colors == color], b[colors == color], self.slope*self.cell*math.hypot(oy, ox)))
 
     @property
     def volume(self):
@@ -176,7 +186,9 @@ class Terrain:
             raise ValueError("План пересекает отвал: он используется как запас грунта")
         if plan.channel is None and (np.any(work[[0,-1], :]) or np.any(work[:, [0,-1]])):
             raise ValueError("План с откосами касается границы карты")
-        for oy, ox in [(0,1),(1,0),(1,1),(1,-1)]:
+        from .slopes import legacy,validate_target
+        validate_target(self,target,work)
+        for oy, ox in ([(0,1),(1,0),(1,1),(1,-1)] if legacy(self.config) else []):
             ya, yb = slice(0,target.shape[0]-oy),slice(oy,target.shape[0])
             xa, xb = slice(max(0,-ox),min(target.shape[1],target.shape[1]-ox)),slice(max(0,ox),min(target.shape[1],target.shape[1]+ox))
             active = work[ya,xa] | work[yb,xb]
@@ -337,6 +349,30 @@ class Terrain:
             sub=np.s_[y0:y1,x0:x1]
             useful[y0-ys.start:y1-ys.start,x0-xs.start:x1-xs.start]&=(self.x[sub]-px)**2+(self.y[sub]-py)**2>=separation**2
 
+    def _local_dump_capacities(self):
+        """Disk capacity at every cell centre, without a Python search per cell.
+
+        Only used when the first nearby site cannot fit the load. A fragmented
+        bank can have plenty of total room and no usable unloading footprint.
+        Row prefix sums give the same circular footprint as local_dump_space.
+        """
+        radius=max(2.,self.config.terrain.grab_radius)
+        key=(getattr(self,'_dump_content_revision',0),id(self.dump_cap),id(self.dump_mask),
+             self.height.shape,self.cell,radius)
+        if getattr(self,'_local_dump_capacity_key',None)==key:return self._local_dump_capacity
+        n=self.height.shape[0]
+        cap=np.where(self.dump_mask,np.maximum(self.dump_cap-self.height,0),0.)
+        prefix=np.pad(np.cumsum(cap,axis=1),((0,0),(1,0)))
+        result=np.zeros_like(cap);columns=np.arange(n)
+        for dy in range(-int(radius/self.cell),int(radius/self.cell)+1):
+            rx=int(math.floor(math.sqrt(max(0.,radius**2-(dy*self.cell)**2))/self.cell+1e-12))
+            left=np.maximum(0,columns-rx);right=np.minimum(n,columns+rx+1)
+            y0,y1=max(0,-dy),min(n,n-dy)
+            result[y0:y1]+=prefix[y0+dy:y1+dy,right]-prefix[y0+dy:y1+dy,left]
+        self._local_dump_capacity=result*self.area
+        self._local_dump_capacity_key=key
+        return self._local_dump_capacity
+
     def dump_location(self, volume, reserved=(), separation=0.0, near=None):
         if near is not None:
             if self._dump_available()<volume-1e-12:return None
@@ -368,6 +404,11 @@ class Terrain:
                     first=int(candidates[int(np.argmin(score.ravel()[candidates]))])
                     i=np.unravel_index(first,score.shape);point=float(xx[i]),float(yy[i])
                     if self.front is None or self.local_dump_space(*point)>=volume-1e-12:return point
+                    # Filter all infeasible footprints at once. In late runs the
+                    # old loop could perform hundreds of thousands of identical
+                    # small capacity checks, per drone and per search radius.
+                    room=self._local_dump_capacities()[patch].ravel()
+                    candidates=candidates[room[candidates]>=volume-1e-9]
                     for k in candidates[np.argsort(score.ravel()[candidates],kind='stable')]:
                         if int(k)==first:continue
                         i=np.unravel_index(int(k),score.shape)
@@ -522,7 +563,10 @@ class Terrain:
                     a,b=a[near],b[near]
                     if not len(a):continue
                 difference = height[a]-height[b]
-                active = np.abs(difference) > limit+t.avalanche_epsilon
+                from .slopes import pair_transfer,legacy
+                if legacy(self.config):required=np.maximum(0.,np.abs(difference)-limit-t.avalanche_epsilon)/2
+                else:required=pair_transfer(self,a,b,limit/self.slope)
+                active = required>0
                 if self.config.reference_height is not None:
                     # Natural cliffs in the DEM are not freshly disturbed sand.
                     # Only pairs touched by an edit/avalanche may relax.
@@ -531,7 +575,7 @@ class Terrain:
                 if not np.any(active):
                     continue
                 a, b, difference = a[active], b[active], difference[active]
-                transfer = np.sign(difference)*(np.abs(difference)-limit-t.avalanche_epsilon)*t.relaxation
+                transfer = np.sign(difference)*required[active]*(2*t.relaxation)
                 if self.soil is not None:
                     source=np.where(transfer>0,a,b);destination=np.where(transfer>0,b,a)
                     amount=np.minimum(np.abs(transfer),np.maximum(height[source]-t.floor,0.))
@@ -560,4 +604,7 @@ class Terrain:
 
     def max_slope_excess(self):
         h = self.height.ravel()
+        from .slopes import legacy,pair_transfer
+        if not legacy(self.config):
+            return max(float(pair_transfer(self,a,b,limit/self.slope).max(initial=0))*2 for a,b,limit in self._pairs)
         return max(float(np.maximum(np.abs(h[a]-h[b])-limit, 0).max()) for a, b, limit in self._pairs)

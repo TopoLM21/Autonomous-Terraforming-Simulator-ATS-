@@ -19,7 +19,7 @@ import numpy as np
 
 
 FORMAT='ATS_SIMULATION'
-VERSION=5
+VERSION=6
 MAX_BYTES=1_500_000_000
 MAX_NODES=2_000_000
 
@@ -309,10 +309,17 @@ def load_state(path):
                 raise ValueError('Сохранение превышает допустимый размер')
             if archive.getinfo('manifest.json').file_size>256_000_000:raise ValueError('Слишком большой список объектов')
             manifest=json.loads(archive.read('manifest.json'))
-            if manifest.get('format')!=FORMAT or type(manifest.get('version')) is not int or manifest['version'] not in (1,2,3,4,VERSION):
+            if manifest.get('format')!=FORMAT or type(manifest.get('version')) is not int or manifest['version'] not in (1,2,3,4,5,VERSION):
                 raise ValueError('Неизвестный формат или версия сохранения')
             decoder=_Decoder(archive,manifest['nodes']);root=decoder.decode(manifest['root'])
             if manifest['version']==1:_migrate_v1(decoder)
+            # Old missions keep their exact target and original common-angle
+            # law. No automatic re-excavation or silent material conversion.
+            from .config import Config
+            from .terrain import Terrain
+            for value in decoder.objects:
+                if isinstance(value,Config) and 'slope_model' not in vars(value):value.slope_model='legacy'
+                if isinstance(value,Terrain) and not hasattr(value,'dump_slope'):value.dump_slope=value.slope
         session=Session(root['simulation'],root['landscape'],root['ui'],manifest.get('runtime',{}),root.get('complex_project'));_validate(session)
         return session
     except (zipfile.BadZipFile,EOFError,KeyError,TypeError,AttributeError,IndexError,OverflowError,RecursionError) as error:

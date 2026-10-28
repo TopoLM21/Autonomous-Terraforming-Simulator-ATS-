@@ -86,15 +86,16 @@ def target_surface(terrain, plan):
     protected,shore_cap=channel_shore(terrain,plan)
     for number, segment in enumerate(plan.segments, 1):
         distance = line_distance(terrain.x, terrain.y, segment.points)
-        ramp = np.maximum(0, distance-segment.width/2)*terrain.slope
+        from .slopes import envelope
+        offset=np.maximum(0,distance-segment.width/2)
         if segment.mode == "dig":
-            envelope = segment.height+ramp
-            influence = (distance <= segment.width/2) | (envelope < baseline-1e-12)
-            surface = np.minimum(baseline, envelope)
+            bound = envelope(terrain,offset,segment.height,'dig')
+            influence = (distance <= segment.width/2) | (bound < baseline-1e-12)
+            surface = np.minimum(baseline, bound)
         else:
-            envelope = segment.height-ramp
-            influence = (distance <= segment.width/2) | (envelope > baseline+1e-12)
-            surface = np.maximum(baseline, envelope)
+            bound = envelope(terrain,offset,segment.height,'fill')
+            influence = (distance <= segment.width/2) | (bound > baseline+1e-12)
+            surface = np.maximum(baseline, bound)
         if plan.channel is not None:
             if 'chainage_starts' in plan.channel:
                 a,b=np.asarray(segment.points[0]),np.asarray(segment.points[-1]);v=b-a
@@ -174,7 +175,8 @@ def save_plan(path, config):
     data = {"version": 1, "segments": [asdict(s) for s in config.plan.segments], "initial_height": config.initial_height,
             "grid_size": config.terrain.n, "cell_size": config.terrain.cell_size, "seed": config.seed, "roughness": config.terrain.roughness,
             "angle_deg": config.trench.angle_deg, "base_position": [config.base.x,config.base.y]}
-    data.update(reference_height=config.reference_height,georeference=config.georeference,
+    data.update(slope_model=config.slope_model,repose_deg=config.terrain.repose_deg,
+                reference_height=config.reference_height,georeference=config.georeference,
                 floor=config.terrain.floor,dump_rect=config.terrain.dump_rect,channel=config.plan.channel)
     from .soil import json_soil_state
     data.update(soil_profile=asdict(config.soil_profile) if config.soil_profile is not None else None,
@@ -190,6 +192,8 @@ def load_plan(path, config):
     if data.get("version") != 1 or data.get("grid_size") != config.terrain.n or data.get("cell_size") != config.terrain.cell_size:
         raise ValueError("Несовместимая версия плана или сетка")
     clone = deepcopy(config)
+    clone.slope_model=data.get('slope_model','legacy')
+    clone.terrain.repose_deg=data.get('repose_deg',35.)
     clone.plan = PlanConfig([PlanSegment(**s) for s in data["segments"]],channel=data.get('channel'))
     clone.initial_height = data.get("initial_height")
     clone.reference_height = data.get('reference_height')

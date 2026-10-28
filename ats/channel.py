@@ -167,7 +167,7 @@ class ChannelProject:
     width_m:float=20.
     depth_m:float=5.
     shore_offset_m:float=10.
-    angle_deg:float=35.
+    angle_deg:float|None=None
     side_m:float=512.
     spoil_height_m:float=20.
     active_section:int=0
@@ -177,9 +177,9 @@ class ChannelProject:
 
     def validate(self):
         _geometry(self.raw_points);_geometry(self.points)
-        if self.version!=1 or not all(math.isfinite(v) for v in (self.width_m,self.depth_m,self.shore_offset_m,self.angle_deg,self.side_m,self.spoil_height_m)):
+        if self.version!=1 or not all(math.isfinite(v) for v in (self.width_m,self.depth_m,self.shore_offset_m,self.side_m,self.spoil_height_m)):
             raise ValueError('Неверный проект канала')
-        if not (1<=self.width_m<=300 and .01<=self.depth_m<=500 and .01<=self.shore_offset_m<=10000 and 5<=self.angle_deg<=55 and 32<=self.side_m<=1024 and .1<=self.spoil_height_m<=200):
+        if not (1<=self.width_m<=300 and .01<=self.depth_m<=500 and .01<=self.shore_offset_m<=10000 and (self.angle_deg is None or math.isfinite(self.angle_deg) and 5<=self.angle_deg<=75) and 32<=self.side_m<=1024 and .1<=self.spoil_height_m<=200):
             raise ValueError('Проверьте ширину, глубину канала, отступ, откосы и размер участка')
         if not isinstance(self.active_section,int) or not 0<=self.active_section<self.section_count:
             raise ValueError('Неверный номер участка канала')
@@ -205,7 +205,8 @@ class ChannelProject:
     @property
     def identity(self):
         data={k:v for k,v in self.to_data().items() if k not in ('active_section','completed','history')}
-        for key in ('width_m','depth_m','shore_offset_m','angle_deg','side_m','spoil_height_m'):data[key]=float(data[key])
+        for key in ('width_m','depth_m','shore_offset_m','angle_deg','side_m','spoil_height_m'):
+            if data[key] is not None:data[key]=float(data[key])
         return hashlib.sha256(json.dumps(data,sort_keys=True).encode()).hexdigest()[:16]
 
     def origin(self,raster,index=None):
@@ -221,7 +222,7 @@ class ChannelProject:
         p=np.asarray(self.points)-origin
         tangent=(p[1]-p[0])/np.linalg.norm(p[1]-p[0])
         # Only nearby edges are evaluated on the fine grid; no regional fine map.
-        reach=self.width_m/2+1200/math.tan(math.radians(self.angle_deg))
+        reach=self.width_m/2+1200/math.tan(math.radians(self.angle_deg or 5.))
         segments=[];starts=[];first=[];distance=0.
         for index,(a,b) in enumerate(zip(p,p[1:])):
             edge_start=distance;distance+=float(np.linalg.norm(b-a))
@@ -244,11 +245,15 @@ class ChannelProject:
         n,cell=c.terrain.n,c.terrain.cell_size
         axis=(np.arange(n)+.5)*cell;x,y=np.meshgrid(axis,axis,sparse=True)
         current=np.asarray(c.initial_height)
+        from .slopes import minimum_slope
+        from .soil import SoilField
         terrain=SimpleNamespace(height=current,reference=np.asarray(c.reference_height),x=x,y=y,
-            slope=math.tan(math.radians(self.angle_deg)),cell=cell,config=c)
+            slope=minimum_slope(c),dump_slope=minimum_slope(c,loose=True),cell=cell,config=c,
+            soil=SoilField(c.soil_profile,n,cell,c.initial_soil) if c.soil_profile else None)
         target,labels=target_surface(terrain,c.plan);work=labels>0
         if np.any(current!=terrain.reference):
-            original=SimpleNamespace(height=terrain.reference,reference=terrain.reference,x=x,y=y,slope=terrain.slope)
+            original=SimpleNamespace(height=terrain.reference,reference=terrain.reference,x=x,y=y,slope=terrain.slope,config=c,
+                soil=SoilField(c.soil_profile,n,cell) if c.soil_profile else None)
             _,design_labels=target_surface(original,c.plan)
             work=design_labels>0
         protected,_=channel_shore(terrain,c.plan)
@@ -289,6 +294,9 @@ class ChannelProject:
             safe=True
             for px,py in pads+[(px-c.fleet.waiting_offset,py) for px,py in pads]:
                 xx,yy=bx+px,by+py
+                clearance=c.fleet.separation+cell
+                if not (clearance<=xx<=self.side_m-clearance and clearance<=yy<=self.side_m-clearance):
+                    safe=False;break
                 ix,iy=int(xx/cell),int(yy/cell);radius=math.ceil(c.fleet.separation/cell)+1
                 row=slice(max(0,iy-radius),min(n,iy+radius+1));col=slice(max(0,ix-radius),min(n,ix+radius+1))
                 near=(axis[col][None,:]-xx)**2+(axis[row][:,None]-yy)**2<(c.fleet.separation+cell)**2
@@ -318,8 +326,8 @@ class ChannelProject:
         c.base.latitude_deg=latitude_at(c.georeference,c.base.x,c.base.y,c.base.latitude_deg)
         c.validate();return c
 
-    def profile(self,raster):
-        return corridor_profile(raster,self.points,-self.depth_m,self.width_m,angle_deg=self.angle_deg)
+    def profile(self,raster,soil_profile=None):
+        return corridor_profile(raster,self.points,-self.depth_m,self.width_m,angle_deg=self.angle_deg,soil_profile=soil_profile)
 
     def record(self,report):
         info=report.get('georeference',{}).get('channel',{})

@@ -4,7 +4,7 @@
   "width_m": 20,
   "depth_m": 5,
   "shore_offset_m": 10,
-  "angle_deg": 35,
+  "angle_deg": null,
   "side_m": 512,
   "spoil_height_m": 20
 }

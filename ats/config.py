@@ -11,7 +11,7 @@ class TrenchConfig:
     depth: float = 0.25
     x: float = 16.0
     y: float = 16.0
-    angle_deg: float = 35.0
+    angle_deg: float | None = None  # None: least-width stable material profile
 
 
 @dataclass
@@ -29,6 +29,7 @@ class TerrainConfig:
     avalanche_sweeps: int = 3
     avalanche_epsilon: float = 1e-9
     avalanche_stop_volume: float = 1e-10
+    repose_deg: float = 35.0  # physical angle for uniform soil, independent of project
     completion_volume: float = 0.05
 
 
@@ -147,6 +148,7 @@ class Config:
     soil_profile: object = None  # SoilProfile; None preserves pre-layer scenarios/saves
     initial_soil: dict | None = None  # sparse fine columns for a regional window
     energy_design: dict | None = None  # reviewed hardware/climate design; no live SOC is stored here
+    slope_model: str = 'materials'
 
     def drone_models(self):
         from copy import deepcopy
@@ -195,9 +197,14 @@ class Config:
         require(t.avalanche_stop_volume > 0, "Неверный допуск остановки осыпания")
         require(isinstance(self.seed, int) and self.seed >= 0, "Seed должен быть неотрицательным целым числом")
         require(self.event_limit > 0 and self.frame_budget_ms > 0 and self.max_frame_steps > 0 and self.display_interval_ms > 0 and self.terrain_display_seconds > 0, "Неверные параметры обновления интерфейса")
-        require(q.length > 0 and q.width > 0 and q.depth > 0 and 5 <= q.angle_deg <= 55, "Неверная геометрия канавы")
+        require(self.slope_model in ('materials','legacy'), 'Неизвестная механика откосов')
+        require(5<=t.repose_deg<=75, 'Физический угол грунта: от 5 до 75°')
+        require(q.length > 0 and q.width > 0 and q.depth > 0 and (q.angle_deg is None or 5 <= q.angle_deg <= 75), "Неверная геометрия канавы")
         side = t.n * t.cell_size
-        margin = q.depth / math.tan(math.radians(q.angle_deg)) + t.cell_size
+        from .slopes import minimum_slope
+        project_slope=(math.tan(math.radians(q.angle_deg)) if q.angle_deg is not None else
+                       min(minimum_slope(self),minimum_slope(self,loose=True)))
+        margin = q.depth / project_slope + t.cell_size
         require(q.length >= t.cell_size and q.width >= t.cell_size, "Дно меньше разрешения сетки")
         require(q.x-q.length/2-margin > 0 and q.x+q.length/2+margin < side and q.y-q.width/2-margin > 0 and q.y+q.width/2+margin < side, "Канава с откосами выходит за карту")
         x, y, w, h = t.dump_rect

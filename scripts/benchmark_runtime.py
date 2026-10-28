@@ -57,6 +57,11 @@ def trial(args, mode, number):
         relocations=sum(e.relocations for e in robots))
     robot_states={state:sum(e.state.value==state for e in robots) for state in sorted({e.state.value for e in robots})}
     profile=cProfile.Profile() if args.profile and number==0 else None
+    step_costs=[];physical_step=actor.step
+    def timed_step():
+        stamp=time.perf_counter();physical_step();step_costs.append(time.perf_counter()-stamp)
+    actor.step=timed_step
+    event_gaps=[];heartbeat=None;last_beat=[0.]
     window=None
     if mode=='gui':
         if args.offscreen:os.environ['QT_QPA_PLATFORM']='offscreen'
@@ -81,7 +86,13 @@ def trial(args, mode, number):
         window.timer.start(0)
         deadline=QtCore.QTimer();deadline.setSingleShot(True);deadline.timeout.connect(app.quit)
         deadline.start(round(args.max_wall_seconds*1000))
+        heartbeat=QtCore.QTimer();heartbeat.setInterval(10)
+        def beat():
+            stamp=time.perf_counter();event_gaps.append(stamp-last_beat[0]);last_beat[0]=stamp
+        heartbeat.timeout.connect(beat)
     ready=time.perf_counter()
+    last_beat[0]=ready
+    if heartbeat is not None:heartbeat.start()
     if profile:profile.enable()
     if window is None:
         for _ in range(args.steps):
@@ -91,7 +102,9 @@ def trial(args, mode, number):
     if profile:profile.disable()
     elapsed=time.perf_counter()-ready
     if window is not None:
-        window.timer.stop();deadline.stop();actor.step=original
+        event_gaps.append(time.perf_counter()-last_beat[0]);heartbeat.stop()
+        window.timer.stop();deadline.stop()
+    actor.step=physical_step
     report=sim.report() if project is None else dict(project.report(),reports=[u.simulation.report() for u in project.units])
     advanced=clock()-start
     if advanced<=0:raise ValueError('Замер не продвинул модельное время')
@@ -102,6 +115,9 @@ def trial(args, mode, number):
         state=report['state'],trips=report['trips'],mass_error_kg=report['mass_error_kg'],energy_error_j=report['energy_error_j'],
         physical_sha256=hashlib.sha256(json.dumps(report,sort_keys=True).encode()).hexdigest(),
         wall_limit_reached=clock()<target and running(),
+        max_step_wall_seconds=max(step_costs,default=0.),
+        p99_step_wall_seconds=sorted(step_costs)[min(len(step_costs)-1,int(len(step_costs)*.99))] if step_costs else 0.,
+        max_gui_event_gap_seconds=max(event_gaps,default=0.) if window is not None else None,
         engine_path=str(Path(inspect.getfile(type(sim))).resolve()),initial_time=start,robot_states_at_start=robot_states,
         robot_moving_seconds=sum(e.moving_seconds for e in robots)-robot_before['moving'],
         robot_working_seconds=sum(e.working_seconds for e in robots)-robot_before['working'],
