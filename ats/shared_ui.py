@@ -32,7 +32,7 @@ def refresh(host):
         if s.logistics and s.logistics.excavator:robots.append(dict(pos=s.logistics.excavator.position[:2],brush=color))
         r=b.config.radius
         boxes=list(layout_footprints(b.layout_spec,b.position)) if b.config.layout is not None else [(b.position[0]-r,b.position[1]-r,2*r,2*r)]
-        if s.logistics and s.logistics.field_rect:boxes.append(s.logistics.field_rect)
+        if s.logistics and getattr(s.logistics,'solar_array',None) is None:boxes.extend(s.logistics.solar_ground_rects())
         for x,y,w,h in boxes:outlines.extend([(x,y),(x+w,y),(x+w,y+h),(x,y+h),(x,y),(np.nan,np.nan)])
     host.peer_bases.setData(bases);host.peer_drones.setData(drones);host.peer_excavators.setData(robots)
     if outlines:

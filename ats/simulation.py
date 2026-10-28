@@ -94,6 +94,7 @@ class Simulation:
         self.relocation_pending=None
         self.base_move_wait=''
         self._base_front_anchor=(self.terrain.front.settings['base_chainage_m'] if self.terrain.front is not None else 0.)
+        self.terrain._site_owner=self
         self._terrain_active = self.config.terrain.roughness > 0
         self._initial_energy = sum(d.battery for d in self.drones)+self.base.battery
         self._starts = {d.identifier:d.position.copy() for d in self.drones}
@@ -102,7 +103,8 @@ class Simulation:
         points = [self.slot_position(i) for i in range(len(self.slots))]+[self.wait_position(i) for i in range(len(self.drones))]
         if not self.base.safe_path(self.base.position[:2], self.terrain) or any(not self._safe_pad(p) for p in points):
             self.block("База или посадочные площадки пересекают канаву, отвал либо край карты")
-        elif self.terrain.dump_space < max(0, self.terrain.remaining_cut-self.terrain.remaining_fill):
+        elif ((getattr(self.terrain,'dump_reserve_info',None) is not None and not self.terrain.dump_reserve_info['sufficient'])
+              or (getattr(self.terrain,'dump_reserve_info',None) is None and self.terrain.dump_space < max(0, self.terrain.remaining_cut-self.terrain.remaining_fill))):
             self.block("Недостаточно места в отвале для проектного объёма песка")
         self.logistics = None
         if self.config.logistics is not None:
@@ -138,11 +140,14 @@ class Simulation:
         offsets=[station_offset(i,self.config.fleet.pad_spacing) for i in range(len(self.slots))]
         docked=sum(d.config.empty_mass+d.cargo for d in self.drones if d.docked)
         rect=self.logistics.field_rect if self.logistics is not None else None
+        mounted=b.config.equipment.mass
+        array=getattr(self.logistics,'solar_array',None) if self.logistics else None
+        if array:mounted-=array.offboard_panel_mass()
         result=dict(body_dimensions_m=[diameter,diameter,b.config.roof_height],
                     landing_zone_dimensions_m=[diameter,max(offsets)-min(offsets)+diameter],
                     solar_field_dimensions_m=list(rect[2:]) if rect is not None else None,
-                    installed_equipment_mass_kg=b.config.equipment.mass,
-                    stored_items_mass_kg=b.config.mass-b.config.equipment.mass,
+                    installed_equipment_mass_kg=mounted,
+                    stored_items_mass_kg=b.config.mass-mounted,
                     docked_drones_mass_kg=docked,gross_mass_kg=b.config.mass+docked)
         if b.config.layout is not None:
             from .base_layout import support_report
@@ -173,6 +178,8 @@ class Simulation:
         near = (t.x[patch]-p[0])**2+(t.y[patch]-p[1])**2 < margin**2
         blocked=t.design_work[patch]|t.dump_mask[patch]
         if t.protected is not None:blocked |= t.protected[patch]
+        from .site_ground import marine_mask
+        blocked=blocked|marine_mask(t)[patch]
         return not np.any(blocked&near) and not (t.excavation[iy,ix] or t.fill_mask[iy,ix])
 
     def apply_plan(self, plan):
@@ -189,10 +196,11 @@ class Simulation:
                 raise ValueError('Перед изменением плана завершите выгрузку контейнеров командой посадки флота')
         candidate = deepcopy(self.terrain)
         candidate.set_plan(plan)
-        if self.logistics is not None and self.logistics.field_rect is not None:
-            x,y,w,h=self.logistics.field_rect
-            area=(candidate.x>=x)&(candidate.x<x+w)&(candidate.y>=y)&(candidate.y<y+h)
-            if np.any(area&candidate.work_mask):raise ValueError('План пересекает поле солнечных панелей')
+        if self.logistics is not None:
+            from .site_ground import rectangle_patch
+            for rect in self.logistics.solar_ground_rects():
+                patch=rectangle_patch(candidate,rect)
+                if patch is None or np.any(candidate.work_mask[patch]):raise ValueError('План пересекает поле солнечных панелей')
         points = [self.slot_position(i) for i in range(len(self.slots))]+[self.wait_position(i) for i in range(len(self.drones))]
         for p in points:
             near = (candidate.x-p[0])**2+(candidate.y-p[1])**2 < self.config.fleet.separation**2
@@ -237,10 +245,12 @@ class Simulation:
         if self.relocation_pending is None:return False
         self.relocation_pending=None;self.base_move_wait='';self._relocation_attempt_time=self.time
         w=self.logistics
+        if w is not None and getattr(w,'solar_array',None) and w.solar_array.mode=='FOLD':w.solar_array.request_deploy()
         if w is not None and w.base_pack_elapsed:
             # Reverse only the part already folded. Deployed area is unchanged
             # at cancellation and unfolding still consumes finite station power.
-            w.field_elapsed=max(0.,w.config.field_deployment_seconds-w.base_pack_elapsed)
+            if getattr(w,'solar_array',None):w.solar_array.request_deploy()
+            w.field_elapsed=max(0.,w.field_setup_seconds()-w.base_pack_elapsed)
             w.base_pack_elapsed=0.;w.field_ready=False
         self.event('Подготовка переезда отменена; панели разворачиваются, маршрут будет перепланирован')
         return True
@@ -266,8 +276,7 @@ class Simulation:
         set_panel_area(candidate.base.equipment,area,self.base.config.panel_efficiency)
         resolve_config(candidate);candidate.validate()
         if self.logistics is not None:
-            self.logistics.configure_panels(candidate.base.equipment.panels)
-            return 'applied'
+            return self.logistics.configure_panels(candidate.base.equipment.panels)
         return self.request_equipment(candidate)
 
     def set_base_battery_count(self, count):
@@ -324,11 +333,15 @@ class Simulation:
             batteries_changed=asdict(self.config.base.equipment)['batteries']!=asdict(proposed.base.equipment)['batteries']
             if panels_changed:
                 if self.base.destination is not None:raise ValueError('Дождитесь остановки базы перед изменением панелей')
-                self.logistics.solar_field_site(proposed.base.equipment.panel_area)
+                if self.logistics.config.solar is None:self.logistics.solar_field_site(proposed.base.equipment.panel_area)
+                if batteries_changed:self.logistics.configure_panels(proposed.base.equipment.panels,dry_run=True,prospective_batteries=proposed.base.equipment.batteries)
             if batteries_changed:self.logistics.configure_base_batteries(proposed.base.equipment.batteries)
+            result='applied'
             if panels_changed:
-                self.logistics.configure_panels(proposed.base.equipment.panels)
+                result=self.logistics.configure_panels(proposed.base.equipment.panels)
+            current_panels=deepcopy(self.config.base.equipment.panels)
             self.config.base.equipment=deepcopy(proposed.base.equipment)
+            if result=='waiting':self.config.base.equipment.panels=current_panels
             self.config.base.charge_power=proposed.base.equipment.charge_power_kw*1000
             self.config.base.charge_efficiency=proposed.base.equipment.charge_efficiency
             self.logistics.update_base_mass()
@@ -336,7 +349,7 @@ class Simulation:
                 d.config.name=saved.name=model.name
                 d.config.charge_threshold=saved.charge_threshold=model.charge_threshold
             self.event('Обновлены лимиты зарядки / включение и мощность лазеров')
-            return 'applied'
+            return result
         candidate=deepcopy(self.config)
         candidate.base.equipment=deepcopy(proposed.base.equipment)
         candidate.fleet.models=proposed.drone_models();candidate.fleet.count=len(candidate.fleet.models)

@@ -286,14 +286,16 @@ def test_container_brush_fill_and_leftover_mass(idle_digging):
 
 def test_large_field_has_finite_deployment_and_footprint():
     from ats.experiments import experiment_config
-    s=Simulation(experiment_config(Config(),panel_area=200))
+    from ats.maps import with_map_size
+    s=Simulation(experiment_config(with_map_size(Config(),64),panel_area=200));s.landing_requested=True
     w=s.logistics
     assert w.field_rect is not None and not w.field_ready
     s.run(100)
-    assert w.field_elapsed==100 and not w.field_ready
-    assert 0<s.base.generated<s.base.config.panel_area*s.base.config.panel_efficiency*s.base.config.peak_irradiance*100/3
+    assert not w.field_ready and w.generating_area()<200
+    assert 0<s.base.generated<s.base.config.panel_area*s.base.config.panel_efficiency*s.base.config.peak_irradiance*100
     assert w.station_consumed>=200*100
-    s.run(210)
+    from tests.test_site_layout import until
+    until(s,lambda:w.field_ready)
     assert w.field_ready and s.base.generated>0
     assert abs(s.report()['energy_error_j'])<1e-4
 

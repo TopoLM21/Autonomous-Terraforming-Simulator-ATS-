@@ -33,9 +33,16 @@ def set_panel_area(equipment, area, efficiency=.20):
     previous=equipment.panel_area
     if area==0:
         equipment.panels=[]
-    elif len(equipment.panels)==1 and abs(area/equipment.panels[0].area_m2-round(area/equipment.panels[0].area_m2))<1e-8 and 1<=round(area/equipment.panels[0].area_m2)<=PANEL_QUANTITY_LIMIT:
-        # Whole standard panels change in count, retaining their physical size.
-        equipment.panels[0].quantity=round(area/equipment.panels[0].area_m2)
+    elif len(equipment.panels)<=1:
+        # Keep whole panels physically unchanged; a fractional request adds one
+        # trimmed panel, rather than stretching a single panel to 123.5 m².
+        from copy import deepcopy
+        panel=deepcopy(equipment.panels[0]) if equipment.panels else PanelModule(efficiency=efficiency or .20)
+        count=int(math.floor(area/panel.area_m2+1e-10));remainder=area-count*panel.area_m2
+        equipment.panels=[]
+        if count:whole=deepcopy(panel);whole.quantity=count;equipment.panels.append(whole)
+        if remainder>1e-9:
+            part=deepcopy(panel);part.quantity=1;part.area_m2=remainder;part.mass_kg=panel.mass_kg*remainder/panel.area_m2;equipment.panels.append(part)
     elif previous>0:
         factor=area/previous
         for panel in equipment.panels:

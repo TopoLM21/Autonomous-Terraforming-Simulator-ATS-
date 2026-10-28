@@ -1,5 +1,5 @@
 """Engineering assumptions for ATS 2.0. Existing presets never enable these."""
-from dataclasses import dataclass
+from dataclasses import dataclass,field
 import math
 
 
@@ -67,10 +67,14 @@ class LogisticsConfig:
     batch_courier: bool = True
     courier_fill_fraction: float = .75
     courier_low_soc: float = .10
+    solar: dict | None = field(default_factory=dict)  # None preserves aggregate historical arrays
 
     def validate(self):
         from dataclasses import asdict
         values = asdict(self)
+        if self.solar is not None:
+            from .solar_array import parameters
+            self.solar=parameters(self.solar)
         if any(isinstance(v, (int, float)) and not math.isfinite(v) for v in values.values()):
             raise ValueError('Non-finite logistics configuration')
         for name in ('container_count','excavator_battery_count','drone_spare_sets'):

@@ -19,7 +19,7 @@ import numpy as np
 
 
 FORMAT='ATS_SIMULATION'
-VERSION=6
+VERSION=7
 MAX_BYTES=1_500_000_000
 MAX_NODES=2_000_000
 
@@ -27,10 +27,10 @@ MAX_NODES=2_000_000
 def _classes():
     from . import (config,equipment,simulation,solar_base,drone,terrain,planner,dust,
                    logistics,logistics_config,inventory,batteries,excavator,cooperative_lift,
-                   productivity,activity,plan,laser,workfront,landscape,soil,complexes,power_design,shared_site,regional)
+                   productivity,activity,plan,laser,workfront,landscape,soil,complexes,power_design,shared_site,regional,solar_array)
     modules=(config,equipment,simulation,solar_base,drone,terrain,planner,dust,logistics,
              logistics_config,inventory,batteries,excavator,cooperative_lift,productivity,
-             activity,plan,laser,workfront,landscape,soil,complexes,power_design,shared_site,regional)
+             activity,plan,laser,workfront,landscape,soil,complexes,power_design,shared_site,regional,solar_array)
     classes=[value for module in modules for value in vars(module).values()
              if isinstance(value,type) and value.__module__==module.__name__]
     return {c.__module__+'.'+c.__name__:c for c in [*classes,SimpleNamespace]}
@@ -229,6 +229,7 @@ def _validate(session):
         if w.sim is not s or w.battery_service.world is not w or w.active.keys()&w.direct_ids:
             raise ValueError('Нарушены ссылки диспетчера')
         w.inventory.validate()
+        w.audit_solar_site()
         for container in w.containers:
             if container.soil is not None and container.soil.profile!=s.config.soil_profile:
                 raise ValueError('Неверный материал контейнера')
@@ -309,18 +310,33 @@ def load_state(path):
                 raise ValueError('Сохранение превышает допустимый размер')
             if archive.getinfo('manifest.json').file_size>256_000_000:raise ValueError('Слишком большой список объектов')
             manifest=json.loads(archive.read('manifest.json'))
-            if manifest.get('format')!=FORMAT or type(manifest.get('version')) is not int or manifest['version'] not in (1,2,3,4,5,VERSION):
+            if manifest.get('format')!=FORMAT or type(manifest.get('version')) is not int or manifest['version'] not in (1,2,3,4,5,6,VERSION):
                 raise ValueError('Неизвестный формат или версия сохранения')
             decoder=_Decoder(archive,manifest['nodes']);root=decoder.decode(manifest['root'])
             if manifest['version']==1:_migrate_v1(decoder)
             # Old missions keep their exact target and original common-angle
             # law. No automatic re-excavation or silent material conversion.
             from .config import Config
+            from .config import TerrainConfig
+            from .logistics_config import LogisticsConfig
             from .terrain import Terrain
             for value in decoder.objects:
                 if isinstance(value,Config) and 'slope_model' not in vars(value):value.slope_model='legacy'
+                if isinstance(value,TerrainConfig) and 'compact_spoil' not in vars(value):value.compact_spoil=False
+                if isinstance(value,LogisticsConfig) and 'solar' not in vars(value):value.solar=None
                 if isinstance(value,Terrain) and not hasattr(value,'dump_slope'):value.dump_slope=value.slope
-        session=Session(root['simulation'],root['landscape'],root['ui'],manifest.get('runtime',{}),root.get('complex_project'));_validate(session)
+        session=Session(root['simulation'],root['landscape'],root['ui'],manifest.get('runtime',{}),root.get('complex_project'))
+        if session.landscape is not None:
+            from .channel import marine_window
+            simulations=[u.simulation for u in session.complex_project.units] if session.complex_project else [session.simulation]
+            masks={}
+            for s in simulations:
+                geo=s.config.georeference
+                if geo and 'marine' not in geo and 'origin_m' in geo and (session.landscape.raster.metadata['crs']!='LOCAL_METRES' or session.landscape.raster.metadata.get('ocean_boundary',False)):
+                    key=(*geo['origin_m'],s.terrain.cell*s.terrain.height.shape[0])
+                    if key not in masks:masks[key]=marine_window(session.landscape.raster,geo['origin_m'],key[-1])
+                    geo['marine']=masks[key]
+        _validate(session)
         return session
     except (zipfile.BadZipFile,EOFError,KeyError,TypeError,AttributeError,IndexError,OverflowError,RecursionError) as error:
         raise ValueError('Повреждённое сохранение ATS') from error

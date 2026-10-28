@@ -199,6 +199,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.container_markers=pg.ScatterPlotItem(size=9,symbol='s');self.map.addItem(self.container_markers)
         self.excavator_reach=pg.PlotDataItem(pen=pg.mkPen('#ffca82',width=1,style=QtCore.Qt.PenStyle.DotLine));self.map.addItem(self.excavator_reach)
         self.solar_field_outline=pg.PlotDataItem(pen=pg.mkPen('#83b9f8',width=2));self.map.addItem(self.solar_field_outline)
+        from .site_ui import initialize as initialize_site
+        initialize_site(self)
         self.excavator_label=pg.TextItem(color='#ffe0a1',anchor=(0,1));self.map.addItem(self.excavator_label)
         self.route = pg.PlotDataItem(pen=pg.mkPen("#75d8d1", width=1, style=QtCore.Qt.PenStyle.DashLine))
         self.map.addItem(self.route)
@@ -334,6 +336,7 @@ class MainWindow(QtWidgets.QMainWindow):
         solar_form.addRow(self.panel_info)
         self.apply_panels_button=QtWidgets.QPushButton('Применить площадь панелей сейчас')
         self.apply_panels_button.clicked.connect(self.apply_panel_area);solar_form.addRow(self.apply_panels_button)
+        self.site_button=QtWidgets.QPushButton('Солнечные секции и отвал…');self.site_button.clicked.connect(self.show_site);solar_form.addRow(self.site_button)
         self.base_batteries=QtWidgets.QSpinBox();self.base_batteries.setRange(0,1000)
         self.base_batteries.setValue(sum(b.quantity for b in config.base.equipment.batteries))
         solar_form.addRow('Аккумуляторов базы, шт.',self.base_batteries)
@@ -427,7 +430,7 @@ class MainWindow(QtWidgets.QMainWindow):
         overlay[t.bottom] = [57, 200, 237, 50]
         overlay[t.fill_mask] = [112, 242, 132, 65]
         # Outlines remain visible without obscuring the actual terrain.
-        for mask, color in [(t.excavation, [65, 210, 250, 190]), (t.bottom & ~t.fill_mask, [90, 225, 255, 200]), (t.fill_mask,[112,242,132,220]), (t.dump_mask, [255, 164, 60, 190])]:
+        for mask, color in [(t.excavation, [65, 210, 250, 190]), (t.bottom & ~t.fill_mask, [90, 225, 255, 200]), (t.fill_mask,[112,242,132,220])]:
             padded = np.pad(mask, 1)
             border = mask & ~(padded[:-2, 1:-1] & padded[2:, 1:-1] & padded[1:-1, :-2] & padded[1:-1, 2:])
             overlay[border] = color
@@ -657,6 +660,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def apply_equipment(self,config,resume=None):
         previous=self.running if resume is None else resume
         result=self.sim.request_equipment(config)
+        if result=='waiting':self.statusBar().showMessage('Изменение комплектации ожидает возврата солнечных секций',15000)
         if result=="pending":
             if self._equipment_resume is None:self._equipment_resume=previous
             self.plan_editor.enabled.setChecked(False);self.running=True
@@ -680,10 +684,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def apply_panel_area(self):
         try:
-            self.sim.set_panel_area(self.panels.value())
+            result=self.sim.set_panel_area(self.panels.value())
+            if result=='waiting':self.statusBar().showMessage('Изменение панелей ожидает физического складывания и возврата секций',15000)
             self.sync_equipment();self.refresh(True)
         except ValueError as error:
             QtWidgets.QMessageBox.warning(self,'Площадь панелей',str(error))
+
+    def show_site(self):
+        from .site_ui import SiteWindow
+        self.site_window=SiteWindow(self);self.site_window.show()
 
     def apply_base_battery_count(self):
         try:
@@ -1060,7 +1069,7 @@ class MainWindow(QtWidgets.QMainWindow):
             points=np.asarray(points);self.base_outline.setData(points[:,0],points[:,1],connect='finite')
         if s.logistics is not None:
             l=s.logistics;e=l.excavator
-            if l.field_rect is not None:
+            if l.field_rect is not None and getattr(l,'solar_array',None) is None:
                 x,y,w,h=l.field_rect;self.solar_field_outline.setData([x,x+w,x+w,x,x],[y,y,y+h,y+h,y])
             else:self.solar_field_outline.clear()
             self.container_markers.setData([dict(pos=o.position[:2],brush='#a8e3ae' if o.soil_kg==0 else '#e9a560') for o in l.containers])
@@ -1074,6 +1083,8 @@ class MainWindow(QtWidgets.QMainWindow):
             else:self.excavator_marker.clear();self.excavator_reach.clear();self.excavator_label.setText('')
         else:
             self.excavator_marker.clear();self.container_markers.clear();self.excavator_reach.clear();self.solar_field_outline.clear();self.excavator_label.setText('')
+        from .site_ui import refresh as refresh_site
+        refresh_site(self,t)
         self.drone_marker.setData([{'pos':tuple(o.position[:2]),'pen':pg.mkPen(self.palette[o.identifier],width=3),'symbol':'+','size':20} for o in s.drones])
         self.slot_markers.setData([{'pos':tuple(s.slot_position(i)[:2]),'brush':'#f4b651' if occupant is not None else '#41566b','symbol':'s','size':10} for i,occupant in enumerate(s.slots)])
         for o,label in zip(s.drones,self.drone_labels):

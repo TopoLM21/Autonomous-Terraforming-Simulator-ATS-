@@ -80,6 +80,7 @@ class Logistics:
         self.field_elapsed=0.
         self.field_ready=sim.base.config.panel_area<=20.
         self.field_rect=None
+        self.solar_array=None
         base_packs=[]
         for recipe in sim.base.config.equipment.batteries:
             for _ in range(recipe.quantity):
@@ -104,7 +105,7 @@ class Logistics:
         self.inventory.add_many(panel_items)
         for i,emitter in enumerate(eq.emitters):
             self.inventory.add(Item(f'laser_channel_{i+1}',emitter.mass_kg,L.BASE_MOUNT,'INSTALLED','base',position=tuple(sim.base.position),kind='LASER_TRANSMITTER'))
-        if not self.field_ready:
+        if not self.field_ready and self.config.solar is None:
             try:self.field_rect=self.solar_field_site(sim.base.config.panel_area)
             except ValueError as error:sim.block(str(error))
         for i in range(self.config.container_count):
@@ -187,7 +188,77 @@ class Logistics:
         if sim.base.config.layout is not None:
             from .base_layout import solve_layout,apply_live_layout
             apply_live_layout(self,solve_layout(sim.config,self))
+        if sim.base.config.panel_area>20 and self.config.solar is not None:
+            try:
+                from .solar_array import SolarArray
+                self.solar_array=SolarArray(self);self.solar_array.add_inventory(self)
+                self._solar_bounds()
+            except ValueError as error:sim.block(str(error))
         self.update_base_mass()
+
+    def _solar_bounds(self):
+        if self.solar_array and self.solar_array.reserved_rects:
+            boxes=self.solar_array.reserved_rects;x=min(r[0] for r in boxes);y=min(r[1] for r in boxes)
+            self.field_rect=(x,y,max(r[0]+r[2] for r in boxes)-x,max(r[1]+r[3] for r in boxes)-y)
+        else:self.field_rect=None
+
+    def field_setup_seconds(self):
+        array=getattr(self,'solar_array',None)
+        return max(1.,array.duration()) if array else self.config.field_deployment_seconds
+
+    def solar_ground_rects(self):
+        array=getattr(self,'solar_array',None)
+        if self.field_rect is None:return []
+        if array:return [] if getattr(self,'regional_folded',False) or array.mode=='FOLD' and array.stowed else array.reserved_rects
+        return [self.field_rect]
+
+    def plan_solar_field(self):
+        array=getattr(self,'solar_array',None)
+        if array:
+            if not array.stowed:raise ValueError('Сначала физически сложите солнечные секции')
+            from copy import deepcopy
+            old=self.solar_array;self.solar_array=None;rect=self.field_rect;self.field_rect=None
+            try:
+                proposed=deepcopy(old);proposed.reserved_rects=[];proposed.plan(self,old.available_installers)
+                ids=[id for id in old.support_ids if self.inventory.items[id].kind=='SOLAR_INSTALLER']
+                for crew,id in zip(proposed.crews,ids):crew.id=id
+                proposed.support_ids=list(old.support_ids)
+            finally:self.solar_array=old;self.field_rect=rect
+            self.solar_array=proposed;self._solar_bounds();proposed.request_deploy()
+        else:self.field_rect=self.solar_field_site(self.sim.base.config.panel_area)
+
+    def wake_for_solar_service(self):
+        # A completed excavation can still receive equipment or fold its field.
+        # Completion resumes after this finite service, without a new mission.
+        if self.sim.state==MissionState.COMPLETED:
+            self.sim.state=MissionState.RUNNING;self.sim.reason=''
+        self.progress_at=self.sim.time
+
+    def audit_solar_site(self):
+        """Report unsafe historical layouts without removing any equipment."""
+        from .site_ground import footprint_safe
+        array=getattr(self,'solar_array',None);t=self.sim.terrain
+        previous=getattr(self,'solar_site_issue','');self.solar_site_issue=''
+        if array:
+            array.validate(self)
+            if array.issue.startswith('BLOCKED_SOLAR_SITE:'):array.issue=''
+            deployed=[q for q in array.sections if q.state=='DEPLOYED']
+            array.invalid_sections=[q.id for q in deployed if not footprint_safe(t,q.rect,t.design_work|t.dump_mask,
+                   grade_deg=array.settings['max_grade_deg'],relief_m=array.settings['support_travel_m'])]
+            if array.invalid_sections:
+                array.issue='BLOCKED_SOLAR_SITE: сохранённая секция на воде или непригодном грунте; генерация остановлена, оборудование сохранено'
+                self.solar_site_issue=array.issue
+        elif self.field_rect is not None:
+            rect=self.field_rect
+            if not footprint_safe(t,rect,t.design_work|t.dump_mask,grade_deg=8.,relief_m=max(rect[2:])*math.tan(math.radians(8))):
+                self.solar_site_issue='BLOCKED_SOLAR_SITE: старое поле на воде или непригодном грунте; сложите и перепланируйте поле'
+        from .base_layout import layout_footprints
+        b=self.sim.base
+        boxes=list(layout_footprints(b.layout_spec,b.position)) if b.config.layout is not None else [(b.position[0]-b.config.radius,b.position[1]-b.config.radius,2*b.config.radius,2*b.config.radius)]
+        if any(not footprint_safe(t,box,grade_deg=math.degrees(math.atan(b.config.max_slope)),relief_m=float('inf')) for box in boxes):
+            self.solar_site_issue+=' UNSAFE_BASE_SITE: сохранённая база на воде или непригодном грунте; техника сохранена, требуется безопасное размещение'
+        if self.solar_site_issue and self.solar_site_issue!=previous:self.sim.event(self.solar_site_issue)
+        return self.solar_site_issue
 
     @property
     def batch_enabled(self):
@@ -206,24 +277,46 @@ class Logistics:
             for y in np.linspace(margin,max(margin,side-margin-height),grid):
                 if shared is not None and shared.ground_occupied(s.terrain.owner_id,(x,y,width,height)):continue
                 mask=(s.terrain.x>=x)&(s.terrain.x<x+width)&(s.terrain.y>=y)&(s.terrain.y<y+height)
+                from .site_ground import footprint_safe
                 if height>side-2*margin or np.any(mask&(s.terrain.design_work|s.terrain.dump_mask)):continue
+                if not footprint_safe(s.terrain,(x,y,width,height),grade_deg=8.,relief_m=max(width,height)*math.tan(math.radians(8))):continue
                 if any(x-margin<=p[0]<=x+width+margin and y-margin<=p[1]<=y+height+margin for p in pads):continue
                 sites.append((np.linalg.norm(np.array([x+width/2,y+height/2])-s.base.position[:2]),
                               (float(x),float(y),width,height)))
         if not sites:raise ValueError('BLOCKED_SOLAR_FIELD_SITE: поле панелей не помещается вне рабочих и посадочных площадок')
         return min(sites,key=lambda site:(site[0],site[1]))[1]
 
-    def configure_panels(self, panels):
+    def configure_panels(self, panels,*,dry_run=False,prospective_batteries=None):
         """Apply a validated external panel installation without recreating the world."""
-        from copy import deepcopy
+        from copy import copy,deepcopy
         s=self.sim
         if s.base.destination is not None:raise ValueError('Дождитесь остановки базы перед изменением панелей')
         equipment=deepcopy(s.base.config.equipment);equipment.panels=deepcopy(panels);equipment.validate()
+        if prospective_batteries is not None:equipment.batteries=deepcopy(prospective_batteries);equipment.validate()
         from .base_layout import preview_live_layout,apply_live_layout
-        layout=preview_live_layout(self,panels=panels)
-        rect=self.solar_field_site(equipment.panel_area)
+        layout=preview_live_layout(self,panels=panels,batteries=equipment.batteries)
+        if self.config.solar is not None and equipment.panel_area>20:
+            from .solar_array import recipe,parameters
+            settings=parameters(self.config.solar);groups,_,_,_=recipe(equipment.panels,settings)
+            if any(mass+max(1.,area/settings['section_area_m2'])*settings['frame_mass_kg']>settings['installer_payload_kg'] for _,area,mass in groups):raise ValueError('Солнечная кассета тяжелее грузоподъёмности монтажника')
+        array=getattr(self,'solar_array',None)
+        if array and not array.stowed:
+            # Validate the requested installation before scheduling teardown.
+            # A conservative tile-area bound rejects impossible deliveries
+            # atomically, without folding a perfectly working existing field.
+            p=array.settings;side=s.terrain.height.shape[0]*s.terrain.cell
+            packed=equipment.panel_area*(1+p['column_lane_m']/p['section_width_m'])*(1+p['row_lane_m']/(p['section_area_m2']/p['section_width_m']))
+            if packed>side**2:raise ValueError('Солнечные секции с проездами не помещаются на карте')
+            if dry_run:return 'waiting'
+            self.pending_solar_panels=deepcopy(panels);array.request_fold()
+            self.wake_for_solar_service()
+            s.event('Изменение панелей ожидает физического возврата солнечных секций')
+            return 'waiting'
+        modern=self.config.solar is not None and equipment.panel_area>20
+        rect=None if modern else self.solar_field_site(equipment.panel_area)
         deployed=min(self.generating_area(),equipment.panel_area)
-        items={id:item for id,item in self.inventory.items.items() if item.kind!='SOLAR_PANEL'}
+        old_support=sum(o.mass_kg for o in self.inventory.items.values() if o.kind in ('SOLAR_FRAME','SOLAR_INSTALLER'))
+        items={id:item for id,item in self.inventory.items.items() if item.kind not in ('SOLAR_PANEL','SOLAR_FRAME','SOLAR_INSTALLER')}
         index=0
         for recipe in equipment.panels:
             for _ in range(recipe.quantity):
@@ -231,20 +324,41 @@ class Logistics:
                 items[id]=Item(id,recipe.mass_kg,L.BASE_MOUNT,'INSTALLED','base',
                                position=tuple(s.base.position),kind='SOLAR_PANEL')
         Inventory(items).validate()
+        proposed=None
+        if modern:
+            from .solar_array import SolarArray
+            from .power_design import equipment_copy
+            probe=copy(self);actor=copy(s);actor.config=equipment_copy(s.config);actor.base=copy(s.base)
+            actor.base.config=actor.config.base;actor.base.config.equipment=equipment
+            if layout is not None:
+                actor.base.layout_spec=layout;actor.base.config.radius=layout['dimensions_m'][0]/2;actor.base.config.roof_height=layout['dimensions_m'][2]
+            probe.sim=actor;probe.config=actor.config.logistics;actor.logistics=probe
+            probe.inventory=Inventory(items);probe.solar_array=None;probe.field_rect=None
+            proposed=SolarArray(probe)
+        if dry_run:return 'applied'
         old_mass=sum(o.mass_kg for o in self.inventory.items.values() if o.kind=='SOLAR_PANEL')
         new_mass=sum(p.quantity*p.mass_kg for p in equipment.panels)
         self.imported_mass_kg+=max(0.,new_mass-old_mass);self.exported_mass_kg+=max(0.,old_mass-new_mass)
         self.inventory.items=items
+        self.solar_array=None
         s.base.config.equipment=equipment;equipment.resolve(s.base.config,s.config.fleet)
         if layout is not None:apply_live_layout(self,layout)
         self.field_rect=rect;self.base_pack_elapsed=0.
         self.field_ready=rect is None or deployed>=equipment.panel_area
         self.field_elapsed=(self.config.field_deployment_seconds*deployed/equipment.panel_area
                             if rect is not None else 0.)
+        if proposed:
+            self.solar_array=proposed;proposed.add_inventory(self);self._solar_bounds()
+            self.field_ready=False;self.field_elapsed=0.
+        self.solar_site_issue=''
+        new_support=sum(o.mass_kg for o in self.inventory.items.values() if o.kind in ('SOLAR_FRAME','SOLAR_INSTALLER'))
+        self.imported_mass_kg+=max(0.,new_support-old_support);self.exported_mass_kg+=max(0.,old_support-new_support)
         if s.shared_site is not None:s.shared_site.invalidate_geometry()
         self.update_base_mass()
         s.event(f'Панели изменены без сброса: {equipment.panel_area:g} м², {new_mass:g} кг; '+
                 ('развёртывание поля' if rect else 'компактная установка'))
+        self.wake_for_solar_service()
+        return 'applied'
 
     def configure_base_batteries(self, recipes):
         """Install empty base packs, retaining real IDs, charge and all jobs."""
@@ -343,6 +457,11 @@ class Logistics:
         self.sim.base.config.mass=self.sim.base.config.equipment.mass+sum(
             o.gross_mass for o in self.mobile_items()
             if o.holder_id=='base' and (o.location in (L.BASE_STORAGE,L.BASE_CHARGER) or isinstance(o,ChargingSlot)))
+        array=getattr(self,'solar_array',None)
+        if array:
+            self.sim.base.config.mass-=array.offboard_panel_mass()
+            crane=array.crane_supported()
+            self.sim.base.config.mass+=sum(self.inventory.items[id].mass_kg for id in array.support_ids if self.inventory.items[id].holder_id=='base' or id in crane)
 
     def _tool_mass(self, d, tool_mass):
         e=d.config.equipment
@@ -762,7 +881,10 @@ class Logistics:
     def generating_area(self):
         """Only physically unfolded panels contribute, including partial deployment."""
         if self.sim.base.destination is not None or getattr(self,'regional_folded',False):return 0.
-        seconds=max(1.,self.config.field_deployment_seconds)
+        array=getattr(self,'solar_array',None)
+        if array:return array.installed_area
+        if getattr(self,'solar_site_issue',''):return 0.
+        seconds=max(1.,self.field_setup_seconds())
         fraction=(max(0.,1-self.base_pack_elapsed/seconds) if self.base_pack_elapsed else
                   1. if self.field_ready else min(1.,self.field_elapsed/seconds))
         return self.sim.base.config.panel_area*fraction
@@ -803,16 +925,20 @@ class Logistics:
                 or not channel and any(j.status=='QUEUED' for j in self.jobs)
                 or not all(d.grounded if channel else d.docked for d in s.drones) or s.landing_requested):return
         if channel and self.field_rect is not None:
-            if not self.field_ready:
+            array=getattr(self,'solar_array',None)
+            if not self.field_ready and not (array and array.mode=='FOLD'):
                 s.base_move_wait='UNFOLDING_SOLAR_FIELD';return
             cost=s.base.route_energy(s.relocation_pending,s.terrain,s.drones)
             # Chargers are paused until redeployment. Budget the remaining fold,
             # the uphill drive and a full unfold even through a completely dark night.
-            setup_seconds=2*self.config.field_deployment_seconds-self.base_pack_elapsed
-            if s.base.battery<cost*1.3+(200+s.base.config.idle_power)*setup_seconds:
+            setup_seconds=2*self.field_setup_seconds()-self.base_pack_elapsed
+            array=getattr(self,'solar_array',None)
+            setup_energy=(2*array.energy_budget() if array else 200*setup_seconds)+s.base.config.idle_power*setup_seconds
+            if s.base.battery<cost*1.3+setup_energy:
                 s.base_move_wait='WAITING_BASE_ENERGY';return
-            if self.use_station(200.):self.base_pack_elapsed+=1.
-            if self.base_pack_elapsed<self.config.field_deployment_seconds:
+            if array:array.request_fold()
+            elif self.use_station(200.):self.base_pack_elapsed+=1.
+            if self.base_pack_elapsed<self.field_setup_seconds():
                 s.base_move_wait='FOLDING_SOLAR_FIELD';return
             self.field_rect=None;self.field_ready=False;self.field_elapsed=0.;self.base_pack_elapsed=0.
             return  # account the final folding step before the drive starts
@@ -1036,13 +1162,23 @@ class Logistics:
         s.laser_links=prepare_links(s.base,s.drones,s.terrain,1.,s.flight_power,s.config.fleet.separation/4,
             dust=s.dust,obstacles=[self.excavator] if self.excavator is not None else ())
         area=s.base.config.panel_area
-        setup=bool(self.base_pack_elapsed or not self.field_ready)
-        if not self.field_ready:
+        array=getattr(self,'solar_array',None)
+        if array and not getattr(self,'regional_folded',False) and s.base.destination is None:
+            if getattr(s,'regional_stage',None)=='PACK':array.request_fold()
+            array.step(self)
+            if array.stowed and getattr(self,'pending_solar_panels',None) is not None:
+                panels=self.pending_solar_panels;self.pending_solar_panels=None
+                try:self.configure_panels(panels);array=self.solar_array
+                except ValueError as error:self.solar_site_issue=str(error);s.event(str(error))
+        setup=bool(self.base_pack_elapsed or not self.field_ready) and array is None
+        if not self.field_ready and array is None:
             if not getattr(self,'regional_folded',False) and s.base.destination is None and (s.relocation_pending is None or self.field_rect is not None) and self.use_station(200.):
                 self.field_elapsed+=1.
-            if not getattr(self,'regional_folded',False) and self.field_elapsed>=self.config.field_deployment_seconds:self.field_ready=True
-        if getattr(s,'regional_stage',None)=='PACK' and not getattr(self,'regional_folded',False):
+            if not getattr(self,'regional_folded',False) and self.field_elapsed>=self.field_setup_seconds():self.field_ready=True
+        if getattr(s,'regional_stage',None)=='PACK' and not getattr(self,'regional_folded',False) and array is None:
             if self.use_station(200.):self.base_pack_elapsed+=1.
+        # A pending hardware delivery can have committed during array.step.
+        area=s.base.config.panel_area
         generating_area=self.generating_area()
         if setup:
             # Deployment and motion must retain their own energy reserve;
@@ -1068,12 +1204,14 @@ class Logistics:
                 if item.holder_id=='base':item.position=tuple(np.asarray(item.position)+delta)
             for d in s.drones:
                 if d.docked:d.position[:]=s.slot_position(d.slot)
+            if array:
+                for crew in array.crews:crew.position+=delta;crew.home+=delta;crew.mount+=delta
         if self.base_move_job and s.base.destination is None:
             self.base_move_job.status='COMPLETED';self.inventory.release(self.base_move_job.id)
             self.base_move_job=None;self.progress_at=s.time
             s.base_move_wait=''
             if not getattr(self,'regional_folded',False) and not self.field_ready and s.base.config.panel_area>20:
-                try:self.field_rect=self.solar_field_site(s.base.config.panel_area)
+                try:self.plan_solar_field()
                 except ValueError as error:s.block(str(error))
         self.battery_service.after_charging()
         self.try_lift()
@@ -1125,6 +1263,7 @@ class Logistics:
                 and not self.battery_service.drone_swaps and not self.battery_service.robot_swap
                 and not self.active and all(c.soil_kg==0 for c in self.containers)
                 and self.group is None and not self.direct_ids
+                and (getattr(self,'solar_array',None) is None or (self.solar_array.stowed if self.solar_array.mode=='FOLD' else self.solar_array.ready))
                 and (self.excavator is None or self.excavator.bucket_kg==0)
                 and all(d.grounded for d in s.drones)):
             s.state=MissionState.COMPLETED;s.event('Логистическая миссия завершена')
@@ -1147,6 +1286,10 @@ class Logistics:
 
     def detect_stall(self):
         if getattr(self.sim,'regional_stage',None):return
+        if getattr(self,'solar_array',None) is not None and not (self.solar_array.stowed if self.solar_array.mode=='FOLD' else self.solar_array.ready):
+            if self.solar_array.issue:self.wait_reason=self.solar_array.issue
+            else:self.progress_at=self.sim.time
+            return
         s=self.sim
         if s.base.destination is not None or s.relocation_pending is not None:return
         if s.state!=MissionState.RUNNING or self.active or s.landing_requested:return
@@ -1210,6 +1353,7 @@ class Logistics:
         report['solar_field_deployed']=self.field_ready
         report['solar_generating_area_m2']=self.generating_area()
         report['solar_field_folding_seconds']=self.base_pack_elapsed
+        if getattr(self,'solar_site_issue',''):report['solar_site_issue']=self.solar_site_issue
         report['base_battery_power_w']=self.base_battery_power_w
         report['base_load_power_w']=self.base_load_power_w
         report['base_energy_status']=('База движется, генерация отключена' if s.base.destination is not None else
@@ -1224,6 +1368,13 @@ class Logistics:
             'Ожидание солнца' if s.base.solar_power<=1e-8 else
             'Солнечная энергия поступает потребителям')
         report['solar_field_rect']=self.field_rect
+        if getattr(self,'solar_array',None) is not None:
+            report['solar_sections']=self.solar_array.report()
+            if not self.field_ready and s.base.destination is None:
+                action='Возврат солнечных секций' if self.solar_array.mode=='FOLD' else 'Монтаж солнечных секций'
+                report['base_energy_status']=f'{action}: в работе {self.generating_area():g} м²; питание и зарядка — в пределах доступной мощности'
+        if report.get('solar_site_issue'):report['base_energy_status']=report['solar_site_issue']
+        if getattr(s.terrain,'dump_reserve_info',None):report['spoil_reserve']=dict(s.terrain.dump_reserve_info)
         report['logistics_wait_reason']=self.wait_reason
         report['solar_field_deployment_seconds']=self.field_elapsed
         report['energy_drone_kwh']=sum(d.consumed for d in s.drones)/KWH

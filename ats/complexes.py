@@ -30,7 +30,10 @@ class ComplexTemplate:
         c.base.x=5.;c.base.y=16.
         # Initial staging-map estimate only. Real field placement is checked by
         # Simulation; vehicle dimensions are deliberately not inferred from it.
-        side=max(64,math.ceil((math.sqrt(c.base.panel_area)+32)/32)*32)
+        # A field also needs physical section spacing, service lanes and the
+        # carrier train. This is a staging estimate; placement still validates
+        # the entire site before any equipment is delivered.
+        side=max(64,math.ceil((2*math.sqrt(c.base.panel_area)+32)/32)*32)
         if c.energy_design:side=max(side,math.ceil(c.energy_design['required_map_side_m']/32)*32)
         from .maps import workspace_cell
         c.terrain.cell_size=workspace_cell(min(1024,side),c.terrain.cell_size)
@@ -86,6 +89,10 @@ class ComplexTemplate:
             if log.excavator_enabled:mass+=log.excavator_dry_mass_kg+robot_modules*log.pack_mass_kg
             if log.individual_chargers:mass+=(drone_modules*(1+log.drone_spare_sets)+robot_modules)*log.charger_slot_mass_kg
             mass+=sum(r['count']*(r['mass_kg']+(log.charger_slot_mass_kg if log.individual_chargers else 0.)) for r in self.stock or [])
+            if log.solar is not None and c.base.panel_area>20:
+                from .solar_array import recipe,parameters
+                _,crews,frames,_=recipe(c.base.equipment.panels,log.solar)
+                mass+=frames+crews*parameters(log.solar)['installer_mass_kg']
         return float(mass)
 
     @classmethod
@@ -265,7 +272,7 @@ class ComplexProject:
             for delta in ((radius,0),(-radius,0),(0,radius),(0,-radius)):
                 point=sim.base.position.copy();point[:2]+=rotate_offset(c.base.layout,delta);point[2]=view.sample(*point[:2])
                 boxes=list(layout_footprints(sim.base.layout_spec,sim.base.position)) if c.base.layout is not None else []
-                if w.field_rect:boxes.append(w.field_rect)
+                boxes.extend(w.solar_ground_rects())
                 support=w.config.support_half_width_m
                 if any(x-support<point[0]<x+width+support and y-support<point[1]<y+height+support for x,y,width,height in boxes):continue
                 if e.stable(point,view) and not site.ground_occupied(id,(point[0]-1,point[1]-1,2,2)):

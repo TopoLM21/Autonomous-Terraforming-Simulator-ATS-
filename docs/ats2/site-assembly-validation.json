@@ -1,0 +1,297 @@
+{
+  "stage": "Compact spoil reservations and physical solar assembly",
+  "base_commit": "a63cd08f04ed5afee6ce8fa5adf35e8cbf0711ec",
+  "branch": "main",
+  "published": false,
+  "environment": {
+    "python": "3.12.14",
+    "numpy": "2.5.4",
+    "qt": "6.12.0",
+    "os": "Linux",
+    "cpu_quota_cores": 4,
+    "memory_limit_gib": 16,
+    "gui": "Qt offscreen; not a Windows or GPU benchmark"
+  },
+  "code_sha256": "9b0fb09f9e966de6ec486ac01caf95261fbe6fe50cf56fd202e5b6a45da0981f",
+  "test_code_sha256": "2c7baf04bb50fa9ec3f81281112fe0369db3ec29b68c42218359bfdaefd752be",
+  "pytest": {
+    "total": 498,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "shards": [
+      {
+        "tests": 89,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "shard": 0,
+        "wall_seconds": 142.28
+      },
+      {
+        "tests": 261,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "shard": 1,
+        "wall_seconds": 158.544
+      },
+      {
+        "tests": 148,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "shard": 2,
+        "wall_seconds": 150.642
+      }
+    ],
+    "collection": "All 43 test files partitioned into three independent pytest processes; each case executed once."
+  },
+  "cli_groups": [
+    {
+      "name": "python -m ats --headless --mode legacy --steps 10000 --seed 42",
+      "exit_code": 0
+    },
+    {
+      "name": "ATS 2.0 logistics smoke test",
+      "exit_code": 0
+    },
+    {
+      "name": "Offline real DEM smoke test",
+      "exit_code": 0
+    },
+    {
+      "name": "Save and resume airborne simulation",
+      "exit_code": 0
+    },
+    {
+      "name": "Prepared Qattara channel smoke test",
+      "exit_code": 0
+    },
+    {
+      "name": "Layered soil and complete snapshot continuation",
+      "exit_code": 0
+    },
+    {
+      "name": "Energy sizing and executable equipment template",
+      "exit_code": 0
+    },
+    {
+      "name": "Two complexes on common regional project and exact resume",
+      "exit_code": 0
+    },
+    {
+      "name": "Twenty complexes on one physical map and exact snapshot continuation",
+      "exit_code": 0
+    },
+    {
+      "name": "Continuous design includes real platform hardware",
+      "exit_code": 0
+    }
+  ],
+  "static_checks": [
+    "compileall ats",
+    "git diff --check"
+  ],
+  "qattara_window": {
+    "latitude_deg": 31.078271130986963,
+    "side_m": 512,
+    "allowed_spoil_area_m2": 84796.75,
+    "reserved_spoil_area_m2": 4335.5,
+    "required_free_m3": 11916.081542874465,
+    "available_free_m3": 11965.356475188983,
+    "margin": 0.2,
+    "front_length_m": 32,
+    "front_sections": 2,
+    "solar_sections": 302,
+    "solar_reserved_area_m2": 22739.204013595463,
+    "sections_over_marine": 0
+  },
+  "roundtrip": {
+    "complexes": 2,
+    "soil_profile": "qattara",
+    "panel_area_per_complex_m2": 48,
+    "identical_inventory_ids": true,
+    "changed_soil_restored": true,
+    "mass_error_kg": 0.0,
+    "equipment_mass_error_kg": 0.0,
+    "energy_error_abs_j_lt": 0.002
+  },
+  "performance": {
+    "before_same_checkpoint": {
+      "mode": "legacy",
+      "complexes": 14,
+      "drones": 56,
+      "model_start_s": 50.0,
+      "model_end_s": 350.0,
+      "wall_s": 9.226512766999804,
+      "factor": 32.514993213145615,
+      "max_step_s": 0.09888567899906775,
+      "median_step_s": 0.02666087549914664,
+      "mass_error_kg": -2.2737367544323206e-12,
+      "equipment_mass_error_kg": 0.0,
+      "energy_error_j": 2.03549861907959e-05,
+      "states": [
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING"
+      ],
+      "map_side_m": 512.0,
+      "solar_sections": 0
+    },
+    "after_same_checkpoint": {
+      "mode": "legacy",
+      "complexes": 14,
+      "drones": 56,
+      "model_start_s": 50.0,
+      "model_end_s": 350.0,
+      "wall_s": 9.662093773997185,
+      "factor": 31.04917081299354,
+      "max_step_s": 0.10410609700193163,
+      "median_step_s": 0.0278309964996879,
+      "mass_error_kg": -2.2737367544323206e-12,
+      "equipment_mass_error_kg": 0.0,
+      "energy_error_j": 2.03549861907959e-05,
+      "states": [
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING"
+      ],
+      "map_side_m": 512.0,
+      "solar_sections": 0
+    },
+    "new_physical_14x4": {
+      "mode": "physical sections, new synthetic 512 m site",
+      "complexes": 14,
+      "drones": 56,
+      "model_start_s": 10.0,
+      "model_end_s": 310.0,
+      "wall_s": 47.120022582003,
+      "factor": 6.366720208546374,
+      "max_step_s": 1.0456021439968026,
+      "median_step_s": 0.027804123998066643,
+      "mass_error_kg": -1.4210854715202004e-12,
+      "equipment_mass_error_kg": 0.0,
+      "energy_error_j": 4.738845746032894e-06,
+      "states": [
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING",
+        "RUNNING"
+      ],
+      "map_side_m": 512.0,
+      "solar_sections": 28
+    },
+    "new_physical_14x4_offscreen": {
+      "wall_s": 3.8158735129982233,
+      "model_s": 20.0,
+      "factor": 5.241263876245604,
+      "max_heartbeat_gap_s": 0.6915052270014712,
+      "qt_scene_items": 105,
+      "complexes": 14,
+      "drones": 56,
+      "solar_sections": 28,
+      "mass_error_kg": 0.0,
+      "equipment_mass_error_kg": 0.0,
+      "energy_error_j": -8.000788511708379e-07
+    },
+    "winter_offscreen": [
+      {
+        "latitude": 31.0,
+        "panel_area_m2": 7238.0,
+        "capacity_kwh": 2550.0,
+        "platform_count": 14,
+        "packed_mass_kg": 86366.0,
+        "solar_sections": 301,
+        "installers": 12,
+        "qt_scene_items": 77,
+        "max_forced_refresh_s": 0.09152710499984096,
+        "construction_s": 0.8803235010018398,
+        "save_s": 0.6485999440010346,
+        "load_s": 0.4495243199999095,
+        "save_bytes": 13341777,
+        "mass_error_kg": 0.0,
+        "energy_error_j": 5.8269433793611825e-06
+      },
+      {
+        "latitude": 55.0,
+        "panel_area_m2": 30115.0,
+        "capacity_kwh": 3050.0,
+        "platform_count": 54,
+        "packed_mass_kg": 269646.0,
+        "solar_sections": 1254,
+        "installers": 39,
+        "qt_scene_items": 77,
+        "max_forced_refresh_s": 0.10354743500283803,
+        "construction_s": 4.39467066799989,
+        "save_s": 1.9239995969983283,
+        "load_s": 1.4718570309996721,
+        "save_bytes": 14740560,
+        "mass_error_kg": 0.0,
+        "energy_error_j": -5.310623237164691e-06
+      }
+    ],
+    "notes": [
+      "Single bounded measurements, not claims about the user machine or save.",
+      "Before/after checkpoint: same 14 complexes, 56 drones, 300 measured seconds after 10 warm-up steps, historical physical model retained.",
+      "Physical 14x4 case: different synthetic terrain and plan, 28 solar sections; not directly comparable to the historical checkpoint.",
+      "Forced-refresh and offscreen event timings include the available shared execution environment.",
+      "A 45-second profile of the synthetic physical case spent 10.176 of 13.988 inclusive seconds in terrain relaxation (72.7%); pair_transfer is nested, not an additional percentage. No relaxation-law change in this stage.",
+      "The user-reported 23-hour freeze and 0.5x throughput were not reproduced from their save."
+    ]
+  },
+  "compatibility": {
+    "snapshot_version": 7,
+    "reads_versions": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "old_fixed_spoil_and_aggregate_solar_preserved": true,
+    "old_files_rewritten": false
+  },
+  "limitations": [
+    "Conditional equipment and soil parameters, not manufacturer ratings or engineering certification.",
+    "Manual compact-base mode retains its original body and assumed load capacity; use modular auto-layout for a packed-volume/payload check.",
+    "Grid-based conservative ground placement can reject constrained sites.",
+    "No automatic global optimization of assembly scheduling or multi-base work.",
+    "No hydrology or water erosion.",
+    "Local Linux checks only; no push or new remote CI run."
+  ]
+}

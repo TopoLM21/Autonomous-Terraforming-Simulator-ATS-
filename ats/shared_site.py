@@ -153,10 +153,11 @@ class SharedSite:
                 patch=t.patch(*point[:2],s.config.fleet.separation)
                 near=(t.x[patch]-point[0])**2+(t.y[patch]-point[1])**2<s.config.fleet.separation**2
                 if np.any(candidate.work_mask[patch]&near):raise ValueError('Общий план пересекает посадочную зону комплекса')
-            if s.logistics and s.logistics.field_rect:
-                x,y,w,h=s.logistics.field_rect
-                mask=(t.x>=x)&(t.x<x+w)&(t.y>=y)&(t.y<y+h)
-                if np.any(candidate.work_mask&mask):raise ValueError('Общий план пересекает солнечное поле комплекса')
+            if s.logistics:
+                for rect in s.logistics.solar_ground_rects():
+                    from .site_ground import rectangle_patch
+                    patch=rectangle_patch(t,rect)
+                    if patch is None or np.any(candidate.work_mask[patch]):raise ValueError('Общий план пересекает солнечное поле комплекса')
         for key in ('target','segment_labels','excavation','fill_mask','bottom','_cut_indices','_fill_indices'):setattr(t,key,getattr(candidate,key))
         t.revision+=1;t.initial_excavation=t.remaining;t.design_work=t.work_mask
         t.config.plan=deepcopy(plan)
@@ -361,7 +362,8 @@ class SharedSite:
             if s.logistics and s.logistics.excavator and s.logistics.excavator.state.value!='AIR_TRANSPORT':
                 e=s.logistics.excavator;q=e.config.support_half_width_m
                 boxes.append((e.position[0]-q,e.position[1]-q,2*q,2*q,float(e.position[2]+1.)))
-            if s.logistics and s.logistics.field_rect:boxes.append((*s.logistics.field_rect,float(b.position[2]+.2)))
+            if s.logistics:
+                for rect in s.logistics.solar_ground_rects():boxes.append((*rect,float(b.position[2]+1.4)))
             for xx,yy,ww,hh,z in boxes:
                 margin=b.config.speed if b.destination is not None else 0.
                 row=(unit.id,float(xx-margin),float(yy-margin),float(ww+2*margin),float(hh+2*margin),z)
@@ -380,6 +382,8 @@ class SharedSite:
                 mask=(t.x[patch]-x)**2+(t.y[patch]-y)**2<f.separation**2
                 blocked=t.design_work[patch]|t.dump_mask[patch]
                 if t.protected is not None:blocked=blocked|t.protected[patch]
+                from .site_ground import marine_mask
+                blocked=blocked|marine_mask(t)[patch]
                 if np.any(mask&blocked):return False
         return True
 

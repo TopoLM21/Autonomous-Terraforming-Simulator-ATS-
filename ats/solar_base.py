@@ -176,6 +176,8 @@ class SolarBase:
         for p in points:
             if np.any(p < b.radius+terrain.cell) or np.any(p > side-b.radius-terrain.cell):
                 return False
+            from .site_ground import footprint_safe
+            if not footprint_safe(terrain,(p[0]-b.radius,p[1]-b.radius,2*b.radius,2*b.radius),grade_deg=math.degrees(math.atan(b.max_slope)),relief_m=float('inf')):return False
             if terrain.front is not None or getattr(terrain,'shared_site',None) is not None:
                 patch=terrain.patch(*p,b.radius+terrain.cell)
                 near=(terrain.x[patch]-p[0])**2+(terrain.y[patch]-p[1])**2<(b.radius+terrain.cell)**2

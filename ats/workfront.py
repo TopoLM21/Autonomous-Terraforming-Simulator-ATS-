@@ -33,7 +33,7 @@ def expand(mask):
                                  for dy in range(3) for dx in range(3)])
 
 
-def bank_layout(terrain, plan, work, protected):
+def bank_layout(terrain, plan, work, protected,target=None):
     """Chebyshev setbacks are conservative Euclidean setbacks, even at bends."""
     cell = terrain.cell; c = terrain.config
     settings = plan.channel['operations']
@@ -52,6 +52,22 @@ def bank_layout(terrain, plan, work, protected):
                       np.minimum(c.terrain.n*cell-terrain.x, c.terrain.n*cell-terrain.y))
     mask = (~blocked & (edge > 2*cell) & (np.abs(signed)>=distance*.95) &
             (distance < radii[bins]+settings['setback_m']+settings['bank_width_m']))
+    if c.terrain.compact_spoil:
+        from .spoil import reserve
+        from .site_ground import marine_mask
+        from types import SimpleNamespace
+        if target is None:
+            from .plan import target_surface
+            target,_=target_surface(terrain,plan)
+        view=SimpleNamespace(config=c,cell=cell,area=cell**2,height=terrain.height,
+            reference=terrain.reference,target=target,design_work=work,work_mask=work,
+            dump_slope=getattr(terrain,'dump_slope',terrain.slope))
+        mask &= ~marine_mask(terrain)
+        geometry=dict(allowed=mask.copy(),along=along,signed=signed,opening=radii[bins],settings=settings)
+        reserved,cap,info=reserve(view,**geometry)
+        terrain.dump_allowed_mask=mask.copy();terrain._spoil_geometry=geometry
+        terrain.dump_reserve_info=info
+        return reserved,cap,along,signed
     # Erode each bank to form stable, bounded heaps with zero height at its rim.
     inside = mask.copy(); depth = np.zeros(mask.shape)
     dump_slope=getattr(terrain,'dump_slope',terrain.slope)
@@ -71,7 +87,9 @@ class Workfront:
         self.terrain = terrain
         plan = terrain.config.plan
         self.settings = plan.channel['operations']
-        _, self.chainage, self.signed = coordinates(plan, terrain.x, terrain.y)
+        geometry=getattr(terrain,'_spoil_geometry',None)
+        if geometry:self.chainage,self.signed=geometry['along'],geometry['signed']
+        else:_, self.chainage, self.signed = coordinates(plan, terrain.x, terrain.y)
         self.indices = np.flatnonzero(terrain.excavation)
         self.along = self.chainage.ravel()[self.indices]
         order=np.argsort(self.along,kind='stable')

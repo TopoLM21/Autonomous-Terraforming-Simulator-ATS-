@@ -30,6 +30,9 @@ class TerrainConfig:
     avalanche_epsilon: float = 1e-9
     avalanche_stop_volume: float = 1e-10
     repose_deg: float = 35.0  # physical angle for uniform soil, independent of project
+    compact_spoil: bool = True
+    spoil_reserve_margin: float = .2
+    spoil_front_sections: float = 2.
     completion_volume: float = 0.05
 
 
@@ -199,6 +202,7 @@ class Config:
         require(self.event_limit > 0 and self.frame_budget_ms > 0 and self.max_frame_steps > 0 and self.display_interval_ms > 0 and self.terrain_display_seconds > 0, "Неверные параметры обновления интерфейса")
         require(self.slope_model in ('materials','legacy'), 'Неизвестная механика откосов')
         require(5<=t.repose_deg<=75, 'Физический угол грунта: от 5 до 75°')
+        require(isinstance(t.compact_spoil,bool) and 0<=t.spoil_reserve_margin<=2 and 1<=t.spoil_front_sections<=8,'Неверный резерв отвала')
         require(q.length > 0 and q.width > 0 and q.depth > 0 and (q.angle_deg is None or 5 <= q.angle_deg <= 75), "Неверная геометрия канавы")
         side = t.n * t.cell_size
         from .slopes import minimum_slope

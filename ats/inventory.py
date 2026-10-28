@@ -141,7 +141,7 @@ class Inventory:
         signature=(id(self.items),len(self.items))
         if getattr(self,'_mutable_signature',None)!=signature:
             self._mutable_signature=signature
-            static={'SOLAR_PANEL','LANDING_PAD','CHASSIS','PLATFORM_CHASSIS','CHARGER_AND_AUTOMATION','LASER_TRANSMITTER'}
+            static={'SOLAR_PANEL','SOLAR_FRAME','SOLAR_INSTALLER','LANDING_PAD','CHASSIS','PLATFORM_CHASSIS','CHARGER_AND_AUTOMATION','LASER_TRANSMITTER'}
             self._mutable_items=[o for o in self.items.values() if o.kind not in static]
         return self._mutable_items
 
@@ -174,7 +174,7 @@ class Inventory:
                 if slot and (not isinstance(self.items.get(o.module_id),BatteryModule) or o.location!=Location.BASE_MOUNT
                         or o.holder_id!='base' or not math.isfinite(o.rated_w) or o.rated_w<0):
                     raise ValueError('Invalid individual battery charging slot')
-                if o.kind not in {'SOLAR_PANEL','LANDING_PAD','CHASSIS','PLATFORM_CHASSIS','CHARGER_AND_AUTOMATION','LASER_TRANSMITTER'}:cache[key]=stamp
+                if o.kind not in {'SOLAR_PANEL','SOLAR_FRAME','SOLAR_INSTALLER','LANDING_PAD','CHASSIS','PLATFORM_CHASSIS','CHARGER_AND_AUTOMATION','LASER_TRANSMITTER'}:cache[key]=stamp
             if battery:
                 if not -1e-7 <= o.energy_j <= o.capacity_j+1e-7:
                     raise ValueError('Battery SOC outside physical capacity')
@@ -207,7 +207,7 @@ class Inventory:
         query=query.casefold().strip();groups={}
         names={'GRABBER':'Грейферы / ковши','CONTAINER_HOOK':'Контейнерные подвесы','HOIST':'Лебёдки',
                'HEAVY_LIFT_RIG':'Стропа коллективного подъёма','MODULE_CHARGING_SLOT':'Зарядные слоты модулей',
-               'SOLAR_PANEL':'Солнечные панели','LANDING_PAD':'Посадочные места','CHASSIS':'Шасси базы',
+               'SOLAR_PANEL':'Солнечные панели','SOLAR_FRAME':'Опоры солнечных секций','SOLAR_INSTALLER':'Монтажники солнечных секций','LANDING_PAD':'Посадочные места','CHASSIS':'Шасси базы',
                'CHARGER_AND_AUTOMATION':'Зарядное оборудование','LASER_TRANSMITTER':'Передатчики лазера',
                'LASER_RECEIVER':'Приёмники лазера'}
         for item in self.items.values():

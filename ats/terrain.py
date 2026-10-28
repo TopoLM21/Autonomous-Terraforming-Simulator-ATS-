@@ -324,6 +324,7 @@ class Terrain:
             self._dump_columns=self.axis[np.unique(indices%n)]
 
     def _dump_available(self):
+        self.refresh_dump_reserve()
         dump_revision=getattr(self,'_dump_content_revision',0)
         if getattr(self,'_dump_revision',None)!=dump_revision:
             indices=self._dump_indices
@@ -335,6 +336,51 @@ class Terrain:
                 self._lighter_bank=1 if heights[signed>0].sum()<=heights[signed<0].sum() else -1
             self._dump_revision=dump_revision
         return self._dump_free
+
+    def refresh_dump_reserve(self,*,force=False,repack=False):
+        geometry=getattr(self,'_spoil_geometry',None)
+        if not self.config.terrain.compact_spoil or geometry is None:return False
+        owner=getattr(self,'_site_owner',None);site=getattr(owner,'shared_site',None) if owner else None
+        simulations=[u.simulation for u in site.project.units] if site else [owner] if owner else []
+        front=getattr(self,'front',None)
+        if front is not None:front.update()
+        fronts=[]
+        for s in simulations:
+            f=s.terrain.front
+            if f is not None and s.terrain.remaining>s.config.terrain.completion_volume:
+                f.update();fronts.append(f.position)
+        if not fronts and front is not None:fronts=[front.position]
+        key=tuple(int(p/max(4.,geometry['settings']['front_length_m']/2)) for p in fronts)
+        if not force and getattr(self,'_spoil_front_key',None)==key:return False
+        if repack and any(s._reserved_dump(None) for s in simulations):
+            raise ValueError('Для сокращения резерва завершите назначенные выгрузки')
+        from .site_ground import equipment_mask
+        from .spoil import reserve
+        carried=0.
+        for s in simulations:
+            w=s.logistics
+            carried+=sum(cargo_volume(d.cargo,d.soil,self.config.terrain.density) for d in s.drones if not w or d.identifier in w.direct_ids)
+            if w:
+                carried+=sum(cargo_volume(c.soil_kg,c.soil,self.config.terrain.density) for c in w.containers)
+                if w.excavator:carried+=cargo_volume(w.excavator.bucket_kg,w.excavator.soil,self.config.terrain.density)
+        old_mask=np.zeros_like(self.dump_mask) if repack else self.dump_mask
+        old_cap=self.reference if repack else self.dump_cap
+        mask,cap,info=reserve(self,**geometry,old_mask=old_mask,old_cap=old_cap,
+                             blocked=equipment_mask(self,simulations),fronts=fronts,carried_volume=carried)
+        changed=not np.array_equal(mask,self.dump_mask) or not np.array_equal(cap,self.dump_cap)
+        self._spoil_front_key=key;self.dump_reserve_info=info
+        if changed:
+            self._spoil_reserve_revision=getattr(self,'_spoil_reserve_revision',0)+1
+            delta=mask^self.dump_mask
+            yy,xx=np.nonzero(delta)
+            if len(xx):self._touch_route_cells(yy,xx)
+            self.dump_mask,self.dump_cap=mask,cap
+            self._dump_indices=np.flatnonzero(mask&(cap>self.reference))
+            self._dump_content_revision=getattr(self,'_dump_content_revision',0)+1
+            self._clearance_surface=max(self._clearance_surface,float(cap.max()))
+            self.revision+=1
+            if site:site.invalidate_geometry()
+        return changed
 
     def _exclude_dump_reservations(self,useful,patch,reserved,separation):
         if len(reserved)==0 or separation<=0:return
@@ -375,7 +421,14 @@ class Terrain:
 
     def dump_location(self, volume, reserved=(), separation=0.0, near=None):
         if near is not None:
-            if self._dump_available()<volume-1e-12:return None
+            if self._dump_available()<volume-1e-12:
+                # An exhausted reservation is extended once per terrain change,
+                # never retried by every drone on every unchanged second.
+                key=(self.revision,getattr(self,'_dump_content_revision',0))
+                if getattr(self,'_spoil_exhaustion_key',None)!=key:
+                    self.refresh_dump_reserve(force=True)
+                    self._spoil_exhaustion_key=(self.revision,getattr(self,'_dump_content_revision',0))
+                if self._dump_available()<volume-1e-12:return None
             self._dump_geometry()
             if not len(self._dump_rows):return None
             # Search increasing local windows; no repeated sort of the full map.

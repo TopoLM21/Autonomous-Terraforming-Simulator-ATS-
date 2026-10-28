@@ -263,10 +263,10 @@ class ChannelProject:
         service_width=2*(pad_extent+c.fleet.waiting_offset+c.fleet.separation+cell)
         c.plan.channel['operations']=dict(front_length_m=min(32.,self.side_m/3),
             setback_m=max(6.,min(24.,service_width,self.side_m*.23)),bank_width_m=max(4.,self.side_m*.22))
-        dump,cap,chainage,signed=bank_layout(terrain,c.plan,work,protected)
-        if not np.any(dump & (cap>terrain.reference)):
+        dump,cap,chainage,signed=bank_layout(terrain,c.plan,work,protected,target)
+        if not np.any(dump & (cap>terrain.reference)) and np.any(work&(current-target>1e-10)):
             raise ValueError('Канал с откосами не оставляет места для боковых отвалов. Увеличьте локальную карту')
-        iy,ix=np.nonzero(dump)
+        iy,ix=np.nonzero(getattr(terrain,'dump_allowed_mask',dump))
         # Compatibility bounding box; physical capacity is the two bank masks.
         c.terrain.dump_rect=(float(ix.min()*cell),float(iy.min()*cell),
                             float((ix.max()-ix.min()+1)*cell),float((iy.max()-iy.min()+1)*cell))

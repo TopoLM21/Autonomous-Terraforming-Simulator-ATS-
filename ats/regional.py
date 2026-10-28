@@ -276,7 +276,7 @@ class RegionalTransition:
               u.simulation.logistics.config.sleep_power_w,u.simulation.logistics.config.idle_power_w) if u.simulation.logistics.excavator else None,
              tuple((d.config.empty_mass,d.cargo,d.docked) for d in u.simulation.drones),
              tuple((id,u.simulation.logistics.inventory.items[id].max_discharge_w) for id in u.simulation.logistics.base_battery_ids),
-             u.simulation.logistics.config.inverter_power_w,u.simulation.logistics.config.field_deployment_seconds)
+             u.simulation.logistics.config.inverter_power_w,u.simulation.logistics.field_setup_seconds())
             for u in p.units))
         if getattr(self,'_budget_key',None)==key:return self._budget
         duration=0.
@@ -290,7 +290,9 @@ class RegionalTransition:
             s=u.simulation;w=s.logistics;b=s.base;probe=copy(b);probe.position=b.position.copy();cost=0.
             for point in self.routes[u.id,'base']:
                 cost+=probe.route_energy(point,s.terrain,s.drones);probe.position=np.r_[point,s.terrain.sample(*point)]
-            required=cost*1.3+b.config.idle_power*(duration+2*w.config.field_deployment_seconds)+400*w.config.field_deployment_seconds
+            array=getattr(w,'solar_array',None)
+            handling=2*array.energy_budget() if array else 400*w.field_setup_seconds()
+            required=cost*1.3+b.config.idle_power*(duration+2*w.field_setup_seconds())+handling
             budget[u.id]=[required,0.,b.motion_power(s.drones,s.terrain)]
             e=w.excavator
             if e:
@@ -428,7 +430,7 @@ class RegionalTransition:
         if self.phase=='PACK':
             for u in p.units:
                 w=u.simulation.logistics
-                if w.base_pack_elapsed>=w.config.field_deployment_seconds:
+                if w.base_pack_elapsed>=w.field_setup_seconds():
                     w.regional_folded=True;w.field_rect=None;w.field_ready=False;w.field_elapsed=0.;w.base_pack_elapsed=0.
             if all(getattr(u.simulation.logistics,'regional_folded',False) for u in p.units):
                 p.shared_site.invalidate_geometry();self.retry_at=0.;self._stage('DRIVE','Движение всей группы')
@@ -459,7 +461,7 @@ class RegionalTransition:
             if getattr(w,'regional_folded',False):
                 w.regional_folded=False;w.field_ready=False;w.field_elapsed=0.;w.base_pack_elapsed=0.
                 if s.base.config.panel_area>20:
-                    try:w.field_rect=w.solar_field_site(s.base.config.panel_area)
+                    try:w.plan_solar_field()
                     except ValueError:w.regional_folded=True
         self._stage('ENERGY',reason)
         self.project.shared_site.invalidate_geometry()
@@ -507,7 +509,7 @@ class RegionalTransition:
             w.rack=w.excavator.position.copy() if w.excavator else s.base.position.copy()
             u.section=p._section(s);u.committed=False;s._capability_key=None;s._latitude_position=None
             s._terrain_active=True;s._base_front_anchor=0.;s.relocation_pending=None
-        replacement.config=p.units[0].simulation.config;site.core=replacement
+        replacement.config=p.units[0].simulation.config;replacement._site_owner=p.units[0].simulation;site.core=replacement
         for u in p.units:u.simulation.terrain.core=replacement
         site.owners=np.ones(replacement.height.shape,dtype=np.int16);site.archived_mass_error=mass_offset
         site.archived_material_errors=materials;site._mass_revision=-1;site.invalidate_geometry();site.partition()
@@ -524,7 +526,7 @@ class RegionalTransition:
             s=u.simulation;w=s.logistics
             if not getattr(w,'regional_folded',False):continue
             if s.base.config.panel_area>20:
-                try:w.field_rect=w.solar_field_site(s.base.config.panel_area)
+                try:w.plan_solar_field()
                 except ValueError:
                     self.reason=f'{u.name}: нет места для солнечного поля; уменьшите панели или отмените переход';continue
             w.regional_folded=False;w.field_ready=False;w.field_elapsed=0.;w.base_pack_elapsed=0.
@@ -546,11 +548,14 @@ class RegionalTransition:
                     hoist=w.inventory.items[f'hoist_{d.serial}']
                     w.inventory.move(hoist.id,L.GROUND,f'drone_{d.serial}',d.position,'STORED_READY')
                 elif hasattr(d,'regional_mass'):w.regional_cleanup_pending=True
+            if getattr(w,'solar_array',None) and w.solar_array.mode=='FOLD' and not getattr(w,'regional_folded',False):w.solar_array.request_deploy()
             if getattr(w,'regional_folded',False) or w.base_pack_elapsed:
-                progress=1. if getattr(w,'regional_folded',False) else w.base_pack_elapsed/max(1.,w.config.field_deployment_seconds)
-                w.regional_folded=False;w.field_ready=False;w.field_elapsed=(1-progress)*w.config.field_deployment_seconds;w.base_pack_elapsed=0.
-                if s.base.config.panel_area>20:
-                    try:w.field_rect=w.solar_field_site(s.base.config.panel_area)
+                progress=1. if getattr(w,'regional_folded',False) else w.base_pack_elapsed/max(1.,w.field_setup_seconds())
+                w.regional_folded=False;w.field_ready=False;w.field_elapsed=(1-progress)*w.field_setup_seconds();w.base_pack_elapsed=0.
+                array=getattr(w,'solar_array',None)
+                if array and not array.stowed:array.request_deploy()
+                elif s.base.config.panel_area>20:
+                    try:w.plan_solar_field()
                     except ValueError:
                         w.regional_folded=True;s.landing_requested=True;s.reason='Нет места для развёртывания панелей; измените оборудование или продолжите переезд'
                 p.shared_site.invalidate_geometry()

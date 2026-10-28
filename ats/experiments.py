@@ -67,9 +67,11 @@ def configuration_from_data(data):
         values=dict(raw[key])
         if 'equipment' in values:values['equipment']=None
         if key=='terrain':values['dump_rect']=tuple(values['dump_rect'])
+        if key=='terrain':values.setdefault('compact_spoil',False)
         raw[key]=cls(**values)
     f=dict(raw['fleet']);f['models']=[];raw['fleet']=FleetConfig(**f)
-    if raw.get('logistics') is not None:raw['logistics']=LogisticsConfig(**raw['logistics'])
+    if raw.get('logistics') is not None:
+        log=dict(raw['logistics']);log.setdefault('solar',None);raw['logistics']=LogisticsConfig(**log)
     if raw.get('plan') is not None:raw['plan']=PlanConfig([PlanSegment(**s) for s in raw['plan']['segments']],channel=raw['plan'].get('channel'))
     return load_equipment_data(data['equipment'],Config(**raw))
 

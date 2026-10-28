@@ -176,6 +176,8 @@ def save_plan(path, config):
             "grid_size": config.terrain.n, "cell_size": config.terrain.cell_size, "seed": config.seed, "roughness": config.terrain.roughness,
             "angle_deg": config.trench.angle_deg, "base_position": [config.base.x,config.base.y]}
     data.update(slope_model=config.slope_model,repose_deg=config.terrain.repose_deg,
+                compact_spoil=config.terrain.compact_spoil,spoil_reserve_margin=config.terrain.spoil_reserve_margin,
+                spoil_front_sections=config.terrain.spoil_front_sections,
                 reference_height=config.reference_height,georeference=config.georeference,
                 floor=config.terrain.floor,dump_rect=config.terrain.dump_rect,channel=config.plan.channel)
     from .soil import json_soil_state
@@ -194,6 +196,9 @@ def load_plan(path, config):
     clone = deepcopy(config)
     clone.slope_model=data.get('slope_model','legacy')
     clone.terrain.repose_deg=data.get('repose_deg',35.)
+    clone.terrain.compact_spoil=data.get('compact_spoil',False)
+    clone.terrain.spoil_reserve_margin=data.get('spoil_reserve_margin',.2)
+    clone.terrain.spoil_front_sections=data.get('spoil_front_sections',2)
     clone.plan = PlanConfig([PlanSegment(**s) for s in data["segments"]],channel=data.get('channel'))
     clone.initial_height = data.get("initial_height")
     clone.reference_height = data.get('reference_height')

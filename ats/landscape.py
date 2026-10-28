@@ -347,6 +347,9 @@ def workspace_config(landscape, config, origin, side_m=64.):
     c.georeference = dict(vertical_datum='MSL',source=source.metadata,origin_m=list(origin),
                           source_origin=anchor,source_resolution_m=list(source.resolution_m),
                           projection='local equirectangular' if source.metadata['crs']=='EPSG:4326' else source.metadata['crs'])
+    from .channel import marine_window
+    if source.metadata['crs']!='LOCAL_METRES' or source.metadata.get('ocean_boundary',False):
+        c.georeference['marine']=marine_window(source,origin,side_m)
     if source.metadata['crs']=='EPSG:4326':
         c.base.latitude_deg = float(source.to_source(origin[0]+c.base.x,origin[1]+c.base.y)[1])
     elif 'latitude_deg' in source.metadata:

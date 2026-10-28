@@ -185,7 +185,10 @@ def test_group_window_transfer_retains_energy_policy_and_requires_geographic_rev
     c,d=design_winter(cfg,request);c.logistics.field_deployment_seconds=2.
     # Changing deployment assumptions is a deliberate edit and needs review.
     assert design_status(c)[0]=='stale'
-    c,d=design_winter(c,request);s=Simulation(c)
+    c,d=design_winter(c,request)
+    # This regression checks the energy-policy migration of aggregate saves;
+    # physical section round trips are covered by test_site_layout.
+    c.logistics.solar=None;c,d=design_winter(c,request);s=Simulation(c)
     assert s.state.value=='RUNNING',s.reason
     p=ComplexProject(s,land);p.move_window([96.,64.]);advance(p,lambda:p.transition is None,limit=8000)
     assert s.config.energy_design==d and s.config.base.latitude_deg==31

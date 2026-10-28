@@ -62,16 +62,22 @@ def equipment_totals(config,world=None,panels=None,batteries=None,extra=()):
         from .inventory import BatteryModule
         items=list(world.inventory.items.values())
         # Base batteries are replaced as a recipe; mobile packs keep real IDs.
-        mass=sum(o.mass_kg for o in items if o.kind not in ('CHASSIS','PLATFORM_CHASSIS','SOLAR_PANEL') and
+        mass=sum(o.mass_kg for o in items if o.kind not in ('CHASSIS','PLATFORM_CHASSIS','SOLAR_PANEL','SOLAR_FRAME','SOLAR_INSTALLER') and
                  o.id not in world.base_battery_ids)
         mass+=panel_mass+battery_mass+sum(d.config.equipment.frame_mass_kg for d in world.sim.drones)
         if world.excavator:mass+=log.excavator_dry_mass_kg
         capacity+=sum(o.capacity_j/KWH for o in items if isinstance(o,BatteryModule) and o.id not in world.base_battery_ids)
         battery_mass+=sum(o.mass_kg for o in items if isinstance(o,BatteryModule) and o.id not in world.base_battery_ids)
         if world.excavator:capacity+=log.buffer_kwh
+    solar_volume=None;solar_frame_mass=0.
+    if log and log.solar is not None and area>20:
+        from .solar_array import recipe,parameters
+        _,crews,solar_frame_mass,solar_volume=recipe(panel_recipes,log.solar)
+        mass+=solar_frame_mass+crews*parameters(log.solar)['installer_mass_kg']
     for mass_kg,kwh in extra:mass+=mass_kg;capacity+=kwh;battery_mass+=mass_kg
     return dict(payload_kg=float(mass),battery_kwh=float(capacity),panel_area_m2=float(area),
-                panel_mass_kg=panel_mass,battery_mass_kg=battery_mass,drones=len(c.fleet.models),pads=b.landing_slots)
+                panel_mass_kg=panel_mass,battery_mass_kg=battery_mass,drones=len(c.fleet.models),pads=b.landing_slots,
+                solar_packed_m3=solar_volume,solar_frame_mass_kg=solar_frame_mass)
 
 
 def solve_layout(config,world=None,panels=None,batteries=None,extra=()):
@@ -79,8 +85,8 @@ def solve_layout(config,world=None,panels=None,batteries=None,extra=()):
     length,width,height=p['platform_length_m'],p['platform_width_m'],p['platform_height_m']
     deck=length*width;dry=p['frame_base_kg']+deck*p['frame_kg_m2']+p['drive_mass_kg']
     volume=(totals['battery_kwh']*p['battery_litres_kwh']/1000+
-            totals['panel_area_m2']*p['panel_folded_thickness_m']+
-            max(0.,totals['payload_kg']-totals['panel_mass_kg']-totals['battery_mass_kg'])/p['other_equipment_kg_m3']+
+            (totals['solar_packed_m3'] if totals['solar_packed_m3'] is not None else totals['panel_area_m2']*p['panel_folded_thickness_m'])+
+            max(0.,totals['payload_kg']-totals['panel_mass_kg']-totals['battery_mass_kg']-totals['solar_frame_mass_kg'])/p['other_equipment_kg_m3']+
             totals['drones']*p['drone_stowed_m3'])
     required_area=max(volume/(height*p['packing_fraction']),totals['pads']*p['landing_pad_m2'])
     count=max(1,math.ceil(totals['payload_kg']/p['platform_payload_kg']),math.ceil(required_area/deck))
@@ -149,6 +155,8 @@ def safe_layout_route(base,target,terrain,offset=(0,0)):
             blocked=terrain.design_work[patch]|terrain.dump_mask[patch]
             if terrain.protected is not None:blocked=blocked|terrain.protected[patch]
             if np.any(blocked):return False
+            from .site_ground import footprint_safe
+            if not footprint_safe(terrain,(x,y,w,h),grade_deg=math.degrees(math.atan(base.config.max_slope)),relief_m=float('inf')):return False
             site=getattr(terrain,'shared_site',None)
             if site is not None and site.ground_occupied(getattr(terrain,'owner_id',None),(x,y,w,h)):return False
             z=[terrain.sample(px,py) for px,py in ((x,y),(x+w,y),(x,y+h),(x+w,y+h))]
@@ -228,6 +236,10 @@ def preview_live_layout(world,**changes):
     base=deepcopy(world.sim.base);base.layout_spec=spec
     base.config.radius=spec['dimensions_m'][0]/2
     if not base.safe_path(base.position[:2],world.sim.terrain):raise ValueError('Новая компоновка платформ не помещается на текущей площадке')
+    for x,y,w,h in layout_footprints(spec,base.position):
+        for xx,yy,ww,hh in world.solar_ground_rects():
+            if x<xx+ww and x+w>xx and y<yy+hh and y+h>yy:
+                raise ValueError('Новая компоновка пересекает солнечную площадку; сначала сложите секции')
     return spec
 
 

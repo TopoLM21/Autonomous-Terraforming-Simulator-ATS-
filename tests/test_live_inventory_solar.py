@@ -95,14 +95,17 @@ def test_live_solar_area_changes_mass_generation_and_saved_configuration(tmp_pat
     old_items={id:o for id,o in s.logistics.inventory.items.items() if o.kind!='SOLAR_PANEL'}
     s.set_panel_area(123.5)
     assert s.time==time and s.base.config.panel_area==123.5
-    assert s.base.config.mass-before['base_mass_kg']==pytest.approx(4*(123.5-20))
+    support=sum(o.mass_kg for o in s.logistics.inventory.items.values() if o.kind in ('SOLAR_FRAME','SOLAR_INSTALLER'))
+    assert s.base.config.mass-before['base_mass_kg']==pytest.approx(4*(123.5-20)+support)
     assert s.equipment_imported_energy==s.equipment_exported_energy==0
     assert all(s.logistics.inventory.items[id] is obj for id,obj in old_items.items())
     np.testing.assert_array_equal(s.terrain.height,terrain)
     assert not s.logistics.field_ready and s.logistics.field_rect is not None
-    s.run(301);assert s.logistics.field_ready and s.base.solar_power>0
-    s.set_panel_area(0);s.step();assert s.base.solar_power==0
-    s.set_panel_area(37.25);s.run(301);assert s.base.solar_power>0
+    from tests.test_site_layout import until
+    until(s,lambda:s.logistics.field_ready);assert s.base.solar_power>0
+    assert s.set_panel_area(0)=='waiting'
+    until(s,lambda:s.base.config.panel_area==0);assert s.base.solar_power==0
+    s.set_panel_area(37.25);until(s,lambda:s.logistics.field_ready);assert s.base.solar_power>0
     path=tmp_path/'solar.json';save_configuration(path,s.config)
     assert load_configuration(path).base.panel_area==37.25
     balanced(s)
@@ -116,7 +119,7 @@ def test_invalid_or_unplaceable_solar_area_keeps_the_current_world(area):
 
 
 def test_panel_cli_overrides_a_loaded_configuration_and_can_start_from_zero(tmp_path):
-    c=experiment_config(Config(),panel_area=0);path=tmp_path/'empty-solar.json';save_configuration(path,c)
+    c=experiment_config(with_map_size(Config(),64),panel_area=0);path=tmp_path/'empty-solar.json';save_configuration(path,c)
     p=subprocess.run([sys.executable,'-m','ats','--headless','--configuration',str(path),
                       '--panel-area','123.5','--steps','0'],capture_output=True,text=True,encoding='utf-8',timeout=30)
     assert p.returncode==0,p.stderr

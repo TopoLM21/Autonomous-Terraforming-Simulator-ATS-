@@ -11,6 +11,12 @@ from ats.simulation import Simulation
 from tests.test_workfront import canal
 
 
+def legacy_canal(**kwargs):
+    # Preserve regression coverage of the aggregate model in pre-v7 saves.
+    c=deepcopy(canal(**kwargs).config);c.logistics.solar=None
+    return Simulation(c)
+
+
 def balanced(s):
     r=s.report(full=False)
     assert abs(r['mass_error_kg'])<1e-7
@@ -35,7 +41,7 @@ def pending_move(s):
 
 
 def test_night_relocation_reserves_energy_for_panels_and_restarts_generation_at_dawn():
-    c=deepcopy(canal(panels=100,slots=4).config)
+    c=deepcopy(legacy_canal(panels=100,slots=4).config)
     c.start_hour=5.95;c.base.start_day_of_year=80;c.base.initial_charge=.015
     c.logistics.excavator_enabled=False;c.logistics.container_count=0
     c.logistics.drone_spare_initial_soc=0.;c.logistics.swap_station=False
@@ -90,13 +96,14 @@ def test_hot_added_panels_keep_the_existing_live_array_and_can_deploy_with_empty
     s=service_world(spares=0);w=s.logistics
     s.set_panel_area(100.)
     assert not w.field_ready and w.generating_area()==pytest.approx(20.)
-    s.run(301)
+    from tests.test_site_layout import until
+    until(s,lambda:w.field_ready)
     assert w.field_ready and s.base.battery>0 and w.generating_area()==100.
     balanced(s)
 
 
 def test_partly_folded_field_recovers_at_dawn_even_if_storage_is_already_empty():
-    c=deepcopy(canal(panels=100,slots=4).config)
+    c=deepcopy(legacy_canal(panels=100,slots=4).config)
     c.start_hour=5.95;c.base.start_day_of_year=80;c.base.initial_charge=0.
     c.logistics.excavator_enabled=False;c.logistics.container_count=0
     s=Simulation(c);w=s.logistics
@@ -208,7 +215,7 @@ def test_recall_transport_keeps_the_container_route_and_releases_it_after_delive
 
 
 def test_pending_move_clears_tool_changes_and_finishes_only_existing_battery_swaps():
-    c=deepcopy(canal(panels=21,slots=4).config)
+    c=deepcopy(legacy_canal(panels=21,slots=4).config)
     c.logistics.excavator_enabled=False;c.logistics.container_count=0;c.logistics.drone_swap_seconds=3.
     for d in c.fleet.models[2:]:d.initial_charge=.2
     s=Simulation(c);w=s.logistics;w.field_ready=True;w.field_elapsed=w.config.field_deployment_seconds
@@ -252,7 +259,7 @@ def test_recall_of_a_group_member_keeps_the_load_supported_until_it_is_set_down(
 
 
 def test_cancelling_partial_folding_preserves_deployed_area_and_costs_real_unfolding_energy():
-    s=canal(panels=100,slots=4);w=s.logistics
+    s=legacy_canal(panels=100,slots=4);w=s.logistics
     w.field_ready=True;w.field_elapsed=w.config.field_deployment_seconds
     pending_move(s);s.run(20)
     assert w.base_pack_elapsed==20
@@ -267,7 +274,7 @@ def test_cancelling_partial_folding_preserves_deployed_area_and_costs_real_unfol
 
 
 def test_panel_mechanics_including_the_final_folding_second_are_accounted_before_driving():
-    c=deepcopy(canal(panels=21,slots=4).config)
+    c=deepcopy(legacy_canal(panels=21,slots=4).config)
     c.start_hour=0.;c.base.idle_power=30.
     c.logistics.excavator_enabled=False;c.logistics.container_count=0
     s=Simulation(c);w=s.logistics
