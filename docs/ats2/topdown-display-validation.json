@@ -1,0 +1,748 @@
+{
+  "date_utc": "2026-10-29T13:15:58.110725+00:00",
+  "base_commit": "1dd9e37ba35b0b0c3a2adb838c6faf51d2daaf79",
+  "environment": {
+    "python": "3.12.14",
+    "system": "Linux",
+    "qt": "6.12.0",
+    "numpy": "2.5.4",
+    "display": "offscreen"
+  },
+  "published": false,
+  "windows_ci_verified": false,
+  "tests": {
+    "total": 598,
+    "passed": 598,
+    "shards": [
+      {
+        "tests": 197,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "wall_s": 206.846
+      },
+      {
+        "tests": 216,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "wall_s": 269.751
+      },
+      {
+        "tests": 185,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "wall_s": 211.965
+      }
+    ]
+  },
+  "cli_groups": [
+    {
+      "name": "legacy",
+      "returncode": 0,
+      "wall_s": 1.8736933690015576
+    },
+    {
+      "name": "ATS 2.0 logistics smoke test",
+      "returncode": 0,
+      "wall_s": 10.293382299001678
+    },
+    {
+      "name": "Offline real DEM smoke test",
+      "returncode": 0,
+      "wall_s": 0.4372282170006656
+    },
+    {
+      "name": "Save and resume airborne simulation",
+      "returncode": 0,
+      "wall_s": 3.3232547379993775
+    },
+    {
+      "name": "Prepared Qattara channel smoke test",
+      "returncode": 0,
+      "wall_s": 4.564200487999187
+    },
+    {
+      "name": "Layered soil and complete snapshot continuation",
+      "returncode": 0,
+      "wall_s": 3.85497265199956
+    },
+    {
+      "name": "Energy sizing and executable equipment template",
+      "returncode": 0,
+      "wall_s": 0.8910552120032662
+    },
+    {
+      "name": "Two complexes on common regional project and exact resume",
+      "returncode": 0,
+      "wall_s": 26.187757137002336
+    },
+    {
+      "name": "Twenty complexes on one physical map and exact snapshot continuation",
+      "returncode": 0,
+      "wall_s": 8.654317459000595
+    },
+    {
+      "name": "Continuous design includes real platform hardware",
+      "returncode": 0,
+      "wall_s": 0.9509991640006774
+    }
+  ],
+  "performance": {
+    "method": "Two sequential trials/variant with fresh processes; reverse case order in trial two. Identical physical snapshots and 1280x900 window, 20 cached and 20 dirty frames, then exactly 60 model seconds. No concurrent test load. Not user GPU/FPS or a 24h trial.",
+    "medians": {
+      "14": {
+        "before": {
+          "factor": 10.009712830363146,
+          "preparation_median_ms": 22.45219150063349,
+          "paint_median_ms": 63.11575174913742,
+          "max_heartbeat_gap_s": 0.24617565899825422
+        },
+        "off": {
+          "factor": 10.335053628057835,
+          "preparation_median_ms": 4.282726249584812,
+          "paint_median_ms": 33.28242025054351,
+          "max_heartbeat_gap_s": 0.24489775199981523
+        },
+        "on": {
+          "factor": 10.103639161821594,
+          "preparation_median_ms": 4.199210248771124,
+          "paint_median_ms": 34.89969724978437,
+          "max_heartbeat_gap_s": 0.2502667090011528
+        }
+      },
+      "63": {
+        "before": {
+          "factor": 11.187177838780254,
+          "preparation_median_ms": 42.739553999126656,
+          "paint_median_ms": 187.69515675012372,
+          "max_heartbeat_gap_s": 0.32369282599756843
+        },
+        "off": {
+          "factor": 13.495883647506972,
+          "preparation_median_ms": 2.368397749705764,
+          "paint_median_ms": 26.88790949923714,
+          "max_heartbeat_gap_s": 0.21550898200075608
+        },
+        "on": {
+          "factor": 12.754205580144662,
+          "preparation_median_ms": 2.3154112495831214,
+          "paint_median_ms": 26.577347501188342,
+          "max_heartbeat_gap_s": 0.262874310999905
+        }
+      }
+    },
+    "trials": [
+      {
+        "root": "/tmp/ats-topdown-baseline-1dd9e37",
+        "renderer_path": "/tmp/ats-topdown-baseline-1dd9e37/ats/gui.py",
+        "python": "3.12.14",
+        "numpy": "2.5.4",
+        "qt": "6.12.0",
+        "latitude": 55.0,
+        "day_of_year": 172,
+        "start_hour": 21.065277777777776,
+        "physical_dt_s": 1.0,
+        "snapshot": "ats-topdown-night14.atsstate",
+        "snapshot_sha256": "50f2c404fe8b2fa941931441b592cc4f1841f0feb450224ea961f1e016b37692",
+        "effects": "off",
+        "lighting_available": false,
+        "frames": 20,
+        "map_items": 114,
+        "viewport_px": [
+          1002,
+          648
+        ],
+        "n": 512,
+        "complexes": 14,
+        "drones": 56,
+        "platforms": 98,
+        "cached": {
+          "update_median_ms": 24.462235500323004,
+          "paint_median_ms": 68.11256599939952,
+          "update_max_ms": 67.27491800120333,
+          "paint_max_ms": 123.6537659970054
+        },
+        "dirty": {
+          "update_median_ms": 35.96014849972562,
+          "paint_median_ms": 59.36432050111762,
+          "update_max_ms": 40.01849499763921,
+          "paint_max_ms": 63.466422998317285
+        },
+        "model_seconds": 60.0,
+        "wall_s": 5.858611961000861,
+        "factor": 10.241333680981638,
+        "max_heartbeat_gap_s": 0.24617565899825422,
+        "physical_sha256": "81f51d2644cc4ac1347ee29f3da110cdc1c49cdf4067dc704af2e46efef28ac2",
+        "mass_error_kg": -9.094947017729282e-13,
+        "energy_error_j": 2.3027387214824557e-06,
+        "case": "14",
+        "variant": "before",
+        "trial": 0
+      },
+      {
+        "root": "/workspace/ats-project",
+        "renderer_path": "/workspace/ats-project/ats/gui.py",
+        "python": "3.12.14",
+        "numpy": "2.5.4",
+        "qt": "6.12.0",
+        "latitude": 55.0,
+        "day_of_year": 172,
+        "start_hour": 21.065277777777776,
+        "physical_dt_s": 1.0,
+        "snapshot": "ats-topdown-night14.atsstate",
+        "snapshot_sha256": "50f2c404fe8b2fa941931441b592cc4f1841f0feb450224ea961f1e016b37692",
+        "effects": "off",
+        "lighting_available": true,
+        "frames": 20,
+        "map_items": 117,
+        "viewport_px": [
+          1002,
+          648
+        ],
+        "n": 512,
+        "complexes": 14,
+        "drones": 56,
+        "platforms": 98,
+        "cached": {
+          "update_median_ms": 4.731213499326259,
+          "paint_median_ms": 34.42631700090715,
+          "update_max_ms": 26.52697099983925,
+          "paint_max_ms": 62.05851800041273
+        },
+        "dirty": {
+          "update_median_ms": 17.93229049872025,
+          "paint_median_ms": 44.064842999432585,
+          "update_max_ms": 23.452456000086386,
+          "paint_max_ms": 83.8143469991337
+        },
+        "model_seconds": 60.0,
+        "wall_s": 6.4278345849998,
+        "factor": 9.334403243670568,
+        "max_heartbeat_gap_s": 0.24489775199981523,
+        "physical_sha256": "81f51d2644cc4ac1347ee29f3da110cdc1c49cdf4067dc704af2e46efef28ac2",
+        "mass_error_kg": -9.094947017729282e-13,
+        "energy_error_j": 2.3027387214824557e-06,
+        "case": "14",
+        "variant": "off",
+        "trial": 0
+      },
+      {
+        "root": "/workspace/ats-project",
+        "renderer_path": "/workspace/ats-project/ats/gui.py",
+        "python": "3.12.14",
+        "numpy": "2.5.4",
+        "qt": "6.12.0",
+        "latitude": 55.0,
+        "day_of_year": 172,
+        "start_hour": 21.065277777777776,
+        "physical_dt_s": 1.0,
+        "snapshot": "ats-topdown-night14.atsstate",
+        "snapshot_sha256": "50f2c404fe8b2fa941931441b592cc4f1841f0feb450224ea961f1e016b37692",
+        "effects": "on",
+        "lighting_available": true,
+        "frames": 20,
+        "map_items": 117,
+        "viewport_px": [
+          1002,
+          648
+        ],
+        "n": 512,
+        "complexes": 14,
+        "drones": 56,
+        "platforms": 98,
+        "cached": {
+          "update_median_ms": 4.265859997758525,
+          "paint_median_ms": 36.10753099928843,
+          "update_max_ms": 22.059409999201307,
+          "paint_max_ms": 46.860923001077026
+        },
+        "dirty": {
+          "update_median_ms": 19.789235999269295,
+          "paint_median_ms": 46.53072549990611,
+          "update_max_ms": 26.00252000047476,
+          "paint_max_ms": 56.148553998355055
+        },
+        "model_seconds": 60.0,
+        "wall_s": 5.975366548002057,
+        "factor": 10.041225005696393,
+        "max_heartbeat_gap_s": 0.2502667090011528,
+        "physical_sha256": "81f51d2644cc4ac1347ee29f3da110cdc1c49cdf4067dc704af2e46efef28ac2",
+        "mass_error_kg": -9.094947017729282e-13,
+        "energy_error_j": 2.3027387214824557e-06,
+        "case": "14",
+        "variant": "on",
+        "trial": 0
+      },
+      {
+        "root": "/tmp/ats-topdown-baseline-1dd9e37",
+        "renderer_path": "/tmp/ats-topdown-baseline-1dd9e37/ats/gui.py",
+        "python": "3.12.14",
+        "numpy": "2.5.4",
+        "qt": "6.12.0",
+        "latitude": 31.078,
+        "day_of_year": 172,
+        "start_hour": 21.065277777777776,
+        "physical_dt_s": 1.0,
+        "snapshot": "ats-topdown-night63.atsstate",
+        "snapshot_sha256": "c31064f8e09e86e8604af64056869cfd6b1a53cf8f45e3b07b7d269efd03d0e1",
+        "effects": "off",
+        "lighting_available": false,
+        "frames": 20,
+        "map_items": 86,
+        "viewport_px": [
+          1002,
+          648
+        ],
+        "n": 1024,
+        "complexes": 1,
+        "drones": 4,
+        "platforms": 63,
+        "cached": {
+          "update_median_ms": 41.962854000303196,
+          "paint_median_ms": 185.62358050076,
+          "update_max_ms": 52.714180001203204,
+          "paint_max_ms": 205.61237399670063
+        },
+        "dirty": {
+          "update_median_ms": 61.0174299999926,
+          "paint_median_ms": 186.02084099984495,
+          "update_max_ms": 71.69006000185618,
+          "paint_max_ms": 218.83003199764062
+        },
+        "model_seconds": 60.0,
+        "wall_s": 5.214782687002298,
+        "factor": 11.505752703664593,
+        "max_heartbeat_gap_s": 0.27887276299952646,
+        "physical_sha256": "1be00b4512ec1731a2d8a3033352d2261c3937fcffb471fb83ad0e589007c6ee",
+        "mass_error_kg": 1.4210854715202004e-14,
+        "energy_error_j": -7.62939453125e-06,
+        "case": "63",
+        "variant": "before",
+        "trial": 0
+      },
+      {
+        "root": "/workspace/ats-project",
+        "renderer_path": "/workspace/ats-project/ats/gui.py",
+        "python": "3.12.14",
+        "numpy": "2.5.4",
+        "qt": "6.12.0",
+        "latitude": 31.078,
+        "day_of_year": 172,
+        "start_hour": 21.065277777777776,
+        "physical_dt_s": 1.0,
+        "snapshot": "ats-topdown-night63.atsstate",
+        "snapshot_sha256": "c31064f8e09e86e8604af64056869cfd6b1a53cf8f45e3b07b7d269efd03d0e1",
+        "effects": "off",
+        "lighting_available": true,
+        "frames": 20,
+        "map_items": 89,
+        "viewport_px": [
+          1002,
+          648
+        ],
+        "n": 1024,
+        "complexes": 1,
+        "drones": 4,
+        "platforms": 63,
+        "cached": {
+          "update_median_ms": 2.540286997827934,
+          "paint_median_ms": 27.03076449870423,
+          "update_max_ms": 14.524769998388365,
+          "paint_max_ms": 35.40408199842204
+        },
+        "dirty": {
+          "update_median_ms": 30.928322001273045,
+          "paint_median_ms": 41.142309999486315,
+          "update_max_ms": 46.11952299819677,
+          "paint_max_ms": 45.1399030025641
+        },
+        "model_seconds": 60.0,
+        "wall_s": 4.551851110998541,
+        "factor": 13.181450477372442,
+        "max_heartbeat_gap_s": 0.21550898200075608,
+        "physical_sha256": "1be00b4512ec1731a2d8a3033352d2261c3937fcffb471fb83ad0e589007c6ee",
+        "mass_error_kg": 1.4210854715202004e-14,
+        "energy_error_j": -7.62939453125e-06,
+        "case": "63",
+        "variant": "off",
+        "trial": 0
+      },
+      {
+        "root": "/workspace/ats-project",
+        "renderer_path": "/workspace/ats-project/ats/gui.py",
+        "python": "3.12.14",
+        "numpy": "2.5.4",
+        "qt": "6.12.0",
+        "latitude": 31.078,
+        "day_of_year": 172,
+        "start_hour": 21.065277777777776,
+        "physical_dt_s": 1.0,
+        "snapshot": "ats-topdown-night63.atsstate",
+        "snapshot_sha256": "c31064f8e09e86e8604af64056869cfd6b1a53cf8f45e3b07b7d269efd03d0e1",
+        "effects": "on",
+        "lighting_available": true,
+        "frames": 20,
+        "map_items": 89,
+        "viewport_px": [
+          1002,
+          648
+        ],
+        "n": 1024,
+        "complexes": 1,
+        "drones": 4,
+        "platforms": 63,
+        "cached": {
+          "update_median_ms": 2.2546474992850563,
+          "paint_median_ms": 26.226924501315807,
+          "update_max_ms": 14.085304002946941,
+          "paint_max_ms": 67.06667699836544
+        },
+        "dirty": {
+          "update_median_ms": 28.91130950047227,
+          "paint_median_ms": 40.34188500008895,
+          "update_max_ms": 48.07123499995214,
+          "paint_max_ms": 45.279749003384495
+        },
+        "model_seconds": 60.0,
+        "wall_s": 4.421385349000047,
+        "factor": 13.57040729633977,
+        "max_heartbeat_gap_s": 0.214840443997673,
+        "physical_sha256": "1be00b4512ec1731a2d8a3033352d2261c3937fcffb471fb83ad0e589007c6ee",
+        "mass_error_kg": 1.4210854715202004e-14,
+        "energy_error_j": -7.62939453125e-06,
+        "case": "63",
+        "variant": "on",
+        "trial": 0
+      },
+      {
+        "root": "/workspace/ats-project",
+        "renderer_path": "/workspace/ats-project/ats/gui.py",
+        "python": "3.12.14",
+        "numpy": "2.5.4",
+        "qt": "6.12.0",
+        "latitude": 31.078,
+        "day_of_year": 172,
+        "start_hour": 21.065277777777776,
+        "physical_dt_s": 1.0,
+        "snapshot": "ats-topdown-night63.atsstate",
+        "snapshot_sha256": "c31064f8e09e86e8604af64056869cfd6b1a53cf8f45e3b07b7d269efd03d0e1",
+        "effects": "on",
+        "lighting_available": true,
+        "frames": 20,
+        "map_items": 89,
+        "viewport_px": [
+          1002,
+          648
+        ],
+        "n": 1024,
+        "complexes": 1,
+        "drones": 4,
+        "platforms": 63,
+        "cached": {
+          "update_median_ms": 2.3761749998811865,
+          "paint_median_ms": 26.927770501060877,
+          "update_max_ms": 13.881134997063782,
+          "paint_max_ms": 33.02362300019013
+        },
+        "dirty": {
+          "update_median_ms": 29.615335499329376,
+          "paint_median_ms": 40.44777049966797,
+          "update_max_ms": 43.336629001714755,
+          "paint_max_ms": 45.812931002728874
+        },
+        "model_seconds": 60.0,
+        "wall_s": 5.025965871998778,
+        "factor": 11.938003863949554,
+        "max_heartbeat_gap_s": 0.262874310999905,
+        "physical_sha256": "1be00b4512ec1731a2d8a3033352d2261c3937fcffb471fb83ad0e589007c6ee",
+        "mass_error_kg": 1.4210854715202004e-14,
+        "energy_error_j": -7.62939453125e-06,
+        "case": "63",
+        "variant": "on",
+        "trial": 1
+      },
+      {
+        "root": "/workspace/ats-project",
+        "renderer_path": "/workspace/ats-project/ats/gui.py",
+        "python": "3.12.14",
+        "numpy": "2.5.4",
+        "qt": "6.12.0",
+        "latitude": 31.078,
+        "day_of_year": 172,
+        "start_hour": 21.065277777777776,
+        "physical_dt_s": 1.0,
+        "snapshot": "ats-topdown-night63.atsstate",
+        "snapshot_sha256": "c31064f8e09e86e8604af64056869cfd6b1a53cf8f45e3b07b7d269efd03d0e1",
+        "effects": "off",
+        "lighting_available": true,
+        "frames": 20,
+        "map_items": 89,
+        "viewport_px": [
+          1002,
+          648
+        ],
+        "n": 1024,
+        "complexes": 1,
+        "drones": 4,
+        "platforms": 63,
+        "cached": {
+          "update_median_ms": 2.196508501583594,
+          "paint_median_ms": 26.74505449977005,
+          "update_max_ms": 15.593912001349963,
+          "paint_max_ms": 32.56815300119342
+        },
+        "dirty": {
+          "update_median_ms": 30.35268950043246,
+          "paint_median_ms": 39.63507249864051,
+          "update_max_ms": 46.10185600176919,
+          "paint_max_ms": 42.374324999400415
+        },
+        "model_seconds": 60.0,
+        "wall_s": 4.344578100000945,
+        "factor": 13.8103168176415,
+        "max_heartbeat_gap_s": 0.18320610899900203,
+        "physical_sha256": "1be00b4512ec1731a2d8a3033352d2261c3937fcffb471fb83ad0e589007c6ee",
+        "mass_error_kg": 1.4210854715202004e-14,
+        "energy_error_j": -7.62939453125e-06,
+        "case": "63",
+        "variant": "off",
+        "trial": 1
+      },
+      {
+        "root": "/tmp/ats-topdown-baseline-1dd9e37",
+        "renderer_path": "/tmp/ats-topdown-baseline-1dd9e37/ats/gui.py",
+        "python": "3.12.14",
+        "numpy": "2.5.4",
+        "qt": "6.12.0",
+        "latitude": 31.078,
+        "day_of_year": 172,
+        "start_hour": 21.065277777777776,
+        "physical_dt_s": 1.0,
+        "snapshot": "ats-topdown-night63.atsstate",
+        "snapshot_sha256": "c31064f8e09e86e8604af64056869cfd6b1a53cf8f45e3b07b7d269efd03d0e1",
+        "effects": "off",
+        "lighting_available": false,
+        "frames": 20,
+        "map_items": 86,
+        "viewport_px": [
+          1002,
+          648
+        ],
+        "n": 1024,
+        "complexes": 1,
+        "drones": 4,
+        "platforms": 63,
+        "cached": {
+          "update_median_ms": 43.516253997950116,
+          "paint_median_ms": 189.76673299948743,
+          "update_max_ms": 59.20375899950159,
+          "paint_max_ms": 220.18050000042422
+        },
+        "dirty": {
+          "update_median_ms": 61.65726499966695,
+          "paint_median_ms": 187.38904200108664,
+          "update_max_ms": 71.92574399959994,
+          "paint_max_ms": 209.56920800017542
+        },
+        "model_seconds": 60.0,
+        "wall_s": 5.520488709000347,
+        "factor": 10.868602973895918,
+        "max_heartbeat_gap_s": 0.32369282599756843,
+        "physical_sha256": "1be00b4512ec1731a2d8a3033352d2261c3937fcffb471fb83ad0e589007c6ee",
+        "mass_error_kg": 1.4210854715202004e-14,
+        "energy_error_j": -7.62939453125e-06,
+        "case": "63",
+        "variant": "before",
+        "trial": 1
+      },
+      {
+        "root": "/workspace/ats-project",
+        "renderer_path": "/workspace/ats-project/ats/gui.py",
+        "python": "3.12.14",
+        "numpy": "2.5.4",
+        "qt": "6.12.0",
+        "latitude": 55.0,
+        "day_of_year": 172,
+        "start_hour": 21.065277777777776,
+        "physical_dt_s": 1.0,
+        "snapshot": "ats-topdown-night14.atsstate",
+        "snapshot_sha256": "50f2c404fe8b2fa941931441b592cc4f1841f0feb450224ea961f1e016b37692",
+        "effects": "on",
+        "lighting_available": true,
+        "frames": 20,
+        "map_items": 117,
+        "viewport_px": [
+          1002,
+          648
+        ],
+        "n": 512,
+        "complexes": 14,
+        "drones": 56,
+        "platforms": 98,
+        "cached": {
+          "update_median_ms": 4.132560499783722,
+          "paint_median_ms": 33.691863500280306,
+          "update_max_ms": 20.605910998710897,
+          "paint_max_ms": 47.2069659990666
+        },
+        "dirty": {
+          "update_median_ms": 18.73917199918651,
+          "paint_median_ms": 44.42975049823872,
+          "update_max_ms": 22.86305500092567,
+          "paint_max_ms": 55.554089001816465
+        },
+        "model_seconds": 60.0,
+        "wall_s": 5.901995407999493,
+        "factor": 10.166053317946796,
+        "max_heartbeat_gap_s": 0.22015293999720598,
+        "physical_sha256": "81f51d2644cc4ac1347ee29f3da110cdc1c49cdf4067dc704af2e46efef28ac2",
+        "mass_error_kg": -9.094947017729282e-13,
+        "energy_error_j": 2.3027387214824557e-06,
+        "case": "14",
+        "variant": "on",
+        "trial": 1
+      },
+      {
+        "root": "/workspace/ats-project",
+        "renderer_path": "/workspace/ats-project/ats/gui.py",
+        "python": "3.12.14",
+        "numpy": "2.5.4",
+        "qt": "6.12.0",
+        "latitude": 55.0,
+        "day_of_year": 172,
+        "start_hour": 21.065277777777776,
+        "physical_dt_s": 1.0,
+        "snapshot": "ats-topdown-night14.atsstate",
+        "snapshot_sha256": "50f2c404fe8b2fa941931441b592cc4f1841f0feb450224ea961f1e016b37692",
+        "effects": "off",
+        "lighting_available": true,
+        "frames": 20,
+        "map_items": 117,
+        "viewport_px": [
+          1002,
+          648
+        ],
+        "n": 512,
+        "complexes": 14,
+        "drones": 56,
+        "platforms": 98,
+        "cached": {
+          "update_median_ms": 3.8342389998433646,
+          "paint_median_ms": 32.13852350017987,
+          "update_max_ms": 23.38195199990878,
+          "paint_max_ms": 46.45667599834269
+        },
+        "dirty": {
+          "update_median_ms": 19.363729501492344,
+          "paint_median_ms": 41.70645499834791,
+          "update_max_ms": 24.86203199805459,
+          "paint_max_ms": 45.23402199993143
+        },
+        "model_seconds": 60.0,
+        "wall_s": 5.293010467998101,
+        "factor": 11.3357040124451,
+        "max_heartbeat_gap_s": 0.20526224100103718,
+        "physical_sha256": "81f51d2644cc4ac1347ee29f3da110cdc1c49cdf4067dc704af2e46efef28ac2",
+        "mass_error_kg": -9.094947017729282e-13,
+        "energy_error_j": 2.3027387214824557e-06,
+        "case": "14",
+        "variant": "off",
+        "trial": 1
+      },
+      {
+        "root": "/tmp/ats-topdown-baseline-1dd9e37",
+        "renderer_path": "/tmp/ats-topdown-baseline-1dd9e37/ats/gui.py",
+        "python": "3.12.14",
+        "numpy": "2.5.4",
+        "qt": "6.12.0",
+        "latitude": 55.0,
+        "day_of_year": 172,
+        "start_hour": 21.065277777777776,
+        "physical_dt_s": 1.0,
+        "snapshot": "ats-topdown-night14.atsstate",
+        "snapshot_sha256": "50f2c404fe8b2fa941931441b592cc4f1841f0feb450224ea961f1e016b37692",
+        "effects": "off",
+        "lighting_available": false,
+        "frames": 20,
+        "map_items": 114,
+        "viewport_px": [
+          1002,
+          648
+        ],
+        "n": 512,
+        "complexes": 14,
+        "drones": 56,
+        "platforms": 98,
+        "cached": {
+          "update_median_ms": 20.442147500943975,
+          "paint_median_ms": 58.11893749887531,
+          "update_max_ms": 47.49358299886808,
+          "paint_max_ms": 63.074056000914425
+        },
+        "dirty": {
+          "update_median_ms": 36.482230500041624,
+          "paint_median_ms": 62.917603501773556,
+          "update_max_ms": 44.784339999750955,
+          "paint_max_ms": 70.80268800200429
+        },
+        "model_seconds": 60.0,
+        "wall_s": 6.136166454998602,
+        "factor": 9.778091979744651,
+        "max_heartbeat_gap_s": 0.22850365900012548,
+        "physical_sha256": "81f51d2644cc4ac1347ee29f3da110cdc1c49cdf4067dc704af2e46efef28ac2",
+        "mass_error_kg": -9.094947017729282e-13,
+        "energy_error_j": 2.3027387214824557e-06,
+        "case": "14",
+        "variant": "before",
+        "trial": 1
+      }
+    ],
+    "physical_reports_identical_across_variants": true
+  },
+  "behavior": {
+    "defaults": {
+      "day_night": true,
+      "drone_lights": true
+    },
+    "saved_in": "Session.ui; physical save version remains 10",
+    "relief_direction_interval_model_seconds": 900,
+    "physics_step_seconds": 1,
+    "telemetry_wall_seconds": 0.5,
+    "profile_wall_seconds": 0.75,
+    "max_device_cache_extent_px": 2048,
+    "individual_light_scene_objects": false,
+    "shared_beacon_layers": 2,
+    "regional_roundtrip_and_save_in_motion": true,
+    "old_ui_dictionary_optional": true
+  },
+  "limitations": [
+    "No cast shadows, spotlights, weather, photometric or new lamp-power model.",
+    "Display identifiers have a minimum screen size, distinct from metric equipment footprints.",
+    "Greedy labels can overlap when little screen space remains.",
+    "Only Linux/Qt offscreen checked here. This local commit has not been pushed or run through Windows CI.",
+    "Small bounded fixtures do not reproduce the earlier user 23h pause or every large multi-complex mission."
+  ],
+  "source_sha256": {
+    "ats/gui.py": "84b44708210d9f8beb59805d04a47e67977b78f1711107d7f4a97390aaf79b0a",
+    "ats/map_visuals.py": "b6167cb190ad622052b6e85e4b1e97e115758c94d3b99f5166ed16aac81c39e3",
+    "ats/site_ui.py": "2e51ad11f6e3ca23ea485e3dda46d7fb8ca3d7479a155b02d73573c018286406",
+    "ats/shared_ui.py": "0ea0ffee38b734adf03293c6daa6d3993ada4ad32ec6cceeed76d876e7bb10ad",
+    "scripts/benchmark_map_display.py": "37af9dbb14390a7e5107f38a2863bc20d269e86e99f693bf3b717eae10d2082f",
+    "tests/test_map_visuals.py": "d04926600b0c26ec39ca6ff108f3f4077a7cf568efcd3d89fe658c029ec71e49",
+    "README.md": "f7ea89d28a26d3bf7f7b5e2df045876e4b63c146627e4d1050eb324acafb0232",
+    "docs/ats2/topdown-day-night.md": "f834969c72f7dcb777dfab1b3ee7b9aee41bcca37b7aa0ec8f5c7a90e69fa673"
+  },
+  "screenshot_sha256": {
+    "docs/ats2/topdown-night-detail.png": "4a0dd81a24f9a0c768897e0c38729ee41f630b54b8840c8dae13b5bcc5a0770f",
+    "docs/ats2/topdown-night.png": "9a2fa21b483aab5fe5602c7c8138ba30c638480e19d2476e6aad78ef5074b310",
+    "docs/ats2/topdown-day.png": "76ac81dba51722ede6efa8b4e2071868ebd70b2350639e1d06a5fc95208ceb8b",
+    "docs/ats2/topdown-twilight.png": "8cc1ca7707a82e7cc28c8b2a774325f59f3952fb1e4dd8baef8db62fae27fead"
+  },
+  "additional_verification": {
+    "final_ui_tests_passed": 40,
+    "hidpi_200_percent_tests_passed": 1,
+    "note": "Final cache extent also includes device pixel ratio; the extra UI and HiDPI checks passed after that guard was added. All benchmark runs used DPR=1, where the guard has identical behavior."
+  }
+}

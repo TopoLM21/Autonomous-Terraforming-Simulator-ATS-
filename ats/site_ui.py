@@ -22,22 +22,30 @@ def _rect(points,rect,supports=False):
     if supports:points.extend([(x,y),(x+w,y+h),(np.nan,np.nan),(x+w,y),(x,y+h),(np.nan,np.nan)])
 
 
-def refresh(host,terrain):
-    project=host.complex_project
-    simulations=[u.simulation for u in project.units] if project and project.shared_site else [host.sim]
+def geometry_key(s):
+    from .map_visuals import layout_key
+    w=s.logistics;a=getattr(w,'solar_array',None) if w else None;p=getattr(w,'battery_platforms',None) if w else None
+    return (layout_key(s),s.base.destination is not None,getattr(w,'regional_folded',False),getattr(w,'field_rect',None),
+        id(a),getattr(a,'mode',None),tuple(sorted(a.settings.items())) if a else (),
+        tuple((q.id,q.state,getattr(q,'supports',0),getattr(q,'open_fraction',0),getattr(q,'connection',0),tuple(q.rect)) for q in a.sections) if a else (),
+        tuple((tuple(c.position),getattr(c,'state',None)) for c in a.crews) if a else (),
+        p.route_preview if p else False,tuple((id,c.state,c.mode,c.supports,c.apron,c.connection) for id,c in p.carriers.items()) if p else ())
+
+
+def geometry(s):
     planned=[];deployed=[];active=[];installers=[];battery=[];reserves=[];access=[]
-    for s in simulations:
-        w=s.logistics;a=getattr(w,'solar_array',None) if w else None
-        from .compact_layout import active_polygons
-        for polygon in active_polygons(s):access.extend([*map(tuple,polygon),tuple(polygon[0]),(np.nan,np.nan)])
-        if w and w.battery_platforms:
-            p=w.battery_platforms
-            for c,rect in zip(p.carriers.values(),p.rectangles(planned=True)):
-                if c.mode=='DEPLOY' or c.state!='STOWED':_rect(reserves,rect)
-                fraction=max(c.supports,c.apron)
-                if fraction:
-                    x,y,ww,hh=rect;_rect(battery,(x+(1-fraction)*ww/2,y+(1-fraction)*hh/2,ww*fraction,hh*fraction),True)
-        if a is None:continue
+    w=s.logistics;a=getattr(w,'solar_array',None) if w else None
+    from .compact_layout import active_polygons
+    for polygon in active_polygons(s):access.extend([*map(tuple,polygon),tuple(polygon[0]),(np.nan,np.nan)])
+    if w and w.battery_platforms and not w.battery_platforms.route_preview:
+        from .battery_platforms import deployment_polygons
+        for c,polygon in zip(w.battery_platforms.carriers.values(),deployment_polygons(s.base.layout_spec,s.base.position)):
+            if c.mode=='DEPLOY' or c.state!='STOWED':reserves.extend([*map(tuple,polygon),tuple(polygon[0]),(np.nan,np.nan)])
+            fraction=max(c.supports,c.apron)
+            if fraction:
+                centre=np.mean(polygon,axis=0);p=centre+(polygon-centre)*fraction
+                battery.extend([*map(tuple,p),tuple(p[0]),(np.nan,np.nan),tuple(p[0]),tuple(p[2]),(np.nan,np.nan),tuple(p[1]),tuple(p[3]),(np.nan,np.nan)])
+    if a is not None:
         if w.solar_ground_rects():
             for polygon in w.solar_ground_polygons():planned.extend([*map(tuple,polygon),tuple(polygon[0]),(np.nan,np.nan)])
         for q in a.sections:
@@ -53,11 +61,26 @@ def refresh(host,terrain):
             if q.state=='DEPLOYED':_rect(deployed,q.rect,True)
             elif q.state in ('ASSEMBLING','FOLDING'):_rect(active,q.rect,True)
         installers.extend(tuple(c.position[:2]) for c in a.crews)
-    for item,points in ((host.solar_planned,planned),(host.solar_deployed,deployed),(host.solar_active,active),(host.battery_platform_contours,battery),(host.battery_platform_reserves,reserves),(host.site_access,access)):
-        if points:
-            values=np.asarray(points);item.setData(values[:,0],values[:,1],connect='finite')
-        else:item.clear()
-    host.solar_installers.setData(pos=np.asarray(installers) if installers else np.empty((0,2)))
+    return tuple(np.asarray(p,dtype=float).reshape(-1,2) for p in (planned,deployed,active,battery,reserves,access,installers))
+
+
+def refresh(host,terrain):
+    project=host.complex_project
+    simulations=[u.simulation for u in project.units] if project and project.shared_site else [host.sim]
+    cache=getattr(host,'_site_render_cache',{});live={id(s) for s in simulations}
+    cache={id:v for id,v in cache.items() if id in live};keys=[]
+    for s in simulations:
+        key=geometry_key(s);keys.append(key)
+        if id(s) not in cache or cache[id(s)][0]!=key:cache[id(s)]=(key,geometry(s))
+    host._site_render_cache=cache;key=tuple(keys)
+    if getattr(host,'_site_paths_key',None)!=key:
+        items=(host.solar_planned,host.solar_deployed,host.solar_active,host.battery_platform_contours,host.battery_platform_reserves,host.site_access)
+        for index,item in enumerate(items):
+            values=np.concatenate([cache[id(s)][1][index] for s in simulations])
+            if len(values):item.setData(values[:,0],values[:,1],connect='finite')
+            else:item.clear()
+        host.solar_installers.setData(pos=np.concatenate([cache[id(s)][1][6] for s in simulations]))
+        host._site_paths_key=key
     key=(id(terrain.height),getattr(terrain,'_spoil_reserve_revision',0))
     if getattr(host,'_spoil_render_key',None)!=key:
         stride=max(1,terrain.height.shape[0]//512);mask=terrain.dump_mask[::stride,::stride]

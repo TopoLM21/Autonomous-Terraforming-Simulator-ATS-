@@ -19,13 +19,9 @@ from .profiles import profiles,segments_for
 pg.setConfigOptions(imageAxisOrder="row-major", antialias=True, background="#111d2b", foreground="#c7d7e5")
 
 
-def terrain_rgb(height, cell, depth, maximum):
-    stops = [-max(depth, 0.1), 0.0, max(maximum, 0.1)]
-    colors = np.array([[48, 121, 161], [202, 181, 122], [240, 225, 186]])
-    rgb = np.stack([np.interp(height, stops, colors[:, i]) for i in range(3)], axis=-1)
-    gy, gx = np.gradient(height, cell)
-    shade = (0.9+0.25*(-gx+gy)/np.sqrt(1+gx*gx+gy*gy)).clip(0.55, 1.1)
-    return (rgb*shade[..., None]).clip(0, 255).astype(np.uint8)
+def terrain_rgb(height, cell, depth, maximum,**kwargs):
+    from .map_visuals import terrain_rgb as paint
+    return paint(height,cell,depth,maximum,**kwargs)
 
 
 def terrain_view(height, cell, bounds, pixels=512):
@@ -136,7 +132,7 @@ class MainWindow(QtWidgets.QMainWindow):
         left_layout = QtWidgets.QVBoxLayout(left)
         self.left_layout=left_layout
         left_layout.setContentsMargins(0, 0, 4, 0)
-        legend = QtWidgets.QLabel("Рельеф: синий — выемка, песочный — исходный уровень, светлый — насыпь | План: голубой — выемка, зелёный — засыпка, оранжевый — отвал; розовый — профиль")
+        legend = QtWidgets.QLabel("Рельеф: синий — море, песочный — суша, серо-голубой — выемка, охра — насыпь | План: голубой — выемка, зелёный — засыпка, оранжевый — резерв отвала; розовый — профиль")
         legend.setWordWrap(True)
         left_layout.addWidget(legend)
         self.energy_status=QtWidgets.QLabel();self.energy_status.setWordWrap(True)
@@ -165,7 +161,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.transition_status=QtWidgets.QLabel();self.transition_status.setWordWrap(True);self.transition_status.hide()
         left_layout.addWidget(self.transition_status)
         self.map_dialog=None
-        self.map = pg.PlotWidget(viewBox=self.view_box)
+        from .map_visuals import MapWidget
+        self.map = MapWidget(viewBox=self.view_box)
         self.map.setAspectLocked(True)
         self.map.setLabel("bottom", "X", units="m")
         self.map.setLabel("left", "Y", units="m")
@@ -400,6 +397,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.speed_status=QtWidgets.QLabel('Факт: 0×')
         self.speed_status.setToolTip('Фактически прошедшие секунды симуляции за одну реальную секунду. Физический шаг всегда 1 с. Высокая цель может ограничиваться скоростью расчёта.')
         self.statusBar().addPermanentWidget(self.speed_status)
+        from .map_visuals import initialize as initialize_visuals
+        initialize_visuals(self);map_tools.addWidget(self.view_options)
         self.timer = QtCore.QTimer(self)
         self.timer.setTimerType(QtCore.Qt.TimerType.PreciseTimer)
         self.timer.timeout.connect(self.on_frame)
@@ -449,7 +448,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.update_profile()
         self.last_revision = -1
         while len(self.drone_labels)<len(self.sim.drones):
-            label=pg.TextItem(color=self.palette[len(self.drone_labels)],anchor=(0,1));self.map.addItem(label);self.drone_labels.append(label)
+            label=pg.TextItem(color=self.palette[len(self.drone_labels)],anchor=(0,1),fill=(10,22,35,210));label.setZValue(16);self.map.addItem(label);self.drone_labels.append(label)
         for index,label in enumerate(self.drone_labels):label.setVisible(index<len(self.sim.drones))
         self.fleet_table.setRowCount(len(self.sim.drones))
 
@@ -566,6 +565,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def update_profile(self):
         if not hasattr(self,"profile_extra"):return
+        t=self.sim.terrain
+        key=(id(t),id(t.height),t.revision,id(self.config.plan),self.profile_direction.currentData(),self.profile_segment.currentData(),self.profile_position.value())
+        if getattr(self,'_profile_key',None)==key:return
+        self._profile_key=key
         direction=self.profile_direction.currentData()
         fraction=self.profile_position.value()/100
         self.profile_position.setEnabled(direction=="cross")
@@ -680,7 +683,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.battery_type_info.setText(f'Добавление: {capacity:g} кВт·ч / {mass:g} кг, пустые. Другие типы — «Оборудование».')
         self.update_solar_preview()
         while len(self.drone_labels)<len(self.sim.drones):
-            label=pg.TextItem(color=self.palette[len(self.drone_labels)],anchor=(0,1));self.map.addItem(label);self.drone_labels.append(label)
+            label=pg.TextItem(color=self.palette[len(self.drone_labels)],anchor=(0,1),fill=(10,22,35,210));label.setZValue(16);self.map.addItem(label);self.drone_labels.append(label)
         for index,label in enumerate(self.drone_labels):label.setVisible(index<len(self.sim.drones))
         self.fleet_table.setRowCount(len(self.sim.drones))
 
@@ -710,14 +713,18 @@ class MainWindow(QtWidgets.QMainWindow):
                     profile_position=self.profile_position.value(),equipment_resume=self._equipment_resume,
                     render_mode=self.render_mode.currentData() if hasattr(self,'render_mode') else 'auto',
                     soil_view=self.soil_view.isChecked(),power_request=self.power_request_state,
+                    day_night=self.day_night.isChecked(),drone_lights=self.drone_lights.isChecked(),
                     complex_templates=self.template_library)
 
     def restore_session_ui(self, ui):
+        ui=ui or {}
         self.power_request_state=ui.get('power_request')
         self.template_library=self.complex_project.templates if self.complex_project is not None else list(ui.get('complex_templates',[]))
         self.speed.setCurrentIndex(max(0,self.speed.findData(ui.get('speed',50))))
         if hasattr(self,'render_mode'):self.render_mode.setCurrentIndex(max(0,self.render_mode.findData(ui.get('render_mode','auto'))))
         self.soil_view.setChecked(bool(ui.get('soil_view',False)))
+        self.day_night.setChecked(bool(ui.get('day_night',self.day_night.isChecked())))
+        self.drone_lights.setChecked(bool(ui.get('drone_lights',self.drone_lights.isChecked())))
         if ui.get('view_range') is not None:self.view_box.setRange(xRange=ui['view_range'][0],yRange=ui['view_range'][1],padding=0)
         self.plan_editor.segments=deepcopy(ui.get('brush_segments',self.plan_editor.segments))
         self.plan_editor.dirty=bool(ui.get('brush_dirty',False));self.plan_editor.rebuild()
@@ -938,6 +945,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.statusBar().showMessage('Карта и профиль приостановлены; расчёт и телеметрия продолжаются.' if off else 'Отображение карты включено.',7000)
         self.refresh(True)
 
+    def display_style_changed(self):
+        self._last_light_key=None;self.last_revision=-1
+        if hasattr(self,'timer'):self.refresh(True)
+
     def speed_changed(self):
         self.credit=0.;self.last_wall=time.perf_counter();self.reset_performance()
         if hasattr(self,'timer'):self.timer.setInterval(0 if self.running else self.config.display_interval_ms)
@@ -990,11 +1001,13 @@ class MainWindow(QtWidgets.QMainWindow):
                     completed=not self.complex_project.blocked if self.complex_project is not None else self.sim.state==MissionState.COMPLETED
                     self.play.setText('Завершено' if completed else 'Заблокировано')
                     break
+        from .map_visuals import lighting
+        lighting(self)
         stamp=time.perf_counter()
         interval=(.2 if self.speed.currentData()>=1000 else .1 if self.speed.currentData()>=200
                   else self.config.display_interval_ms/1000) if self.running else .25
         if self.running and self.render_mode.currentData()=='auto' and self.speed.currentData()>=200:
-            interval=max(interval,self._render_cost*9)
+            interval=max(interval,(self._render_cost+self.map.paint_seconds)*9)
         elif self.running and self.render_mode.currentData()=='off':interval=.5
         if stamp-self.last_render_wall>=interval or was_running and not self.running:
             begin=time.perf_counter();self.refresh();self.last_render_wall=time.perf_counter();self.performance_renders+=1
@@ -1011,6 +1024,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.timer.setInterval(delay)
 
     def refresh(self, force=False):
+        from .map_visuals import lighting,relief_light,telemetry_due,layout_key,beacons,marker_size,cache_paths,place_labels
+        lighting(self)
         moving=self.complex_project is not None and self.complex_project.transition is not None
         self.transition_status.setVisible(moving)
         if moving:
@@ -1036,46 +1051,57 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.config.georeference:
             self.latitude.blockSignals(True);self.latitude.setValue(b.config.latitude_deg);self.latitude.blockSignals(False)
         if self.render_mode.currentData()=='off':
-            self.refresh_telemetry(s.report(full=False));return
+            if telemetry_due(self,force):self.refresh_telemetry(s.report(full=False))
+            return
         self.soil_view.setEnabled(t.soil is not None)
         self.soil_legend.setVisible(t.soil is not None and self.soil_view.isChecked())
         if t.soil is not None:
             self.soil_legend.setText('Условные грунты · '+ ' · '.join(f'<span style="color:{m.color}">■ {m.name}: {m.density:g} кг/м³</span>' for m in t.soil.profile.materials))
         now = time.perf_counter()
         view_range=self.view_box.viewRange();view_key=tuple(tuple(p) for p in view_range)
-        if force or (t.revision != self.last_revision or view_key!=self._last_view) and now-self.last_terrain_wall >= self.config.terrain_display_seconds:
+        light_key,light=relief_light(s,self.day_night.isChecked())
+        if force or (t.revision != self.last_revision or view_key!=self._last_view or light_key!=getattr(self,'_last_light_key',None)) and now-self.last_terrain_wall >= self.config.terrain_display_seconds:
             if self.render_mode.currentData()=='auto' and self.running:
                 height,rect,stride=terrain_view(t.height,t.cell,view_range)
-            else:height,rect,stride=t.height,(0,0,t.cell*t.height.shape[0],t.cell*t.height.shape[0]),1
+                reference,_,_=terrain_view(t.reference,t.cell,view_range)
+            else:height,reference,rect,stride=t.height,t.reference,(0,0,t.cell*t.height.shape[0],t.cell*t.height.shape[0]),1
+            n=t.height.shape[0];x0=round(rect[0]/t.cell);y0=round(rect[1]/t.cell)
+            rows=np.minimum(y0+np.arange(height.shape[0])*stride+stride//2,n-1)
+            cols=np.minimum(x0+np.arange(height.shape[1])*stride+stride//2,n-1)
+            from .site_ground import marine_mask
+            marine=marine_mask(t)[np.ix_(rows,cols)];material_colors=None
             if t.soil is not None and self.soil_view.isChecked():
-                x0=round(rect[0]/t.cell);y0=round(rect[1]/t.cell);n=t.height.shape[0]
-                yy,xx=np.indices(height.shape);ids=np.minimum(y0+yy*stride+stride//2,n-1)*n+np.minimum(x0+xx*stride+stride//2,n-1)
+                ids=rows[:,None]*n+cols[None,:]
                 materials=t.soil.surface_ids(ids.ravel()).reshape(height.shape)
                 colors=np.array([[int(m.color[i:i+2],16) for i in (1,3,5)] for m in t.soil.profile.materials])
-                gy,gx=np.gradient(height,t.cell*stride);shade=(.9+.25*(-gx+gy)/np.sqrt(1+gx*gx+gy*gy)).clip(.55,1.1)
-                rgb=(colors[materials]*shade[...,None]).clip(0,255).astype(np.uint8)
-            else:rgb=terrain_rgb(height,t.cell*stride,self.config.trench.depth,max(.5,float(height.max())))
+                material_colors=colors[materials]
+            rgb=terrain_rgb(height,t.cell*stride,self.config.trench.depth,max(.5,float(height.max())),reference=reference,marine=marine,light=light,materials=material_colors)
             self.image.setImage(rgb, autoLevels=False)
             self.image.setRect(QtCore.QRectF(*rect))
-            self.update_profile()
             self.last_revision = t.revision
             self.last_terrain_wall = now
-            self._last_view=view_key
-        concentration = 1-np.exp(-s.dust.field*self.config.dust.concentration_scale)
-        cloud = np.zeros((*concentration.shape, 4), dtype=np.uint8)
-        cloud[..., :3] = [211, 187, 146]
-        cloud[..., 3] = (concentration*170).clip(0, 170).astype(np.uint8)
-        self.dust_image.setImage(cloud, autoLevels=False)
-        self.dust_image.setRect(QtCore.QRectF(0, 0, s.dust.side, s.dust.side))
+            self._last_view=view_key;self._last_light_key=light_key
+        if force or now-getattr(self,'_profile_wall',0)>=.75:
+            self.update_profile();self._profile_wall=now
+        dust_key=(id(s.dust),s.time,self.config.dust.concentration_scale)
+        if self.show_dust.isChecked() and (force or getattr(self,'_dust_render_key',None)!=dust_key):
+            concentration = 1-np.exp(-s.dust.field*self.config.dust.concentration_scale)
+            cloud = np.zeros((*concentration.shape, 4), dtype=np.uint8);cloud[..., :3] = [211, 187, 146]
+            cloud[..., 3] = (concentration*170).clip(0, 170).astype(np.uint8)
+            self.dust_image.setImage(cloud, autoLevels=False)
+            self.dust_image.setRect(QtCore.QRectF(0, 0, s.dust.side, s.dust.side));self._dust_render_key=dust_key
         self.dust_image.setVisible(self.show_dust.isChecked())
         self.base_marker.setData([b.position[0]], [b.position[1]])
         x,y=b.position[:2];r=b.config.radius
-        if b.config.layout is None:self.base_outline.setData([x-r,x+r,x+r,x-r,x-r],[y-r,y-r,y+r,y+r,y-r])
-        else:
+        body_key=layout_key(s)
+        if body_key!=getattr(self,'_base_outline_key',None) and b.config.layout is None:
+            self.base_outline.setData([x-r,x+r,x+r,x-r,x-r],[y-r,y-r,y+r,y+r,y-r])
+        elif body_key!=getattr(self,'_base_outline_key',None):
             from .base_layout import platform_polygons
             points=[]
             for polygon in platform_polygons(b.layout_spec,b.position):points.extend([*polygon,(np.nan,np.nan)])
             points=np.asarray(points);self.base_outline.setData(points[:,0],points[:,1],connect='finite')
+        self._base_outline_key=body_key
         if s.logistics is not None:
             l=s.logistics;e=l.excavator
             if l.field_rect is not None and getattr(l,'solar_array',None) is None:
@@ -1094,9 +1120,10 @@ class MainWindow(QtWidgets.QMainWindow):
             self.excavator_marker.clear();self.container_markers.clear();self.excavator_reach.clear();self.solar_field_outline.clear();self.excavator_label.setText('')
         from .site_ui import refresh as refresh_site
         refresh_site(self,t)
-        self.drone_marker.setData([{'pos':tuple(o.position[:2]),'pen':pg.mkPen(self.palette[o.identifier],width=3),'symbol':'+','size':20} for o in s.drones])
+        self.drone_marker.setData([{'pos':tuple(o.position[:2]),'brush':self.drone_brushes[o.identifier],'pen':self.drone_pen,'symbol':self.drone_symbol,'size':marker_size(self)} for o in s.drones])
         self.slot_markers.setData([{'pos':tuple(s.slot_position(i)[:2]),'brush':'#f4b651' if occupant is not None else '#41566b','symbol':'s','size':10} for i,occupant in enumerate(s.slots)])
         for o,label in zip(s.drones,self.drone_labels):
+            if not self.labels_view.isChecked():break
             operation=" · грейфер вниз" if o.state==DroneState.DUMP and not o.dump_released else " · грейфер вверх" if o.state==DroneState.DUMP else ""
             laser=f" · лазер {o.laser_power_w/1000:.1f} кВт" if o.laser_power_w>0 else ""
             waiting='\n'+s.logistics.idle_reason(o) if s.logistics is not None and o.grounded else ''
@@ -1112,7 +1139,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.route.setData(points[:, 0], points[:, 1])
         else:
             self.route.setData([], [])
-        report = s.report(full=False)
         beams=[]
         for link in s.laser_links:
             if link.received_w>0:beams.extend([link.source[:2],link.drone.position[:2],(np.nan,np.nan)])
@@ -1122,7 +1148,10 @@ class MainWindow(QtWidgets.QMainWindow):
         for label in [*self.drone_labels,self.base_label,self.excavator_label]:label.setVisible(self.labels_view.isChecked())
         from .shared_ui import refresh
         refresh(self)
-        self.refresh_telemetry(report)
+        beacons(self)
+        cache_paths(self)
+        if telemetry_due(self,force):self.refresh_telemetry(s.report(full=False))
+        place_labels(self)
 
     def refresh_telemetry(self, report):
         self.update_energy_status()
