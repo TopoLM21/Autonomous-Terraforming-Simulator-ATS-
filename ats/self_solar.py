@@ -279,7 +279,7 @@ class SelfSolarArray:
         self.reserved_rects=[]
         for q in self.sections:
             q.rect=_rect(world.sim.base.layout_spec,self.module(world,q),world.sim.base.position);self.reserved_rects.append(q.rect)
-        self._audit_stamp=None;self._own_geometry_key=None
+        self._audit_stamp=None;self._own_geometry_key=None;self._obstacle_key=None
 
     def add_inventory(self,world):
         items=[]
@@ -369,6 +369,7 @@ class SelfSolarArray:
 
     def step(self,world):
         b=world.sim.base;p=self.settings
+        self._obstacle_key=None
         if b.destination is not None:
             if not self.stowed:raise ValueError('Движение со раскрытыми собственными солнечными крыльями запрещено')
             return
@@ -405,6 +406,7 @@ class SelfSolarArray:
             setattr(q,attr,after);q.elapsed+=1.;q.actuation_energy_j+=energy;changed.append(q)
         if changed:self.sync_positions(world,only=changed)
         self.sync_positions(world)
+        if changed and world.sim.shared_site:world.sim.shared_site.invalidate_geometry()
         world.field_ready=self.ready;world.field_elapsed=self.duration()*sum(q.state=='DEPLOYED' for q in self.sections)/max(1,len(self.sections))
         world.base_pack_elapsed=self.duration() if self.mode=='FOLD' and self.stowed else self.duration()*.999*sum(q.state=='STOWED' for q in self.sections)/max(1,len(self.sections)) if self.mode=='FOLD' else 0.
 
@@ -418,21 +420,25 @@ class SelfSolarArray:
 
     def obstacle_height(self,world,point):
         """Packed bodies and the complete reserved sweep, including single-base runs."""
-        key=(world.sim.time,tuple(world.sim.base.position))
+        from .site_ground import polygon_bounds,point_in_polygon
+        spec=world.sim.base.layout_spec;t=world.sim.terrain
+        key=('oriented_v1',id(spec),world.sim.time,t.revision,tuple(world.sim.base.position),self.mode)
         if getattr(self,'_obstacle_key',None)!=key:
             self._obstacle_key=key;self._obstacle_grid={}
-            spec=world.sim.base.layout_spec;b=world.sim.base
+            b=world.sim.base
             expanded=not self.stowed or self.mode=='DEPLOY'
             for q in self.sections:
-                body=_rect(spec,self.module(world,q),b.position,swept=False)
-                rect=_rect(spec,self.module(world,q),b.position)
+                body=_polygon(spec,self.module(world,q),b.position,swept=False)
+                wing=_polygon(spec,self.module(world,q),b.position)
                 ground=self.centre(world,q)[2]
-                boxes=[(*body,ground+self.module(world,q)['dimensions_m'][2])]
-                if expanded:boxes.append((*rect,ground+self.settings['hinge_height_m']+self.settings['leaf_width_m']*math.cos(q.open_fraction*math.pi/2)))
-                for x,y,w,h,z in boxes:
+                shapes=[(body,ground+self.module(world,q)['dimensions_m'][2])]
+                if expanded:shapes.append((wing,ground+self.settings['hinge_height_m']+self.settings['leaf_width_m']*math.cos(q.open_fraction*math.pi/2)))
+                for polygon,z in shapes:
+                    x,y,w,h=polygon_bounds(polygon)
                     for gx in range(math.floor(x/16),math.floor((x+w)/16)+1):
-                        for gy in range(math.floor(y/16),math.floor((y+h)/16)+1):self._obstacle_grid.setdefault((gx,gy),[]).append((x,y,w,h,z))
-        return max((z for x,y,w,h,z in self._obstacle_grid.get((math.floor(point[0]/16),math.floor(point[1]/16)),()) if x<=point[0]<=x+w and y<=point[1]<=y+h),default=-math.inf)
+                        for gy in range(math.floor(y/16),math.floor((y+h)/16)+1):self._obstacle_grid.setdefault((gx,gy),[]).append((x,y,w,h,z,polygon))
+        return max((z for x,y,w,h,z,polygon in self._obstacle_grid.get((math.floor(point[0]/16),math.floor(point[1]/16)),())
+            if x<=point[0]<=x+w and y<=point[1]<=y+h and point_in_polygon(point,polygon)),default=-math.inf)
 
     def validate(self,world):
         if parameters(self.settings)!=self.settings or self.mode not in ('DEPLOY','FOLD'):raise ValueError('Поврежден паспорт собственного PV')

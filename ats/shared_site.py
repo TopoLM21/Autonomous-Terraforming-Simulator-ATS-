@@ -279,11 +279,12 @@ class SharedSite:
         self._ensure_geometry();return self._obstacle_top
 
     def obstacle_height(self,point):
+        from .site_ground import point_in_polygon
         self._ensure_geometry()
         height=-math.inf
         for row in self._ground_grid.get((math.floor(point[0]/16),math.floor(point[1]/16)),()):
             _,x,y,w,h,top=row
-            if x<=point[0]<=x+w and y<=point[1]<=y+h:height=max(height,top)
+            if x<=point[0]<=x+w and y<=point[1]<=y+h and point_in_polygon(point,self._ground_polygons[row]):height=max(height,top)
         return height
 
     def reservations(self,simulation,kind):
@@ -352,33 +353,43 @@ class SharedSite:
         return (*lower,*(upper-lower))
 
     def _ensure_geometry(self):
-        if getattr(self,'_geometry_time',None)!=self.project.time:self._build_geometry()
+        if getattr(self,'_geometry_time',None)!=self.project.time or not hasattr(self,'_ground_polygons'):self._build_geometry()
 
     def _build_geometry(self):
-        from .base_layout import layout_footprints
-        self._ground_grid={};self._obstacle_top=-math.inf;self._geometry_time=self.project.time
+        from .base_layout import platform_polygons
+        from .site_ground import rectangle_polygon,polygon_bounds
+        self._ground_grid={};self._ground_polygons={};self._obstacle_top=-math.inf;self._geometry_time=self.project.time
         for unit in self.project.units:
             s=unit.simulation;b=s.base;r=b.config.radius
-            boxes=list(layout_footprints(b.layout_spec,b.position)) if b.config.layout is not None else [(b.position[0]-r,b.position[1]-r,2*r,2*r)]
+            polygons=list(platform_polygons(b.layout_spec,b.position)) if b.config.layout is not None else [rectangle_polygon((b.position[0]-r,b.position[1]-r,2*r,2*r))]
+            boxes=[polygon_bounds(p) for p in polygons]
             # A parked aircraft is an actor, not solid carrier superstructure:
             # otherwise its own takeoff would begin inside its transport box.
             heights=[a['dimensions_m'][2] if a.get('role')=='PV' else b.config.roof_height for a in b.layout_spec['platforms']] if b.config.layout is not None else [b.config.roof_height]
             boxes=[(*box,float(s.terrain.sample(box[0]+box[2]/2,box[1]+box[3]/2)+h)) for box,h in zip(boxes,heights)]
             self._obstacle_top=max(self._obstacle_top,*(r[4] for r in boxes))
             boxes.append((*self.pads_bounds(s.config,b.position[:2],getattr(b,'layout_spec',None)),float(b.position[2])))
+            polygons.append(rectangle_polygon(boxes[-1][:4]))
             if s.logistics and s.logistics.excavator and s.logistics.excavator.state.value!='AIR_TRANSPORT':
                 e=s.logistics.excavator;q=e.config.support_half_width_m
                 boxes.append((e.position[0]-q,e.position[1]-q,2*q,2*q,float(e.position[2]+1.)))
+                polygons.append(rectangle_polygon(boxes[-1][:4]))
             if s.logistics:
                 a=getattr(s.logistics,'solar_array',None)
-                solar_top=max((s.terrain.sample(*a.centre(s.logistics,q)[:2])+a.settings['hinge_height_m']+a.settings['leaf_width_m']*(1-q.open_fraction) for q in a.sections),default=b.position[2]+1.4) if getattr(a,'mechanism',None)=='self_deploying' else b.position[2]+1.4
-                for rect in s.logistics.solar_ground_rects():boxes.append((*rect,float(solar_top)))
+                solar_top=max((s.terrain.sample(*a.centre(s.logistics,q)[:2])+a.settings['hinge_height_m']+a.settings['leaf_width_m']*math.cos(q.open_fraction*math.pi/2) for q in a.sections),default=b.position[2]+1.4) if getattr(a,'mechanism',None)=='self_deploying' else b.position[2]+1.4
+                for polygon in s.logistics.solar_ground_polygons():
+                    boxes.append((*polygon_bounds(polygon),float(solar_top)));polygons.append(polygon)
                 self._obstacle_top=max(self._obstacle_top,solar_top)
                 if s.logistics.battery_platforms:
-                    for rect in s.logistics.battery_platforms.rectangles():boxes.append((*rect,float(b.position[2]+.5)))
-            for xx,yy,ww,hh,z in boxes:
+                    for polygon in s.logistics.battery_platforms.polygons():
+                        boxes.append((*polygon_bounds(polygon),float(b.position[2]+.5)));polygons.append(polygon)
+            for (xx,yy,ww,hh,z),polygon in zip(boxes,polygons):
                 margin=b.config.speed if b.destination is not None else 0.
                 row=(unit.id,float(xx-margin),float(yy-margin),float(ww+2*margin),float(hh+2*margin),z)
+                # Placement keeps its conservative boxes. Flight refines a box
+                # hit against the real contour; moving carriers retain the
+                # previous one-step swept margin.
+                self._ground_polygons[row]=rectangle_polygon(row[1:5]) if margin else polygon
                 for gx in range(math.floor(row[1]/16),math.floor((row[1]+row[3])/16)+1):
                     for gy in range(math.floor(row[2]/16),math.floor((row[2]+row[4])/16)+1):self._ground_grid.setdefault((gx,gy),[]).append(row)
 

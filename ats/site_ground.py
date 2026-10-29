@@ -29,6 +29,18 @@ def polygons_overlap(a,b,clearance=0.):
         np.any(pb.max(axis=0)+clearance<=pa.min(axis=0)+1e-8))
 
 
+def point_in_polygon(point,polygon):
+    """Closed convex equipment footprint; accept either vertex winding."""
+    positive=negative=False;x,y=point[:2];previous=polygon[-1]
+    for current in polygon:
+        cross=(current[0]-previous[0])*(y-previous[1])-(current[1]-previous[1])*(x-previous[0])
+        if cross>1e-8:positive=True
+        elif cross<-1e-8:negative=True
+        if positive and negative:return False
+        previous=current
+    return True
+
+
 def marine_mask(terrain):
     c=terrain.config;geo=c.georeference or {};channel=(c.plan.channel or {}) if c.plan else {}
     marine=channel.get('marine') or geo.get('marine')

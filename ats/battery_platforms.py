@@ -440,11 +440,15 @@ class BatteryPlatforms:
         self.world.wake_for_solar_service()
         if self.world.sim.shared_site:self.world.sim.shared_site.invalidate_geometry()
 
-    def rectangles(self,*,planned=False):
+    def polygons(self,*,planned=False):
         if self.route_preview:return []
         b=self.world.sim.base
-        return [rect for (id,c),rect in zip(self.carriers.items(),deployment_rectangles(b.layout_spec,b.position))
+        return [polygon for (id,c),polygon in zip(self.carriers.items(),deployment_polygons(b.layout_spec,b.position))
                 if planned or c.state!='STOWED' or c.mode!='PACK']
+
+    def rectangles(self,*,planned=False):
+        from .site_ground import polygon_bounds
+        return [polygon_bounds(p) for p in self.polygons(planned=planned)]
 
     def site_safe(self):
         w=self.world;b=w.sim.base
