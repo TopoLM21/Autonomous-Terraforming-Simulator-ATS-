@@ -168,7 +168,7 @@ def test_season_cli_and_winter_option_are_explicit(tmp_path):
     path=tmp_path/'season.json'
     p=subprocess.run([sys.executable,'-m','ats','--headless','--energy-preset','qattara-season','--steps','0','--json',str(path)],capture_output=True,text=True,encoding='utf-8',timeout=40)
     assert p.returncode==0,p.stderr
-    r=json.loads(path.read_text());d=r['energy_design']
+    r=json.loads(path.read_text(encoding='utf-8'));d=r['energy_design']
     assert r['latitude_deg']==QATTARA_LATITUDE and r['day_of_year']==172 and d['kind']=='season'
     assert r['energy_design_status']['state']=='ready' and d['checked_days']==214
 
