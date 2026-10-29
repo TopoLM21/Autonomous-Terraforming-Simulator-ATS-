@@ -10,9 +10,10 @@ def initialize(host):
     host.solar_deployed=pg.PlotDataItem(pen=pg.mkPen('#64b8ff',width=2))
     host.solar_active=pg.PlotDataItem(pen=pg.mkPen('#ffd166',width=2))
     host.solar_installers=pg.ScatterPlotItem(size=8,symbol='s',brush='#ffd166')
+    host.site_access=pg.PlotDataItem(pen=pg.mkPen('#75c8a4',width=1,style=QtCore.Qt.PenStyle.DashLine))
     host.battery_platform_contours=pg.PlotDataItem(pen=pg.mkPen('#b09bff',width=2))
     host.battery_platform_reserves=pg.PlotDataItem(pen=pg.mkPen('#b09bff',width=1,style=QtCore.Qt.PenStyle.DotLine))
-    for item in (host.solar_planned,host.solar_deployed,host.solar_active,host.solar_installers,host.battery_platform_contours,host.battery_platform_reserves):host.map.addItem(item)
+    for item in (host.solar_planned,host.solar_deployed,host.solar_active,host.solar_installers,host.site_access,host.battery_platform_contours,host.battery_platform_reserves):host.map.addItem(item)
 
 
 def _rect(points,rect,supports=False):
@@ -24,9 +25,11 @@ def _rect(points,rect,supports=False):
 def refresh(host,terrain):
     project=host.complex_project
     simulations=[u.simulation for u in project.units] if project and project.shared_site else [host.sim]
-    planned=[];deployed=[];active=[];installers=[];battery=[];reserves=[]
+    planned=[];deployed=[];active=[];installers=[];battery=[];reserves=[];access=[]
     for s in simulations:
         w=s.logistics;a=getattr(w,'solar_array',None) if w else None
+        from .compact_layout import active_rectangles
+        for rect in active_rectangles(s):_rect(access,rect)
         if w and w.battery_platforms:
             p=w.battery_platforms
             for c,rect in zip(p.carriers.values(),p.rectangles(planned=True)):
@@ -50,7 +53,7 @@ def refresh(host,terrain):
             if q.state=='DEPLOYED':_rect(deployed,q.rect,True)
             elif q.state in ('ASSEMBLING','FOLDING'):_rect(active,q.rect,True)
         installers.extend(tuple(c.position[:2]) for c in a.crews)
-    for item,points in ((host.solar_planned,planned),(host.solar_deployed,deployed),(host.solar_active,active),(host.battery_platform_contours,battery),(host.battery_platform_reserves,reserves)):
+    for item,points in ((host.solar_planned,planned),(host.solar_deployed,deployed),(host.solar_active,active),(host.battery_platform_contours,battery),(host.battery_platform_reserves,reserves),(host.site_access,access)):
         if points:
             values=np.asarray(points);item.setData(values[:,0],values[:,1],connect='finite')
         else:item.clear()
@@ -103,6 +106,7 @@ class SiteWindow(QtWidgets.QDialog):
     def refresh(self):
         s=self.host.sim;w=s.logistics;a=getattr(w,'solar_array',None) if w else None;t=s.terrain
         lines=['<b>Солнечные секции</b>']
+        grid=getattr(s.base,'layout_spec',{}).get('grid')
         attached=getattr(a,'mechanism',None)=='self_deploying'
         self.fold.setText('Сложить собственные крылья и убрать опоры' if attached else 'Сложить секции и вернуть на носители')
         self.deploy.setText('Раскрыть / возобновить раскрытие' if attached else 'Развернуть / продолжить монтаж')
@@ -119,6 +123,9 @@ class SiteWindow(QtWidgets.QDialog):
                 module=a.module(w,q)
                 lines.append(f"Носитель {q.platform_id} · {q.id}: {q.state}; опоры {q.supports:.0%}, раскрытие {q.open_fraction:.0%}, подключение {q.connection:.0%}; {q.area_m2:g} м², полная масса {module['gross_mass_kg']:,.0f} кг; привод {q.actuation_energy_j/3600000:.3f} кВт·ч. {q.reason}")
             if a.issue:lines.append(a.issue)
+            if grid:
+                ww,hh=grid['deployed_dimensions_local_m']
+                lines.append(f"Компактный массив: {grid['columns']} столбцов × {grid['rows']} рядов; полный развёрнутый габарит {ww:.1f} × {hh:.1f} м. Проходы {grid['column_access_m']:g} / {grid['row_access_m']:g} м показаны зелёным пунктиром; сервисный блок и посадки учтены.")
         elif a:
             p=a.settings;states={state:sum(q.state==state for q in a.sections) for state in ('STOWED','DEPLOYED','IN_TRANSIT','ASSEMBLING','FOLDING')}
             mass=sum(w.inventory.items[id].mass_kg for id in a.support_ids)

@@ -171,6 +171,9 @@ class Simulation:
             result['body_dimensions_m']=list(b.layout_spec['dimensions_m'])
             result['landing_zone_dimensions_m']=[max(diameter,b.layout_spec['dimensions_m'][0]),max(max(offsets)-min(offsets)+diameter,b.layout_spec['dimensions_m'][1])]
             result['layout']=b.layout_spec;result['ground_support']=support_report(b,self.terrain,self.drones)
+            if b.layout_spec.get('grid'):
+                w,h=b.layout_spec['grid']['deployed_dimensions_local_m'];angle=math.radians(b.config.layout['heading_deg'])
+                result['deployed_dimensions_m']=[abs(w*math.cos(angle))+abs(h*math.sin(angle)),abs(w*math.sin(angle))+abs(h*math.cos(angle))]
         return result
 
     def wait_position(self, index):
@@ -181,7 +184,8 @@ class Simulation:
             offsets=getattr(self.base,'layout_spec',{}).get('dock_offsets',[])
             offset=offsets[index][1] if index<len(offsets) else station_offset(index,f.pad_spacing)
             distance=max(f.waiting_offset,self.base.config.radius+3.+f.separation) if offsets else f.waiting_offset
-            x,y=self.base.position[:2]+rotate_offset(self.base.config.layout,[-distance,offset])
+            across=offsets[index][0] if index<len(offsets) else 0.
+            x,y=self.base.position[:2]+rotate_offset(self.base.config.layout,[across-distance,offset])
         return np.array([x, y, self.terrain.sample(x, y)+f.ground_clearance])
 
     def cruise(self, d):
@@ -219,7 +223,8 @@ class Simulation:
         candidate.set_plan(plan)
         if self.logistics is not None:
             from .site_ground import rectangle_patch
-            for rect in self.logistics.solar_ground_rects():
+            from .compact_layout import active_rectangles
+            for rect in self.logistics.solar_ground_rects()+active_rectangles(self):
                 patch=rectangle_patch(candidate,rect)
                 if patch is None or np.any(candidate.work_mask[patch]):raise ValueError('План пересекает поле солнечных панелей')
         points = [self.slot_position(i) for i in range(len(self.slots))]+[self.wait_position(i) for i in range(len(self.drones))]
@@ -1135,6 +1140,6 @@ class Simulation:
         if full and getattr(self.config,'energy_design',None):
             from .winter_power import design_status
             result['energy_design']=self.config.energy_design
-            state,message=design_status(self.config)
+            state,message=design_status(self.config,day_of_year=self.day_at(self.time))
             result['energy_design_status']=dict(state=state,message=message)
         return result

@@ -1,0 +1,2554 @@
+{
+  "date_utc": "2026-10-29T10:05:23.005618+00:00",
+  "base_commit": "6438bd2d0c39451a9dc2bce36eef4c021f8ba4b5",
+  "published": false,
+  "environment": {
+    "python": "3.12.14",
+    "system": "Linux",
+    "numpy": "2.5.4",
+    "qt": "6.12.0",
+    "cpu_quota": 4
+  },
+  "tests": {
+    "total": 575,
+    "passed": 575,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "shards": [
+      {
+        "tests": 197,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "wall_s": 185.18,
+        "files": [
+          "tests/test_completion.py",
+          "tests/test_regional.py",
+          "tests/test_plan.py",
+          "tests/test_site_layout.py",
+          "tests/test_checkpoint.py",
+          "tests/test_batch_strategy.py",
+          "tests/test_equipment.py",
+          "tests/test_channel.py",
+          "tests/test_cli.py",
+          "tests/test_laser.py",
+          "tests/test_power_design.py",
+          "tests/test_energy.py",
+          "tests/test_scheduler_utilization.py",
+          "tests/test_laser_reference.py",
+          "tests/test_solar.py"
+        ]
+      },
+      {
+        "tests": 193,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "wall_s": 197.859,
+        "files": [
+          "tests/test_compact_season.py",
+          "tests/test_battery_platforms.py",
+          "tests/test_logistics.py",
+          "tests/test_base_layout.py",
+          "tests/test_self_solar.py",
+          "tests/test_shared_site.py",
+          "tests/test_landscape.py",
+          "tests/test_landscape_ui.py",
+          "tests/test_gui.py",
+          "tests/test_material_slopes.py",
+          "tests/test_earthworks_performance.py",
+          "tests/test_base_batteries.py",
+          "tests/test_runtime_optimizations.py",
+          "tests/test_compact_overviews.py",
+          "tests/test_terrain.py",
+          "tests/test_dig_rate.py",
+          "tests/test_dust.py"
+        ]
+      },
+      {
+        "tests": 185,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "wall_s": 185.276,
+        "files": [
+          "tests/test_winter_power.py",
+          "tests/test_large_solar_base_specs.py",
+          "tests/test_fleet.py",
+          "tests/test_workfront.py",
+          "tests/test_service_recovery.py",
+          "tests/test_soil.py",
+          "tests/test_complexes.py",
+          "tests/test_live_inventory_solar.py",
+          "tests/test_tool_station.py",
+          "tests/test_spare_controls.py",
+          "tests/test_maps_and_zoom.py",
+          "tests/test_activity_stats.py",
+          "tests/test_drone.py",
+          "tests/test_display_modes.py",
+          "tests/test_individual_chargers.py"
+        ]
+      }
+    ],
+    "compileall": true,
+    "diff_check": true
+  },
+  "cli": {
+    "groups": [
+      {
+        "name": "legacy",
+        "returncode": 0,
+        "wall_s": 1.6672533189994283
+      },
+      {
+        "name": "ATS 2.0 logistics smoke test",
+        "returncode": 0,
+        "wall_s": 10.464856778000467
+      },
+      {
+        "name": "Offline real DEM smoke test",
+        "returncode": 0,
+        "wall_s": 0.43054657699940435
+      },
+      {
+        "name": "Save and resume airborne simulation",
+        "returncode": 0,
+        "wall_s": 3.025677302999611
+      },
+      {
+        "name": "Prepared Qattara channel smoke test",
+        "returncode": 0,
+        "wall_s": 4.0130167700008315
+      },
+      {
+        "name": "Layered soil and complete snapshot continuation",
+        "returncode": 0,
+        "wall_s": 3.5424966940008744
+      },
+      {
+        "name": "Energy sizing and executable equipment template",
+        "returncode": 0,
+        "wall_s": 0.7839678279997315
+      },
+      {
+        "name": "Two complexes on common regional project and exact resume",
+        "returncode": 0,
+        "wall_s": 23.57898322500114
+      },
+      {
+        "name": "Twenty complexes on one physical map and exact snapshot continuation",
+        "returncode": 0,
+        "wall_s": 8.502234988000055
+      },
+      {
+        "name": "Continuous design includes real platform hardware",
+        "returncode": 0,
+        "wall_s": 0.9929352029994334
+      }
+    ],
+    "source": ".github/workflows/tests.yml, all ten Python scenario groups and assertions; seasonal CLI also exercised by tests/test_compact_season.py"
+  },
+  "design": {
+    "version": 2,
+    "kind": "season",
+    "mode": "renewable",
+    "region": "Qattara",
+    "latitude_deg": 31.078,
+    "season_start_day": 60,
+    "season_end_day": 273,
+    "season_label": "01.03–30.09",
+    "checked_days": 214,
+    "limiting_day_of_year": 60,
+    "limiting_date": "01.03",
+    "longest_night_day": 60,
+    "request": {
+      "work_hours": 24.0,
+      "start_hour": null,
+      "drone_utilization": 0.8,
+      "excavator_utilization": 0.95,
+      "payload_fraction": 1.0,
+      "solar_factor": 0.8,
+      "reserve_soc": 0.2,
+      "energy_margin": 0.3,
+      "auxiliary_kw": 0.2,
+      "courier_minutes": 5.0,
+      "laser_coverage": 0.5,
+      "laser_distance_m": 25.0,
+      "source": "equipment"
+    },
+    "current": {
+      "day_of_year": 172,
+      "daylight_hours": 14.019576034201268,
+      "solar_kwh": 6752.500740123282,
+      "demand_kwh": 3383.904397670629,
+      "capacity_kwh": 2375.0,
+      "one_day_covered": true,
+      "repeatable": true,
+      "first_day_final_kwh": 1583.4427011399835,
+      "first_day_unserved_kwh": 0.0,
+      "no_sun_base_autonomy_hours": 13.475558006718385,
+      "connected_peak_kw": 157.195,
+      "inverter_kw": 540.0,
+      "storage_check": {
+        "unserved_kwh": 0.0,
+        "curtailed_kwh": 3764.374991882669,
+        "minimum_kwh": 841.2943810682191,
+        "first_day_final_kwh": 1583.4427011399835,
+        "initial_kwh": 2375.0,
+        "final_kwh": 1583.4427011399835,
+        "solar_kwh": 13505.001480246565,
+        "demand_kwh": 6767.808795341258,
+        "daily_storage_drift_kwh": 0.0,
+        "energy_error_kwh": -1.4551915228366852e-11
+      }
+    },
+    "limiting": {
+      "day_of_year": 60,
+      "daylight_hours": 11.359390737750289,
+      "solar_kwh": 4399.451277027281,
+      "demand_kwh": 3383.904397670629,
+      "capacity_kwh": 2375.0,
+      "one_day_covered": true,
+      "repeatable": true,
+      "first_day_final_kwh": 738.4296262992973,
+      "first_day_unserved_kwh": 0.0,
+      "no_sun_base_autonomy_hours": 13.475558006718385,
+      "connected_peak_kw": 157.195,
+      "inverter_kw": 540.0,
+      "storage_check": {
+        "unserved_kwh": 0.0,
+        "curtailed_kwh": 1833.8320662070098,
+        "minimum_kwh": 476.1802580166598,
+        "first_day_final_kwh": 738.4296262992973,
+        "initial_kwh": 2375.0,
+        "final_kwh": 738.4296262992973,
+        "solar_kwh": 8798.902554054563,
+        "demand_kwh": 6767.808795341258,
+        "daily_storage_drift_kwh": 0.0,
+        "energy_error_kwh": -1.2278178473934531e-11
+      }
+    },
+    "rotation_feasible": true,
+    "service_charging": [
+      {
+        "platform_id": 7,
+        "available_kw": 36.0,
+        "required_kw": 34.039698586846846
+      },
+      {
+        "platform_id": 8,
+        "available_kw": 36.0,
+        "required_kw": 34.039698586846846
+      },
+      {
+        "platform_id": 9,
+        "available_kw": 37.5,
+        "required_kw": 35.360809697957954
+      },
+      {
+        "platform_id": 10,
+        "available_kw": 37.5,
+        "required_kw": 35.360809697957954
+      }
+    ],
+    "reason": null,
+    "panels": 4866,
+    "panel_area_m2": 4866.0,
+    "base_battery_count": 475,
+    "base_capacity_kwh": 2375.0,
+    "platform_count": 45,
+    "equipment_mass_kg": 137295.0,
+    "required_map_side_m": 171.5134402127623,
+    "signature": "294a461a156d9cd547d6542a0ed73e637f91336fb85f2e991bff80698bd80aab"
+  },
+  "daily_checks": [
+    {
+      "day_of_year": 60,
+      "daylight_hours": 11.359390737750289,
+      "solar_kwh": 4399.451277027281,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.20049695074385676,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 61,
+      "daylight_hours": 11.39067426640953,
+      "solar_kwh": 4434.107380944448,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.20242989752590937,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 62,
+      "daylight_hours": 11.422075304741654,
+      "solar_kwh": 4468.853437323666,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.20436683851437182,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 63,
+      "daylight_hours": 11.453586996199965,
+      "solar_kwh": 4503.675458231443,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.20630734398183254,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 64,
+      "daylight_hours": 11.485202588785693,
+      "solar_kwh": 4538.559477529683,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.20825098939382428,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 65,
+      "daylight_hours": 11.516915430481708,
+      "solar_kwh": 4573.491562913686,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.21019735537592055,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 66,
+      "daylight_hours": 11.548718964465365,
+      "solar_kwh": 4608.461530858678,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.21214758681852405,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 67,
+      "daylight_hours": 11.580606724115732,
+      "solar_kwh": 4643.452332216005,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.21409991859785432,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 68,
+      "daylight_hours": 11.61257232782997,
+      "solar_kwh": 4678.449506292652,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.21605365122014877,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 69,
+      "daylight_hours": 11.64460947366342,
+      "solar_kwh": 4713.439391810025,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.218008392564461,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 70,
+      "daylight_hours": 11.676711933807569,
+      "solar_kwh": 4748.408420020069,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2199637553234999,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 71,
+      "daylight_hours": 11.708873548919724,
+      "solar_kwh": 4783.343126049068,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.22191935691767806,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 72,
+      "daylight_hours": 11.741088222317984,
+      "solar_kwh": 4818.230160054558,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.22387481940066692,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 73,
+      "daylight_hours": 11.773349914054743,
+      "solar_kwh": 4853.056298175452,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.22582976935673546,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 74,
+      "daylight_hours": 11.80565263488174,
+      "solar_kwh": 4887.808453255765,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2277838377901136,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 75,
+      "daylight_hours": 11.837990440119347,
+      "solar_kwh": 4922.47368532245,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.22973666000667595,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 76,
+      "daylight_hours": 11.870357423442606,
+      "solar_kwh": 4957.039211798294,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.23168787548823944,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 77,
+      "daylight_hours": 11.902747710596337,
+      "solar_kwh": 4991.492417431068,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.23363712775976567,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 78,
+      "daylight_hours": 11.935155453051387,
+      "solar_kwh": 5025.820863920633,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.23558406424981906,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 79,
+      "daylight_hours": 11.967574821613976,
+      "solar_kwh": 5060.012299226067,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.23752833614458263,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 80,
+      "daylight_hours": 12.0,
+      "solar_kwh": 5094.0546665354905,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.23946959823577674,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 81,
+      "daylight_hours": 12.032425178386028,
+      "solar_kwh": 5127.936112881753,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.24140750876287712,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 82,
+      "daylight_hours": 12.064844546948613,
+      "solar_kwh": 5161.64499738778,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.24334172924993408,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 83,
+      "daylight_hours": 12.097252289403663,
+      "solar_kwh": 5195.1698991260555,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.24527192433743622,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 84,
+      "daylight_hours": 12.129642576557398,
+      "solar_kwh": 5228.499624577364,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.24719776160955423,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 85,
+      "daylight_hours": 12.162009559880655,
+      "solar_kwh": 5261.6232146747025,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.24911891141719483,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 86,
+      "daylight_hours": 12.19434736511826,
+      "solar_kwh": 5294.52995141905,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.25103504669725224,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 87,
+      "daylight_hours": 12.226650085945257,
+      "solar_kwh": 5327.209364054467,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2529458427884826,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 88,
+      "daylight_hours": 12.258911777682018,
+      "solar_kwh": 5359.651234790889,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2548509772444102,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 89,
+      "daylight_hours": 12.291126451080276,
+      "solar_kwh": 5391.845604063857,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.25675012964370064,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 90,
+      "daylight_hours": 12.323288066192434,
+      "solar_kwh": 5423.78277532134,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.25864298139844394,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 91,
+      "daylight_hours": 12.355390526336581,
+      "solar_kwh": 5455.453319328767,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2605292155607555,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 92,
+      "daylight_hours": 12.387427672170032,
+      "solar_kwh": 5486.848077984339,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.26240851662817377,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 93,
+      "daylight_hours": 12.41939327588427,
+      "solar_kwh": 5517.958167637711,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.26428057034828295,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 94,
+      "daylight_hours": 12.451281035534635,
+      "solar_kwh": 5548.774981906114,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.26614506352300615,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 95,
+      "daylight_hours": 12.483084569518292,
+      "solar_kwh": 5579.290912377647,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2680019862949548,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 96,
+      "daylight_hours": 12.514797411214307,
+      "solar_kwh": 5609.501151107415,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.26985239014135487,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 97,
+      "daylight_hours": 12.546413003800039,
+      "solar_kwh": 5639.394249605565,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.27169318208289384,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 98,
+      "daylight_hours": 12.577924695258346,
+      "solar_kwh": 5668.962745899416,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2735229729636824,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 99,
+      "daylight_hours": 12.609325733590472,
+      "solar_kwh": 5698.199461815376,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.27534352824598857,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 100,
+      "daylight_hours": 12.640609262249715,
+      "solar_kwh": 5727.097502719947,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2771545391398245,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 101,
+      "daylight_hours": 12.671768315811454,
+      "solar_kwh": 5755.650256746031,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2789556966727484,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 102,
+      "daylight_hours": 12.702795815895342,
+      "solar_kwh": 5783.851393507082,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2807466915045945,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 103,
+      "daylight_hours": 12.733684567355747,
+      "solar_kwh": 5811.69486230271,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.28252721374580864,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 104,
+      "daylight_hours": 12.764427254756914,
+      "solar_kwh": 5839.174889820442,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.28429695277982336,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 105,
+      "daylight_hours": 12.79501643914951,
+      "solar_kwh": 5866.285977339344,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.28605559708991024,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 106,
+      "daylight_hours": 12.825444555165506,
+      "solar_kwh": 5893.022897442226,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.28780036136157583,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 107,
+      "daylight_hours": 12.855703908448447,
+      "solar_kwh": 5919.380690244213,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2895298989225495,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 108,
+      "daylight_hours": 12.88578667343647,
+      "solar_kwh": 5945.354659146369,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2912471055156887,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 109,
+      "daylight_hours": 12.915684891515465,
+      "solar_kwh": 5970.943147870204,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.29295283068703076,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 110,
+      "daylight_hours": 12.945390469559726,
+      "solar_kwh": 5996.146664342252,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2946487268474799,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 111,
+      "daylight_hours": 12.974895178877713,
+      "solar_kwh": 6020.954327799886,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.29633154501052245,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 112,
+      "daylight_hours": 13.004190654580135,
+      "solar_kwh": 6045.362462502056,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2979978699933846,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 113,
+      "daylight_hours": 13.033268395387719,
+      "solar_kwh": 6069.367628174647,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.29964571396940703,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 114,
+      "daylight_hours": 13.06211976389557,
+      "solar_kwh": 6092.966613150554,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.30127919050666624,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 115,
+      "daylight_hours": 13.090735987310891,
+      "solar_kwh": 6116.15642712104,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3028979692029719,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 116,
+      "daylight_hours": 13.11910815868029,
+      "solar_kwh": 6138.934293514075,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3045017172861957,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 117,
+      "daylight_hours": 13.147227238622428,
+      "solar_kwh": 6161.305382939379,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.30608720410744,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 118,
+      "daylight_hours": 13.175084057581222,
+      "solar_kwh": 6183.267082692103,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.30765671644441595,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 119,
+      "daylight_hours": 13.202669318613935,
+      "solar_kwh": 6204.810398320673,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3092101236580229,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 120,
+      "daylight_hours": 13.229973600727707,
+      "solar_kwh": 6225.933345553838,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.31074708618468483,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 121,
+      "daylight_hours": 13.256987362777148,
+      "solar_kwh": 6246.6341109016175,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3122599849489279,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 122,
+      "daylight_hours": 13.283700947934399,
+      "solar_kwh": 6266.911042158346,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.31375195443380655,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 123,
+      "daylight_hours": 13.310104588741885,
+      "solar_kwh": 6286.780738084673,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3152336907763644,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 124,
+      "daylight_hours": 13.336188412756577,
+      "solar_kwh": 6306.225554103267,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3166955503245527,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 125,
+      "daylight_hours": 13.361942448793062,
+      "solar_kwh": 6325.243267395288,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.318129354167445,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 126,
+      "daylight_hours": 13.387356633771075,
+      "solar_kwh": 6343.832792434844,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.31954419075258766,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 127,
+      "daylight_hours": 13.412420820171278,
+      "solar_kwh": 6362.004768276922,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3209432292161606,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 128,
+      "daylight_hours": 13.437124784101176,
+      "solar_kwh": 6379.75861919147,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.32231544949536417,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 129,
+      "daylight_hours": 13.461458233970987,
+      "solar_kwh": 6397.082551447742,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.32366758490652886,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 130,
+      "daylight_hours": 13.485410819776957,
+      "solar_kwh": 6413.975879056466,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3249950492317081,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 131,
+      "daylight_hours": 13.508972142987382,
+      "solar_kwh": 6430.458854756411,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.32629990959089566,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 132,
+      "daylight_hours": 13.532131767024001,
+      "solar_kwh": 6446.516662923774,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.32758594144668524,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 133,
+      "daylight_hours": 13.554879228328932,
+      "solar_kwh": 6462.143160712264,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3288392314634794,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 134,
+      "daylight_hours": 13.57720404800448,
+      "solar_kwh": 6477.354410728874,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.33007255943475117,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 135,
+      "daylight_hours": 13.599095744010503,
+      "solar_kwh": 6492.147669449808,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3312838357428667,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 136,
+      "daylight_hours": 13.620543843900942,
+      "solar_kwh": 6506.509350736766,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.33246060389407656,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 137,
+      "daylight_hours": 13.641537898078338,
+      "solar_kwh": 6520.461726586759,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3336220092923335,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 138,
+      "daylight_hours": 13.662067493542013,
+      "solar_kwh": 6533.993221747523,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3347476807919663,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 139,
+      "daylight_hours": 13.682122268102598,
+      "solar_kwh": 6547.096246874391,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.33585041484153083,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 140,
+      "daylight_hours": 13.701691925032492,
+      "solar_kwh": 6559.800550356542,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3369240000744996,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 141,
+      "daylight_hours": 13.720766248118816,
+      "solar_kwh": 6572.073389447283,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.33797204606035836,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 142,
+      "daylight_hours": 13.739335117082291,
+      "solar_kwh": 6583.942554654573,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3389868002702196,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 143,
+      "daylight_hours": 13.757388523322579,
+      "solar_kwh": 6595.3912734380965,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3399779914945203,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 144,
+      "daylight_hours": 13.77491658594764,
+      "solar_kwh": 6606.430275038341,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3409333921435556,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 145,
+      "daylight_hours": 13.791909568041863,
+      "solar_kwh": 6617.057416690531,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3418638921539201,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 146,
+      "daylight_hours": 13.808357893124992,
+      "solar_kwh": 6627.274238575844,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3427611599218993,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 147,
+      "daylight_hours": 13.824252161751401,
+      "solar_kwh": 6637.0818956399435,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3436273788964006,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 148,
+      "daylight_hours": 13.839583168196814,
+      "solar_kwh": 6646.484135948102,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.34446756289687935,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 149,
+      "daylight_hours": 13.854341917177457,
+      "solar_kwh": 6655.473796794563,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.34526590126651996,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 150,
+      "daylight_hours": 13.868519640544708,
+      "solar_kwh": 6664.068513352037,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.34604153305004126,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 151,
+      "daylight_hours": 13.882107813896528,
+      "solar_kwh": 6672.2441225267885,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.34677833824225696,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 152,
+      "daylight_hours": 13.895098173045733,
+      "solar_kwh": 6680.034481638819,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3474854961185921,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 153,
+      "daylight_hours": 13.907482730283897,
+      "solar_kwh": 6687.413435709899,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.34815915362027006,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 154,
+      "daylight_hours": 13.919253790378972,
+      "solar_kwh": 6694.387444840578,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.34879862143693224,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 155,
+      "daylight_hours": 13.930403966244349,
+      "solar_kwh": 6700.974861807023,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.34940373804962344,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 156,
+      "daylight_hours": 13.940926194216834,
+      "solar_kwh": 6707.154430732096,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3499734568255498,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 157,
+      "daylight_hours": 13.950813748881512,
+      "solar_kwh": 6712.930841023082,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.35050853100307044,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 158,
+      "daylight_hours": 13.960060257381953,
+      "solar_kwh": 6718.326301038943,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.35101419342453993,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 159,
+      "daylight_hours": 13.968659713155477,
+      "solar_kwh": 6723.319536753175,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.351478211964225,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 160,
+      "daylight_hours": 13.976606489034474,
+      "solar_kwh": 6727.912714005839,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3519062477566986,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 161,
+      "daylight_hours": 13.983895349656736,
+      "solar_kwh": 6732.109305779178,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3522988115947185,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 162,
+      "daylight_hours": 13.990521463130003,
+      "solar_kwh": 6735.925401043176,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3526617993700622,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 163,
+      "daylight_hours": 13.996480411898455,
+      "solar_kwh": 6739.345289907671,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.352987793165467,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 164,
+      "daylight_hours": 14.001768202762026,
+      "solar_kwh": 6742.370514804775,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3532721278271788,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 165,
+      "daylight_hours": 14.006381276002585,
+      "solar_kwh": 6745.002452278541,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.35351959653190984,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 166,
+      "daylight_hours": 14.010316513574901,
+      "solar_kwh": 6747.242309225518,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.35373050609515055,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 167,
+      "daylight_hours": 14.013571246324164,
+      "solar_kwh": 6749.091119608343,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3539048070515605,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 168,
+      "daylight_hours": 14.016143260196177,
+      "solar_kwh": 6750.5497416473345,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.354042458606768,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 169,
+      "daylight_hours": 14.018030801410907,
+      "solar_kwh": 6751.622371162286,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3541449088797402,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 170,
+      "daylight_hours": 14.019232580574783,
+      "solar_kwh": 6752.305573554701,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.35421047753408763,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 171,
+      "daylight_hours": 14.019747775712137,
+      "solar_kwh": 6752.598317719178,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.35423858112928325,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 172,
+      "daylight_hours": 14.019576034201268,
+      "solar_kwh": 6752.500740123282,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3542292130813554,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 173,
+      "daylight_hours": 14.018717473605856,
+      "solar_kwh": 6752.012795267558,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3541823755847846,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 174,
+      "daylight_hours": 14.0171726813977,
+      "solar_kwh": 6751.134255808712,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3540980796146166,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 175,
+      "daylight_hours": 14.01494271357218,
+      "solar_kwh": 6749.8691574639,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3539782162163708,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 176,
+      "daylight_hours": 14.012029092162978,
+      "solar_kwh": 6748.215537450096,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3538222354015903,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 177,
+      "daylight_hours": 14.00843380166809,
+      "solar_kwh": 6746.171322106819,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.35362962450153507,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 178,
+      "daylight_hours": 14.004159284404137,
+      "solar_kwh": 6743.735565021592,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3534004286407131,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 179,
+      "daylight_hours": 13.999208434811122,
+      "solar_kwh": 6740.907145383789,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3531347016369663,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 180,
+      "daylight_hours": 13.99358459273459,
+      "solar_kwh": 6737.684771032617,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.35282942551942975,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 181,
+      "daylight_hours": 13.98729153571691,
+      "solar_kwh": 6734.066981980714,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.35248492458489533,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 182,
+      "daylight_hours": 13.980333470333651,
+      "solar_kwh": 6730.059917554473,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3521067400891898,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 183,
+      "daylight_hours": 13.972715022615334,
+      "solar_kwh": 6725.66600298822,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.35169673425123765,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 184,
+      "daylight_hours": 13.96444122759857,
+      "solar_kwh": 6720.873058197042,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.35125069384917323,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 185,
+      "daylight_hours": 13.955517518054203,
+      "solar_kwh": 6715.67899000563,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.35076739752096886,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 186,
+      "daylight_hours": 13.94594971244318,
+      "solar_kwh": 6710.092082280441,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3502449990473665,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 187,
+      "daylight_hours": 13.935744002153688,
+      "solar_kwh": 6704.115463321525,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.34969303090803033,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 188,
+      "daylight_hours": 13.924906938075651,
+      "solar_kwh": 6697.732300169035,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3491055955859434,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 189,
+      "daylight_hours": 13.913445416570493,
+      "solar_kwh": 6690.94835193884,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.34848286239228915,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 190,
+      "daylight_hours": 13.901366664895994,
+      "solar_kwh": 6683.775599788606,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3478266915163653,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 191,
+      "daylight_hours": 13.888678226147132,
+      "solar_kwh": 6676.189712385852,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.34713558806177885,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 192,
+      "daylight_hours": 13.875387943774774,
+      "solar_kwh": 6668.2085092995685,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3464164536835185,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 193,
+      "daylight_hours": 13.861503945744532,
+      "solar_kwh": 6659.823741805868,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.34565800778203065,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 194,
+      "daylight_hours": 13.847034628398218,
+      "solar_kwh": 6651.026060431221,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.34486851526365303,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 195,
+      "daylight_hours": 13.831988640080068,
+      "solar_kwh": 6641.836219806185,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3440524558286014,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 196,
+      "daylight_hours": 13.816374864589307,
+      "solar_kwh": 6632.221512089399,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.34319418816540687,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 197,
+      "daylight_hours": 13.800202404519668,
+      "solar_kwh": 6622.219683488372,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3423199150201148,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 198,
+      "daylight_hours": 13.783480564545291,
+      "solar_kwh": 6611.7870057929695,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3413980966152395,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 199,
+      "daylight_hours": 13.766218834710752,
+      "solar_kwh": 6600.965306912648,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.34046076353024257,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 200,
+      "daylight_hours": 13.748426873781339,
+      "solar_kwh": 6589.711906568934,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.339482265536215,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 201,
+      "daylight_hours": 13.73011449270747,
+      "solar_kwh": 6578.063196422846,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3384833831735059,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 202,
+      "daylight_hours": 13.711291638255021,
+      "solar_kwh": 6565.986997740019,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3374497779831208,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 203,
+      "daylight_hours": 13.691968376850745,
+      "solar_kwh": 6553.502702652279,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3363904139521245,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 204,
+      "daylight_hours": 13.67215487868945,
+      "solar_kwh": 6540.600909769551,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.33530313525839434,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 205,
+      "daylight_hours": 13.651861402146752,
+      "solar_kwh": 6527.272746907109,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3341845692747996,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 206,
+      "daylight_hours": 13.63109827853842,
+      "solar_kwh": 6513.542398396419,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.333045074724841,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 207,
+      "daylight_hours": 13.609875897264292,
+      "solar_kwh": 6499.3804104763785,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3318763194040392,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 208,
+      "daylight_hours": 13.588204691371777,
+      "solar_kwh": 6484.800299046931,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3306784050351098,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 209,
+      "daylight_hours": 13.566095123570907,
+      "solar_kwh": 6469.806539238146,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.32946505135778137,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 210,
+      "daylight_hours": 13.543557672729765,
+      "solar_kwh": 6454.381299313774,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.328213340555045,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 211,
+      "daylight_hours": 13.520602820876093,
+      "solar_kwh": 6438.535683659617,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.326944352808453,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 212,
+      "daylight_hours": 13.497241040727898,
+      "solar_kwh": 6422.275930553501,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.32565303121313266,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 213,
+      "daylight_hours": 13.473482783772752,
+      "solar_kwh": 6405.585146472038,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3243335235698865,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 214,
+      "daylight_hours": 13.449338468912673,
+      "solar_kwh": 6388.463909653062,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.32299337072188494,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 215,
+      "daylight_hours": 13.424818471688553,
+      "solar_kwh": 6370.935138559458,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.32163087674284485,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 216,
+      "daylight_hours": 13.399933114095385,
+      "solar_kwh": 6352.978177110577,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.32024696418489496,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 217,
+      "daylight_hours": 13.374692654996839,
+      "solar_kwh": 6334.5920396706015,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3188435260945223,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 218,
+      "daylight_hours": 13.349107281145223,
+      "solar_kwh": 6315.7776391983325,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3174098542815381,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 219,
+      "daylight_hours": 13.323187098810426,
+      "solar_kwh": 6296.553962674839,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.31596391563368315,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 220,
+      "daylight_hours": 13.296942126019179,
+      "solar_kwh": 6276.905821389806,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.31450060051410134,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 221,
+      "daylight_hours": 13.270382285403748,
+      "solar_kwh": 6256.832042175473,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3130123377531736,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 222,
+      "daylight_hours": 13.243517397657245,
+      "solar_kwh": 6236.334043234094,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.31150235336792614,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 223,
+      "daylight_hours": 13.216357175590764,
+      "solar_kwh": 6215.413389423144,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.30997538369872596,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 224,
+      "daylight_hours": 13.188911218785876,
+      "solar_kwh": 6194.08733050927,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.30843830890380614,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 225,
+      "daylight_hours": 13.16118900883443,
+      "solar_kwh": 6172.342381685186,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3068761406226853,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 226,
+      "daylight_hours": 13.133199905156076,
+      "solar_kwh": 6150.179766432793,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.30529713966418087,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 227,
+      "daylight_hours": 13.10495314138271,
+      "solar_kwh": 6127.601752499441,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.30370257112793964,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 228,
+      "daylight_hours": 13.076457822297794,
+      "solar_kwh": 6104.610800871625,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.302092769778779,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 229,
+      "daylight_hours": 13.047722921317458,
+      "solar_kwh": 6081.209574257012,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.3004632259455974,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 230,
+      "daylight_hours": 13.018757278499436,
+      "solar_kwh": 6057.406832438918,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2988183914522586,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 231,
+      "daylight_hours": 12.98956959906501,
+      "solar_kwh": 6033.2055979323695,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.29716208866526983,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 232,
+      "daylight_hours": 12.96016845241851,
+      "solar_kwh": 6008.602805352714,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.29549195144786644,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 233,
+      "daylight_hours": 12.930562271648324,
+      "solar_kwh": 5983.602021554852,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.29380830638177746,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 234,
+      "daylight_hours": 12.900759353492962,
+      "solar_kwh": 5958.20705205828,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.29210950547930015,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 235,
+      "daylight_hours": 12.870767858755258,
+      "solar_kwh": 5932.42194729674,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.29039337926195813,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 236,
+      "daylight_hours": 12.840595813147605,
+      "solar_kwh": 5906.25100844362,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.28866501162836994,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 237,
+      "daylight_hours": 12.810251108550954,
+      "solar_kwh": 5879.6987928002345,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.28692471707401107,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 238,
+      "daylight_hours": 12.779741504670053,
+      "solar_kwh": 5852.770118734979,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.28517280866800054,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 239,
+      "daylight_hours": 12.749074631067577,
+      "solar_kwh": 5825.470070162262,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2834095982091911,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 240,
+      "daylight_hours": 12.718257989559628,
+      "solar_kwh": 5797.808555189017,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.28163731413049714,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 241,
+      "daylight_hours": 12.687298956955308,
+      "solar_kwh": 5769.788902473895,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.27985441699914976,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 242,
+      "daylight_hours": 12.656204788123151,
+      "solar_kwh": 5741.4143879894145,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.27805743385790915,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 243,
+      "daylight_hours": 12.624982619367358,
+      "solar_kwh": 5712.691210993619,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.27625049899407056,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 244,
+      "daylight_hours": 12.593639472097074,
+      "solar_kwh": 5683.625851321421,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.27443392269417116,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 245,
+      "daylight_hours": 12.562182256772097,
+      "solar_kwh": 5654.225070927625,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2726080149179928,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 246,
+      "daylight_hours": 12.530617777108768,
+      "solar_kwh": 5624.49591491966,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2707730854838416,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 247,
+      "daylight_hours": 12.498952734530091,
+      "solar_kwh": 5594.4457120768775,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.26892944425684545,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 248,
+      "daylight_hours": 12.467193732844358,
+      "solar_kwh": 5564.082074854418,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.26707740133977426,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 249,
+      "daylight_hours": 12.435347283136988,
+      "solar_kwh": 5533.412898870652,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.26521726726596695,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 250,
+      "daylight_hours": 12.403419808860559,
+      "solar_kwh": 5502.4463618783275,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.26334935319389124,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 251,
+      "daylight_hours": 12.37141765110837,
+      "solar_kwh": 5471.190922220578,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.26147397110287485,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 252,
+      "daylight_hours": 12.33934707405716,
+      "solar_kwh": 5439.655316774058,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.25959143398957,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 253,
+      "daylight_hours": 12.307214270565014,
+      "solar_kwh": 5407.84855838248,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.257702056064675,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 254,
+      "daylight_hours": 12.2750253679107,
+      "solar_kwh": 5375.779932784978,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2558061529494732,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 255,
+      "daylight_hours": 12.242786433661076,
+      "solar_kwh": 5343.458995044615,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2539028926620697,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 256,
+      "daylight_hours": 12.21050348165343,
+      "solar_kwh": 5310.895565483531,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.25199359149942063,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 257,
+      "daylight_hours": 12.178182478079869,
+      "solar_kwh": 5278.099725132124,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.25007890183197495,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 258,
+      "daylight_hours": 12.145829347661232,
+      "solar_kwh": 5245.0818107006935,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2481591405616176,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 259,
+      "daylight_hours": 12.113449979898004,
+      "solar_kwh": 5211.85240908292,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.24623462685176334,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 260,
+      "daylight_hours": 12.08105023538618,
+      "solar_kwh": 5178.422351401486,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.24430568230927388,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 261,
+      "daylight_hours": 12.048635952185926,
+      "solar_kwh": 5144.802706607089,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.24237263116327373,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 262,
+      "daylight_hours": 12.016212952231239,
+      "solar_kwh": 5111.004774642884,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2404358004404478,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 263,
+      "daylight_hours": 11.983787047768763,
+      "solar_kwh": 5077.041399260974,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.23849607595689953,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 264,
+      "daylight_hours": 11.951364047814078,
+      "solar_kwh": 5042.924328390381,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2365537942885982,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 265,
+      "daylight_hours": 11.918949764613824,
+      "solar_kwh": 5008.664206082725,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.23460874293548095,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 266,
+      "daylight_hours": 11.886550020101998,
+      "solar_kwh": 4974.273196050839,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.23266126867886208,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 267,
+      "daylight_hours": 11.854170652338768,
+      "solar_kwh": 4939.763652804409,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2307117219162671,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 268,
+      "daylight_hours": 11.821817521920131,
+      "solar_kwh": 4905.148112513459,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.22876045681095508,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 269,
+      "daylight_hours": 11.789496518346574,
+      "solar_kwh": 4870.439283543083,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.22680783143527147,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 270,
+      "daylight_hours": 11.757213566338926,
+      "solar_kwh": 4835.650036677081,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.22485420790750543,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 271,
+      "daylight_hours": 11.724974632089303,
+      "solar_kwh": 4800.793395048574,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2228999525219177,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 272,
+      "daylight_hours": 11.692785729434986,
+      "solar_kwh": 4765.88252379619,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.2209454358716283,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    },
+    {
+      "day_of_year": 273,
+      "daylight_hours": 11.66065292594284,
+      "solar_kwh": 4730.930719464709,
+      "demand_kwh": 3383.904397670629,
+      "minimum_soc": 0.21899103296405184,
+      "unserved_kwh": 0.0,
+      "daily_storage_drift_kwh": 0.0,
+      "repeatable": true
+    }
+  ],
+  "two_day_one_second_bus": {
+    "seconds": 172800,
+    "physical_dt_seconds": 1,
+    "initial_kwh": 2375.0,
+    "first_day_final_kwh": 738.430603831159,
+    "final_kwh": 738.430603831159,
+    "minimum_soc": 0.2004973014791985,
+    "first_day_unserved_kwh": 0.0,
+    "unserved_kwh": 0.0,
+    "daily_storage_drift_kwh": 0.0,
+    "energy_error_j": -0.08416461944580078,
+    "generated_kwh": 8798.899139335363,
+    "consumed_kwh": 6767.808795349634,
+    "curtailed_kwh": 3667.6597401779472
+  },
+  "geometry": {
+    "season": {
+      "platforms": 45,
+      "pv_platforms": 34,
+      "columns": 3,
+      "rows": 13,
+      "hub_rows": 4,
+      "deployed_local_m": [
+        87.0,
+        108.5
+      ]
+    },
+    "winter_qattara": {
+      "platforms": 63,
+      "columns": 4,
+      "rows": 14,
+      "deployed_local_m": [
+        117.0,
+        117.0
+      ]
+    },
+    "row_lanes_m": 2.0,
+    "column_lanes_m": 3.0,
+    "service_lanes_m": 3.0,
+    "old_snapshots": "v1-v9 retained without rearrangement",
+    "new_snapshot_version": 10
+  },
+  "behavior": {
+    "real_gui_default": "new bare GUI launch intercepted and rendered: 31.078 north, 21 June, seasonal equipment; existing configurations keep dates/latitude",
+    "calendar": "1 March-30 September inclusive; changed latitude, manual equipment and dates outside range mark review",
+    "charge_failures": "insufficient per-platform service power and unattainable 100% Krot duty rejected",
+    "roundtrip": "two season-sized physical complexes A→B→A, save/load during drive, exact resumed reports, unchanged IDs/relative poses and terrain",
+    "ui": "main season label, range selector and limiting day captured in two screenshots; green service corridors and deployed dimensions visible"
+  },
+  "performance": {
+    "method": "Synthetic 14 complexes × 4 drones, 512 m square, 1 m cells, manual 68 m²/complex, dt=1s. Ten warm steps, 300 measured. The old-v9 control runs use the identical snapshot on archived base_commit and current code. Fresh compact geometry changes routes; do not interpret its factor as equivalent-work optimization.",
+    "same_v9_before": {
+      "python": "3.12.14",
+      "system": "Linux",
+      "root": "/tmp/ats-compact-baseline-6438-7ssaop07",
+      "model_start_s": 541.0,
+      "model_end_s": 841.0,
+      "wall_s": 24.51973763800015,
+      "factor": 12.23504119126734,
+      "max_tick_s": 0.20856725300109247,
+      "median_tick_s": 0.07454500399944664,
+      "complexes": 14,
+      "drones": 56,
+      "platforms": 98,
+      "mass_error_kg": -3.410605131648481e-12,
+      "equipment_mass_error_kg": 0.0,
+      "energy_error_j": 7.987531716935337e-06
+    },
+    "same_v9_after": {
+      "python": "3.12.14",
+      "system": "Linux",
+      "root": "/workspace/ats-project",
+      "model_start_s": 541.0,
+      "model_end_s": 841.0,
+      "wall_s": 24.191887188000692,
+      "factor": 12.400851478375017,
+      "max_tick_s": 0.17971998000211897,
+      "median_tick_s": 0.0759083244993235,
+      "complexes": 14,
+      "drones": 56,
+      "platforms": 98,
+      "mass_error_kg": -3.410605131648481e-12,
+      "equipment_mass_error_kg": 0.0,
+      "energy_error_j": 7.987531716935337e-06
+    },
+    "fresh_compact_14x4": {
+      "python": "3.12.14",
+      "system": "Linux",
+      "root": "/workspace/ats-project",
+      "model_start_s": 231.0,
+      "model_end_s": 531.0,
+      "wall_s": 17.188913764999597,
+      "factor": 17.453109841697263,
+      "max_tick_s": 0.2196620630020334,
+      "median_tick_s": 0.04256940350023797,
+      "complexes": 14,
+      "drones": 56,
+      "platforms": 98,
+      "mass_error_kg": -3.552713678800501e-13,
+      "equipment_mass_error_kg": 0.0,
+      "energy_error_j": 1.88783451449126e-06
+    },
+    "gui_compact_14x4": {
+      "mode": "Qt offscreen auto map, target 2000x",
+      "complexes": 14,
+      "drones": 56,
+      "wall_s": 4.031232235000061,
+      "model_seconds": 29.0,
+      "factor": 7.19383015153915,
+      "max_heartbeat_gap_s": 0.2701876489991264,
+      "mean_heartbeat_gap_s": 0.15422078080009669,
+      "median_forced_refresh_s": 0.05533527849911479,
+      "max_forced_refresh_s": 0.06312699300178792,
+      "qt_map_items": 114,
+      "mass_error_kg": -1.8189894035458565e-12,
+      "equipment_mass_error_kg": 0.0,
+      "energy_error_j": 1.6172853065654635e-06
+    },
+    "v9_control_sha256": "675647ad0dfb1982bb825fdc0437df8ed31daa2ad5497113767a4ff726682681"
+  },
+  "limitations": [
+    "Clear-sky horizontal solar model and explicit 0.8 factor, not a weather guarantee.",
+    "Stationary deployed duty assumption; deployment/relocation costs occur in the live simulation.",
+    "Relative carrier positions are fixed during operations and group relocation; no free repacking of old saves.",
+    "New core carriers need free reserved hub mounts; a full service block rejects further growth without moving existing equipment.",
+    "Real DEM is imported separately, never substituted over user terrain by the energy preset.",
+    "Linux/Qt offscreen tested; Windows CI not run for unpushed local commits."
+  ],
+  "source_sha256": {
+    "ats/__main__.py": "be986870ffc8c182f26cfd8c9cf013365f9c4e62186b79364845d8c63f8c783d",
+    "ats/battery_platforms.py": "cff54e7103d08e558f6267436908886bdb6a2b812a870c8f9ec25ed61b1f353c",
+    "ats/checkpoint.py": "d413d9de3bfd36f4bc76c36bf4ea48f5c5dfead1e0dd2de908a967d39235c724",
+    "ats/compact_layout.py": "8371235c7ace9483a45ea733b257dfea85c132f1b58bf684d347fe0539e4de3a",
+    "ats/config.py": "da653d727d99c758d683eeb76d229a536ee5d7afeefed2b24f6500d2de86566b",
+    "ats/gui.py": "74c5ef783ad9e4995b2fcef1c2e9d2507c8229eb2cb765f8491fb64fdecc7ebf",
+    "ats/power_ui.py": "bf8e13b6272cec1d1647e7375c6c4e3c605cd6e9041c0ed5f2d03be7da79657f",
+    "ats/regional.py": "9fae92a0df0ce09a4fc65ff9a9550f879bb0105a1997353fc0bff3ddfe763956",
+    "ats/season_power.py": "365e028d9cb68a801ceac3fd9737b5b30b3de59e744865b8b53c34a43cc29936",
+    "ats/self_solar.py": "f511704c82770693e5b8e37f9350fce3f8ca743a694e11b61e55678bcdc43583",
+    "ats/shared_site.py": "4a3aa9e7c73728db7c7f39f9917d2c5fc565d2e02f2e7e31ed2e229741e30485",
+    "ats/simulation.py": "e14f8443c82be5365e231099884231535c8e91b35c7552ddfc04d45490411cb8",
+    "ats/site_ground.py": "a77e51e26604be3653a034c8b2a58bab089e298b0f2f4a9558a84d1d525d90db",
+    "ats/site_ui.py": "3c3e7f56adf675dae79ad3357d128a5fc129fa09a9a0ec04033ab9267f768d92",
+    "ats/winter_power.py": "e642e1c72dff4d08e6bda489dcf3bbd90a83f247d031032590537659a7dacb7e",
+    "scripts/validate_winter_power.py": "26d52b1c9c2d070dbad95a91d8a6553874bb93904d7033660f0f48ee2a82f263",
+    "tests/test_compact_season.py": "367aa1a5ee8964d8264cd4fe3a23a8b1c02754380fa4afc9ca3619c84735d314"
+  }
+}

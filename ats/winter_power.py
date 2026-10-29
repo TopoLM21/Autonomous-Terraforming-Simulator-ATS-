@@ -41,17 +41,17 @@ def signature(config,latitude=None):
     return hashlib.sha256(json.dumps(data,sort_keys=True,allow_nan=False).encode()).hexdigest()
 
 
-def audit_day(config,request,day):
+def audit_day(config,request,day,*,reference=None,layout=None):
     """Actual installed PV/storage, two worst-day cycles from the start hour."""
     c=equipment_copy(config);c.base.start_day_of_year=day
-    reference=calculate_power(c,request)
+    reference=calculate_power(c,request) if reference is None else reference
     hours=c.start_hour+(np.arange(1440)+.5)/60
     watts_per_irradiance=sum(p.quantity*p.area_m2*p.efficiency for p in c.base.equipment.panels)
     generation=np.array([sunlight(c.base.latitude_deg,day,float(h),c.base.peak_irradiance).irradiance
                          for h in hours])*watts_per_irradiance*request.solar_factor/1000
     load=np.full(1440,reference['mean_power_kw'])
     capacity=c.base.battery/KWH
-    layout=configure_layout(c) if c.base.layout is not None else None
+    layout=(configure_layout(c) if c.base.layout is not None else None) if layout is None else layout
     converter=layout.get('converter_power_w',float('inf'))/1000 if layout else float('inf')
     charge=min(capacity*2,converter);discharge=min(capacity*10,converter)
     check=_buffer_test(generation,load,capacity,request.reserve_soc,1/60,charge,discharge)
@@ -129,11 +129,17 @@ def design_winter(config,request=None):
     return c,design
 
 
-def design_status(config,latitude=None):
+def design_status(config,latitude=None,day_of_year=None):
     design=getattr(config,'energy_design',None)
     if not design:return 'manual','Энергетика: ручная комплектация · проверить сутки и зиму'
     if signature(config,latitude)!=design['signature']:
         return 'stale','Энергетика: условия или оборудование изменились · требуется перепроверка'
+    if design.get('kind')=='season':
+        day=config.base.start_day_of_year if day_of_year is None else day_of_year
+        if not design['season_start_day']<=day<=design['season_end_day']:
+            return 'stale','Дата вне сезона 01.03–30.09 · требуется зимний или новый сезонный расчёт'
+        region='Каттара' if design.get('region')=='Qattara' else 'Сезонный расчёт'
+        return 'ready',f"{region} / {design['latitude_deg']:+.3f}° · сезон 01.03–30.09 · контроль {design['limiting_date']} · {design['panel_area_m2']:,.0f} м² · {design['base_capacity_kwh']:,.0f} кВт·ч"
     if design['mode']=='renewable':
         return 'ready',f"24 ч + зимний минимум проверены · {design['panel_area_m2']:,.0f} м² · {design['base_capacity_kwh']:,.0f} кВт·ч"
     hours=design['winter']['no_sun_base_autonomy_hours']
@@ -142,7 +148,9 @@ def design_status(config,latitude=None):
 
 def design_report(config,design):
     """Existing power-dialog fields, describing the actual installed recipe."""
-    c=equipment_copy(config);c.base.start_day_of_year=design['winter_day_of_year']
+    day=design.get('limiting_day_of_year',design.get('winter_day_of_year'))
+    audit=design.get('limiting',design.get('winter'))
+    c=equipment_copy(config);c.base.start_day_of_year=day
     r=calculate_power(c,PowerRequest(**design['request']))
     recommended=r['panel_area_m2'];ratio=c.base.panel_area/recommended if recommended else 0.
     r['hourly_solar_kw']=[power*ratio for power in r['hourly_solar_kw']]
@@ -153,8 +161,9 @@ def design_report(config,design):
         base_battery_count=design['base_battery_count'],base_capacity_kwh=c.base.battery/KWH,
         initial_stored_kwh=c.base.battery/KWH+mobile+buffer,
         empty_to_full_input_kwh=c.base.battery/KWH+(mobile+buffer/.9)/c.base.charge_efficiency,
-        solar_daily_kwh=design['winter']['solar_kwh'],solar_peak_kw=max(r['hourly_solar_kw']),
-        storage_check=design['winter']['storage_check'],base_layout=configure_layout(c),winter_design=design)
+        solar_daily_kwh=audit['solar_kwh'],solar_peak_kw=max(r['hourly_solar_kw']),
+        storage_check=audit['storage_check'],base_layout=configure_layout(c))
+    r['season_design' if design.get('kind')=='season' else 'winter_design']=design
     if design['mode']!='renewable':r['warnings'].append(design_status(config)[1])
     return r
 
@@ -164,6 +173,12 @@ def ready_simulation(config,request=None,*,allow_resize=True):
     from .maps import with_map_size
     from .simulation import Simulation
     c,design=design_winter(config,request)
+    return ready_design(c,design,allow_resize=allow_resize)
+
+
+def ready_design(c,design,*,allow_resize=True):
+    from .maps import with_map_size
+    from .simulation import Simulation
     side=c.terrain.n*c.terrain.cell_size
     sizes=([side]+[v for v in (128,256,512,1024) if v>side and v>=design['required_map_side_m']]
            if allow_resize and c.reference_height is None else [side])

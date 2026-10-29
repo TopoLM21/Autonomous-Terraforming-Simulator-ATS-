@@ -154,6 +154,8 @@ class SharedSite:
                 near=(t.x[patch]-point[0])**2+(t.y[patch]-point[1])**2<s.config.fleet.separation**2
                 if np.any(candidate.work_mask[patch]&near):raise ValueError('Общий план пересекает посадочную зону комплекса')
             if s.logistics:
+                from .compact_layout import active_rectangles
+                for rect in active_rectangles(s):boxes.append((*rect,float(b.position[2])))
                 for rect in s.logistics.solar_ground_rects():
                     from .site_ground import rectangle_patch
                     patch=rectangle_patch(t,rect)
@@ -344,7 +346,7 @@ class SharedSite:
         f=config.fleet
         offsets=(spec or {}).get('dock_offsets',[])
         distance=max(f.waiting_offset,config.base.radius+3.+f.separation) if offsets else f.waiting_offset
-        points=np.array([np.asarray(point)+rotate_offset(config.base.layout,[dx,offsets[i][1] if i<len(offsets) else station_offset(i,f.pad_spacing)])
+        points=np.array([np.asarray(point)+rotate_offset(config.base.layout,[dx+(offsets[i][0] if i<len(offsets) else 0.),offsets[i][1] if i<len(offsets) else station_offset(i,f.pad_spacing)])
             for i in range(max(f.count,f.charge_slots)) for dx in (0.,-distance)])
         lower=points.min(axis=0)-f.separation;upper=points.max(axis=0)+f.separation
         return (*lower,*(upper-lower))
@@ -388,7 +390,7 @@ class SharedSite:
         distance=max(f.waiting_offset,config.base.radius+3.+f.separation) if offsets else f.waiting_offset
         for i in range(max(f.count,f.charge_slots)):
             for dx in (0.,-distance):
-                x,y=point+rotate_offset(config.base.layout,[dx,offsets[i][1] if i<len(offsets) else station_offset(i,f.pad_spacing)])
+                x,y=point+rotate_offset(config.base.layout,[dx+(offsets[i][0] if i<len(offsets) else 0.),offsets[i][1] if i<len(offsets) else station_offset(i,f.pad_spacing)])
                 if not t.cell<x<side-t.cell or not t.cell<y<side-t.cell:return False
                 patch=t.patch(x,y,f.separation)
                 mask=(t.x[patch]-x)**2+(t.y[patch]-y)**2<f.separation**2

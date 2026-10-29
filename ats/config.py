@@ -250,8 +250,11 @@ class Config:
         require(dust.downsample >= 1 and isinstance(dust.downsample, int) and dust.lifetime > 0 and dust.diffusion >= 0 and dust.strength >= 0 and dust.height_scale > 0 and dust.concentration_scale > 0, "Неверная модель пыли")
         if self.energy_design is not None:
             info=self.energy_design
-            require(isinstance(info,dict) and info.get('version')==1 and
+            require(isinstance(info,dict) and (info.get('version')==1 or info.get('version')==2 and info.get('kind')=='season') and
                     info.get('mode') in ('renewable','one_day_storage'), 'Неверный расчёт энергетической комплектации')
+            if info.get('kind')=='season':
+                require(info.get('season_start_day')==60 and info.get('season_end_day')==273 and info.get('checked_days')==214 and
+                    60<=info.get('limiting_day_of_year',0)<=273, 'Повреждены границы проверенного сезона')
             require(isinstance(info.get('signature'),str) and len(info['signature'])==64, 'Потерян паспорт энергетической комплектации')
             from .power_design import PowerRequest
             PowerRequest(**info['request']).validate()

@@ -80,6 +80,8 @@ def deployment_rectangles(spec,point):
 def deployment_safe(spec,point,terrain):
     from .site_ground import footprint_safe
     if 'self_solar' not in spec:return True
+    from .compact_layout import safe
+    if not safe(spec,point,terrain):return False
     p=spec['self_solar'];blocked=terrain.design_work|terrain.dump_mask
     if terrain.protected is not None:blocked=blocked|terrain.protected
     site=getattr(terrain,'shared_site',None)
@@ -156,7 +158,9 @@ def compose(config,core,groups,world=None):
     spec['packed_volume_m3']+=sum(a['reserved_volume_m3'] for a in spec['platforms'] if a.get('role')=='PV')
     spec['control_power_w']-=included_controls*lp['control_power_w']
     spec['platforms'].sort(key=lambda a:a['id'])
-    spec['control_power_w']+=count*(lp['control_power_w']+p['idle_w']);spec['deck_height_m']=lp['platform_height_m'];refresh_spec(spec)
+    spec['control_power_w']+=count*(lp['control_power_w']+p['idle_w']);spec['deck_height_m']=lp['platform_height_m']
+    from .compact_layout import arrange
+    arrange(config,spec,world);refresh_spec(spec)
     return spec
 
 
@@ -174,6 +178,8 @@ def place(config,spec,point,terrain):
         from .site_ground import equipment_mask
         others=[u.simulation for u in site.project.units if u.id!=getattr(terrain,'owner_id',None)]
         blocked|=equipment_mask(terrain,others)
+    from .compact_layout import safe as access_safe,rectangles as access_rectangles
+    if not access_safe(result,point,terrain):raise ValueError('COMPACT_ACCESS_BLOCKED: рабочие проходы пересекают воду, выемку, отвал или чужую технику')
     hub={**spec,'platforms':[a for a in spec['platforms'] if a.get('role')!='PV']}
     hub_boxes=[*layout_footprints(hub,point),*battery_rects(spec,point)]
     for rect in hub_boxes:
@@ -183,14 +189,17 @@ def place(config,spec,point,terrain):
     f=config.fleet;offsets=spec.get('dock_offsets',[])
     for i in range(max(f.count,f.charge_slots)):
         along=offsets[i][1] if i<len(offsets) else station_offset(i,f.pad_spacing)
+        across=offsets[i][0] if i<len(offsets) else 0.
         distance=max(f.waiting_offset,spec['hub_radius_m']+3+f.separation) if offsets else f.waiting_offset
         for dx in (0.,-distance):
-            x,y=np.asarray(point[:2])+rotate_offset(lp,[dx,along]);rect=(x-f.separation,y-f.separation,2*f.separation,2*f.separation)
+            x,y=np.asarray(point[:2])+rotate_offset(lp,[across+dx,along]);rect=(x-f.separation,y-f.separation,2*f.separation,2*f.separation)
             if not footprint_safe(terrain,rect,terrain.design_work|terrain.dump_mask,grade_deg=8.,relief_m=float('inf')):raise ValueError('Посадочные площадки не помещаются')
             paint_rect(terrain,blocked,rect)
     if config.logistics.excavator_enabled:
         q=config.trench;c=config.logistics;y=q.y-q.width/2-q.depth/terrain.slope-c.support_half_width_m-.1
         paint_rect(terrain,blocked,(q.x-c.support_half_width_m-1,y-c.support_half_width_m-1,2*c.support_half_width_m+2,2*c.support_half_width_m+2))
+    access_mask=np.zeros_like(blocked)
+    for rect in access_rectangles(result,point):paint_rect(terrain,access_mask,rect)
     example=next(a for a in result['platforms'] if a.get('role')=='PV');rect=_rect(spec,example,[0.,0.]);ww,hh=rect[2:]
     side=terrain.height.shape[0]*terrain.cell;xs=np.arange(ww/2+1,side-ww/2,ww+p['column_access_m']);ys=np.arange(hh/2+1,side-hh/2,hh+p['row_access_m'])
     candidates=[np.array([x,y]) for y in ys for x in xs];candidates.sort(key=lambda c:(float(np.sum((c-np.asarray(point[:2]))**2)),c[1],c[0]))
@@ -199,10 +208,11 @@ def place(config,spec,point,terrain):
             rect=_rect(result,a,point)
             if not footprint_safe(terrain,rect,blocked,grade_deg=p['max_grade_deg'],relief_m=p['support_travel_m']):raise ValueError('Существующий солнечный носитель нельзя переставить при поставке')
         else:
+            candidates_blocked=blocked|access_mask
             chosen=None
             for candidate in candidates:
                 rect=(candidate[0]-ww/2,candidate[1]-hh/2,ww,hh)
-                if footprint_safe(terrain,rect,blocked,grade_deg=p['max_grade_deg'],relief_m=p['support_travel_m']):chosen=candidate;break
+                if footprint_safe(terrain,rect,candidates_blocked,grade_deg=p['max_grade_deg'],relief_m=p['support_travel_m']):chosen=candidate;break
             if chosen is None:raise ValueError('BLOCKED_SOLAR_SPACE: не хватает сухой ровной площади для собственных крыльев и опор')
             angle=math.radians(lp['heading_deg']);delta=chosen-np.asarray(point[:2]);offset=[math.cos(angle)*delta[0]+math.sin(angle)*delta[1],-math.sin(angle)*delta[0]+math.cos(angle)*delta[1]]
             a['offset_m']=offset;a['centre_of_gravity_m']=[*offset,a['centre_of_gravity_m'][2]];rect=_rect(result,a,point)

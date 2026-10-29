@@ -160,6 +160,8 @@ class RegionalTransition:
                 if b.config.layout is not None:
                     from .self_solar import deployment_rectangles as solar_rectangles
                     boxes.extend(solar_rectangles(b.layout_spec,point))
+                    from .compact_layout import rectangles as access_rectangles
+                    boxes.extend(access_rectangles(b.layout_spec,point))
                 return (min(x for x,y,w,h in boxes),min(y for x,y,w,h in boxes),
                         max(x+w for x,y,w,h in boxes)-min(x for x,y,w,h in boxes),
                         max(y+h for x,y,w,h in boxes)-min(y for x,y,w,h in boxes))

@@ -57,7 +57,7 @@ def _design_outputs(args,config,observation=None):
         from .winter_power import design_report
         report=design_report(config,config.energy_design)
         if args.power_report:Path(args.power_report).write_text(json.dumps(report,ensure_ascii=False,allow_nan=False,indent=2)+'\n',encoding='utf-8')
-        if args.save_complex_template:ComplexTemplate.capture(config,'Суточный зимний комплекс').save(args.save_complex_template)
+        if args.save_complex_template:ComplexTemplate.capture(config,'Сезонный комплекс Каттары' if config.energy_design.get('kind')=='season' else 'Суточный зимний комплекс').save(args.save_complex_template)
         return
     request=PowerRequest(work_hours=args.work_hours,start_hour=args.work_start_hour,drone_utilization=args.drone_duty/100,
                          source='measured' if args.measured_power else 'equipment')
@@ -116,7 +116,7 @@ def main():
     parser.add_argument("--preset", choices=PRESETS, default="demo")
     parser.add_argument("--start-hour", type=float, default=9)
     parser.add_argument("--roughness", type=float, default=0)
-    parser.add_argument("--latitude", type=float, default=55, help="Latitude in degrees; positive = north")
+    parser.add_argument("--latitude", type=float, help="Latitude in degrees; positive = north; new GUI seasonal preset defaults to Qattara 31.078")
     parser.add_argument("--day-of-year", type=int, default=172, help="Start day, 1..365; day 172 = 21 June")
     parser.add_argument("--panel-area", type=float, help="Horizontal solar panel area in m²; default 20, or equipment profile")
     parser.add_argument("--base-mass", type=float, default=1000, help="Base mass including panels/battery, kg")
@@ -168,7 +168,7 @@ def main():
     parser.add_argument('--complexes',type=int,default=1,help='Working complexes, 1..20; use --shared-site for one physical map')
     parser.add_argument('--shared-site',action='store_true',help='One shared physical terrain, work dispatcher and airspace for all complexes')
     parser.add_argument('--continuous-design',action='store_true',help='Automatically size 24-hour solar/storage and modular crawler platforms')
-    parser.add_argument('--energy-preset',choices=('winter24h','manual'),help='Winter-checked 24h startup recipe; automatic for a new uncustomized GUI, explicit for headless experiments')
+    parser.add_argument('--energy-preset',choices=('qattara-season','winter24h','manual'),help='New GUI: Qattara 1 March–30 September; winter24h retains year-round winter sizing; headless defaults to manual')
     parser.add_argument('--work-hours',type=float,default=24,help='Design assumption: operating hours per solar day')
     parser.add_argument('--work-start-hour',type=float,help='Design assumption: shift start in local solar hours')
     parser.add_argument('--drone-duty',type=float,default=50,help='Design assumption: percent of shift spent flying')
@@ -195,7 +195,7 @@ def main():
     config = scenario(args.preset, args.seed)
     config.start_hour = args.start_hour
     config.terrain.roughness = args.roughness
-    config.base.latitude_deg = args.latitude
+    config.base.latitude_deg = 55. if args.latitude is None else args.latitude
     config.base.start_day_of_year = args.day_of_year
     # Resolve the original hardware before resizing panels; extra area adds mass.
     config.base.panel_area = 20
@@ -334,13 +334,18 @@ def main():
             args.drone_spare_sets is not None,args.excavator_spare_batteries is not None,
             args.continuous_design,args.batch_experiments,args.compare_fleet,args.complexes>1,args.shared_site,
             args.dem,args.qattara,args.landscape))
-        winter_default=(args.energy_preset=='winter24h' or args.energy_preset is None and
+        winter_default=(args.energy_preset in ('winter24h','qattara-season') or args.energy_preset is None and
                         not args.headless and mode!='legacy' and not manual_hardware)
         if winter_default:
             if mode=='legacy':raise ValueError('Зимний суточный комплекс требует ATS 2.0')
             if initial_stock:raise ValueError('Шаблон содержит дополнительный запас: сохраните его комплектацию или выполните новый подбор через интерфейс')
-            from .winter_power import ready_simulation
-            prepared_sim,design=ready_simulation(config,allow_resize=args.map_size is None)
+            seasonal=args.energy_preset!='winter24h'
+            if seasonal and args.latitude is None and config.georeference is None and not any((args.configuration,args.equipment,args.complex_template)):
+                from .season_power import QATTARA_LATITUDE
+                config.base.latitude_deg=QATTARA_LATITUDE
+            if seasonal:from .season_power import ready_season_simulation as prepare
+            else:from .winter_power import ready_simulation as prepare
+            prepared_sim,design=prepare(config,allow_resize=args.map_size is None)
             config=prepared_sim.config
         if args.save_configuration:
             from .experiments import save_configuration

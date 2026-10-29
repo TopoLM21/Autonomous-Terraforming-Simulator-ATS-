@@ -839,12 +839,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def update_energy_status(self):
         from .winter_power import design_status
-        state,message=design_status(self.config,self.latitude.value())
+        day=self.calendar.date().dayOfYear()
+        if day==self.config.base.start_day_of_year:day=self.sim.day_at(self.sim.time)
+        state,message=design_status(self.config,self.latitude.value(),day_of_year=day)
         if abs(self.panels.value()-self.config.base.panel_area)>1e-6:
             state='stale';message='Площадь в предпросмотре изменена · требуется перепроверка энергетики'
         self.energy_status.setText(f'<a href="power">{message}</a>')
         self.energy_status.setProperty('designState',state)
-        self.energy_status.setToolTip('Открыть расчёт. Широта и ручные настройки не заменяют оборудование автоматически. Зимний статус относится к расчётному профилю нагрузки, не к запасу заряда в эту секунду.')
+        self.energy_status.setToolTip('Открыть расчёт сезона или зимнего минимума. Широта, дата и ручные настройки не заменяют оборудование автоматически. Статус относится к принятой нагрузке и солнечной модели; погода не гарантируется.')
 
     def replace_simulation(self, config):
         sim = Simulation(config)  # validate before discarding the current state
@@ -1135,6 +1137,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.base_dimensions.setText(f"Паспорт базы\nКорпус: {body} м\nПосадочная зона: {landing} м\nПоле панелей: {field_text}\nС пристыкованными дронами: {spec['gross_mass_kg']:.1f} кг")
         if spec.get('layout'):
             self.base_dimensions.setText(self.base_dimensions.text()+f"\nПлатформ: {spec['layout']['platform_count']} · давление {spec['ground_support']['max_pressure_kpa']:.1f} кПа")
+        if spec.get('deployed_dimensions_m'):
+            full=' × '.join(f'{value:.1f}' for value in spec['deployed_dimensions_m'])
+            self.base_dimensions.setText(self.base_dimensions.text()+f'\nПолный массив с раскрытием и проходами: {full} м')
         self.base_label.setText(f"База · {spec['gross_mass_kg']:.0f} кг с дронами\nКорпус {body} м")
         self.base_label.setToolTip(f"Оборудование: {spec['installed_equipment_mass_kg']:.1f} кг; запасы: {spec['stored_items_mass_kg']:.1f} кг; пристыкованные дроны: {spec['docked_drones_mass_kg']:.1f} кг.\nПоле панелей: {field_text}.")
         self.fleet_table.setUpdatesEnabled(False)

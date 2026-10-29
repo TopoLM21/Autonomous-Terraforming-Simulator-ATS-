@@ -173,7 +173,8 @@ def solve(config,settings,totals,world=None,panels=None,batteries=None,extra=(),
         if r['kind']=='BATTERY':a['reserved_volume_m3']+=math.prod(dimensions)
 
     if old_bindings:
-        for a in previous['platforms']:add(a['role'])
+        for a in previous['platforms']:
+            current=add(a['role']);current['offset_m']=list(a['offset_m'])
 
     for role in ('BESS','SERVICE'):
         subset=[r for r in records if r['role']==role]
@@ -265,13 +266,13 @@ def solve(config,settings,totals,world=None,panels=None,batteries=None,extra=(),
         a.pop('rack_cells',None);mass=a['payload_kg'];gross=dry+mass
         cg=np.array([0.,0.,dry*.45+a['hardware_kg']*.6])
         for r in a['loads']:cg+=r['mass_kg']*np.asarray(r['offset_m'])
-        cg/=gross;cg[1]+=a['offset_m'][1]
+        cg/=gross;local_x=float(cg[0]);cg[:2]+=a['offset_m']
         tw=max(p['min_track_width_m'],gross*9.80665/(p['max_pressure_kpa']*1000*2*l*p['track_contact_fraction']))
         if tw>w*.38:raise ValueError('Не хватает площади гусениц для фактической нагрузки платформы')
         contact=2*tw*l*p['track_contact_fraction']
         a.update(gross_mass_kg=gross,track_width_m=tw,track_contact_length_m=l*p['track_contact_fraction'],contact_area_m2=contact,
                  pressure_kpa=gross*9.80665/contact/1000,drive_power_kw=p['drive_kw'],centre_of_gravity_m=cg.tolist())
-        if abs(cg[0])>w/2/1.3 or abs(cg[1]-a['offset_m'][1])>l/2/1.3:raise ValueError('Центр тяжести за безопасным контуром платформы')
+        if abs(local_x)>w/2/1.3 or abs(cg[1]-a['offset_m'][1])>l/2/1.3:raise ValueError('Центр тяжести за безопасным контуром платформы')
     lo=min(a['offset_m'][1]-l/2 for a in platforms);hi=max(a['offset_m'][1]+l/2 for a in platforms)
     gross=sum(a['gross_mass_kg'] for a in platforms);cg=sum(np.asarray(a['centre_of_gravity_m'])*a['gross_mass_kg'] for a in platforms)/gross
     from .base_layout import rotate_offset
@@ -520,6 +521,12 @@ class BatteryPlatforms:
         a=(start[:2]-origin[:2])@rotation;z=(target[:2]-origin[:2])@rotation
         rail=p['platform_width_m']/2+.5;height=max(start[2],target[2],origin[2]+p['platform_height_m'])+.4
         def point(x,y):return [*(origin[:2]+rotate_offset(p,[x,y])),height]
+        if b.layout_spec.get('formation')=='compact_grid_v1':
+            aisles=b.layout_spec['service_aisles_x'];header=b.layout_spec['service_header_y']
+            if aisles:
+                x1=min(aisles,key=lambda x:abs(x-a[0]));x2=min(aisles,key=lambda x:abs(x-z[0]))
+                middle=[point(x1,a[1]),point(x2,z[1])] if abs(x1-x2)<1e-9 else [point(x1,a[1]),point(x1,header),point(x2,header),point(x2,z[1])]
+                return [start.tolist(),point(a[0],a[1]),*middle,point(z[0],z[1]),target.tolist()]
         return [start.tolist(),point(a[0],a[1]),point(rail,a[1]),point(rail,z[1]),point(z[0],z[1]),target.tolist()]
 
     def receive(self,id):

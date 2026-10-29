@@ -18,19 +18,24 @@ from ats.winter_power import design_winter
 
 
 def audit_bus(config,design,days=2):
-    c=deepcopy(config.base);c.start_day_of_year=design['winter_day_of_year']
+    c=deepcopy(config.base);c.start_day_of_year=design.get('limiting_day_of_year',design.get('winter_day_of_year'))
     # Explicit conservative solar derating; hardware area/mass is unchanged.
     c.panel_area*=design['request']['solar_factor']
-    c.idle_power=design['winter']['demand_kwh']/24*1000
+    c.idle_power=design.get('limiting',design.get('winter'))['demand_kwh']/24*1000
+    from ats.base_layout import configure_layout
+    from ats.power_design import equipment_copy
+    layout=configure_layout(equipment_copy(config)) if config.base.layout is not None else None
+    converter=layout.get('converter_power_w',float('inf')) if layout else float('inf')
+    charge=min(c.battery/KWH*2000,converter);discharge=min(c.battery/KWH*10000,converter)
     b=SolarBase(c,np.zeros(3));capacity=c.battery;minimum=capacity
     demand=c.idle_power;missing=0.;first_missing=0.;first_final=None
     for tick in range(days*86400):
         hour=(config.start_hour+(tick%86400+.5)/3600)%24
         pv=sunlight(c.latitude_deg,c.start_day_of_year,hour,c.peak_irradiance).irradiance*c.panel_area*c.panel_efficiency
-        available=min(b.battery+pv,config.logistics.inverter_power_w,pv+min(b.battery,capacity/KWH*10000))
+        available=min(b.battery+pv,config.logistics.inverter_power_w,pv+min(b.battery,discharge))
         missing+=max(0.,demand-available)
         b.tick(1.,hour,[],[],c.start_day_of_year,bus_limit_w=config.logistics.inverter_power_w,
-               storage_charge_w=capacity/KWH*2000,storage_discharge_w=capacity/KWH*10000)
+               storage_charge_w=charge,storage_discharge_w=discharge)
         minimum=min(minimum,b.battery)
         if tick==86399:first_final=b.battery;first_missing=missing
     error=capacity+b.generated-b.curtailed-b.consumed-b.battery
