@@ -95,18 +95,25 @@ def test_two_platform_base_advances_along_the_canal_and_finishes():
     assert abs(r['mass_error_kg'])<1e-7 and abs(r['energy_error_j'])<.002
 
 
-def test_compact_main_window_fits_small_desktop_and_details_open_separately():
+@pytest.mark.parametrize('point_size',[None,11.])
+def test_compact_main_window_fits_small_desktop_and_details_open_separately(point_size):
     os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
     from PySide6 import QtWidgets
     from ats.gui import MainWindow
     app=QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
-    w=MainWindow(config());w.timer.stop();w.resize(1024,700);w.show();app.processEvents()
-    assert w.minimumSizeHint().width()<=1024 and w.minimumSizeHint().height()<=700
-    assert not w.settings_window.isVisible() and not w.fleet_window.isVisible()
-    w.settings_window.show();w.fleet_window.show();app.processEvents()
-    assert w.settings_tabs.count()==3 and w.fleet_table.isVisible()
-    assert w.map.isVisible() and w.map.height()>250
-    w.close();app.processEvents()
+    old_font=app.font();w=None
+    try:
+        if point_size is not None:
+            font=app.font();font.setPointSizeF(point_size);app.setFont(font)
+        w=MainWindow(config());w.timer.stop();w.resize(1024,700);w.show();app.processEvents()
+        assert w.minimumSizeHint().width()<=1024 and w.minimumSizeHint().height()<=700
+        assert not w.settings_window.isVisible() and not w.fleet_window.isVisible()
+        w.settings_window.show();w.fleet_window.show();app.processEvents()
+        assert w.settings_tabs.count()==3 and w.fleet_table.isVisible()
+        assert w.map.isVisible() and w.map.height()>250 and w.view_options.isVisible()
+    finally:
+        if w is not None:w.close()
+        app.setFont(old_font);app.processEvents()
 
 
 def test_completion_waits_for_an_atomic_battery_swap_and_plan_accepts_roundoff():
