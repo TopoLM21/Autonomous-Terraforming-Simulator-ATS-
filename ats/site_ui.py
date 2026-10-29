@@ -28,8 +28,8 @@ def refresh(host,terrain):
     planned=[];deployed=[];active=[];installers=[];battery=[];reserves=[];access=[]
     for s in simulations:
         w=s.logistics;a=getattr(w,'solar_array',None) if w else None
-        from .compact_layout import active_rectangles
-        for rect in active_rectangles(s):_rect(access,rect)
+        from .compact_layout import active_polygons
+        for polygon in active_polygons(s):access.extend([*map(tuple,polygon),tuple(polygon[0]),(np.nan,np.nan)])
         if w and w.battery_platforms:
             p=w.battery_platforms
             for c,rect in zip(p.carriers.values(),p.rectangles(planned=True)):
@@ -39,7 +39,7 @@ def refresh(host,terrain):
                     x,y,ww,hh=rect;_rect(battery,(x+(1-fraction)*ww/2,y+(1-fraction)*hh/2,ww*fraction,hh*fraction),True)
         if a is None:continue
         if w.solar_ground_rects():
-            for rect in a.reserved_rects:_rect(planned,rect)
+            for polygon in w.solar_ground_polygons():planned.extend([*map(tuple,polygon),tuple(polygon[0]),(np.nan,np.nan)])
         for q in a.sections:
             if getattr(a,'mechanism',None)=='self_deploying':
                 target=deployed if q.state=='DEPLOYED' else active

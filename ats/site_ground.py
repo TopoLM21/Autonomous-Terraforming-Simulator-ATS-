@@ -4,6 +4,31 @@ import math
 import numpy as np
 
 
+def rectangle_polygon(rect):
+    x,y,w,h=rect
+    return np.array([(x,y),(x+w,y),(x+w,y+h),(x,y+h)],dtype=float)
+
+
+def polygon_bounds(polygon):
+    lo=np.min(polygon,axis=0);hi=np.max(polygon,axis=0)
+    return (*map(float,lo),*map(float,hi-lo))
+
+
+def polygons_overlap(a,b,clearance=0.):
+    """Separating-axis check for convex equipment contours; touching is allowed.
+
+    Axis-aligned envelopes remain useful for terrain/foreign-actor broad checks,
+    but must not turn the empty corners of a rotated wing into own equipment.
+    """
+    a=np.asarray(a);b=np.asarray(b)
+    if np.any(a.max(axis=0)+clearance<=b.min(axis=0)+1e-8) or np.any(b.max(axis=0)+clearance<=a.min(axis=0)+1e-8):return False
+    edges=np.concatenate((np.roll(a,-1,axis=0)-a,np.roll(b,-1,axis=0)-b))
+    lengths=np.linalg.norm(edges,axis=1);edges=edges[lengths>1e-10]/lengths[lengths>1e-10,None]
+    axes=np.column_stack((-edges[:,1],edges[:,0]));pa=a@axes.T;pb=b@axes.T
+    return not (np.any(pa.max(axis=0)+clearance<=pb.min(axis=0)+1e-8) or
+        np.any(pb.max(axis=0)+clearance<=pa.min(axis=0)+1e-8))
+
+
 def marine_mask(terrain):
     c=terrain.config;geo=c.georeference or {};channel=(c.plan.channel or {}) if c.plan else {}
     marine=channel.get('marine') or geo.get('marine')

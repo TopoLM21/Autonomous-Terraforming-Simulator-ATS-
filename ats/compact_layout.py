@@ -22,21 +22,31 @@ def dock_offsets(spec):
         spec['dock_offsets']=[[a['offset_m'][0],a['offset_m'][1]+length/4] for a in spec['platforms'] if a.get('role')=='SERVICE'][:len(spec['dock_offsets'])]
 
 
-def rectangles(spec,point):
+def polygons(spec,point):
     from .base_layout import rotate_offset
     result=[]
     for x,y,w,h in spec.get('access_lanes_local',()):
         corners=np.array([rotate_offset(spec['parameters'],v) for v in ((x,y),(x+w,y),(x+w,y+h),(x,y+h))])+np.asarray(point[:2])
-        lo=corners.min(axis=0);hi=corners.max(axis=0);result.append((*map(float,lo),*map(float,hi-lo)))
+        result.append(corners)
     return result
 
 
-def active_rectangles(simulation):
+def rectangles(spec,point):
+    from .site_ground import polygon_bounds
+    return [polygon_bounds(p) for p in polygons(spec,point)]
+
+
+def active_polygons(simulation):
     w=simulation.logistics
     if w is None or simulation.base.destination is not None or getattr(w,'regional_folded',False) or w.field_rect is None:return []
     a=getattr(w,'solar_array',None);b=getattr(w,'battery_platforms',None)
     if a is not None and a.stowed and a.mode=='FOLD' and (b is None or b.stowed):return []
-    return rectangles(getattr(simulation.base,'layout_spec',{}),simulation.base.position)
+    return polygons(getattr(simulation.base,'layout_spec',{}),simulation.base.position)
+
+
+def active_rectangles(simulation):
+    from .site_ground import polygon_bounds
+    return [polygon_bounds(p) for p in active_polygons(simulation)]
 
 
 def safe(spec,point,terrain):

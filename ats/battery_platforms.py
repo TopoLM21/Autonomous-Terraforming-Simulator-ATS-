@@ -55,19 +55,24 @@ def converter_rating(config,count,recipe):
     return math.ceil(count/slots)*q['bess_converter_kw']
 
 
-def deployment_rectangles(spec,point):
+def deployment_polygons(spec,point):
     from .base_layout import rotate_offset
     q=spec.get('battery_platforms')
     if not q:return []
-    rects=[]
+    polygons=[]
     for a in spec['platforms']:
         if a['role'] not in ('BESS','SERVICE'):continue
         w,l,_=a['dimensions_m'];ww=w+2*max(q['support_extension_m'],q['apron_width_m'])
         l+=spec['parameters']['platform_gap_m']  # bridges connect adjacent carrier aisles
         xy=np.asarray(point[:2])+rotate_offset(spec['parameters'],a['offset_m'])
         corners=np.array([rotate_offset(spec['parameters'],v) for v in ((-ww/2,-l/2),(ww/2,-l/2),(ww/2,l/2),(-ww/2,l/2))])+xy
-        lo=corners.min(axis=0);hi=corners.max(axis=0);rects.append((*map(float,lo),*map(float,hi-lo)))
-    return rects
+        polygons.append(corners)
+    return polygons
+
+
+def deployment_rectangles(spec,point):
+    from .site_ground import polygon_bounds
+    return [polygon_bounds(p) for p in deployment_polygons(spec,point)]
 
 
 def path_position(points,fraction):
@@ -78,14 +83,15 @@ def path_position(points,fraction):
     return path[-1].copy()
 
 
-def deployment_safe(spec,point,terrain,*,solar_rects=()):
-    from .site_ground import footprint_safe
+def deployment_safe(spec,point,terrain,*,solar_rects=(),solar_polygons=None):
+    from .site_ground import footprint_safe,rectangle_polygon,polygon_bounds,polygons_overlap
     blocked=terrain.design_work|terrain.dump_mask
     if terrain.protected is not None:blocked=blocked|terrain.protected
-    for rect in deployment_rectangles(spec,point):
+    if solar_polygons is None:solar_polygons=[rectangle_polygon(r) for r in solar_rects]
+    for polygon in deployment_polygons(spec,point):
+        rect=polygon_bounds(polygon)
         if not footprint_safe(terrain,rect,blocked,grade_deg=8.,relief_m=.6):return False
-        x,y,w,h=rect
-        if any(x<xx+ww and x+w>xx and y<yy+hh and y+h>yy for xx,yy,ww,hh in solar_rects):return False
+        if any(polygons_overlap(polygon,other) for other in solar_polygons):return False
         site=getattr(terrain,'shared_site',None)
         if site and site.ground_occupied(getattr(terrain,'owner_id',None),rect):return False
     return True
@@ -442,7 +448,7 @@ class BatteryPlatforms:
 
     def site_safe(self):
         w=self.world;b=w.sim.base
-        return deployment_safe(b.layout_spec,b.position,w.sim.terrain,solar_rects=w.solar_ground_rects())
+        return deployment_safe(b.layout_spec,b.position,w.sim.terrain,solar_polygons=w.solar_ground_polygons())
 
     def audit_site(self):
         """Recheck changed support cells, avoiding full PV scans for distant digs."""
@@ -463,9 +469,10 @@ class BatteryPlatforms:
         if getattr(self,'_audit_signature',None)==signature and 'site_issues' in vars(self):return
         self._audit_signature=signature
         self.site_issues={}
+        solar_polygons=w.solar_ground_polygons()
         for carrier_id in self.carriers:
             spec={**b.layout_spec,'platforms':[b.layout_spec['platforms'][carrier_id-1]]}
-            if not deployment_safe(spec,b.position,t,solar_rects=w.solar_ground_rects()):
+            if not deployment_safe(spec,b.position,t,solar_polygons=solar_polygons):
                 self.site_issues[carrier_id]='Небезопасный грунт, вода или занятая зона опор/прохода'
         self.issue=('BATTERY_SITE_BLOCKED: '+', '.join(f'P{carrier_id:02}' for carrier_id in self.site_issues)+'; оборудование сохранено') if self.site_issues else ''
 

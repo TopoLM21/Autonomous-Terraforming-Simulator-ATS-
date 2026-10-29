@@ -297,7 +297,7 @@ def preview_live_layout(world,**changes):
     base.config.radius=spec.get('hub_radius_m',spec['dimensions_m'][0]/2)
     if not base.safe_path(base.position[:2],world.sim.terrain):raise ValueError('Новая компоновка платформ не помещается на текущей площадке')
     from .battery_platforms import deployment_safe
-    if not deployment_safe(spec,base.position,world.sim.terrain,solar_rects=world.solar_ground_rects()):raise ValueError('Нет места для опор или сервисных проходов батарейных платформ')
+    if not deployment_safe(spec,base.position,world.sim.terrain,solar_polygons=world.solar_ground_polygons()):raise ValueError('Нет места для опор или сервисных проходов батарейных платформ')
     for x,y,w,h in layout_footprints(spec,base.position):
         for xx,yy,ww,hh in ([] if 'self_solar' in spec else world.solar_ground_rects()):
             if x<xx+ww and x+w>xx and y<yy+hh and y+h>yy:

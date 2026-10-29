@@ -1,0 +1,191 @@
+{
+  "date_utc": "2026-10-29T11:10:32.593432+00:00",
+  "base_commit": "8f253cbc632b67caf3d4fee62f95ca52e1ded842",
+  "environment": {
+    "python": "3.12.14",
+    "system": "Linux"
+  },
+  "tests": {
+    "total": 583,
+    "passed": 583,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "shards": [
+      {
+        "tests": 197,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "wall_s": 172.571
+      },
+      {
+        "tests": 201,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "wall_s": 207.061
+      },
+      {
+        "tests": 185,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "wall_s": 174.525
+      }
+    ],
+    "coastal_regressions": [
+      "test_rotated_separating_axes_keep_clearance_and_real_collisions",
+      "test_rotated_initial_grid_commissions_without_moving_manual_offsets[-202.17292820374084]",
+      "test_rotated_initial_grid_commissions_without_moving_manual_offsets[22.0]",
+      "test_rotated_initial_grid_commissions_without_moving_manual_offsets[45.0]",
+      "test_true_wing_overlap_is_rejected_at_delivery_and_runtime",
+      "test_rigid_geometry_cache_keeps_ground_checks_and_replanning_live",
+      "test_real_coastal_seasonal_start_deploys_and_resumes_exactly",
+      "test_actual_default_gui_coastal_start_and_rotated_corridor_drawing"
+    ]
+  },
+  "cli_groups": [
+    {
+      "name": "legacy",
+      "returncode": 0,
+      "wall_s": 1.4675788220010872
+    },
+    {
+      "name": "ATS 2.0 logistics smoke test",
+      "returncode": 0,
+      "wall_s": 8.950870987999224
+    },
+    {
+      "name": "Offline real DEM smoke test",
+      "returncode": 0,
+      "wall_s": 0.3411631140006648
+    },
+    {
+      "name": "Save and resume airborne simulation",
+      "returncode": 0,
+      "wall_s": 2.463834840000345
+    },
+    {
+      "name": "Prepared Qattara channel smoke test",
+      "returncode": 0,
+      "wall_s": 3.3635046929994132
+    },
+    {
+      "name": "Layered soil and complete snapshot continuation",
+      "returncode": 0,
+      "wall_s": 2.835327918997791
+    },
+    {
+      "name": "Energy sizing and executable equipment template",
+      "returncode": 0,
+      "wall_s": 0.6703521800009185
+    },
+    {
+      "name": "Two complexes on common regional project and exact resume",
+      "returncode": 0,
+      "wall_s": 22.81930990100227
+    },
+    {
+      "name": "Twenty complexes on one physical map and exact snapshot continuation",
+      "returncode": 0,
+      "wall_s": 7.505247490000329
+    },
+    {
+      "name": "Continuous design includes real platform hardware",
+      "returncode": 0,
+      "wall_s": 0.7246310139998968
+    }
+  ],
+  "initial_coastal_start": {
+    "state": "RUNNING",
+    "time_seconds": 0.0,
+    "base_position_m": [
+      473.2857142857143,
+      328.42857142857144,
+      1.1605212923275694
+    ],
+    "panel_area_m2": 4866.0,
+    "latitude_deg": 31.078272761779623,
+    "mass_error_kg": 0.0,
+    "energy_error_j": 0.0
+  },
+  "coastal_commissioning": {
+    "verified_by": "test_real_coastal_seasonal_start_deploys_and_resumes_exactly",
+    "steps": 235,
+    "save_at_step": 95,
+    "platforms": 45,
+    "pv_m2": 4866,
+    "exact_resume": true,
+    "mass_error_bound_kg": 1e-07,
+    "energy_error_bound_j": 0.002
+  },
+  "benchmark": {
+    "before": {
+      "python": "3.12.14",
+      "system": "Linux",
+      "complexes": 14,
+      "drones": 56,
+      "map_side_m": 512.0,
+      "cell_m": 1.0,
+      "physical_dt_s": 1.0,
+      "solar_m2_per_complex": 68.0,
+      "soil": "uniform",
+      "platforms": 98,
+      "model_start_s": 231.0,
+      "model_end_s": 531.0,
+      "wall_s": 16.30733259599947,
+      "factor": 18.39663220418993,
+      "max_step_s": 0.20384971400198992,
+      "median_step_s": 0.04071546150044014,
+      "ground_moved_kg": 13590.0,
+      "mass_error_kg": -3.552713678800501e-13,
+      "equipment_mass_error_kg": 0.0,
+      "energy_error_j": 1.88783451449126e-06
+    },
+    "after": {
+      "python": "3.12.14",
+      "system": "Linux",
+      "complexes": 14,
+      "drones": 56,
+      "map_side_m": 512.0,
+      "cell_m": 1.0,
+      "physical_dt_s": 1.0,
+      "solar_m2_per_complex": 68.0,
+      "soil": "uniform",
+      "platforms": 98,
+      "model_start_s": 231.0,
+      "model_end_s": 531.0,
+      "wall_s": 16.16741193499911,
+      "factor": 18.55584562366237,
+      "max_step_s": 0.17522079599802964,
+      "median_step_s": 0.04079171299963491,
+      "ground_moved_kg": 13590.0,
+      "mass_error_kg": -3.552713678800501e-13,
+      "equipment_mass_error_kg": 0.0,
+      "energy_error_j": 1.88783451449126e-06
+    },
+    "note": "One bounded synthetic headless trial per version on the same machine, sequentially, without test load; not a user save. Factors within 1% do not establish a speedup."
+  },
+  "compatibility": {
+    "save_format_version": 10,
+    "automatic_repacking_on_load": false,
+    "manual_heading_changed": false
+  },
+  "limits": [
+    "Ground and foreign equipment still use conservative world-aligned enclosing rectangles.",
+    "Initial placement searches a finite set of sites in the current window; physically unsuitable sites remain blocked.",
+    "A previously saved BLOCKED mission is not silently reset or moved."
+  ],
+  "sha256": {
+    "ats/base_layout.py": "87674fb52d28b69f58efd042510c28ad822d46043896be167aa1085202c2c2da",
+    "ats/battery_platforms.py": "921318f90abbb493b135c65314e5a5392668c8b579766dcb60fc3bbaf48b0216",
+    "ats/compact_layout.py": "0321ac071fe3b62123b44b9868054efe58dce37d814fef3ae37050a1bb2441d5",
+    "ats/logistics.py": "daab0884cfc71fed8a924ab2dd997371dfe222dc2affaaad2dd223f8475b10c7",
+    "ats/self_solar.py": "cfc04d76d5f9336450fd809969a3cec6c7b38814bc46a64a250e161c2891ca95",
+    "ats/site_ground.py": "402ce7a434c9e0a72277521e4e56ff3bfef9fd7817f65bd83b23b6d739d206b7",
+    "ats/site_ui.py": "c59bdb5be0d61d6831220fa9092554efe634c9d13e852cbd410098a5086e4ed6",
+    "docs/ats2/qattara-season-and-grid.md": "2fa70d96a75a0ba2ae7825737c6f67c0d66fee7f86a53cf479cf12609cb33993",
+    "tests/test_coastal_compact.py": "78736beb1ea2916adf9b180740db76522337a12765810c469ab390ab45b0ba40"
+  }
+}

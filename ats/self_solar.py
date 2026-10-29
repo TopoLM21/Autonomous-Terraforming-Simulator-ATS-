@@ -64,13 +64,22 @@ def recipe(panels,settings,existing=()):
     return groups,roof
 
 
-def _rect(spec,module,point,*,swept=True):
+def _polygon(spec,module,point,*,swept=True):
     from .base_layout import rotate_offset
     p=spec['self_solar'];w=2*(p['root_offset_m']+p['leaf_pairs']*math.hypot(p['leaf_width_m'],p['panel_thickness_m']+p['hinge_allowance_m'])+.25) if swept else module['dimensions_m'][0]
     length=p['span_m']+.5 if swept else module['dimensions_m'][1]
     corners=np.array([rotate_offset(spec['parameters'],v) for v in ((-w/2,-length/2),(w/2,-length/2),(w/2,length/2),(-w/2,length/2))])
     centre=np.asarray(point[:2])+rotate_offset(spec['parameters'],module['offset_m']);corners+=centre
-    lo=corners.min(axis=0);hi=corners.max(axis=0);return (*map(float,lo),*map(float,hi-lo))
+    return corners
+
+
+def _rect(spec,module,point,*,swept=True):
+    from .site_ground import polygon_bounds
+    return polygon_bounds(_polygon(spec,module,point,swept=swept))
+
+
+def deployment_polygons(spec,point):
+    return [_polygon(spec,a,point) for a in spec.get('platforms',()) if a.get('role')=='PV'] if 'self_solar' in spec else []
 
 
 def deployment_rectangles(spec,point):
@@ -166,9 +175,9 @@ def compose(config,core,groups,world=None):
 
 def place(config,spec,point,terrain):
     """Choose initial/delivered carrier positions; existing carriers never teleport."""
-    from .site_ground import footprint_safe,paint_rect,marine_mask
-    from .base_layout import layout_footprints,rotate_offset,station_offset
-    from .battery_platforms import deployment_rectangles as battery_rects
+    from .site_ground import footprint_safe,paint_rect,marine_mask,rectangle_polygon,polygon_bounds,polygons_overlap
+    from .base_layout import platform_polygons,rotate_offset,station_offset
+    from .battery_platforms import deployment_polygons as battery_polygons
     if 'self_solar' not in spec:return spec
     result={**spec,'platforms':[dict(a) for a in spec['platforms']]};p=spec['self_solar'];lp=spec['parameters']
     blocked=terrain.design_work|terrain.dump_mask|marine_mask(terrain)
@@ -178,14 +187,13 @@ def place(config,spec,point,terrain):
         from .site_ground import equipment_mask
         others=[u.simulation for u in site.project.units if u.id!=getattr(terrain,'owner_id',None)]
         blocked|=equipment_mask(terrain,others)
-    from .compact_layout import safe as access_safe,rectangles as access_rectangles
+    from .compact_layout import safe as access_safe,polygons as access_polygons,rectangles as access_rectangles
     if not access_safe(result,point,terrain):raise ValueError('COMPACT_ACCESS_BLOCKED: рабочие проходы пересекают воду, выемку, отвал или чужую технику')
     hub={**spec,'platforms':[a for a in spec['platforms'] if a.get('role')!='PV']}
-    hub_boxes=[*layout_footprints(hub,point),*battery_rects(spec,point)]
-    for rect in hub_boxes:
+    own=[(p,1.) for p in [*platform_polygons(hub,point),*battery_polygons(spec,point)]]
+    for polygon,_ in own:
+        rect=polygon_bounds(polygon)
         if not footprint_safe(terrain,rect,blocked,grade_deg=p['max_grade_deg'],relief_m=float('inf')):raise ValueError('Нет безопасного места для центральных платформ')
-    for rect in hub_boxes:
-        paint_rect(terrain,blocked,rect,1.)
     f=config.fleet;offsets=spec.get('dock_offsets',[])
     for i in range(max(f.count,f.charge_slots)):
         along=offsets[i][1] if i<len(offsets) else station_offset(i,f.pad_spacing)
@@ -194,29 +202,34 @@ def place(config,spec,point,terrain):
         for dx in (0.,-distance):
             x,y=np.asarray(point[:2])+rotate_offset(lp,[across+dx,along]);rect=(x-f.separation,y-f.separation,2*f.separation,2*f.separation)
             if not footprint_safe(terrain,rect,terrain.design_work|terrain.dump_mask,grade_deg=8.,relief_m=float('inf')):raise ValueError('Посадочные площадки не помещаются')
-            paint_rect(terrain,blocked,rect)
+            own.append((rectangle_polygon(rect),0.))
     if config.logistics.excavator_enabled:
         q=config.trench;c=config.logistics;y=q.y-q.width/2-q.depth/terrain.slope-c.support_half_width_m-.1
-        paint_rect(terrain,blocked,(q.x-c.support_half_width_m-1,y-c.support_half_width_m-1,2*c.support_half_width_m+2,2*c.support_half_width_m+2))
+        own.append((rectangle_polygon((q.x-c.support_half_width_m-1,y-c.support_half_width_m-1,2*c.support_half_width_m+2,2*c.support_half_width_m+2)),0.))
     access_mask=np.zeros_like(blocked)
     for rect in access_rectangles(result,point):paint_rect(terrain,access_mask,rect)
+    own.extend((p,0.) for p in access_polygons(result,point))
     example=next(a for a in result['platforms'] if a.get('role')=='PV');rect=_rect(spec,example,[0.,0.]);ww,hh=rect[2:]
     side=terrain.height.shape[0]*terrain.cell;xs=np.arange(ww/2+1,side-ww/2,ww+p['column_access_m']);ys=np.arange(hh/2+1,side-hh/2,hh+p['row_access_m'])
     candidates=[np.array([x,y]) for y in ys for x in xs];candidates.sort(key=lambda c:(float(np.sum((c-np.asarray(point[:2]))**2)),c[1],c[0]))
     for a in [a for a in result['platforms'] if a.get('role')=='PV']:
+        polygon=_polygon(result,a,point)
         if a.get('pv_fixed'):
             rect=_rect(result,a,point)
             if not footprint_safe(terrain,rect,blocked,grade_deg=p['max_grade_deg'],relief_m=p['support_travel_m']):raise ValueError('Существующий солнечный носитель нельзя переставить при поставке')
+            if any(polygons_overlap(polygon,other,gap) for other,gap in own):raise ValueError('Солнечное крыло пересекает собственную технику или рабочий проход')
         else:
             candidates_blocked=blocked|access_mask
             chosen=None
             for candidate in candidates:
                 rect=(candidate[0]-ww/2,candidate[1]-hh/2,ww,hh)
-                if footprint_safe(terrain,rect,candidates_blocked,grade_deg=p['max_grade_deg'],relief_m=p['support_travel_m']):chosen=candidate;break
+                candidate_polygon=polygon+candidate-(np.asarray(point[:2])+rotate_offset(lp,a['offset_m']))
+                if (footprint_safe(terrain,rect,candidates_blocked,grade_deg=p['max_grade_deg'],relief_m=p['support_travel_m']) and
+                    not any(polygons_overlap(candidate_polygon,other,gap) for other,gap in own)):chosen=candidate;break
             if chosen is None:raise ValueError('BLOCKED_SOLAR_SPACE: не хватает сухой ровной площади для собственных крыльев и опор')
             angle=math.radians(lp['heading_deg']);delta=chosen-np.asarray(point[:2]);offset=[math.cos(angle)*delta[0]+math.sin(angle)*delta[1],-math.sin(angle)*delta[0]+math.cos(angle)*delta[1]]
             a['offset_m']=offset;a['centre_of_gravity_m']=[*offset,a['centre_of_gravity_m'][2]];rect=_rect(result,a,point)
-        paint_rect(terrain,blocked,rect,.25)
+        own.append((_polygon(result,a,point),.25))
         if not support_safe(result,a,point,terrain):raise ValueError('Недостаточная несущая способность грунта под опорами солнечной платформы')
     result['pv_placed']=True
     refresh_spec(result);return result
@@ -266,7 +279,7 @@ class SelfSolarArray:
         self.reserved_rects=[]
         for q in self.sections:
             q.rect=_rect(world.sim.base.layout_spec,self.module(world,q),world.sim.base.position);self.reserved_rects.append(q.rect)
-        self._audit_stamp=None
+        self._audit_stamp=None;self._own_geometry_key=None
 
     def add_inventory(self,world):
         items=[]
@@ -293,32 +306,42 @@ class SelfSolarArray:
     def request_deploy(self):self.mode='DEPLOY'
 
     def audit(self,world):
-        from .site_ground import footprint_safe
+        from .site_ground import footprint_safe,rectangle_polygon,polygons_overlap
         t=world.sim.terrain;b=world.sim.base;site=world.sim.shared_site
         actors=tuple((u.id,tuple(u.simulation.base.position),id(getattr(u.simulation.base,'layout_spec',None)),
             getattr(getattr(u.simulation.logistics,'solar_array',None),'mode',None),
             getattr(getattr(u.simulation.logistics,'solar_array',None),'stowed',True)) for u in site.project.units) if site else ()
         excavator=tuple(world.excavator.position) if world.excavator else ()
-        stamp=(id(t.height),t.revision,id(b.layout_spec),tuple(b.position),actors,excavator,id(t.config.georeference))
+        batteries=world.battery_platforms
+        deployed_batteries=tuple(id for id,c in batteries.carriers.items() if c.state!='STOWED' or c.mode!='PACK') if batteries and not batteries.route_preview else ()
+        geometry_key=(id(b.layout_spec),tuple(b.position),deployed_batteries)
+        stamp=(id(t.height),t.revision,geometry_key,actors,excavator,id(t.config.georeference))
         if getattr(self,'_audit_stamp',None)==stamp:return
         self._audit_stamp=stamp;self.invalid_sections=[];p=self.settings
-        from .base_layout import layout_footprints
-        bodies=[(a['id'],r) for a,r in zip(b.layout_spec['platforms'],layout_footprints(b.layout_spec,b.position))]
+        from .base_layout import platform_polygons
+        from .battery_platforms import deployment_polygons as battery_polygons
         spaces={q.id:_rect(b.layout_spec,self.module(world,q),b.position) for q in self.sections}
-        extras=list(world.battery_platforms.rectangles()) if world.battery_platforms else []
+        contours={q.id:_polygon(b.layout_spec,self.module(world,q),b.position) for q in self.sections}
+        # Own rigid geometry is unchanged by distant digging. Keep the exact
+        # contour test out of that hot path; moving machinery and ground below
+        # the wings are still checked whenever their relevant state changes.
+        if getattr(self,'_own_geometry_key',None)!=geometry_key:
+            bodies=[(a['id'],r) for a,r in zip(b.layout_spec['platforms'],platform_polygons(b.layout_spec,b.position))]
+            battery_modules=[a for a in b.layout_spec['platforms'] if a.get('role') in ('BESS','SERVICE')]
+            extras=[p for a,p in zip(battery_modules,battery_polygons(b.layout_spec,b.position)) if a['id'] in deployed_batteries]
+            self._own_clear={q.id:not any(polygons_overlap(contours[q.id],other) for other in
+                [r for id,r in bodies if id!=q.platform_id]+extras+[r for id,r in contours.items() if id!=q.id]) for q in self.sections}
+            self._own_geometry_key=geometry_key
+        excavator_polygon=None
         if world.excavator:
-            e=world.excavator;r=world.config.support_half_width_m+.3;extras.append((e.position[0]-r,e.position[1]-r,2*r,2*r))
+            e=world.excavator;r=world.config.support_half_width_m+.3;excavator_polygon=rectangle_polygon((e.position[0]-r,e.position[1]-r,2*r,2*r))
         blocked=t.design_work|t.dump_mask
         if t.protected is not None:blocked=blocked|t.protected
         for q in self.sections:
             rect=spaces[q.id];q.rect=rect
             safe=footprint_safe(t,rect,blocked,grade_deg=p['max_grade_deg'],relief_m=p['support_travel_m']) and support_safe(b.layout_spec,self.module(world,q),b.position,t)
             if safe and site:safe=not site.ground_occupied(getattr(t,'owner_id',None),rect)
-            if safe:
-                boxes=[r for id,r in bodies if id!=q.platform_id]+extras+[r for id,r in spaces.items() if id!=q.id]
-                for xx,yy,w,h in boxes:
-                    x,y,ww,hh=rect
-                    if x<xx+w and x+ww>xx and y<yy+h and y+hh>yy:safe=False;break
+            if safe:safe=self._own_clear[q.id] and (excavator_polygon is None or not polygons_overlap(contours[q.id],excavator_polygon))
             if not safe:self.invalid_sections.append(q.id)
         self.issue=('SELF_SOLAR_BLOCKED: '+', '.join(self.invalid_sections)+'; панели закреплены, перемещение остановлено') if self.invalid_sections else ''
         world.solar_site_issue=self.issue

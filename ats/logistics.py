@@ -216,6 +216,14 @@ class Logistics:
         if array:return [] if getattr(self,'regional_folded',False) or array.mode=='FOLD' and array.stowed else array.reserved_rects
         return [self.field_rect]
 
+    def solar_ground_polygons(self):
+        from .site_ground import rectangle_polygon
+        rects=self.solar_ground_rects()
+        if rects and getattr(self.solar_array,'mechanism',None)=='self_deploying':
+            from .self_solar import deployment_polygons
+            return deployment_polygons(self.sim.base.layout_spec,self.sim.base.position)
+        return [rectangle_polygon(r) for r in rects]
+
     def plan_solar_field(self):
         array=getattr(self,'solar_array',None)
         if array:
