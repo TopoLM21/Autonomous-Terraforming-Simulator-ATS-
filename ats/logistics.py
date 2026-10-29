@@ -379,7 +379,7 @@ class Logistics:
         self.solar_site_issue=''
         new_support=sum(o.mass_kg for o in self.inventory.items.values() if o.kind in ('SOLAR_FRAME','SOLAR_INSTALLER'))
         self.imported_mass_kg+=max(0.,new_support-old_support);self.exported_mass_kg+=max(0.,old_support-new_support)
-        if s.shared_site is not None:s.shared_site.invalidate_geometry()
+        if s.shared_site is not None:s.shared_site.invalidate_geometry(s)
         self.update_base_mass()
         s.event(f'Панели изменены без сброса: {equipment.panel_area:g} м², {new_mass:g} кг; '+
                 ('развёртывание поля' if rect else 'компактная установка'))

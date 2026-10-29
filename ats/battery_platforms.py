@@ -326,6 +326,11 @@ class BatteryPlatforms:
         self.position_items()
 
     def slot_position(self,id):
+        if id not in self.bindings:return self.world.sim.base.position.copy()
+        self._cache_positions()
+        return np.array(self._rack_positions[id])
+
+    def _slot_coordinates(self,id):
         from .base_layout import rotate_offset
         entry=self.bindings.get(id)
         if entry is None:return self.world.sim.base.position.copy()
@@ -333,17 +338,30 @@ class BatteryPlatforms:
         offset=np.asarray(a['offset_m'])+np.asarray(entry['offset_m'][:2]);xy=b.position[:2]+rotate_offset(b.config.layout,offset)
         return np.r_[xy,self.world.sim.terrain.sample(*(b.position[:2]+rotate_offset(b.config.layout,a['offset_m'])))+entry['offset_m'][2]]
 
+    def _cache_positions(self):
+        from .base_layout import rotate_offset
+        w=self.world;b=w.sim.base;spec=b.layout_spec
+        schema=(id(spec),tuple(b.position),(b.config.layout or {}).get('heading_deg',0.),
+            tuple((a['id'],tuple(a['offset_m'])) for a in spec['platforms']),
+            tuple((id,e['platform_id'],tuple(e['offset_m'])) for id,e in self.bindings.items()))
+        moved=getattr(self,'_rack_schema',None)!=schema
+        if moved:
+            self._rack_xy=np.array([b.position[:2]+rotate_offset(b.config.layout,a['offset_m']) for a in spec['platforms']])
+        heights=w.sim.terrain.sample_many(self._rack_xy)
+        if not moved and np.array_equal(heights,self._rack_heights):return
+        self._rack_schema=schema;self._rack_heights=heights.copy()
+        self._rack_positions={id:tuple(self._slot_coordinates(id)) for id in self.bindings}
+        self._hardware_positions={}
+        for a,xy,z in zip(spec['platforms'],self._rack_xy,heights):
+            self._hardware_positions[f"battery_platform_{a['id']:02}_hardware"]=(*map(float,xy),float(z+.6))
+
     def position_items(self):
-        w=self.world
+        w=self.world;self._cache_positions()
         for id,entry in self.bindings.items():
             o=w.inventory.items.get(id)
-            if o and id not in self.returns and o.holder_id=='base' and o.location in (L.BASE_MOUNT,L.BASE_STORAGE,L.BASE_CHARGER):o.position=tuple(self.slot_position(id))
-        for a in w.sim.base.layout_spec['platforms']:
-            key=f"battery_platform_{a['id']:02}_hardware"
-            if key in w.inventory.items:
-                from .base_layout import rotate_offset
-                xy=w.sim.base.position[:2]+rotate_offset(w.sim.base.config.layout,a['offset_m'])
-                w.inventory.items[key].position=(*map(float,xy),float(w.sim.terrain.sample(*xy)+.6))
+            if o and id not in self.returns and o.holder_id=='base' and o.location in (L.BASE_MOUNT,L.BASE_STORAGE,L.BASE_CHARGER):o.position=self._rack_positions[id]
+        for key,position in self._hardware_positions.items():
+            if key in w.inventory.items:w.inventory.items[key].position=position
 
     @property
     def stowed(self):return not self.returns and not self.handlers and all(c.state=='STOWED' and c.mode=='PACK' for c in self.carriers.values())
@@ -438,7 +456,7 @@ class BatteryPlatforms:
                 if job.status=='QUEUED' and any(self.bindings.get(key,{}).get('platform_id') in self.carriers and
                     (carrier_id is None or self.bindings[key]['platform_id']==carrier_id) for key in job.resource_ids):self.world.cancel_job(job.id)
         self.world.wake_for_solar_service()
-        if self.world.sim.shared_site:self.world.sim.shared_site.invalidate_geometry()
+        if self.world.sim.shared_site:self.world.sim.shared_site.invalidate_geometry(self.world.sim)
 
     def polygons(self,*,planned=False):
         if self.route_preview:return []

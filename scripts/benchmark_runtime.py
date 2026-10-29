@@ -10,6 +10,7 @@ from pathlib import Path
 import platform
 import pstats
 import statistics
+import sys
 import time
 from types import SimpleNamespace
 
@@ -62,16 +63,26 @@ def trial(args, mode, number):
         stamp=time.perf_counter();physical_step();step_costs.append(time.perf_counter()-stamp)
     actor.step=timed_step
     event_gaps=[];heartbeat=None;last_beat=[0.]
-    window=None
+    window=None;render_costs=[];original_refresh=None
     if mode=='gui':
         if args.offscreen:os.environ['QT_QPA_PLATFORM']='offscreen'
         from PySide6 import QtCore,QtWidgets
+        import pyqtgraph as pg
+        if not getattr(pg.PlotWidget,'_benchmark_paint',False):
+            class MeasuredPlot(pg.PlotWidget):
+                _benchmark_paint=True
+                measured_paint_seconds=0.;measured_paints=0
+                def paintEvent(self,event):
+                    tick=time.perf_counter();super().paintEvent(event)
+                    self.measured_paint_seconds+=time.perf_counter()-tick;self.measured_paints+=1
+            pg.PlotWidget=MeasuredPlot
         from ats.gui import MainWindow
         app=QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
         # Supports the previous GUI as well, for measurements against a checkout.
         window=(MainWindow(sim.config,session=session) if 'session' in inspect.signature(MainWindow).parameters
                 else MainWindow(sim.config))
-        window.timer.stop();sim=window.sim;window.show();app.processEvents()
+        window.timer.stop();sim=window.sim
+        window.resize(getattr(args,'width',1280),getattr(args,'height',900));window.show();app.processEvents()
         window.speed.setCurrentIndex(window.speed.findData(2000))
         if hasattr(window,'render_mode'):
             window.render_mode.setCurrentIndex(window.render_mode.findData(args.render))
@@ -82,6 +93,13 @@ def trial(args, mode, number):
             if clock()>=target or not running():
                 window.running=False;window.credit=0;app.quit()
         actor.step=step
+        original_refresh=window.refresh
+        def refresh(*values,**kwargs):
+            tick=time.perf_counter()
+            try:return original_refresh(*values,**kwargs)
+            finally:render_costs.append(time.perf_counter()-tick)
+        window.refresh=refresh
+        window.map.measured_paint_seconds=0.;window.map.measured_paints=0
         window.running=True;window.credit=0.;window.last_wall=time.perf_counter()
         window.timer.start(0)
         deadline=QtCore.QTimer();deadline.setSingleShot(True);deadline.timeout.connect(app.quit)
@@ -118,6 +136,11 @@ def trial(args, mode, number):
         max_step_wall_seconds=max(step_costs,default=0.),
         p99_step_wall_seconds=sorted(step_costs)[min(len(step_costs)-1,int(len(step_costs)*.99))] if step_costs else 0.,
         max_gui_event_gap_seconds=max(event_gaps,default=0.) if window is not None else None,
+        gui_prepare_seconds=sum(render_costs) if window is not None else None,
+        gui_refreshes=len(render_costs) if window is not None else None,
+        gui_paint_seconds=window.map.measured_paint_seconds if window is not None else None,
+        gui_paints=window.map.measured_paints if window is not None else None,
+        gui_viewport_px=[window.map.viewport().width(),window.map.viewport().height()] if window is not None else None,
         engine_path=str(Path(inspect.getfile(type(sim))).resolve()),initial_time=start,robot_states_at_start=robot_states,
         robot_moving_seconds=sum(e.moving_seconds for e in robots)-robot_before['moving'],
         robot_working_seconds=sum(e.working_seconds for e in robots)-robot_before['working'],
@@ -126,6 +149,7 @@ def trial(args, mode, number):
         prefix=Path(args.profile);prefix.parent.mkdir(parents=True,exist_ok=True)
         profile.dump_stats(str(prefix)+f'-{mode}.prof');row.update(profile_rows(profile))
     if window is not None:
+        del window.refresh  # Restore the class method without a bound-method self-cycle.
         window.close();window.deleteLater()
         QtCore.QCoreApplication.sendPostedEvents(None,QtCore.QEvent.Type.DeferredDelete);app.processEvents()
     return row
@@ -133,6 +157,8 @@ def trial(args, mode, number):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[1],help='Engine checkout to compare on the same snapshot')
+    parser.add_argument('--width',type=int,default=1280);parser.add_argument('--height',type=int,default=900)
     parser.add_argument('--state',type=Path,help='Profile your actual .atsstate instead of the reference canal')
     parser.add_argument('--mode',choices=('headless','gui','both'),default='headless')
     parser.add_argument('--render',choices=('auto','detail','off'),default='auto')
@@ -143,6 +169,7 @@ def main():
     parser.add_argument('--profile',help='Write first-trial cProfile files and timing tables; profiler affects speed')
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args()
+    sys.path.insert(0,str(args.root.resolve()))
     if args.steps<1 or args.warmup<0 or not 1<=args.trials<=100 or args.max_wall_seconds<=0:parser.error('steps > 0; warmup >= 0; trials 1..100; max wall > 0')
     rows=[];modes=('headless','gui') if args.mode=='both' else (args.mode,)
     for number in range(args.trials):
@@ -155,7 +182,7 @@ def main():
         group=[row for row in rows if row['mode']==mode and not row['profiled']]
         if not group:continue
         medians[mode]={key:statistics.median(row[key] for row in group) for key in ('wall_seconds','model_seconds','actual_speed')}
-    result=dict(python=platform.python_version(),platform=platform.system(),cpu_count=os.cpu_count(),
+    result=dict(source_root=str(args.root.resolve()),python=platform.python_version(),platform=platform.system(),cpu_count=os.cpu_count(),
         physical_dt_seconds=1,steps=args.steps,source=args.state.name if args.state else 'Offline Qattara reference canal',
         trials=rows,median=medians)
     args.output.write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')

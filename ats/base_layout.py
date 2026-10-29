@@ -279,7 +279,7 @@ def apply_live_layout(world,spec):
     s.base.config.radius=spec.get('hub_radius_m',spec['dimensions_m'][0]/2);s.base.config.roof_height=spec.get('deck_height_m',spec['dimensions_m'][2])
     s.base.config.idle_power=spec['control_power_w']
     if getattr(world,'battery_platforms',None) is not None:world.battery_platforms.install(spec)
-    if s.shared_site is not None:s.shared_site.invalidate_geometry()
+    if s.shared_site is not None:s.shared_site.invalidate_geometry(s)
 
 
 def preview_live_layout(world,**changes):

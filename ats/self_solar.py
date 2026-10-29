@@ -280,6 +280,8 @@ class SelfSolarArray:
         for q in self.sections:
             q.rect=_rect(world.sim.base.layout_spec,self.module(world,q),world.sim.base.position);self.reserved_rects.append(q.rect)
         self._audit_stamp=None;self._own_geometry_key=None;self._obstacle_key=None
+        self._position_key=None;self._panel_pose_cache={}
+        if world.sim.shared_site:world.sim.shared_site.invalidate_geometry(world.sim)
 
     def add_inventory(self,world):
         items=[]
@@ -306,45 +308,70 @@ class SelfSolarArray:
     def request_deploy(self):self.mode='DEPLOY'
 
     def audit(self,world):
-        from .site_ground import footprint_safe,rectangle_polygon,polygons_overlap
+        from .site_ground import rectangle_polygon,polygons_overlap,marine_mask
         t=world.sim.terrain;b=world.sim.base;site=world.sim.shared_site
-        actors=tuple((u.id,tuple(u.simulation.base.position),id(getattr(u.simulation.base,'layout_spec',None)),
-            getattr(getattr(u.simulation.logistics,'solar_array',None),'mode',None),
-            getattr(getattr(u.simulation.logistics,'solar_array',None),'stowed',True)) for u in site.project.units) if site else ()
         excavator=tuple(world.excavator.position) if world.excavator else ()
         batteries=world.battery_platforms
         deployed_batteries=tuple(id for id,c in batteries.carriers.items() if c.state!='STOWED' or c.mode!='PACK') if batteries and not batteries.route_preview else ()
-        geometry_key=(id(b.layout_spec),tuple(b.position),deployed_batteries)
-        stamp=(id(t.height),t.revision,geometry_key,actors,excavator,id(t.config.georeference))
-        if getattr(self,'_audit_stamp',None)==stamp:return
-        self._audit_stamp=stamp;self.invalid_sections=[];p=self.settings
+        p=self.settings
+        geometry_key=(id(b.layout_spec),tuple(b.position),deployed_batteries,t.height.shape,t.cell,
+            tuple(sorted(p.items())),tuple(sorted(b.layout_spec['parameters'].items())),
+            tuple((q.id,tuple(self.module(world,q)['offset_m']),self.module(world,q)['gross_mass_kg']) for q in self.sections))
         from .base_layout import platform_polygons
         from .battery_platforms import deployment_polygons as battery_polygons
-        spaces={q.id:_rect(b.layout_spec,self.module(world,q),b.position) for q in self.sections}
-        contours={q.id:_polygon(b.layout_spec,self.module(world,q),b.position) for q in self.sections}
         # Own rigid geometry is unchanged by distant digging. Keep the exact
         # contour test out of that hot path; moving machinery and ground below
         # the wings are still checked whenever their relevant state changes.
-        if getattr(self,'_own_geometry_key',None)!=geometry_key:
+        if getattr(self,'_own_geometry_key',None)!=geometry_key or not hasattr(self,'_support_indices'):
+            self._spaces=spaces={q.id:_rect(b.layout_spec,self.module(world,q),b.position) for q in self.sections}
+            self._contours=contours={q.id:_polygon(b.layout_spec,self.module(world,q),b.position) for q in self.sections}
             bodies=[(a['id'],r) for a,r in zip(b.layout_spec['platforms'],platform_polygons(b.layout_spec,b.position))]
             battery_modules=[a for a in b.layout_spec['platforms'] if a.get('role') in ('BESS','SERVICE')]
             extras=[p for a,p in zip(battery_modules,battery_polygons(b.layout_spec,b.position)) if a['id'] in deployed_batteries]
             self._own_clear={q.id:not any(polygons_overlap(contours[q.id],other) for other in
                 [r for id,r in bodies if id!=q.platform_id]+extras+[r for id,r in contours.items() if id!=q.id]) for q in self.sections}
             self._own_geometry_key=geometry_key
+            points=np.array([point for q in self.sections for point in support_centres(b.layout_spec,self.module(world,q),b.position)]).reshape(-1,2)
+            cells=np.clip(points/t.cell,0,t.height.shape[0]-1).astype(int)
+            self._support_indices=(cells[:,1]*t.height.shape[0]+cells[:,0]).reshape(len(self.sections),4+2*p['leaf_pairs'])
+            self._support_ground={}
+        spaces,contours=self._spaces,self._contours
+        bounds=(min(r[0] for r in spaces.values()),min(r[1] for r in spaces.values()),
+            max(r[0]+r[2] for r in spaces.values()),max(r[1]+r[3] for r in spaces.values())) if spaces else None
+        actors=site.ground_token(getattr(t,'owner_id',None),bounds) if site and bounds else ()
+        marine=marine_mask(t);soil=t.soil
+        bearing=tuple(m.bearing_kpa for m in soil.profile.materials) if soil is not None else (b.layout_spec['parameters']['bearing_capacity_kpa'],)
+        stamp=(id(t.height),t.revision,id(soil),getattr(soil,'revision',None),bearing,geometry_key,actors,excavator,
+            id(marine),id(t.design_work),id(t.dump_mask),id(t.protected))
+        if getattr(self,'_audit_stamp',None)==stamp:return
+        self._audit_stamp=stamp;self.invalid_sections=[]
+        values=np.array(bearing)[soil.surface_ids(self._support_indices.ravel())].reshape(self._support_indices.shape) if soil is not None else np.full(self._support_indices.shape,bearing[0])
         excavator_polygon=None
         if world.excavator:
             e=world.excavator;r=world.config.support_half_width_m+.3;excavator_polygon=rectangle_polygon((e.position[0]-r,e.position[1]-r,2*r,2*r))
-        blocked=t.design_work|t.dump_mask
-        if t.protected is not None:blocked=blocked|t.protected
-        for q in self.sections:
+        for q,bearings in zip(self.sections,values):
             rect=spaces[q.id];q.rect=rect
-            safe=footprint_safe(t,rect,blocked,grade_deg=p['max_grade_deg'],relief_m=p['support_travel_m']) and support_safe(b.layout_spec,self.module(world,q),b.position,t)
+            safe=self._ground_safe(world,q,marine,bearings)
             if safe and site:safe=not site.ground_occupied(getattr(t,'owner_id',None),rect)
             if safe:safe=self._own_clear[q.id] and (excavator_polygon is None or not polygons_overlap(contours[q.id],excavator_polygon))
             if not safe:self.invalid_sections.append(q.id)
         self.issue=('SELF_SOLAR_BLOCKED: '+', '.join(self.invalid_sections)+'; панели закреплены, перемещение остановлено') if self.invalid_sections else ''
         world.solar_site_issue=self.issue
+
+    def _ground_safe(self,world,q,marine,bearings):
+        from .site_ground import rectangle_patch,footprint_safe
+        t=world.sim.terrain;rect=self._spaces[q.id];patch=rectangle_patch(t,rect)
+        if patch is None:return False
+        blocked=t.design_work[patch]|t.dump_mask[patch]
+        if t.protected is not None:blocked=blocked|t.protected[patch]
+        inputs=(t.height[patch],blocked,marine[patch],bearings)
+        old=self._support_ground.get(q.id)
+        if old is not None and all(np.array_equal(a,b) for a,b in zip(inputs,old[0])):return old[1]
+        p=self.settings
+        safe=(not np.any(blocked) and footprint_safe(t,rect,grade_deg=p['max_grade_deg'],relief_m=p['support_travel_m'])
+            and support_safe(world.sim.base.layout_spec,self.module(world,q),world.sim.base.position,t))
+        self._support_ground[q.id]=(tuple(v.copy() for v in inputs),bool(safe))
+        return safe
 
     def panel_pose(self,world,q,leaf):
         from .base_layout import rotate_offset
@@ -354,18 +381,31 @@ class SelfSolarArray:
         return centre+np.r_[rotate_offset(world.sim.base.config.layout,offset),p['hinge_height_m']+p['leaf_width_m']/2*math.cos(theta)]
 
     def sync_positions(self,world,force=False,only=None):
-        key=tuple(world.sim.base.position)
-        if only is None and not force and getattr(self,'_position_key',None)==key:return
-        self._position_key=key
+        b=world.sim.base;t=world.sim.terrain
+        key=(id(b.layout_spec),tuple(b.position),(b.config.layout or {}).get('heading_deg',0.))
+        stamp=(key,id(t.height),t.revision)
+        if only is None and not force and getattr(self,'_position_key',None)==key:
+            if getattr(self,'_position_stamp',None)==stamp:return
+            if np.array_equal(t.sample_many(self._position_centres),self._position_heights):
+                self._position_stamp=stamp;return
+        cache=getattr(self,'_panel_pose_cache',{});centres=[]
         for q in self.sections if only is None else only:
+            centre=self.centre(world,q);pose=(key,tuple(centre),q.open_fraction)
+            centres.append(centre)
+            if not force and cache.get(q.id)==pose:continue
+            cache[q.id]=pose
             chassis=world.inventory.items.get(f'platform_{q.platform_id:02}_chassis')
-            if chassis is not None:chassis.position=tuple(map(float,self.centre(world,q)))
+            if chassis is not None:chassis.position=tuple(map(float,centre))
             for i,ids in enumerate(q.leaves):
                 if not ids:continue
                 position=tuple(map(float,self.panel_pose(world,q,i)))
-                for id in ids:
-                    o=world.inventory.items[id];o.position=position;o.location=L.BASE_MOUNT;o.holder_id='base';o.state='ATTACHED'
-            if q.id in world.inventory.items:world.inventory.items[q.id].position=tuple(map(float,self.centre(world,q)))
+                for panel_id in ids:
+                    o=world.inventory.items[panel_id];o.position=position;o.location=L.BASE_MOUNT;o.holder_id='base';o.state='ATTACHED'
+            if q.id in world.inventory.items:world.inventory.items[q.id].position=tuple(map(float,centre))
+        self._panel_pose_cache=cache
+        if only is None:
+            centres=np.array(centres).reshape(-1,3);self._position_centres=centres[:,:2].copy();self._position_heights=centres[:,2].copy()
+            self._position_key=key;self._position_stamp=stamp
 
     def step(self,world):
         b=world.sim.base;p=self.settings
@@ -373,7 +413,7 @@ class SelfSolarArray:
         if b.destination is not None:
             if not self.stowed:raise ValueError('Движение со раскрытыми собственными солнечными крыльями запрещено')
             return
-        self.audit(world);changed=[]
+        self.audit(world);changed=[];geometry_changed=False
         for q in self.sections:
             q.reason=''
             if self.mode=='DEPLOY':
@@ -404,9 +444,10 @@ class SelfSolarArray:
             if abs(after-1)<1e-10:after=1.
             if abs(after)<1e-10:after=0.
             setattr(q,attr,after);q.elapsed+=1.;q.actuation_energy_j+=energy;changed.append(q)
+            if attr=='open_fraction':geometry_changed=True
         if changed:self.sync_positions(world,only=changed)
         self.sync_positions(world)
-        if changed and world.sim.shared_site:world.sim.shared_site.invalidate_geometry()
+        if geometry_changed and world.sim.shared_site:world.sim.shared_site.invalidate_geometry(world.sim)
         world.field_ready=self.ready;world.field_elapsed=self.duration()*sum(q.state=='DEPLOYED' for q in self.sections)/max(1,len(self.sections))
         world.base_pack_elapsed=self.duration() if self.mode=='FOLD' and self.stowed else self.duration()*.999*sum(q.state=='STOWED' for q in self.sections)/max(1,len(self.sections)) if self.mode=='FOLD' else 0.
 
