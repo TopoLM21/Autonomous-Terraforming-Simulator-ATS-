@@ -38,6 +38,15 @@ def refresh(host,terrain):
         if w.solar_ground_rects():
             for rect in a.reserved_rects:_rect(planned,rect)
         for q in a.sections:
+            if getattr(a,'mechanism',None)=='self_deploying':
+                target=deployed if q.state=='DEPLOYED' else active
+                for polygon in a.leaf_polygons(w,q):target.extend([*map(tuple,polygon),(np.nan,np.nan)])
+                if q.supports:
+                    from .self_solar import support_centres
+                    r=np.sqrt(a.settings['support_pad_m2'])/2*q.supports
+                    for point in support_centres(s.base.layout_spec,a.module(w,q),s.base.position,q.open_fraction):
+                        _rect(target,(point[0]-r,point[1]-r,2*r,2*r),True)
+                continue
             if q.state=='DEPLOYED':_rect(deployed,q.rect,True)
             elif q.state in ('ASSEMBLING','FOLDING'):_rect(active,q.rect,True)
         installers.extend(tuple(c.position[:2]) for c in a.crews)
@@ -61,7 +70,7 @@ def refresh(host,terrain):
 
 class SiteWindow(QtWidgets.QDialog):
     def __init__(self,parent):
-        super().__init__(parent);self.host=parent;self.setWindowTitle('Площадки · солнечные секции и отвал');self.resize(700,580)
+        super().__init__(parent);self.host=parent;self.setWindowTitle('Солнечные платформы и отвал');self.resize(760,650)
         layout=QtWidgets.QVBoxLayout(self);scroll=QtWidgets.QScrollArea();scroll.setWidgetResizable(True);layout.addWidget(scroll)
         page=QtWidgets.QWidget();box=QtWidgets.QVBoxLayout(page);scroll.setWidget(page)
         self.details=QtWidgets.QLabel();self.details.setWordWrap(True);self.details.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse);box.addWidget(self.details)
@@ -86,7 +95,7 @@ class SiteWindow(QtWidgets.QDialog):
             elif kind=='retry':a.issue='';w.audit_solar_site()
             if kind!='repack':w.wake_for_solar_service()
             if s.shared_site:s.shared_site.invalidate_geometry()
-            self.message.setText('Команда принята. Монтаж и перевозка выполняются при ходе модельного времени; требуют энергии.')
+            self.message.setText('Команда принята. Приводы работают при ходе модельного времени и расходуют энергию; панели остаются на носителях.' if getattr(a,'mechanism',None)=='self_deploying' else 'Команда принята. Монтаж и перевозка требуют модельного времени и энергии.')
             self.host.refresh(True)
         except ValueError as error:self.message.setText(str(error))
         self.refresh()
@@ -94,7 +103,23 @@ class SiteWindow(QtWidgets.QDialog):
     def refresh(self):
         s=self.host.sim;w=s.logistics;a=getattr(w,'solar_array',None) if w else None;t=s.terrain
         lines=['<b>Солнечные секции</b>']
-        if a:
+        attached=getattr(a,'mechanism',None)=='self_deploying'
+        self.fold.setText('Сложить собственные крылья и убрать опоры' if attached else 'Сложить секции и вернуть на носители')
+        self.deploy.setText('Раскрыть / возобновить раскрытие' if attached else 'Развернуть / продолжить монтаж')
+        self.replan.setVisible(not attached)
+        if attached:
+            p=a.settings;spec=s.base.layout_spec
+            lines=['<b>Самораскрывающиеся солнечные платформы</b>',
+                f'Введено {a.installed_area:g} / {s.base.config.panel_area:g} м². Собственных носителей {len(a.sections)}; монтажники не используются.',
+                f"Два крыла по {p['leaf_pairs']} листов {p['span_m']:g} × {p['leaf_width_m']:g} м; максимум {2*p['leaf_pairs']*p['span_m']*p['leaf_width_m']:g} м² на носитель. Панели и опоры постоянно закреплены.",
+                f"Транспортная высота {p['hinge_height_m']+p['leaf_width_m']+p['transport_clearance_m']:g} м. Опоры {p['support_seconds']:g} с, раскрытие {p['unfold_seconds']:g} с, подключение {p['connect_seconds']:g} с; приводы {p['motor_w']:g} Вт плюс механическая работа.",
+                'Серый пунктир — весь ход раскрытия; жёлтые листья — движение, голубые — подключённая платформа. Под крыльями и в зоне опор проезд запрещён.',
+                'Параметры условные: ветровой расчёт и прочность шарниров не моделируются.']
+            for q in a.sections:
+                module=a.module(w,q)
+                lines.append(f"Носитель {q.platform_id} · {q.id}: {q.state}; опоры {q.supports:.0%}, раскрытие {q.open_fraction:.0%}, подключение {q.connection:.0%}; {q.area_m2:g} м², полная масса {module['gross_mass_kg']:,.0f} кг; привод {q.actuation_energy_j/3600000:.3f} кВт·ч. {q.reason}")
+            if a.issue:lines.append(a.issue)
+        elif a:
             p=a.settings;states={state:sum(q.state==state for q in a.sections) for state in ('STOWED','DEPLOYED','IN_TRANSIT','ASSEMBLING','FOLDING')}
             mass=sum(w.inventory.items[id].mass_kg for id in a.support_ids)
             from .solar_array import recipe

@@ -106,6 +106,7 @@ class MainWindow(QtWidgets.QMainWindow):
         from .ui_windows import menu_button,hidden_action
         actions_menu=menu_button(header,self,'Управление ▾')
         actions_menu.addAction('Батарейные платформы…',self.show_battery_platforms)
+        actions_menu.addAction('Солнечные платформы и отвал…',self.show_site)
         fleet_button=QtWidgets.QPushButton("Оборудование")
         fleet_button.clicked.connect(self.edit_fleet);hidden_action(actions_menu,self,fleet_button)
         daily_button=QtWidgets.QPushButton("Статистика")
@@ -337,7 +338,7 @@ class MainWindow(QtWidgets.QMainWindow):
         solar_form.addRow(self.panel_info)
         self.apply_panels_button=QtWidgets.QPushButton('Применить площадь панелей сейчас')
         self.apply_panels_button.clicked.connect(self.apply_panel_area);solar_form.addRow(self.apply_panels_button)
-        self.site_button=QtWidgets.QPushButton('Солнечные секции и отвал…');self.site_button.clicked.connect(self.show_site);solar_form.addRow(self.site_button)
+        self.site_button=QtWidgets.QPushButton('Солнечные платформы и отвал…');self.site_button.clicked.connect(self.show_site);solar_form.addRow(self.site_button)
         self.base_batteries=QtWidgets.QSpinBox();self.base_batteries.setRange(0,1000)
         self.base_batteries.setValue(sum(b.quantity for b in config.base.equipment.batteries))
         solar_form.addRow('Аккумуляторов базы, шт.',self.base_batteries)

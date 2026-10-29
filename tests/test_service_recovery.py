@@ -13,7 +13,7 @@ from tests.test_workfront import canal
 
 def legacy_canal(**kwargs):
     # Preserve regression coverage of the aggregate model in pre-v7 saves.
-    c=deepcopy(canal(**kwargs).config);c.logistics.solar=None
+    c=deepcopy(canal(**kwargs).config);c.logistics.solar=None;c.logistics.self_solar=None
     return Simulation(c)
 
 

@@ -69,10 +69,14 @@ class LogisticsConfig:
     courier_low_soc: float = .10
     solar: dict | None = field(default_factory=dict)  # None preserves aggregate historical arrays
     battery_platforms: dict | None = field(default_factory=dict)  # None retains historical rack/service model
+    self_solar: dict | None = field(default_factory=dict)  # attached self-deploying PV; None reads legacy arrays
 
     def validate(self):
         from dataclasses import asdict
         values = asdict(self)
+        if self.self_solar is not None:
+            from .self_solar import parameters
+            self.self_solar=parameters(self.self_solar)
         if self.solar is not None:
             from .solar_array import parameters
             self.solar=parameters(self.solar)

@@ -15,6 +15,7 @@ from ats.spoil import inside_distance,reserve
 def solar_world(area=48.,crews=1):
     c=experiment_config(with_map_size(Config(),128),panel_area=area)
     c.logistics.solar={'installer_count':crews}
+    c.logistics.self_solar=None  # historical detached-section mechanics stay readable
     s=Simulation(c);s.landing_requested=True
     assert s.state.value=='RUNNING',s.reason
     return s
@@ -202,6 +203,7 @@ def test_legacy_water_field_load_warns_and_preserves_equipment(tmp_path):
 
 def test_empty_base_can_commission_extra_panels_from_integrated_roof():
     c=experiment_config(with_map_size(Config(),64),panel_area=72)
+    c.logistics.self_solar=None
     c.base.initial_charge=0.;c.start_hour=5.95;c.base.latitude_deg=0.;c.base.start_day_of_year=80
     c.logistics.excavator_enabled=False;c.logistics.container_count=0;c.logistics.drone_spare_sets=0
     s=Simulation(c);s.landing_requested=True;a=s.logistics.solar_array
@@ -216,7 +218,9 @@ def test_empty_base_can_commission_extra_panels_from_integrated_roof():
 def test_physical_sections_roundtrip_and_resume_keep_ids_and_changed_soil(tmp_path):
     from tests.test_regional import region_group,advance
     p=region_group(count=2,soil=True,side=128,cell=1.)
-    for u in p.units:u.simulation.set_panel_area(48)
+    for u in p.units:
+        u.simulation.config.logistics.self_solar=None
+        u.simulation.set_panel_area(48)
     t=p.shared_site.core;load=t.scoop_load(22,40,30.,radius=1.);t.deposit(100,100,load.mass,load=load)
     ground=t.height.copy();ids=p.inventory_ids()
     p.move_window([96.,64.]);advance(p,lambda:p.transition.phase=='PACK')

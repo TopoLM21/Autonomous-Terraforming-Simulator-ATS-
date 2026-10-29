@@ -145,7 +145,7 @@ def test_hot_shipments_keep_existing_mounts_ids_and_energy(tmp_path):
     s.set_base_battery_count(4);s.set_base_battery_count(5)
     s.set_panel_area(44)
     assert all(id in w.battery_platforms.bindings for id in w.base_battery_ids)
-    for q in w.solar_array.sections:assert np.allclose(w.inventory.items[q.id].position,w.battery_platforms.slot_position(q.id))
+    for q in w.solar_array.sections:assert np.allclose(w.inventory.items[q.id].position,w.solar_array.centre(w,q))
     path=tmp_path/'hot.atsstate';save_state(path,s);q=load_state(path).simulation
     assert s.report()==q.report() and abs(s.report()['energy_error_j'])<.002
 

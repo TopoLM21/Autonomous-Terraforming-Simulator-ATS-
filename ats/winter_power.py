@@ -34,6 +34,7 @@ def signature(config,latitude=None):
     data=equipment_data(equipment_copy(config))
     log=asdict(config.logistics) if config.logistics else None
     if log is not None and log.get('battery_platforms') is None:log.pop('battery_platforms',None)
+    if log is not None and log.get('self_solar') is None:log.pop('self_solar',None)
     data.update(latitude=float(config.base.latitude_deg if latitude is None else latitude),
                 peak=float(config.base.peak_irradiance),idle=float(config.base.idle_power),
                 logistics=log)

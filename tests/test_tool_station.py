@@ -15,6 +15,7 @@ def workshop(*,panels=20,drones=1,slots=None,soc=1.,digging=True):
     c=experiment_config(with_map_size(Config(),128),drones=drones,panel_area=panels,
                         landing_slots=drones if slots is None else slots,batch_courier=False)
     c.logistics.excavator_enabled=False;c.logistics.container_count=0
+    c.logistics.self_solar=None  # preserve original 200 W installer regression
     c.logistics.direct_allowed=digging;c.logistics.idle_digging=digging
     for d in c.fleet.models:d.initial_charge=soc
     s=Simulation(c);s.landing_requested=True

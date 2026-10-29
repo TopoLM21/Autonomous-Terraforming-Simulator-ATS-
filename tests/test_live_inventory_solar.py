@@ -92,11 +92,12 @@ def test_hot_krot_spares_recover_a_no_spares_block_without_reset():
 
 def test_live_solar_area_changes_mass_generation_and_saved_configuration(tmp_path):
     s=make_world();s.run(25);before=s.report();terrain=s.terrain.height.copy();time=s.time
+    old_chassis=s.base.config.equipment.chassis_mass_kg
     old_items={id:o for id,o in s.logistics.inventory.items.items() if o.kind!='SOLAR_PANEL'}
     s.set_panel_area(123.5)
     assert s.time==time and s.base.config.panel_area==123.5
     support=sum(o.mass_kg for o in s.logistics.inventory.items.values() if o.kind in ('SOLAR_FRAME','SOLAR_INSTALLER'))
-    assert s.base.config.mass-before['base_mass_kg']==pytest.approx(4*(123.5-20)+support)
+    assert s.base.config.mass-before['base_mass_kg']==pytest.approx(4*(123.5-20)+support+s.base.config.equipment.chassis_mass_kg-old_chassis)
     assert s.equipment_imported_energy==s.equipment_exported_energy==0
     assert all(s.logistics.inventory.items[id] is obj for id,obj in old_items.items())
     np.testing.assert_array_equal(s.terrain.height,terrain)

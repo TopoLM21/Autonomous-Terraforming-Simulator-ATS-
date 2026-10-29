@@ -13,6 +13,7 @@ from ats.checkpoint import save_state,load_state
 def config(side=128):
     c=experiment_config(with_map_size(Config(),side));c.base.layout={}
     c.logistics.battery_platforms=None  # retain the historical aggregate-layout regressions
+    c.logistics.self_solar=None
     return c
 
 

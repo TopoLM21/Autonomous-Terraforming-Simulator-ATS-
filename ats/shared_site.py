@@ -358,14 +358,20 @@ class SharedSite:
         for unit in self.project.units:
             s=unit.simulation;b=s.base;r=b.config.radius
             boxes=list(layout_footprints(b.layout_spec,b.position)) if b.config.layout is not None else [(b.position[0]-r,b.position[1]-r,2*r,2*r)]
-            top=float(b.position[2]+b.config.roof_height);self._obstacle_top=max(self._obstacle_top,top)
-            boxes=[(*box,top) for box in boxes]
+            # A parked aircraft is an actor, not solid carrier superstructure:
+            # otherwise its own takeoff would begin inside its transport box.
+            heights=[a['dimensions_m'][2] if a.get('role')=='PV' else b.config.roof_height for a in b.layout_spec['platforms']] if b.config.layout is not None else [b.config.roof_height]
+            boxes=[(*box,float(s.terrain.sample(box[0]+box[2]/2,box[1]+box[3]/2)+h)) for box,h in zip(boxes,heights)]
+            self._obstacle_top=max(self._obstacle_top,*(r[4] for r in boxes))
             boxes.append((*self.pads_bounds(s.config,b.position[:2],getattr(b,'layout_spec',None)),float(b.position[2])))
             if s.logistics and s.logistics.excavator and s.logistics.excavator.state.value!='AIR_TRANSPORT':
                 e=s.logistics.excavator;q=e.config.support_half_width_m
                 boxes.append((e.position[0]-q,e.position[1]-q,2*q,2*q,float(e.position[2]+1.)))
             if s.logistics:
-                for rect in s.logistics.solar_ground_rects():boxes.append((*rect,float(b.position[2]+1.4)))
+                a=getattr(s.logistics,'solar_array',None)
+                solar_top=max((s.terrain.sample(*a.centre(s.logistics,q)[:2])+a.settings['hinge_height_m']+a.settings['leaf_width_m']*(1-q.open_fraction) for q in a.sections),default=b.position[2]+1.4) if getattr(a,'mechanism',None)=='self_deploying' else b.position[2]+1.4
+                for rect in s.logistics.solar_ground_rects():boxes.append((*rect,float(solar_top)))
+                self._obstacle_top=max(self._obstacle_top,solar_top)
                 if s.logistics.battery_platforms:
                     for rect in s.logistics.battery_platforms.rectangles():boxes.append((*rect,float(b.position[2]+.5)))
             for xx,yy,ww,hh,z in boxes:

@@ -191,10 +191,11 @@ class Logistics:
             apply_live_layout(self,solve_layout(sim.config,self))
             from .battery_platforms import enabled,BatteryPlatforms
             if enabled(sim.config):self.battery_platforms=BatteryPlatforms(self)
-        if sim.base.config.panel_area>20 and self.config.solar is not None:
+        if sim.base.config.panel_area>20 and (self.config.solar is not None or self.config.self_solar is not None):
             try:
                 from .solar_array import SolarArray
-                self.solar_array=SolarArray(self);self.solar_array.add_inventory(self)
+                from .self_solar import SelfSolarArray
+                self.solar_array=(SelfSolarArray if self.config.self_solar is not None else SolarArray)(self);self.solar_array.add_inventory(self)
                 self._solar_bounds()
             except ValueError as error:sim.block(str(error))
         self.update_base_mass()
@@ -219,6 +220,8 @@ class Logistics:
         array=getattr(self,'solar_array',None)
         if array:
             if not array.stowed:raise ValueError('Сначала физически сложите солнечные секции')
+            if getattr(array,'mechanism',None)=='self_deploying':
+                array.plan(self);self._solar_bounds();array.request_deploy();return
             from copy import deepcopy
             old=self.solar_array;self.solar_array=None;rect=self.field_rect;self.field_rect=None
             try:
@@ -244,6 +247,8 @@ class Logistics:
         previous=getattr(self,'solar_site_issue','');self.solar_site_issue=''
         if array:
             array.validate(self)
+            if getattr(array,'mechanism',None)=='self_deploying':
+                array.audit(self);self.solar_site_issue=array.issue;return array.issue
             if array.issue.startswith('BLOCKED_SOLAR_SITE:'):array.issue=''
             deployed=[q for q in array.sections if q.state=='DEPLOYED']
             array.invalid_sections=[q.id for q in deployed if not footprint_safe(t,q.rect,t.design_work|t.dump_mask,
@@ -298,7 +303,8 @@ class Logistics:
         if prospective_batteries is not None:equipment.batteries=deepcopy(prospective_batteries);equipment.validate()
         from .base_layout import preview_live_layout,apply_live_layout
         layout=preview_live_layout(self,panels=panels,batteries=equipment.batteries)
-        if self.config.solar is not None and equipment.panel_area>20:
+        attached=self.config.self_solar is not None
+        if not attached and self.config.solar is not None and equipment.panel_area>20:
             from .solar_array import recipe,parameters
             settings=parameters(self.config.solar);groups,_,_,_=recipe(equipment.panels,settings)
             if any(mass+max(1.,area/settings['section_area_m2'])*settings['frame_mass_kg']>settings['installer_payload_kg'] for _,area,mass in groups):raise ValueError('Солнечная кассета тяжелее грузоподъёмности монтажника')
@@ -308,14 +314,14 @@ class Logistics:
             # A conservative tile-area bound rejects impossible deliveries
             # atomically, without folding a perfectly working existing field.
             p=array.settings;side=s.terrain.height.shape[0]*s.terrain.cell
-            packed=equipment.panel_area*(1+p['column_lane_m']/p['section_width_m'])*(1+p['row_lane_m']/(p['section_area_m2']/p['section_width_m']))
+            packed=0. if attached else equipment.panel_area*(1+p['column_lane_m']/p['section_width_m'])*(1+p['row_lane_m']/(p['section_area_m2']/p['section_width_m']))
             if packed>side**2:raise ValueError('Солнечные секции с проездами не помещаются на карте')
             if dry_run:return 'waiting'
             self.pending_solar_panels=deepcopy(panels);array.request_fold()
             self.wake_for_solar_service()
             s.event('Изменение панелей ожидает физического возврата солнечных секций')
             return 'waiting'
-        modern=self.config.solar is not None and equipment.panel_area>20
+        modern=(attached or self.config.solar is not None) and (equipment.panel_area>20 or attached and layout is not None and 'self_solar' in layout)
         rect=None if modern else self.solar_field_site(equipment.panel_area)
         deployed=min(self.generating_area(),equipment.panel_area)
         old_support=sum(o.mass_kg for o in self.inventory.items.values() if o.kind in ('SOLAR_FRAME','SOLAR_INSTALLER'))
@@ -330,11 +336,13 @@ class Logistics:
         proposed=None
         if modern:
             from .solar_array import SolarArray
+            from .self_solar import SelfSolarArray
             from .power_design import equipment_copy
             probe=copy(self);actor=copy(s);actor.config=equipment_copy(s.config);actor.base=copy(s.base)
             actor.base.config=actor.config.base;actor.base.config.equipment=equipment
             if layout is not None:
-                actor.base.layout_spec=layout;actor.base.config.radius=layout['dimensions_m'][0]/2;actor.base.config.roof_height=layout.get('deck_height_m',layout['dimensions_m'][2])
+                actor.base.layout_spec=layout;actor.base.config.radius=layout.get('hub_radius_m',layout['dimensions_m'][0]/2);actor.base.config.roof_height=layout.get('deck_height_m',layout['dimensions_m'][2])
+                actor.base.config.layout=dict(layout['parameters'])
             probe.sim=actor;probe.config=actor.config.logistics;actor.logistics=probe
             probe.inventory=Inventory(items);probe.solar_array=None;probe.field_rect=None
             if self.battery_platforms and layout is not None:
@@ -342,7 +350,7 @@ class Logistics:
                 probe.battery_platforms=copy(self.battery_platforms);probe.battery_platforms.world=probe
                 probe.battery_platforms.bindings=layout['bindings']
                 probe.battery_platforms.carriers={a['id']:deepcopy(self.battery_platforms.carriers.get(a['id'],CarrierState(a['id']))) for a in layout['platforms'] if a['role'] in ('BESS','SERVICE')}
-            proposed=SolarArray(probe)
+            proposed=(SelfSolarArray if attached else SolarArray)(probe)
         if dry_run:return 'applied'
         old_mass=sum(o.mass_kg for o in self.inventory.items.values() if o.kind=='SOLAR_PANEL')
         new_mass=sum(p.quantity*p.mass_kg for p in equipment.panels)
@@ -350,7 +358,9 @@ class Logistics:
         self.inventory.items=items
         self.solar_array=None
         s.base.config.equipment=equipment;equipment.resolve(s.base.config,s.config.fleet)
-        if layout is not None:apply_live_layout(self,layout)
+        if layout is not None:
+            if s.base.config.layout is None and attached:self.config.battery_platforms=None
+            apply_live_layout(self,layout)
         self.field_rect=rect;self.base_pack_elapsed=0.
         self.field_ready=rect is None or deployed>=equipment.panel_area
         self.field_elapsed=(self.config.field_deployment_seconds*deployed/equipment.panel_area
@@ -1178,6 +1188,8 @@ class Logistics:
                 b.position=positions[f'drone_{d.serial}']
         self.battery_service.update_slot_states()
         if self.battery_platforms:self.battery_platforms.position_items()
+        array=getattr(self,'solar_array',None)
+        if getattr(array,'mechanism',None)=='self_deploying':array.sync_positions(self)
         self.inventory.validate(dynamic=int(self.sim.time)%60!=0)
         mounted=set()
         for d in self.sim.drones:
@@ -1446,6 +1458,7 @@ class Logistics:
             report['solar_sections']=self.solar_array.report()
             if not self.field_ready and s.base.destination is None:
                 action='Возврат солнечных секций' if self.solar_array.mode=='FOLD' else 'Монтаж солнечных секций'
+                if getattr(self.solar_array,'mechanism',None)=='self_deploying':action='Складывание собственных крыльев' if self.solar_array.mode=='FOLD' else 'Самораскрытие солнечных платформ'
                 report['base_energy_status']=f'{action}: в работе {self.generating_area():g} м²; питание и зарядка — в пределах доступной мощности'
         if report.get('solar_site_issue'):report['base_energy_status']=report['solar_site_issue']
         if getattr(s.terrain,'dump_reserve_info',None):report['spoil_reserve']=dict(s.terrain.dump_reserve_info)

@@ -89,7 +89,10 @@ class ComplexTemplate:
             if log.excavator_enabled:mass+=log.excavator_dry_mass_kg+robot_modules*log.pack_mass_kg
             if log.individual_chargers:mass+=(drone_modules*(1+log.drone_spare_sets)+robot_modules)*log.charger_slot_mass_kg
             mass+=sum(r['count']*(r['mass_kg']+(log.charger_slot_mass_kg if log.individual_chargers else 0.)) for r in self.stock or [])
-            if log.solar is not None and c.base.panel_area>20:
+            if getattr(log,'self_solar',None) is not None and c.base.panel_area>20:
+                from .self_solar import recipe
+                groups,_=recipe(c.base.equipment.panels,log.self_solar);mass+=sum(g['hardware_kg'] for g in groups)
+            elif log.solar is not None and c.base.panel_area>20:
                 from .solar_array import recipe,parameters
                 _,crews,frames,_=recipe(c.base.equipment.panels,log.solar)
                 mass+=frames+crews*parameters(log.solar)['installer_mass_kg']
@@ -267,6 +270,10 @@ class ComplexProject:
             base=SolarBase(c.base,np.r_[point,view.sample(*point)])
             if spec:base.layout_spec=spec
             if spec:
+                if 'self_solar' in spec:
+                    from .self_solar import place
+                    try:spec=place(c,spec,point,view);base.layout_spec=spec
+                    except ValueError:continue
                 from .battery_platforms import deployment_safe
                 if not deployment_safe(spec,point,view):continue
             if base.safe_path(point,view):chosen=point;break

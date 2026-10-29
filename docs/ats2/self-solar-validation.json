@@ -1,0 +1,378 @@
+{
+  "date_utc": "2026-10-29T08:53:07.722524+00:00",
+  "base_commit": "1bd58997a2a66d8a1abafe1c1691d1ea5d5f4c44",
+  "published": false,
+  "environment": {
+    "python": "3.12.14",
+    "system": "Linux",
+    "numpy": "2.5.4",
+    "qt": "6.12.0",
+    "cpu_quota": 4
+  },
+  "tests": {
+    "total": 559,
+    "passed": 559,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "shards": [
+      {
+        "tests": 128,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "wall_s": 163.823,
+        "files": [
+          "tests/test_completion.py",
+          "tests/test_workfront.py",
+          "tests/test_soil.py",
+          "tests/test_shared_site.py",
+          "tests/test_complexes.py",
+          "tests/test_tool_station.py",
+          "tests/test_equipment.py",
+          "tests/test_material_slopes.py",
+          "tests/test_cli.py",
+          "tests/test_drone.py",
+          "tests/test_display_modes.py",
+          "tests/test_terrain.py",
+          "tests/test_scheduler_utilization.py",
+          "tests/test_laser_reference.py",
+          "tests/test_dust.py"
+        ]
+      },
+      {
+        "tests": 183,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "wall_s": 143.788,
+        "files": [
+          "tests/test_large_solar_base_specs.py",
+          "tests/test_base_layout.py",
+          "tests/test_fleet.py",
+          "tests/test_service_recovery.py",
+          "tests/test_plan.py",
+          "tests/test_checkpoint.py",
+          "tests/test_landscape_ui.py",
+          "tests/test_batch_strategy.py",
+          "tests/test_channel.py",
+          "tests/test_maps_and_zoom.py",
+          "tests/test_earthworks_performance.py",
+          "tests/test_base_batteries.py",
+          "tests/test_power_design.py",
+          "tests/test_compact_overviews.py",
+          "tests/test_individual_chargers.py",
+          "tests/test_dig_rate.py"
+        ]
+      },
+      {
+        "tests": 248,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "wall_s": 167.077,
+        "files": [
+          "tests/test_winter_power.py",
+          "tests/test_logistics.py",
+          "tests/test_battery_platforms.py",
+          "tests/test_regional.py",
+          "tests/test_site_layout.py",
+          "tests/test_self_solar.py",
+          "tests/test_landscape.py",
+          "tests/test_live_inventory_solar.py",
+          "tests/test_gui.py",
+          "tests/test_spare_controls.py",
+          "tests/test_activity_stats.py",
+          "tests/test_laser.py",
+          "tests/test_runtime_optimizations.py",
+          "tests/test_energy.py",
+          "tests/test_solar.py"
+        ]
+      }
+    ],
+    "collection": "559 tests collected",
+    "compileall": true,
+    "diff_check": true
+  },
+  "cli": {
+    "groups": [
+      {
+        "name": "legacy",
+        "returncode": 0,
+        "wall_s": 1.4001663849994657
+      },
+      {
+        "name": "ATS 2.0 logistics smoke test",
+        "returncode": 0,
+        "wall_s": 9.337605205000727
+      },
+      {
+        "name": "Offline real DEM smoke test",
+        "returncode": 0,
+        "wall_s": 0.46386592700037
+      },
+      {
+        "name": "Save and resume airborne simulation",
+        "returncode": 0,
+        "wall_s": 2.7695904209995206
+      },
+      {
+        "name": "Prepared Qattara channel smoke test",
+        "returncode": 0,
+        "wall_s": 3.656746253000165
+      },
+      {
+        "name": "Layered soil and complete snapshot continuation",
+        "returncode": 0,
+        "wall_s": 2.317711514000621
+      },
+      {
+        "name": "Energy sizing and executable equipment template",
+        "returncode": 0,
+        "wall_s": 0.5358276950009895
+      },
+      {
+        "name": "Two complexes on common regional project and exact resume",
+        "returncode": 0,
+        "wall_s": 21.25251483000102
+      },
+      {
+        "name": "Twenty complexes on one physical map and exact snapshot continuation",
+        "returncode": 0,
+        "wall_s": 6.691281968000112
+      },
+      {
+        "name": "Continuous design includes real platform hardware",
+        "returncode": 0,
+        "wall_s": 0.6218507409994345
+      }
+    ],
+    "source": ".github/workflows/tests.yml; all ten Python CLI scenario groups and their assertions, unchanged"
+  },
+  "behavior": {
+    "new_default": "attached self-deploying PV",
+    "legacy": "v1-v8 keep original arrays and equipment",
+    "roundtrip": "two physical complexes A→B→A, layered ground, inventory IDs, save during drive; current battery-platform regression",
+    "cancel": "partial folding reverses without a pose jump, history records CANCELLED",
+    "partial_snapshots": "supports/unfold/connect/disconnect/fold/retract; exact deterministic continuation",
+    "dock_service": "battery swap and hook change complete independently of PV readiness",
+    "hot_equipment": "physical chassis import mass retained by equipment dialog; empty PV carriers retained; core additions preserve PV IDs",
+    "ui": "actual QAction Управление → Солнечные платформы и отвал… triggered offscreen; partial leaves and supports rendered; no installer actors"
+  },
+  "performance": {
+    "method": "Synthetic 512 m square, 1 m cells, uniform soil, 14 complexes × 4 drones, 68 m² per complex. 1 s physics step. Ten warm steps then 300 measured. Old checkpoint trials begin from the identical v8 file and execute identical model seconds. Fresh-old and fresh-new trials differ in commissioning phase and carrier hardware; do not treat their ratio as an equivalent-work speedup.",
+    "reproduction": "python scripts/benchmark_battery_platforms.py --complexes 14 --steps 300 --output benchmark.json --save-state benchmark.atsstate; baseline code archived from base_commit",
+    "same_v8_checkpoint_before": {
+      "python": "3.12.14",
+      "system": "Linux",
+      "root": "/tmp/ats-self-solar-baseline-_ohtf07y",
+      "model_start_s": 698.0,
+      "model_end_s": 998.0,
+      "wall_s": 25.809066110999993,
+      "factor": 11.623822369618328,
+      "max_tick_s": 0.2186482220004109,
+      "median_tick_s": 0.08663072299896157,
+      "complexes": 14,
+      "drones": 56,
+      "platforms": 84,
+      "mass_error_kg": -3.637978807091713e-12,
+      "equipment_mass_error_kg": 0.0,
+      "energy_error_j": 6.28134876023978e-06
+    },
+    "same_v8_checkpoint_after": {
+      "python": "3.12.14",
+      "system": "Linux",
+      "root": "/workspace/ats-project",
+      "model_start_s": 698.0,
+      "model_end_s": 998.0,
+      "wall_s": 26.141631715001495,
+      "factor": 11.475947762963994,
+      "max_tick_s": 0.1923655000009603,
+      "median_tick_s": 0.08548212000005151,
+      "complexes": 14,
+      "drones": 56,
+      "platforms": 84,
+      "mass_error_kg": -3.637978807091713e-12,
+      "equipment_mass_error_kg": 0.0,
+      "energy_error_j": 6.28134876023978e-06
+    },
+    "fresh_old_14x4": {
+      "python": "3.12.14",
+      "system": "Linux",
+      "root": "/tmp/ats-self-solar-baseline-_ohtf07y",
+      "model_start_s": 388.0,
+      "model_end_s": 688.0,
+      "wall_s": 17.228960557999017,
+      "factor": 17.41254203874283,
+      "max_tick_s": 0.21489306299918098,
+      "median_tick_s": 0.04445134100024006,
+      "complexes": 14,
+      "drones": 56,
+      "platforms": 84,
+      "mass_error_kg": -4.547473508864641e-13,
+      "equipment_mass_error_kg": 0.0,
+      "energy_error_j": 7.902708603069186e-07
+    },
+    "fresh_new_14x4": {
+      "python": "3.12.14",
+      "system": "Linux",
+      "root": "/workspace/ats-project",
+      "model_start_s": 231.0,
+      "model_end_s": 531.0,
+      "wall_s": 16.062611695999294,
+      "factor": 18.676912925357016,
+      "max_tick_s": 0.22593087700079195,
+      "median_tick_s": 0.04079467500014289,
+      "complexes": 14,
+      "drones": 56,
+      "platforms": 98,
+      "mass_error_kg": -7.105427357601002e-13,
+      "equipment_mass_error_kg": 0.0,
+      "energy_error_j": 2.845234121195972e-06
+    },
+    "gui_new_14x4": {
+      "mode": "Qt offscreen auto map, target 2000x",
+      "complexes": 14,
+      "drones": 56,
+      "wall_s": 4.036600179999368,
+      "model_seconds": 32.0,
+      "factor": 7.927463353580142,
+      "max_heartbeat_gap_s": 0.2529963039996801,
+      "mean_heartbeat_gap_s": 0.13832102557145326,
+      "median_forced_refresh_s": 0.051669413998752134,
+      "max_forced_refresh_s": 0.08906219300115481,
+      "qt_map_items": 111,
+      "mass_error_kg": -3.183231456205249e-12,
+      "equipment_mass_error_kg": 0.0,
+      "energy_error_j": 3.036620910279453e-06
+    },
+    "gui_v8_before": {
+      "mode": "Qt offscreen auto map, target 2000x",
+      "complexes": 14,
+      "drones": 56,
+      "wall_s": 4.082936135000637,
+      "model_seconds": 41.0,
+      "factor": 10.041793122486254,
+      "max_heartbeat_gap_s": 0.1987444750011491,
+      "mean_heartbeat_gap_s": 0.11397417094288227,
+      "median_forced_refresh_s": 0.04280978350016085,
+      "max_forced_refresh_s": 0.045617331999892485,
+      "qt_map_items": 111,
+      "mass_error_kg": -3.637978807091713e-12,
+      "equipment_mass_error_kg": 0.0,
+      "energy_error_j": 1.2671080185100436e-06
+    },
+    "gui_v8_after": {
+      "mode": "Qt offscreen auto map, target 2000x",
+      "complexes": 14,
+      "drones": 56,
+      "wall_s": 4.066397618998963,
+      "model_seconds": 38.0,
+      "factor": 9.344880545487475,
+      "max_heartbeat_gap_s": 0.30165667999972356,
+      "mean_heartbeat_gap_s": 0.12084142812124231,
+      "median_forced_refresh_s": 0.04479755050033418,
+      "max_forced_refresh_s": 0.05111586900056864,
+      "qt_map_items": 111,
+      "mass_error_kg": 4.547473508864641e-13,
+      "equipment_mass_error_kg": 0.0,
+      "energy_error_j": 1.2671080185100436e-06
+    },
+    "audit_219_platforms": {
+      "platforms": 219,
+      "before_s": [
+        1.016458865999084,
+        0.9950800229999004,
+        0.9772291200006293
+      ],
+      "after_s": [
+        0.029270783999891137,
+        0.028047141000570264,
+        0.02877302100023371
+      ],
+      "issue": ""
+    },
+    "winter_runtime": {
+      "latitude": 55,
+      "panels_m2": 31471.0,
+      "platforms": 231,
+      "pv_platforms": 219,
+      "commissioned_s": 225,
+      "setup_wall_s": 9.715881280999383,
+      "ticks_wall_s": 24.19791945999168,
+      "max_tick_s": 0.19287100800102053,
+      "render_s": 0.5362601630004065,
+      "qt_map_items": 83,
+      "save_s": 1.257983546000105,
+      "load_s": 1.0193922679991374,
+      "state": "RUNNING",
+      "energy_error_j": 7.696449756622314e-06,
+      "mass_error_kg": 0.0
+    },
+    "winter_designs": [
+      {
+        "latitude": 31,
+        "area_m2": 7350.0,
+        "capacity_kwh": 2590.0,
+        "platforms": 62,
+        "mass_kg": 184979.0,
+        "winter_repeatable": true,
+        "demand_kwh": 3396.144397670629,
+        "solar_kwh": 4415.232189299165
+      },
+      {
+        "latitude": 31.078,
+        "area_m2": 7370.0,
+        "capacity_kwh": 2590.0,
+        "platforms": 63,
+        "mass_kg": 187153.0,
+        "winter_repeatable": true,
+        "demand_kwh": 3396.8643976706285,
+        "solar_kwh": 4416.183168138218
+      },
+      {
+        "latitude": 55,
+        "area_m2": 31471.0,
+        "capacity_kwh": 3190.0,
+        "platforms": 231,
+        "mass_kg": 641185.0,
+        "winter_repeatable": true,
+        "demand_kwh": 3520.1043976706283,
+        "solar_kwh": 4576.137285717285
+      }
+    ]
+  },
+  "limits": [
+    "Conditional machine geometry and masses, not a manufacturer rating; no wind/hinge strength or shadow solver.",
+    "Whole formation retains relative offsets; no free independent platform rearrangement.",
+    "New saves v9 require this reader; old files are read without automatic PV migration.",
+    "GUI measured using Linux offscreen software rendering; Windows/CI not run for this unpushed change.",
+    "No user save reproducing the reported 23-hour freeze was supplied; these are bounded synthetic regressions, not that reproduction."
+  ],
+  "source_sha256": {
+    "ats/base_layout.py": "8b93d3e2efc345ccaf1c5304b32d0bb1b22fd308feda9fbdf9491f274c33a785",
+    "ats/battery_platforms.py": "22b5b786f5f3bd095deafaed09efa12febfd9591186d5e4913b2882642943818",
+    "ats/checkpoint.py": "f3bfd4471fdfc2045b7d40ce4eb4ed11be607ffd844e4e5f868c8c6796bb7a86",
+    "ats/complexes.py": "22f203a93e73cac9656090cdd6394752e7b1360e9ea948ac6591ea070af68118",
+    "ats/experiments.py": "89291b3126209be570a3e84fe2d301af917d4cacfdede46afea82a40e0e5559d",
+    "ats/gui.py": "359788f5ea7a6b35d8bded0bae5c040aeb811ebfabcb0149e19aa09e72551d76",
+    "ats/logistics.py": "7fcfd6d9accdab2011f21d3a191618c3f52abece495900d516e5bb3c00f6fe2e",
+    "ats/logistics_config.py": "79881a78a4320bd4b4194a893aecb86692fe3eec8d9b806e44ea1e8be7fbc397",
+    "ats/regional.py": "4044c76aa351bc194e309dcca4f64717ccc9ac195a69ba871259047e4c1da455",
+    "ats/self_solar.py": "9922e9b90682b30f5b22e2162ffe694792e0f3a3bc0f50516406626f837c32c3",
+    "ats/shared_site.py": "9d9c7760d00d881eab0692218461a0f3793ffda85e11897a208fa8f12cbba5ee",
+    "ats/simulation.py": "b3a8e40c44cff541fd3b76f695ac5c487e4277a43711d398816724d41f5fd1a9",
+    "ats/site_ui.py": "0d959a231cd022884d9834499a3b670a3c37dc2963b1ff13487951e38b17aece",
+    "ats/solar_base.py": "886652fe29969643c390ef09a76009c6fd4eea3e46a327477a3bc9972eda2d32",
+    "ats/winter_power.py": "36a8626e6be0a0552ff2447007c916c04b8574d6a8d0bfbd4605b02729a5d7ff",
+    "tests/test_base_layout.py": "cb7d1ba1dd80962621f96426f24474edbaadce7dd49f3706e874bc3059cfb979",
+    "tests/test_battery_platforms.py": "9089b663215833d33b735a6e3ef3a64ac2fb75fbe7891cf55b6ad1fa436027cf",
+    "tests/test_large_solar_base_specs.py": "5c2a2fd557bfed54ffc365ba9b0472c6db97c94f2fff1c6035187529a2675fdf",
+    "tests/test_live_inventory_solar.py": "2eabb352a9e8e64c2222bb9f370ff3c4561ade58ff9ba67f0e3c2b33dbae3fa7",
+    "tests/test_self_solar.py": "2626d036fde3ec6915f3819c79f4d3b5f417650cb730c056390888de236564c6",
+    "tests/test_service_recovery.py": "f750f29c9bc694bfcc19278b4d9fcf802b8459bf2b8ba5bed593d4206cb727d8",
+    "tests/test_site_layout.py": "c239735ab9745eb6d6d7cfe136772e53c6bc5baf98f6c540f59771425972598a",
+    "tests/test_tool_station.py": "35a8e801b4f419ca101833c474623d15c04190e5ea1b1b3e3ad49da71de2ef1f",
+    "tests/test_workfront.py": "93626e5e31348bff4607d8462284a578d5000eaa7970062fa19bac1fcdd37d2b"
+  }
+}

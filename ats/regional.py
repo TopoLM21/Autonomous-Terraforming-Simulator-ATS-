@@ -157,6 +157,9 @@ class RegionalTransition:
                 if s.logistics.battery_platforms:
                     from .battery_platforms import deployment_rectangles
                     boxes.extend(deployment_rectangles(b.layout_spec,point))
+                if b.config.layout is not None:
+                    from .self_solar import deployment_rectangles as solar_rectangles
+                    boxes.extend(solar_rectangles(b.layout_spec,point))
                 return (min(x for x,y,w,h in boxes),min(y for x,y,w,h in boxes),
                         max(x+w for x,y,w,h in boxes)-min(x for x,y,w,h in boxes),
                         max(y+h for x,y,w,h in boxes)-min(y for x,y,w,h in boxes))
@@ -182,6 +185,9 @@ class RegionalTransition:
                     target_site=copy(p.shared_site);target_site.core=self.preview
                     if not target_site.pads_clear(s.config,point+offset,getattr(b,'layout_spec',None)):continue
                 if b.config.layout is not None and not deployment_safe(b.layout_spec,point+offset,self.preview):continue
+                if b.config.layout is not None:
+                    from .self_solar import deployment_safe as solar_safe
+                    if not solar_safe(b.layout_spec,point,s.terrain) or not solar_safe(b.layout_spec,point+offset,self.preview):continue
                 e=s.logistics.excavator;eg=None
                 if e:
                     support=e.config.support_half_width_m

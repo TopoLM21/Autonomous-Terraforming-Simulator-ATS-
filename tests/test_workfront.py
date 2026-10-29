@@ -10,7 +10,7 @@ from ats.simulation import Simulation
 from tests.test_channel import coastal_dem
 
 
-def canal(*, logistics=True, slots=1, panels=None):
+def canal(*, logistics=True, slots=1, panels=None,self_deploying=False):
     r=coastal_dem(80)
     project=ChannelProject.create(r,[[50,150],[215,150]],width_m=1,depth_m=.05,side_m=128)
     c=Config()
@@ -18,6 +18,7 @@ def canal(*, logistics=True, slots=1, panels=None):
     # of charging; production physics is tested with the normal power elsewhere.
     c.drone.hover_power=1000
     if logistics:c=experiment_config(c,landing_slots=slots,panel_area=panels)
+    if logistics and not self_deploying:c.logistics.self_solar=None
     return Simulation(project.configuration(Landscape(r),c))
 
 

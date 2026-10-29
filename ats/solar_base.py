@@ -57,6 +57,7 @@ class SolarBase:
         return self.config.move_power*total_mass/self.config.reference_total_mass
 
     def route_energy(self,target,terrain,drones):
+        if self.config.layout is not None and 'self_solar' in self.layout_spec:return self.carrier_route_energy(target,terrain,drones)
         distance=float(np.linalg.norm(np.asarray(target)-self.position[:2]))
         points=np.linspace(self.position[:2],target,max(2,math.ceil(distance/(terrain.cell/2))+1))
         heights=np.array([terrain.sample(*p) for p in points])
@@ -70,6 +71,31 @@ class SolarBase:
             return force*distance/p['drive_efficiency']+mass*9.80665*climb/p['drive_efficiency']+self.layout_spec['control_power_w']*distance/self.config.speed
         return self.motion_power(drones)*distance/self.config.speed+mass*9.80665*climb/.8
 
+    def carrier_route_energy(self,target,terrain,drones):
+        """Each attached PV carrier travels over its own ground, with real mass.
+
+        No descent regeneration. This also supplies the actual one-second drive
+        integration, so a field spread over uneven ground cannot use hub height
+        for the potential energy of every remote carrier.
+        """
+        from .base_layout import rotate_offset,ground_properties
+        from .battery_platforms import owner_world
+        distance=float(np.linalg.norm(np.asarray(target)-self.position[:2]))
+        if distance<1e-12:return 0.
+        points=np.linspace(self.position[:2],target,max(2,math.ceil(distance/(terrain.cell/2))+1))
+        ds=distance/(len(points)-1);p=self.layout_spec['parameters']
+        world=owner_world(self,terrain);manager=getattr(world,'battery_platforms',None)
+        loads=manager.loads() if manager else None
+        actual=self.config.mass+sum(d.config.empty_mass+d.cargo for d in drones if d.docked)
+        scale=actual/self.layout_spec['packed_gross_mass_kg'];energy=0.
+        for module in self.layout_spec['platforms']:
+            xy=points+rotate_offset(p,module['offset_m'])
+            heights=terrain.sample_many(xy)
+            mass=loads[module['id']]['mass_kg'] if loads else module['gross_mass_kg']*scale
+            rolling=sum(ground_properties(terrain,point,p)[2] for point in xy[:-1])*ds
+            energy+=mass*9.80665*(rolling+float(np.maximum(np.diff(heights),0).sum()))/p['drive_efficiency']
+        return energy+self.layout_spec['control_power_w']*distance/self.config.speed
+
     def tick(self, dt, hour, drone, charging, day_of_year=None,laser_links=(),modules=(),bus_limit_w=None,
              storage_charge_w=None,storage_discharge_w=None,auxiliary_w=0.,module_bus_limit_w=None,terrain=None):
         b = self.config
@@ -79,6 +105,9 @@ class SolarBase:
         if self.destination is not None:
             from .battery_platforms import owner_world
             world=owner_world(self,terrain) if terrain is not None else None;platforms=getattr(world,'battery_platforms',None)
+            array=getattr(world,'solar_array',None)
+            if getattr(array,'mechanism',None)=='self_deploying' and not array.stowed:
+                self.destination=None;return 'Движение запрещено: сначала сложите собственные солнечные крылья и опоры'
             if platforms and not platforms.stowed:
                 self.destination=None;return 'Движение запрещено: сначала уберите опоры батарейных платформ'
             self.state = BaseState.MOVING
@@ -92,6 +121,7 @@ class SolarBase:
                   else self.motion_power(drone)/b.move_power*b.reference_total_mass)
             efficiency=self.layout_spec['parameters']['drive_efficiency'] if b.layout is not None else .8
             needed+=mass*9.80665*max(0.,ground-self.position[2])/efficiency
+            if b.layout is not None and 'self_solar' in self.layout_spec:needed=self.carrier_route_energy(point,terrain,drones)
             if needed>min(bus_limit_w if bus_limit_w is not None else float('inf'),storage_discharge_w if storage_discharge_w is not None else float('inf'))*dt:
                 self.destination=None;self.state=BaseState.WAITING_FOR_SUN
                 return 'База остановилась: ограничение мощности BESS или общей шины'

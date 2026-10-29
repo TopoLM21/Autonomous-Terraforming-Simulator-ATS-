@@ -30,16 +30,19 @@ def test_large_solar_installation_in_flight_preserves_jobs_energy_and_saved_stat
     before=s.report();terrain=s.terrain.height.copy()
     positions=[d.position.copy() for d in s.drones];active=dict(s.logistics.active)
     physical={id:item for id,item in s.logistics.inventory.items.items() if item.kind!='SOLAR_PANEL'}
+    old_chassis=s.base.config.equipment.chassis_mass_kg
     s.set_panel_area(10000);r=s.report()
     support=sum(o.mass_kg for o in s.logistics.inventory.items.values() if o.kind in ('SOLAR_FRAME','SOLAR_INSTALLER'))
-    assert s.time==25 and r['base_mass_kg']-before['base_mass_kg']==39920+support
-    assert r['inventory_imported_mass_kg']==39920+support
+    # Added tracked PV carriers are delivered equipment as well as their panels.
+    chassis=s.base.config.equipment.chassis_mass_kg-old_chassis
+    assert s.time==25 and r['base_mass_kg']-before['base_mass_kg']==39920+support+chassis
+    assert r['inventory_imported_mass_kg']==39920+support+chassis
     assert s.config.base.equipment.panels==[PanelModule(quantity=10000)]
     panels=[p for p in s.logistics.inventory.items.values() if p.kind=='SOLAR_PANEL']
     assert len(panels)==10000 and sum(p.mass_kg for p in panels)==40000
     assert r['base_kwh']==before['base_kwh'] and r['equipment_imported_kwh']==0
     assert np.prod(r['base_specification']['solar_field_dimensions_m'])>10000
-    assert len(s.logistics.solar_array.sections)>400
+    assert len(s.logistics.solar_array.sections)==70
     assert all(s.logistics.inventory.items[id] is item for id,item in physical.items())
     assert s.logistics.active==active
     np.testing.assert_array_equal(s.terrain.height,terrain)
@@ -50,7 +53,7 @@ def test_large_solar_installation_in_flight_preserves_jobs_energy_and_saved_stat
     for _ in range(10):s.step();loaded.step()
     assert loaded.report()==s.report()
     s.run(301);r=s.report()
-    assert not r['solar_field_deployed'] and 20<=r['solar_generating_area_m2']<10000
+    assert r['solar_field_deployed'] and r['solar_generating_area_m2']==10000
     assert r['solar_power_w']>0 and abs(r['mass_error_kg'])<1e-7 and abs(r['energy_error_j'])<.002
 
 
@@ -95,7 +98,8 @@ def test_gui_accepts_ten_thousand_panels_and_refreshes_the_live_passport(monkeyp
         field=original.base_specification()['solar_field_dimensions_m']
         assert f'{field[0]:.2f} × {field[1]:.2f} м' in host.base_dimensions.text()
         x,y=host.base_outline.getData()
-        assert np.ptp(x)==np.ptp(y)==2*original.base.config.radius
+        assert np.ptp(x[np.isfinite(x)])>2*original.base.config.radius
+        assert np.ptp(y[np.isfinite(y)])>2*original.base.config.radius
         mass=host.base_mass.value();host.render_mode.setCurrentIndex(host.render_mode.findData('off'))
         original.logistics.replenish_batteries(original.drone.battery_ids[0],2,0.)
         host.refresh()

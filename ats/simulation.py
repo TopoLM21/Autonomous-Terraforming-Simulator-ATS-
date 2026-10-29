@@ -44,20 +44,28 @@ class Simulation:
         self.terrain = Terrain(self.config) if terrain is None else terrain
         b = self.config.base
         self.base = SolarBase(b, np.array([b.x, b.y, self.terrain.sample(b.x, b.y)]))
+        solar_placement_issue=''
         if layout is not None:
             self.base.layout_spec=layout
             side=self.terrain.cell*self.config.terrain.n
             def pads_clear():
+                nonlocal layout
+                nonlocal solar_placement_issue
                 from .battery_platforms import deployment_safe
+                if 'self_solar' in layout:
+                    from .self_solar import place
+                    try:layout=place(self.config,layout,self.base.position,self.terrain);self.base.layout_spec=layout
+                    except ValueError as error:solar_placement_issue=str(error);return False
+                    solar_placement_issue=''
                 return deployment_safe(layout,self.base.position,self.terrain) and all(self._safe_pad(self.slot_position(i)) for i in range(self.config.fleet.charge_slots)) and all(
                     self._safe_pad(self.wait_position(i)) for i in range(self.config.fleet.count))
-            if not self.base.safe_path(self.base.position[:2],self.terrain) or not pads_clear():
+            if not pads_clear() or not self.base.safe_path(self.base.position[:2],self.terrain):
                 original=self.base.position.copy()
                 candidates=sorted([(float(x),float(y)) for x in np.linspace(b.radius+1,side-b.radius-1,15)
                     for y in np.linspace(b.radius+1,side-b.radius-1,15)],key=lambda p:(p[0]-b.x)**2+(p[1]-b.y)**2)
                 for point in candidates:
                     self.base.position=np.array([*point,self.terrain.sample(*point)])
-                    if self.base.safe_path(point,self.terrain) and pads_clear():
+                    if pads_clear() and self.base.safe_path(point,self.terrain):
                         b.x,b.y=point;break
                 else:self.base.position=original
         self.drones = []
@@ -113,6 +121,7 @@ class Simulation:
         if self.config.logistics is not None:
             from .logistics import Logistics
             self.logistics = Logistics(self)
+        if solar_placement_issue:self.block(solar_placement_issue)
 
     @property
     def drone(self):
@@ -150,6 +159,7 @@ class Simulation:
             mounted+=sum(o.mass_kg for o in self.logistics.inventory.items.values() if o.kind=='BATTERY_PLATFORM_HARDWARE')
         array=getattr(self.logistics,'solar_array',None) if self.logistics else None
         if array:mounted-=array.offboard_panel_mass()
+        if getattr(array,'mechanism',None)=='self_deploying':mounted+=sum(self.logistics.inventory.items[id].mass_kg for id in array.support_ids)
         result=dict(body_dimensions_m=[diameter,diameter,b.config.roof_height],
                     landing_zone_dimensions_m=[diameter,max(offsets)-min(offsets)+diameter],
                     solar_field_dimensions_m=list(rect[2:]) if rect is not None else None,
@@ -312,7 +322,7 @@ class Simulation:
         if self.logistics.battery_platforms is None:c.logistics.battery_platforms=None
         if c.base.layout['auto_heading']:c.base.layout['heading_deg']=plan_heading(c)
         spec=solve_layout(c,self.logistics);candidate=deepcopy(self.base);candidate.config=c.base;candidate.layout_spec=spec
-        c.base.radius=spec['dimensions_m'][0]/2;c.base.roof_height=spec.get('deck_height_m',spec['dimensions_m'][2])
+        c.base.radius=spec.get('hub_radius_m',spec['dimensions_m'][0]/2);c.base.roof_height=spec.get('deck_height_m',spec['dimensions_m'][2])
         c.base.mass=self.base.config.mass+spec['chassis_mass_kg']-self.base.config.equipment.chassis_mass_kg
         if not candidate.safe_path(candidate.position[:2],self.terrain):raise ValueError('Платформы не помещаются на текущей площадке или превышают несущую способность')
         self.base.config.layout=c.base.layout;self.config.logistics.battery_platforms=c.logistics.battery_platforms
@@ -356,7 +366,9 @@ class Simulation:
             if panels_changed:
                 result=self.logistics.configure_panels(proposed.base.equipment.panels)
             current_panels=deepcopy(self.config.base.equipment.panels)
+            current_chassis=self.config.base.equipment.chassis_mass_kg
             self.config.base.equipment=deepcopy(proposed.base.equipment)
+            if self.base.config.layout is not None:self.config.base.equipment.chassis_mass_kg=current_chassis
             if result=='waiting':self.config.base.equipment.panels=current_panels
             self.config.base.charge_power=proposed.base.equipment.charge_power_kw*1000
             self.config.base.charge_efficiency=proposed.base.equipment.charge_efficiency
@@ -619,6 +631,7 @@ class Simulation:
         for p in np.linspace(previous,d.position,count):
             ground = self.terrain.sample(*p[:2])
             if self.shared_site is not None:ground=max(ground,self.shared_site.obstacle_height(p))
+            elif self.logistics and getattr(getattr(self.logistics,'solar_array',None),'mechanism',None)=='self_deploying':ground=max(ground,self.logistics.solar_array.obstacle_height(self.logistics,p))
             if np.linalg.norm(p[:2]-self.base.position[:2]) <= self.config.base.radius:
                 ground = max(ground,self.base.position[2]+self.config.base.roof_height)
             if p[2] < ground-1e-9:
@@ -893,6 +906,9 @@ class Simulation:
         for along,x,y in sites:
             target=np.array([x,y])
             if along<self._base_front_anchor+2 or np.linalg.norm(target-self.base.position[:2])<3:continue
+            if self.base.config.layout is not None:
+                from .self_solar import deployment_safe
+                if not deployment_safe(self.base.layout_spec,target,t):continue
             if all(self.base.safe_path(target,t,offset) for offset in points):
                 self.relocation_pending=target
                 self._pending_front_anchor=front.position

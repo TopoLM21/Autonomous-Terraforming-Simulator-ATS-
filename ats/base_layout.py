@@ -70,7 +70,12 @@ def equipment_totals(config,world=None,panels=None,batteries=None,extra=()):
         battery_mass+=sum(o.mass_kg for o in items if isinstance(o,BatteryModule) and o.id not in world.base_battery_ids)
         if world.excavator:capacity+=log.buffer_kwh
     solar_volume=None;solar_frame_mass=0.
-    if log and log.solar is not None and area>20:
+    retained_pv=bool(world and world.sim.base.config.layout is not None and any(a.get('role')=='PV' for a in world.sim.base.layout_spec['platforms']))
+    if log and getattr(log,'self_solar',None) is not None and (area>20 or retained_pv):
+        from .self_solar import recipe
+        groups,_=recipe(panel_recipes,log.self_solar, [a for a in world.sim.base.layout_spec['platforms'] if a.get('role')=='PV'] if world and world.sim.base.config.layout is not None else ())
+        solar_frame_mass=sum(g['hardware_kg'] for g in groups);mass+=solar_frame_mass
+    elif log and log.solar is not None and area>20:
         from .solar_array import recipe,parameters
         _,crews,solar_frame_mass,solar_volume=recipe(panel_recipes,log.solar)
         mass+=solar_frame_mass+crews*parameters(log.solar)['installer_mass_kg']
@@ -83,6 +88,19 @@ def equipment_totals(config,world=None,panels=None,batteries=None,extra=()):
 
 def solve_layout(config,world=None,panels=None,batteries=None,extra=(),base_records=None):
     p=parameters(config.base.layout);totals=equipment_totals(config,world,panels,batteries,extra)
+    from .self_solar import enabled as self_enabled,recipe,roof_recipes,compose
+    retained_pv=bool(world and world.sim.base.config.layout is not None and any(a.get('role')=='PV' for a in world.sim.base.layout_spec['platforms']))
+    if self_enabled(config) and (totals['panel_area_m2']>20 or retained_pv):
+        recipes=config.base.equipment.panels if panels is None else panels
+        existing=[a for a in world.sim.base.layout_spec['platforms'] if a.get('role')=='PV'] if world and world.sim.base.config.layout is not None else ()
+        groups,_=recipe(recipes,config.logistics.self_solar,existing)
+        core=dict(totals);external_mass=sum(g['panel_mass_kg']+g['hardware_kg'] for g in groups)
+        roof=roof_recipes(recipes);core.update(payload_kg=totals['payload_kg']-external_mass,panel_area_m2=sum(q.quantity*q.area_m2 for q in roof),panel_mass_kg=sum(q.quantity*q.mass_kg for q in roof),solar_frame_mass_kg=0.,solar_packed_m3=None)
+        return compose(config,_solve_layout(config,p,core,world,roof,batteries,extra,base_records),groups,world)
+    return _solve_layout(config,p,totals,world,panels,batteries,extra,base_records)
+
+
+def _solve_layout(config,p,totals,world,panels,batteries,extra,base_records):
     from .battery_platforms import enabled,solve
     if enabled(config):return solve(config,p,totals,world,panels,batteries,extra,base_records)
     length,width,height=p['platform_length_m'],p['platform_width_m'],p['platform_height_m']
@@ -93,6 +111,9 @@ def solve_layout(config,world=None,panels=None,batteries=None,extra=(),base_reco
             totals['drones']*p['drone_stowed_m3'])
     required_area=max(volume/(height*p['packing_fraction']),totals['pads']*p['landing_pad_m2'])
     count=max(1,math.ceil(totals['payload_kg']/p['platform_payload_kg']),math.ceil(required_area/deck))
+    previous=getattr(getattr(getattr(world,'sim',None),'base',None),'layout_spec',{})
+    retained=[a for a in previous.get('platforms',()) if a.get('role')!='PV'] if previous.get('self_solar') else []
+    count=max(count,len(retained))
     while count<=64:
         gross=dry+totals['payload_kg']/count
         track_width=max(p['min_track_width_m'],gross*G/(p['max_pressure_kpa']*1000*2*length*p['track_contact_fraction']))
@@ -102,7 +123,9 @@ def solve_layout(config,world=None,panels=None,batteries=None,extra=(),base_reco
     platforms=[]
     for i in range(count):
         offset=station_offset(i,length+p['platform_gap_m'])
-        platforms.append(dict(id=i+1,offset_m=[0.,offset],dimensions_m=[width,length,height],
+        identifier=retained[i]['id'] if i<len(retained) else max((a['id'] for a in previous.get('platforms',())),default=0)+i-len(retained)+1 if retained else i+1
+        xy=retained[i]['offset_m'] if i<len(retained) else [0.,offset]
+        platforms.append(dict(id=identifier,offset_m=list(xy),dimensions_m=[width,length,height],
             payload_kg=totals['payload_kg']/count,dry_mass_kg=dry,gross_mass_kg=gross,
             track_width_m=track_width,track_contact_length_m=length*p['track_contact_fraction'],
             contact_area_m2=2*track_width*length*p['track_contact_fraction'],
@@ -118,12 +141,14 @@ def solve_layout(config,world=None,panels=None,batteries=None,extra=(),base_reco
 
 
 def configure_layout(config,extra=()):
+    from .self_solar import enabled
+    if config.base.layout is None and enabled(config) and config.base.equipment.panel_area>20:config.base.layout={}
     if config.base.layout is None:return None
     config.base.layout=parameters(config.base.layout)
     if config.base.layout['auto_heading']:config.base.layout['heading_deg']=plan_heading(config)
     spec=solve_layout(config,extra=extra)
     config.base.equipment.chassis_mass_kg=spec['chassis_mass_kg']
-    config.base.radius=spec['dimensions_m'][0]/2;config.base.roof_height=spec.get('deck_height_m',spec['dimensions_m'][2])
+    config.base.radius=spec.get('hub_radius_m',spec['dimensions_m'][0]/2);config.base.roof_height=spec.get('deck_height_m',spec['dimensions_m'][2])
     config.base.idle_power=spec['control_power_w']
     config.base.equipment.resolve(config.base,config.fleet)
     return spec
@@ -206,7 +231,7 @@ def support_report(base,terrain,drones=(),point=None,spec=None):
     for module in spec['platforms']:
         centre=point+rotate_offset(p,module['offset_m']);bearing,traction,rolling=ground_properties(terrain,centre,p)
         mass=loads[module['id']]['mass_kg'] if loads else module['gross_mass_kg']*scale
-        cg=loads[module['id']]['centre_of_gravity_m'] if loads else [module['centre_of_gravity_m'][0],module['centre_of_gravity_m'][1]-module['offset_m'][1],module['centre_of_gravity_m'][2]]
+        cg=loads[module['id']]['centre_of_gravity_m'] if loads else [module['centre_of_gravity_m'][0]-module['offset_m'][0],module['centre_of_gravity_m'][1]-module['offset_m'][1],module['centre_of_gravity_m'][2]]
         pressure=mass*G/module['contact_area_m2']/1000
         loaded=mass-module['dry_mass_kg']<=p['platform_payload_kg']+1e-7
         balanced=abs(cg[0])<p['platform_width_m']/2/1.3 and abs(cg[1])<p['platform_length_m']/2/1.3
@@ -244,27 +269,37 @@ def apply_live_layout(world,spec):
     world.inventory.items['base_chassis'].mass_kg=spec['platforms'][0]['dry_mass_kg']
     for a in spec['platforms'][1:]:
         key=f"platform_{a['id']:02}_chassis"
-        world.inventory.add(Item(key,a['dry_mass_kg'],L.BASE_MOUNT,'INSTALLED','base',position=tuple(s.base.position),kind='PLATFORM_CHASSIS'))
+        xy=s.base.position[:2]+rotate_offset(spec['parameters'],a['offset_m'])
+        position=(*map(float,xy),s.terrain.sample(*xy))
+        world.inventory.add(Item(key,a['dry_mass_kg'],L.BASE_MOUNT,'INSTALLED','base',position=position,kind='PLATFORM_CHASSIS'))
     delta=spec['chassis_mass_kg']-old
     world.imported_mass_kg+=max(0.,delta);world.exported_mass_kg+=max(0.,-delta)
     eq.chassis_mass_kg=spec['chassis_mass_kg'];s.base.layout_spec=spec
     s.base.config.layout=dict(spec['parameters'])
-    s.base.config.radius=spec['dimensions_m'][0]/2;s.base.config.roof_height=spec.get('deck_height_m',spec['dimensions_m'][2])
+    s.base.config.radius=spec.get('hub_radius_m',spec['dimensions_m'][0]/2);s.base.config.roof_height=spec.get('deck_height_m',spec['dimensions_m'][2])
     s.base.config.idle_power=spec['control_power_w']
     if getattr(world,'battery_platforms',None) is not None:world.battery_platforms.install(spec)
     if s.shared_site is not None:s.shared_site.invalidate_geometry()
 
 
 def preview_live_layout(world,**changes):
-    if world.sim.base.config.layout is None:return None
-    spec=solve_layout(world.sim.config,world,**changes)
+    config=world.sim.config
+    if world.sim.base.config.layout is None:
+        if getattr(world.config,'self_solar',None) is None or sum(p.quantity*p.area_m2 for p in changes.get('panels',config.base.equipment.panels))<=20:return None
+        from .power_design import equipment_copy
+        config=equipment_copy(config);config.base.layout=parameters(dict(heading_deg=0.,auto_heading=0.,platform_height_m=config.base.roof_height))
+        config.logistics.battery_platforms=None
+    spec=solve_layout(config,world,**changes)
+    if 'self_solar' in spec:
+        from .self_solar import place
+        spec=place(config,spec,world.sim.base.position,world.sim.terrain)
     base=deepcopy(world.sim.base);base.layout_spec=spec
-    base.config.radius=spec['dimensions_m'][0]/2
+    base.config.radius=spec.get('hub_radius_m',spec['dimensions_m'][0]/2)
     if not base.safe_path(base.position[:2],world.sim.terrain):raise ValueError('Новая компоновка платформ не помещается на текущей площадке')
     from .battery_platforms import deployment_safe
     if not deployment_safe(spec,base.position,world.sim.terrain,solar_rects=world.solar_ground_rects()):raise ValueError('Нет места для опор или сервисных проходов батарейных платформ')
     for x,y,w,h in layout_footprints(spec,base.position):
-        for xx,yy,ww,hh in world.solar_ground_rects():
+        for xx,yy,ww,hh in ([] if 'self_solar' in spec else world.solar_ground_rects()):
             if x<xx+ww and x+w>xx and y<yy+hh and y+h>yy:
                 raise ValueError('Новая компоновка пересекает солнечную площадку; сначала сложите секции')
     return spec

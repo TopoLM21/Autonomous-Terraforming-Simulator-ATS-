@@ -157,7 +157,8 @@ def solve(config,settings,totals,world=None,panels=None,batteries=None,extra=(),
         raise ValueError('Габариты и взаимное положение уже закреплённых платформ меняются в новом шаблоне; текущая техника не переставляется мгновенно')
 
     def add(role):
-        if len(platforms)>=64:raise ValueError('Комплектации требуется более 64 платформ с реальными местами груза')
+        cap=256 if getattr(config.logistics,'self_solar',None) is not None else 64
+        if len(platforms)>=cap:raise ValueError(f'Комплектации требуется более {cap} платформ с реальными местами груза')
         id=len(platforms)+1;hardware=q['bess_hardware_kg'] if role=='BESS' else q['service_hardware_kg'] if role=='SERVICE' else 0.
         a=dict(id=id,role=role,offset_m=[0.,station_offset(id-1,l+p['platform_gap_m'])],dimensions_m=[w,l,h],
             payload_kg=hardware,dry_mass_kg=dry,hardware_kg=hardware,loads=[],reserved_volume_m3=0.)
@@ -226,7 +227,7 @@ def solve(config,settings,totals,world=None,panels=None,batteries=None,extra=(),
     panel_recipes=config.base.equipment.panels if panels is None else panels
     # Every folded cassette gets its own load envelope and tie-down position.
     solar_mass=0.;cargo=[]
-    if config.logistics.solar is not None and totals['panel_area_m2']>20:
+    if config.logistics.solar is not None and getattr(config.logistics,'self_solar',None) is None and totals['panel_area_m2']>20:
         from .solar_array import recipe,parameters as solar_parameters,roof_counts
         groups,crews,_,_=recipe(panel_recipes,config.logistics.solar);sp=solar_parameters(config.logistics.solar)
         for i,(_,area,mass) in enumerate(groups):
@@ -398,6 +399,16 @@ class BatteryPlatforms:
         if array:
             cranes=array.crane_supported()
             for section in array.sections:
+                if getattr(array,'mechanism',None)=='self_deploying':
+                    from .self_solar import parameters
+                    sp=array.settings;frame=2*sp['leaf_pairs']*sp['span_m']*sp['leaf_width_m']*sp['frame_kg_m2']
+                    z=sp['hinge_height_m']+sp['leaf_width_m']/2*math.cos(section.open_fraction*math.pi/2)
+                    # Hardware was included at the low chassis centroid above.
+                    pitch=sp['leaf_width_m']*math.sin(section.open_fraction*math.pi/2)+(sp['panel_thickness_m']+sp['hinge_allowance_m'])*math.cos(section.open_fraction*math.pi/2)
+                    moment=sum(m*(1 if i%2==0 else -1)*(sp['root_offset_m']+(i//2+.5)*pitch) for i,m in enumerate(section.leaf_masses_kg))
+                    add(section.platform_id,section.panel_mass_kg,[moment/max(1e-12,section.panel_mass_kg),0.,z])
+                    rows[section.platform_id]['moment'][2]+=frame*(z-.6)+(section.frame_mass_kg-frame)*.1
+                    continue
                 entry=self.bindings.get(section.id)
                 if entry and (section.state=='STOWED' or section.id in cranes):
                     add(entry['platform_id'],section.panel_mass_kg+section.frame_mass_kg,entry['offset_m'])
