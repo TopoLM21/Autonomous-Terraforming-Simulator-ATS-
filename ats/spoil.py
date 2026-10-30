@@ -23,15 +23,19 @@ def reserve(terrain,allowed,along,signed,opening,settings,*,old_mask=None,old_ca
     excess=np.where(work,np.maximum(terrain.height-terrain.target,0),0.)
     pending=excess>1e-10
     start=float(along[pending].min()) if np.any(pending) else float(along[work].max()) if np.any(work) else 0.
-    front=settings['front_length_m'];starts=list(fronts) if fronts else [start]
+    sector=settings.get('sector_length_m',0.)
+    front=sector or settings['front_length_m'];starts=list(fronts) if fronts else [start]
+    if sector:starts=[math.floor((p+1e-9)/sector)*sector for p in starts]
     # A shared site can have several independent advancing work fronts.
     # Reserve the union, rather than multiplying overlapping requirements.
-    end=max(starts)+front*t.spoil_front_sections;start=min(starts)
+    sections=1. if sector else t.spoil_front_sections
+    end=max(starts)+front*sections;start=min(starts)
     active=np.zeros_like(allowed);source=np.zeros_like(allowed)
     for position in starts:
-        stop=position+front*t.spoil_front_sections
-        active |= (along>=position-front*.5)&(along<=stop+front*.5)
-        source |= (along>=position-front*.5)&(along<=stop)
+        stop=position+front*sections
+        apron=max(4.,2*cell) if sector else front*.5
+        active |= (along>=position-apron)&(along<=stop+apron)
+        source |= (along>=position-(0. if sector else front*.5))&(along<=stop)
     required=(float(excess[source].sum()*terrain.area)+carried_volume)*(1+t.spoil_reserve_margin)
     # Existing piles from earlier windows remain unavailable to equipment even
     # when the new compact policy would not have chosen their position.

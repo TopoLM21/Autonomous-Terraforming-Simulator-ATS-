@@ -57,6 +57,9 @@ class PlanConfig:
                 positive=('front_length_m','setback_m','bank_width_m')
                 if any(not isinstance(operations.get(key),(int,float)) or not math.isfinite(operations[key]) or operations[key]<=0 for key in positive):
                     raise ValueError('Неверные параметры фронта канала')
+                length=operations.get('sector_length_m',200.)
+                if isinstance(length,bool) or not isinstance(length,(int,float)) or not math.isfinite(length) or not 1<=length<=10000:
+                    raise ValueError('Длина рабочего сектора должна быть от 1 до 10000 м')
                 anchor=operations.get('base_chainage_m')
                 if not isinstance(anchor,(int,float)) or not math.isfinite(anchor) or anchor<0:
                     raise ValueError('Неверное начало движения базы')

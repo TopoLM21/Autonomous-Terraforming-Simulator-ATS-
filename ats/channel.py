@@ -261,7 +261,7 @@ class ChannelProject:
         from .workfront import bank_layout
         pad_extent=math.ceil((max(c.fleet.count,c.fleet.charge_slots)-1)/2)*c.fleet.pad_spacing
         service_width=2*(pad_extent+c.fleet.waiting_offset+c.fleet.separation+cell)
-        c.plan.channel['operations']=dict(front_length_m=min(32.,self.side_m/3),
+        c.plan.channel['operations']=dict(front_length_m=min(32.,self.side_m/3),sector_length_m=200.,
             setback_m=max(6.,min(24.,service_width,self.side_m*.23)),bank_width_m=max(4.,self.side_m*.22))
         dump,cap,chainage,signed=bank_layout(terrain,c.plan,work,protected,target)
         if not np.any(dump & (cap>terrain.reference)) and np.any(work&(current-target>1e-10)):
@@ -313,7 +313,10 @@ class ChannelProject:
         first_cells=np.where(work & (np.abs(chainage-first)<=cell*2))
         start=np.array([float(np.mean(np.broadcast_to(x,current.shape)[first_cells])),
                         float(np.mean(np.broadcast_to(y,current.shape)[first_cells]))]) if np.any(work) else np.array([self.side_m/2]*2)
-        _,c.base.x,c.base.y=min(sites,key=lambda p:math.hypot(p[1]-start[0],p[2]-start[1]))
+        length=c.plan.channel['operations']['sector_length_m']
+        sector_end=min((math.floor((first+1e-9)/length)+1)*length,float(chainage[work].max())+cell/2)
+        centre=(max(math.floor((first+1e-9)/length)*length,first-cell/2)+sector_end)/2
+        _,c.base.x,c.base.y=min(sites,key=lambda p:(abs(p[0]-centre),math.hypot(p[1]-start[0],p[2]-start[1])))
         c.plan.channel['operations'].update(base_sites=[list(p) for p in sites],base_chainage_m=first)
         excess=current-target
         available=np.flatnonzero((excess>1e-10)&work)

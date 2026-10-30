@@ -102,7 +102,8 @@ class Excavator:
         density=max(m.density for m in terrain.soil.profile.materials) if terrain.soil is not None else terrain.config.terrain.density
         moment=(c.digging_force_n+c.bucket_volume_m3*c.bucket_fill_factor*density*9.80665)*distance
         restoring=(self.mass(inventory)-self.bucket_kg)*9.80665*c.support_half_width_m/c.tipping_margin
-        return ((distance<=c.reach_m) & (distance>=c.support_half_width_m+terrain.cell/math.sqrt(2))
+        sector=(terrain.front.cut_mask(patch) if terrain.front is not None and terrain.front.sectors else True)
+        return (sector & (distance<=c.reach_m) & (distance>=c.support_half_width_m+terrain.cell/math.sqrt(2))
                 & (terrain.height[patch]>p[2]-c.local_depth_m+1e-9)
                 & (terrain.height[patch]<=p[2]+.5) & (moment<=restoring))
 
@@ -111,7 +112,7 @@ class Excavator:
         patch=terrain.patch(*self.position[:2],self.config.reach_m)
         available=np.where(terrain.excavation[patch]&self.reachable_mask(terrain,inventory,patch=patch),
                            np.maximum(terrain.height[patch]-terrain.target[patch],0),0.)
-        if terrain.front is not None:
+        if terrain.front is not None and not terrain.front.sectors:
             terrain.front.update()
             available=np.where(terrain.front.chainage[patch]<=terrain.front.position+terrain.front.settings['front_length_m'],available,0.)
         if float(available.sum()*terrain.area)<=min(.001,terrain.config.terrain.completion_volume/10):
@@ -144,7 +145,7 @@ class Excavator:
                     if distance<=terrain.cell:continue
                     patch=terrain.patch(*p[:2],self.config.reach_m)
                     excess=np.where(terrain.excavation[patch],np.maximum(terrain.height[patch]-terrain.target[patch],0),0.)
-                    if terrain.front is not None:
+                    if terrain.front is not None and not terrain.front.sectors:
                         excess=np.where(terrain.front.chainage[patch]<=terrain.front.position+terrain.front.settings['front_length_m'],excess,0.)
                     mask=self.reachable_mask(terrain,inventory,p,patch)
                     volume=float(excess[mask].sum()*terrain.area)
@@ -282,7 +283,7 @@ class Excavator:
                 container.location=L.FILLED_QUEUE;container.state='FULL_READY'
             self.state=ExcavatorState.IDLE;self.elapsed=0.;logistics.progress_at=s.time
             return
-        if t.remaining_cut<=s.config.terrain.completion_volume:
+        if t.remaining_cut<=s.config.terrain.completion_volume or t.front is not None and t.front.complete:
             inv.release('excavator_cycle');self.active_container=None
             for container in logistics.containers:
                 if container.location==L.WORKSITE_RACK and container.soil_kg>0 and not container.reserved_by:

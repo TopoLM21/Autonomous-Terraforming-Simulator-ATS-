@@ -288,10 +288,13 @@ class Simulation:
                 'WAITING_SERVICE_COMPLETION':'завершает начатую смену батарей',
                 'WAITING_GROUP_LIFT':'ждёт завершения совместного переноса',
                 'WAITING_BASE_ENERGY':'накапливает энергию для переезда и развёртывания панелей',
+                'WAITING_FOLLOWER_ENERGY':'заряжает наземных дронов для перелёта к следующей площадке',
                 'WAITING_BASE_DRIVE_POWER':'недостаточная мощность привода от батарей или инвертора',
                 'FOLDING_SOLAR_FIELD':'складывает солнечные панели',
                 'UNFOLDING_SOLAR_FIELD':'завершает развёртывание солнечных панелей',
                 'MOVING_WITH_WORKFRONT':'переезжает вдоль канала',
+                'DRAINING_SECTOR':'завершает вывоз грунта из сектора',
+                'POSITIONING_SECTOR':'подготавливает рабочую позицию следующего сектора',
                 'NO_SAFE_FORWARD_BASE_ROUTE':'ищет безопасный маршрут вперёд'}
         return labels.get(self.base_move_wait,'на рабочей позиции')
 
@@ -895,11 +898,130 @@ class Simulation:
             if d.docked:
                 self._landed(d)
 
+    def _sector_drained(self):
+        if self._terrain_active or any(not d.grounded or d.trip is not None or d.cargo>1e-8 for d in self.drones):return False
+        w=self.logistics
+        if w is None:return True
+        e=w.excavator
+        return (not w.active and not w.direct_ids and w.group is None
+            and not any(c.soil_kg>1e-8 for c in w.containers)
+            and (e is None or not e.bucket_kg and e.active_container is None and e.state.value not in ('MOVING_LOCAL','WAITING_RELOCATION')))
+
+    def _sector_followers_ready(self):
+        """Grounded aircraft without a berth fly after the parked base arrives."""
+        for d in self.drones:
+            if d.docked:continue
+            distance=float(np.linalg.norm(d.position[:2]-self.relocation_pending))+self.config.fleet.waiting_offset
+            seconds=distance/d.config.empty_speed+2*max(0.,self.cruise(d)-d.position[2])/d.config.vertical_speed+90
+            required=d.power(True)*seconds*d.config.budget_margin+d.config.battery*d.config.reserve
+            if required>d.config.battery:
+                self.block(f'BLOCKED_SECTOR_RANGE: дрон {d.serial} без транспортного места не может перелететь к следующей базе с резервом');return False
+            if d.battery<required or d.charge_requested and d.battery<d.config.battery-1e-7:
+                self._request_charge(d,'перелёт к базе следующего сектора');self._enqueue(d)
+                self.base_move_wait='WAITING_FOLLOWER_ENERGY';return False
+        return True
+
+    def _sector_site_safe(self,target,offsets):
+        t=self.terrain;xy=self.base.position[:2]
+        if self.base.config.layout is not None:
+            from .self_solar import deployment_safe,deployment_polygons
+            from .battery_platforms import deployment_safe as battery_safe
+            spec=self.base.layout_spec
+            if not deployment_safe(spec,target,t) or not battery_safe(spec,target,t,solar_polygons=deployment_polygons(spec,target)):return False
+        if not self.base.safe_path(target,t):return False
+        # Pad offsets are already in world coordinates. Check their swept
+        # clearances, rather than rotating them again and shifting the entire
+        # forty-five-carrier formation once per pad.
+        count=max(2,math.ceil(float(np.linalg.norm(target-xy))/max(.25,t.cell))+1)
+        site=self.shared_site;r=self.config.fleet.separation
+        for p in np.linspace(xy,target,count):
+            for offset in offsets:
+                pad=p+offset
+                if not self._safe_pad(pad):return False
+                if site and site.ground_occupied(getattr(t,'owner_id',None),(pad[0]-r,pad[1]-r,2*r,2*r)):return False
+        return True
+
+    def _sector_range_reason(self,target):
+        """Reject an impossible empty round trip, using the existing flight budget.
+
+        Loaded flights still pass the normal per-job payload, charge and reserve
+        checks. This lower bound never assumes that a full bucket is required.
+        """
+        f=self.terrain.front
+        if not f.sectors:return ''
+        ids=f.indices[(f.along>=f.sector_start-1e-9)&(f.along<f.sector_end-1e-9)];t=self.terrain
+        ids=ids[t.height.ravel()[ids]-t.target.ravel()[ids]>1e-10]
+        if not len(ids):return ''
+        xy=np.column_stack((t.x.ravel()[ids],t.y.ravel()[ids]))
+        delta=np.asarray(target)-self.base.position[:2]
+        home=[self.slot_position(d.slot) if d.slot is not None else self.wait_position(d.identifier) for d in self.drones]
+        # Both ends and the farthest lateral point cover bends and broad slopes.
+        check=np.unique([0,len(ids)-1,int(np.argmax(np.sum((xy-np.asarray(target))**2,axis=1)))])
+        for k in check:
+            p=tuple(xy[k])
+            if not any(self.planner.estimate(self.base,p,p,self.cruise(d),0.,d.config,
+                    np.r_[h[:2]+delta,t.sample(*(h[:2]+delta))+self.config.base.roof_height],min_surface=t.minimum_surface)<=d.config.battery*(1-d.config.reserve)
+                    for d,h in zip(self.drones,home)):
+                return f'край сектора {f.sector_start:g}–{f.sector_end:g} м недоступен даже без груза с резервом батареи'
+        return ''
+
+    def _update_sector(self,front):
+        if front.moving:
+            if not getattr(front,'followers_launched',False):
+                for d in self.drones:
+                    if not d.docked:
+                        self._clear_slot(d);self._reserve_return(d);d.transition(DS.RETURN);d.regional_launch=True
+                front.followers_launched=True
+            if not all(d.grounded for d in self.drones):return
+            front.moving=False;front.stationed=True;front.revision=-1;front.update()
+            self.base_move_wait='';self.event('База заняла рабочую позицию сектора')
+        if front.stationed:
+            if not front.complete:
+                # This is an entry/hardware screen, not a second per-flight
+                # planner. Actual flights and stall diagnosis use the current
+                # terrain/obstacle clearance; avoid an O(fleet) geometry query
+                # on every stationary tick merely to compare a cache key.
+                key=(id(front),front.sector_id,tuple(self.base.position),
+                    tuple((id(d.config),d.config.battery,d.config.hover_power,d.config.empty_speed) for d in self.drones))
+                if getattr(self,'_sector_range_key',None)!=key:
+                    self._sector_range_key=key;reason=self._sector_range_reason(self.base.position[:2])
+                    if reason:self.block('BLOCKED_SECTOR_RANGE: '+reason+'; измените аппараты или длину сектора')
+                return
+            self.base_move_wait='DRAINING_SECTOR'
+            if not self._sector_drained():return
+            if not front.advance_sector():return
+            self.event(f'Сектор завершён и грунт вывезен; следующий {front.sector_start:g}–{front.sector_end:g} м')
+        if self.time-self._relocation_attempt_time<30:return
+        self._relocation_attempt_time=self.time
+        # Explicit sites retain user constraints. The current position is also
+        # admissible: there is no reason to fold a field if it is already best.
+        xy=self.base.position[:2];iy,ix=(np.clip((xy[::-1]/self.terrain.cell).astype(int),0,self.terrain.height.shape[0]-1))
+        sites=[(float(front.chainage[iy,ix]),*xy),*sorted(front.settings['base_sites'],
+            key=lambda p:(abs(p[0]-front.sector_centre),float(np.linalg.norm(np.asarray(p[1:])-xy))))]
+        offsets=[p[:2]-xy for p in [*[self.slot_position(i) for i in range(len(self.slots))],*[self.wait_position(i) for i in range(len(self.drones))]]]
+        range_reason=''
+        for along,x,y in sites:
+            if abs(along-front.sector_centre)>max(10.,front.settings['sector_length_m']/4):continue
+            target=np.array([x,y])
+            reason=self._sector_range_reason(target)
+            if reason:range_reason=reason;continue
+            if not self._sector_site_safe(target,offsets):continue
+            if np.linalg.norm(target-xy)<3:
+                front.stationed=True;front.revision=-1;front.update();self.base_move_wait=''
+                return
+            self.relocation_pending=target;self._pending_front_anchor=front.sector_start
+            self.base_move_wait='POSITIONING_SECTOR'
+            return
+        self.block('BLOCKED_SECTOR_RANGE: '+range_reason if range_reason else f'BLOCKED_SECTOR_SITE: для сектора {front.sector_start:g}–{front.sector_end:g} м нет безопасной площадки и пути для всего комплекса; измените площадки/компоновку или рабочее окно')
+
     def _update_workfront(self):
         t=self.terrain;front=t.front
         if front is None or self.base.destination is not None or self.relocation_pending is not None:return
         front.update()
         if self.landing_requested or t.remaining<=self.config.terrain.completion_volume:return
+        if front.sectors:
+            self._update_sector(front)
+            return
         advance=front.position-self._base_front_anchor
         if advance<max(4.,front.settings['front_length_m']/2):return
         if self.time-self._relocation_attempt_time<30:return
@@ -932,6 +1054,8 @@ class Simulation:
         for d in self.drones:
             if d.state==DS.CHARGING:d.state=DS.DOCKED
         self._base_front_anchor=self._pending_front_anchor
+        if self.terrain.front.sectors:
+            self.terrain.front.moving=True;self.terrain.front.stationed=False;self.terrain.front.revision=-1
         self.base.last_relocation=self.time;self.base.last_relocation_trip=self.trips;self.base.relocations+=1
         self.base_move_wait='MOVING_WITH_WORKFRONT'
         return True
@@ -1007,6 +1131,7 @@ class Simulation:
         if self.state != MissionState.RUNNING:
             return
         self._update_workfront()
+        if self.state!=MissionState.RUNNING:return
         if self.config.georeference is not None:
             from .channel import latitude_at
             key=tuple(self.base.position[:2])

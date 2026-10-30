@@ -265,6 +265,14 @@ class Terrain:
         patch=(slice(bottom,top),slice(left,right))
         mask,surface=(self.dump_mask,self.reference) if source=='stockpile' else (self.excavation,self.target)
         footprint=(self.x[patch]-x)**2+(self.y[patch]-y)**2<=radius**2
+        if source=='cut' and self.front is not None and self.front.sectors:
+            allowed=self.front.cut_mask(patch)
+            # A v1–10 flight committed across a future sector boundary may
+            # finish its original grab; no new job receives this exception.
+            for px,py,r in getattr(self.front,'legacy_pickups',()):
+                if abs(x-px)<1e-8 and abs(y-py)<1e-8:
+                    allowed |= (self.x[patch]-px)**2+(self.y[patch]-py)**2<=r*r
+            footprint &= allowed
         return patch,np.where(mask[patch]&footprint,np.maximum(self.height[patch]-surface[patch],0),0)
 
     def available_mass(self,x,y,source='cut',radius=None):
@@ -348,9 +356,10 @@ class Terrain:
         for s in simulations:
             f=s.terrain.front
             if f is not None and s.terrain.remaining>s.config.terrain.completion_volume:
-                f.update();fronts.append(f.position)
+                f.update();fronts.append(f.sector_start if f.sectors else f.position)
         if not fronts and front is not None:fronts=[front.position]
-        key=tuple(int(p/max(4.,geometry['settings']['front_length_m']/2)) for p in fronts)
+        stride=geometry['settings'].get('sector_length_m',geometry['settings']['front_length_m']/2)
+        key=tuple(int(p/max(4.,stride)) for p in fronts)
         if not force and getattr(self,'_spoil_front_key',None)==key:return False
         if repack and any(s._reserved_dump(None) for s in simulations):
             raise ValueError('Для сокращения резерва завершите назначенные выгрузки')

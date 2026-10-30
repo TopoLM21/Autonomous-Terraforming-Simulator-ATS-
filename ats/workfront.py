@@ -99,12 +99,62 @@ class Workfront:
         self.position = self.start
         self.revision = -1
         self.active_indices = self.indices
+        self.stationed=True
+        self.moving=False
+        self.followers_launched=False
+        self.legacy_pickups=[]
+        if self.sectors:
+            excess=terrain.height.ravel()[self.indices]-terrain.target.ravel()[self.indices]
+            useful=np.flatnonzero(excess>1e-10)
+            self._set_sector(float(self.along[useful[0]]) if len(useful) else self.start)
+
+    @property
+    def sectors(self):return self.settings.get('sector_length_m',0)>0
+
+    def _set_sector(self,along):
+        length=self.settings['sector_length_m']
+        self.sector_id=max(0,math.floor((along+1e-9)/length))
+        self.sector_start=max(self.start-self.terrain.cell/2,self.sector_id*length)
+        self.sector_end=min(self.end+self.terrain.cell/2,(self.sector_id+1)*length)
+        self.sector_centre=(self.sector_start+self.sector_end)/2
+        count=max(1,math.ceil((self.end+self.terrain.cell/2)/length)-math.floor(max(0.,self.start-self.terrain.cell/2)/length))
+        self.sector_tolerance=self.terrain.config.terrain.completion_volume*.1/count
+        self.revision=-1
+
+    def cut_mask(self,patch):
+        along=self.chainage[patch]
+        return (along>=self.sector_start-1e-9)&(along<self.sector_end-1e-9)&self.stationed
+
+    @property
+    def complete(self):
+        self.update()
+        return self.sectors and self.sector_remaining<=self.sector_tolerance
+
+    def advance_sector(self):
+        """Called only after the controller has drained every carried load."""
+        if not self.complete:return False
+        excess=self.terrain.height.ravel()[self.indices]-self.terrain.target.ravel()[self.indices]
+        useful=(excess>1e-10)&(self.along>=self.sector_end-1e-9)
+        if not np.any(useful):return False
+        self._set_sector(float(self.along[np.flatnonzero(useful)[0]]))
+        self.legacy_pickups=[]
+        self.stationed=False;self.moving=False;self.followers_launched=False
+        self.update()
+        return True
 
     def update(self):
         t = self.terrain
         if self.revision == t.revision:return
         excess = t.height.ravel()[self.indices]-t.target.ravel()[self.indices]
         remaining = excess > 1e-10
+        if self.sectors:
+            local=(self.along>=self.sector_start-1e-9)&(self.along<self.sector_end-1e-9)
+            self.sector_remaining=float(np.maximum(excess[local],0).sum()*t.area)
+            useful=remaining&local
+            self.position=float(self.along[np.flatnonzero(useful)[0]]) if np.any(useful) else self.sector_end
+            self.active_indices=self.indices[useful] if self.stationed else self.indices[:0]
+            self.revision=t.revision
+            return
         # A fixed global fraction of the existing completion tolerance prevents
         # numerical crumbs under tracks from pinning the entire work front.
         # These cells stay in the plan, mass ledger and available dig candidates.
@@ -118,5 +168,11 @@ class Workfront:
 
     def report(self):
         self.update()
-        return dict(chainage_m=self.position, start_m=self.start, end_m=self.end,
+        report=dict(chainage_m=self.position, start_m=self.start, end_m=self.end,
                     length_m=self.settings['front_length_m'], setback_m=self.settings['setback_m'])
+        if self.sectors:report.update(mode='fixed_sectors',sector_id=self.sector_id,
+            length_m=self.sector_end-self.sector_start,
+            sector_start_m=self.sector_start,sector_end_m=self.sector_end,
+            sector_centre_m=self.sector_centre,sector_length_m=self.settings['sector_length_m'],
+            sector_remaining_m3=self.sector_remaining,sector_complete=self.complete,stationed=self.stationed)
+        return report

@@ -28,6 +28,7 @@ class WorkTerrain(Terrain):
         else:setattr(self.core,name,value)
 
     def assign(self,mask):
+        previous=getattr(self,'front',None)
         self.excavation=self.core.excavation&mask;self.fill_mask=self.core.fill_mask&mask
         self.bottom=self.core.bottom&mask
         self._cut_indices=np.flatnonzero(self.excavation);self._fill_indices=np.flatnonzero(self.fill_mask)
@@ -36,6 +37,12 @@ class WorkTerrain(Terrain):
             from .workfront import Workfront
             self.front=Workfront(self);self.front.settings=deepcopy(self.front.settings)
             self.front.settings['base_chainage_m']=self.front.start
+            if previous is not None and previous.sectors and self.front.sectors:
+                same=self.front.sector_id==previous.sector_id
+                self.front.stationed=previous.stationed if same else False
+                self.front.moving=previous.moving if same else False
+                self.front.followers_launched=getattr(previous,'followers_launched',False) if same else False
+                self.front.legacy_pickups=getattr(previous,'legacy_pickups',[])
         self.initial_excavation=self.remaining
 
     def relax(self):return self.core.relax()

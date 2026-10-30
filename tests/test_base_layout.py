@@ -80,7 +80,7 @@ def test_relocation_spends_the_same_energy_as_its_flat_route_estimate():
 
 def test_two_platform_base_advances_along_the_canal_and_finishes():
     from tests.test_workfront import canal
-    c=canal().config;c.base.layout={'platform_payload_kg':1000.}
+    c=canal(sector_length=False).config;c.base.layout={'platform_payload_kg':1000.}
     s=Simulation(c);start=s.base.position.copy()
     assert s.base.layout_spec['platform_count']>=2
     for _ in range(8000):

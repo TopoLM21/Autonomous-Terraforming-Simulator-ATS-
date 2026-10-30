@@ -1,0 +1,1493 @@
+{
+  "stage": "Fixed 200 metre canal work sectors",
+  "base_commit": "f250d84d69959d58251def92d5f38fb083e5194d",
+  "branch": "main",
+  "published": false,
+  "captured_utc": "2026-10-30T12:44:42.310286+00:00",
+  "python": "3.12.14",
+  "numpy": "2.5.4",
+  "qt": "6.12.0",
+  "system": "Linux",
+  "cpu_max": "400000 100000",
+  "pytest": {
+    "passed": 629,
+    "failed": 0,
+    "skipped": 0,
+    "shards": [
+      {
+        "shard": 0,
+        "exit_code": 0,
+        "seconds": 171.9445630600003,
+        "files": [
+          "tests/test_activity_stats.py",
+          "tests/test_batch_strategy.py",
+          "tests/test_checkpoint.py",
+          "tests/test_compact_overviews.py",
+          "tests/test_complexes.py",
+          "tests/test_drone.py",
+          "tests/test_energy.py",
+          "tests/test_fleet.py",
+          "tests/test_landscape.py",
+          "tests/test_laser.py",
+          "tests/test_logistics.py",
+          "tests/test_material_slopes.py",
+          "tests/test_regional.py",
+          "tests/test_sectors.py",
+          "tests/test_shared_site.py",
+          "tests/test_solar.py",
+          "tests/test_tool_station.py"
+        ],
+        "summary": "........................................................................ [ 32%]\n........................................................................ [ 65%]\n........................................................................ [ 97%]\n.....                                                                    [100%]\n221 passed in 170.95s (0:02:50)\n"
+      },
+      {
+        "shard": 1,
+        "exit_code": 0,
+        "seconds": 233.72830167399934,
+        "files": [
+          "tests/test_base_batteries.py",
+          "tests/test_battery_platforms.py",
+          "tests/test_cli.py",
+          "tests/test_compact_season.py",
+          "tests/test_dig_rate.py",
+          "tests/test_dust.py",
+          "tests/test_equipment.py",
+          "tests/test_gui.py",
+          "tests/test_landscape_ui.py",
+          "tests/test_laser_reference.py",
+          "tests/test_map_visuals.py",
+          "tests/test_plan.py",
+          "tests/test_runtime_optimizations.py",
+          "tests/test_self_solar.py",
+          "tests/test_site_layout.py",
+          "tests/test_spare_controls.py",
+          "tests/test_winter_power.py"
+        ],
+        "summary": "........................................................................ [ 33%]\n........................................................................ [ 67%]\n....................................................................     [100%]\n212 passed in 232.40s (0:03:52)\n"
+      },
+      {
+        "shard": 2,
+        "exit_code": 0,
+        "seconds": 319.4717070960005,
+        "files": [
+          "tests/test_base_layout.py",
+          "tests/test_channel.py",
+          "tests/test_coastal_compact.py",
+          "tests/test_completion.py",
+          "tests/test_display_modes.py",
+          "tests/test_earthworks_performance.py",
+          "tests/test_equipment_caches.py",
+          "tests/test_individual_chargers.py",
+          "tests/test_large_solar_base_specs.py",
+          "tests/test_live_inventory_solar.py",
+          "tests/test_maps_and_zoom.py",
+          "tests/test_power_design.py",
+          "tests/test_scheduler_utilization.py",
+          "tests/test_service_recovery.py",
+          "tests/test_soil.py",
+          "tests/test_terrain.py",
+          "tests/test_workfront.py"
+        ],
+        "summary": "........................................................................ [ 36%]\n........................................................................ [ 73%]\n....................................................                     [100%]\n196 passed in 318.64s (0:05:18)\n"
+      }
+    ],
+    "collection": "All 51 test files partitioned among three independent pytest processes; each case executed once"
+  },
+  "cli_groups": [
+    {
+      "name": "python -m ats --headless --mode legacy --steps 10000 --seed 42",
+      "exit_code": 0,
+      "seconds": 2.3410076170002867
+    },
+    {
+      "name": "ATS 2.0 logistics smoke test",
+      "exit_code": 0,
+      "seconds": 14.355790804000208
+    },
+    {
+      "name": "Offline real DEM smoke test",
+      "exit_code": 0,
+      "seconds": 0.486646207999911
+    },
+    {
+      "name": "Save and resume airborne simulation",
+      "exit_code": 0,
+      "seconds": 4.154163956999582
+    },
+    {
+      "name": "Prepared Qattara channel smoke test",
+      "exit_code": 0,
+      "seconds": 4.865526440999929
+    },
+    {
+      "name": "Layered soil and complete snapshot continuation",
+      "exit_code": 0,
+      "seconds": 4.8487706169999
+    },
+    {
+      "name": "Energy sizing and executable equipment template",
+      "exit_code": 0,
+      "seconds": 0.9909022809997623
+    },
+    {
+      "name": "Two complexes on common regional project and exact resume",
+      "exit_code": 0,
+      "seconds": 32.6388439049997
+    },
+    {
+      "name": "Twenty complexes on one physical map and exact snapshot continuation",
+      "exit_code": 0,
+      "seconds": 8.908702886000356
+    },
+    {
+      "name": "Continuous design includes real platform hardware",
+      "exit_code": 0,
+      "seconds": 0.9687579579995145
+    }
+  ],
+  "static_checks": [
+    "compileall ats scripts/prepare_sector_benchmark.py",
+    "git diff --check"
+  ],
+  "balance_errors_observed_in_cli_and_timing": {
+    "mass_error_kg": 7.275957614183426e-12,
+    "energy_error_j": 0.0001236051321029663,
+    "equipment_mass_error_kg": 0.0,
+    "max_material_mass_error_kg": 5.684341886080802e-14
+  },
+  "source_sha256": {
+    "ats/channel.py": "2a9fb680ec305050e1e637745d76fcbd1d794ee34211db7736d4795689350f47",
+    "ats/checkpoint.py": "ae19d451a0949487e60e3493fbb5737e0a23d05299fafea820cfb8dab0fb54b9",
+    "ats/excavator.py": "84b3bcc1dc5eaa607d9c5b18ffb47b73fd0d7bc72c3d716ca655a1b1c400d5aa",
+    "ats/gui.py": "2717add4d1fa48b1f9d7e8297cb7c6065f8ede48bbe9edcde5f6a0d1db7a0708",
+    "ats/logistics.py": "20a182db175e97db2f684fb1189d0922100296cfae511c981155cb6a022d6f5b",
+    "ats/plan.py": "187d1671f15bce637b8b34df02623b3a51b0841740950c3fa96c8a800bc8726f",
+    "ats/regional.py": "d5baeb1b25818589ca48005f367604524e02db503f18440844a12c8bceff2a21",
+    "ats/shared_site.py": "25b95143c33ae0a8be523fb5416f1bc7eaff84a1f4de370596a4632115e11c67",
+    "ats/simulation.py": "f2cf95650a86913d984481ed899672060d62464c6e06e40c1f28292c5b9fce45",
+    "ats/spoil.py": "4f73a33dde854ea1199dc6ff15a5a4ac12195e6d746ce81ecec103fabcef3c70",
+    "ats/terrain.py": "a2563e55f7a1372dfc3c00e7c59844f5ef03dd804ee010d31c079fe5b44c366e",
+    "ats/workfront.py": "bf26ef95b9cb1ff44a8003ca92284d1d765d06f495e45e0ca15bb737a6348122",
+    "tests/test_base_layout.py": "fc40f4e9e526500c856c529cc22ec3f66454cba34992d686d1bb089f08f3db77",
+    "tests/test_workfront.py": "126d77cca8d244f6fc7a1dc9490506f168e4fe0f75c12bf39f2541a6e8a07448",
+    "scripts/prepare_sector_benchmark.py": "a2983554ba4ec62b53eedb12d7cb27f7cabce13b022745d5c139bfd2d7759b77",
+    "tests/test_sectors.py": "f9d7367db575e4129624a425cc35c210e23f696f703249d230a3d6e86c292c7b"
+  },
+  "unchanged_published_physics_and_geometry": {
+    "ats/solar_base.py": true,
+    "ats/solar.py": true,
+    "ats/self_solar.py": true,
+    "ats/battery_platforms.py": true,
+    "ats/base_layout.py": true,
+    "ats/batteries.py": true,
+    "ats/planner.py": true,
+    "ats/soil.py": true,
+    "ats/slopes.py": true,
+    "ats/laser.py": true,
+    "SharedSite._unit_geometry": true,
+    "SharedSite._refresh_geometry": true,
+    "SharedSite._geometry_key": true
+  },
+  "snapshot": {
+    "format_version": 11,
+    "read_versions": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "migration": "Keep coordinates, hardware, charge, terrain and committed operations; use fixed sectors on load; old files never rewritten"
+  },
+  "controls": {
+    "autonomous_route_m": 430,
+    "landing_slots": [
+      1,
+      4
+    ],
+    "completed": true,
+    "relocations": 2,
+    "each_driving_leg_over_m": 100,
+    "departure_cargo_and_containers_empty": true,
+    "ground_followers_within_m_of_base_on_completion": 20,
+    "already_suitable_position": {
+      "unnecessary_correction_m": 15,
+      "relocations": 0
+    },
+    "regional_roundtrip": {
+      "sections": [
+        3,
+        4,
+        3
+      ],
+      "same_ids": true,
+      "terrain_bitwise_equal": true,
+      "no_extra_local_move_after_arrival": true
+    },
+    "note": "Controller checks use shallow uniform-soil remnants; real coastal and 14x4 timing inputs use conditional Qattara stratigraphy"
+  },
+  "ui": {
+    "path": "docs/ats2/fixed-sector-ui.png",
+    "coastal_45_carriers": true,
+    "shown_sector_m": [
+      0,
+      200
+    ],
+    "remaining_volume_visible": true,
+    "offscreen": true
+  },
+  "profile_work_graph_queries_from_range_cache_key_per_30_model_seconds": {
+    "initial_sector_implementation": 420,
+    "final": 0
+  },
+  "cache_change_physical_sha256_unchanged": {
+    "coast45": true,
+    "heavy14-start": true,
+    "heavy14-work": true
+  },
+  "timing_method": {
+    "order": "before/after/after/before",
+    "trials_per_engine_per_mode": 2,
+    "physical_dt_s": 1,
+    "window_px": [
+      1280,
+      900
+    ],
+    "render": "auto",
+    "offscreen": true,
+    "caveats": [
+      "Model seconds per wall second, not user FPS",
+      "Same v10 input snapshots; new controller changes the work policy and spoil reserve",
+      "No claim of bitwise equivalence between old sliding and new sector controllers",
+      "Short runs on this server; no Windows timing or multi-day field production prediction"
+    ]
+  },
+  "timing_summary": [
+    {
+      "case": "coast45",
+      "model_steps": 240,
+      "before": {
+        "headless": 70.18772910477765,
+        "gui": 58.838872985390296
+      },
+      "after": {
+        "headless": 64.1072201683608,
+        "gui": 52.63676348122447
+      }
+    },
+    {
+      "case": "heavy14-start",
+      "model_steps": 20,
+      "before": {
+        "headless": 3.4805410982240277,
+        "gui": 2.4588735648450264
+      },
+      "after": {
+        "headless": 3.393802224837752,
+        "gui": 2.4049892472119874
+      }
+    },
+    {
+      "case": "heavy14-work",
+      "model_steps": 30,
+      "before": {
+        "headless": 5.976454896575696,
+        "gui": 5.107723748033118
+      },
+      "after": {
+        "headless": 5.589101788830763,
+        "gui": 5.159780058844828
+      }
+    }
+  ],
+  "timing_runs": [
+    {
+      "case": "coast45",
+      "label": "before",
+      "order": 0,
+      "snapshot_sha256": "a3fb9554e80b364074005490cd8f184ad622a3500de191ccc894584d2fcf4cf6",
+      "source_root": "/tmp/ats-sector-before",
+      "python": "3.12.14",
+      "platform": "Linux",
+      "cpu_count": 5,
+      "physical_dt_seconds": 1,
+      "steps": 240,
+      "source": "coast45-v10.atsstate",
+      "trials": [
+        {
+          "mode": "headless",
+          "render": null,
+          "profiled": false,
+          "initialization_seconds": 1.2196884570003022,
+          "wall_seconds": 3.517727270999785,
+          "model_seconds": 240.0,
+          "actual_speed": 68.2258690088242,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 5672,
+          "state": "RUNNING",
+          "trips": 62,
+          "mass_error_kg": 0.0,
+          "energy_error_j": 1.8358230590820312e-05,
+          "physical_sha256": "f3711474156b1266538a7eca0a301d7acc1ec03736b083d4ec14b996dcb01cfc",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 0.046026785999856656,
+          "p99_step_wall_seconds": 0.044385994000549545,
+          "max_gui_event_gap_seconds": null,
+          "gui_prepare_seconds": null,
+          "gui_refreshes": null,
+          "gui_paint_seconds": null,
+          "gui_paints": null,
+          "gui_viewport_px": null,
+          "engine_path": "/tmp/ats-sector-before/ats/simulation.py",
+          "initial_time": 600.0,
+          "robot_states_at_start": {
+            "DIGGING": 1
+          },
+          "robot_moving_seconds": 0.0,
+          "robot_working_seconds": 240.0,
+          "robot_relocations": 0
+        },
+        {
+          "mode": "gui",
+          "render": "auto",
+          "profiled": false,
+          "initialization_seconds": 1.657439687999613,
+          "wall_seconds": 3.8329051999999137,
+          "model_seconds": 240.0,
+          "actual_speed": 62.61568900791113,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 5672,
+          "state": "RUNNING",
+          "trips": 62,
+          "mass_error_kg": 0.0,
+          "energy_error_j": 1.8358230590820312e-05,
+          "physical_sha256": "f3711474156b1266538a7eca0a301d7acc1ec03736b083d4ec14b996dcb01cfc",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 0.046915818999877956,
+          "p99_step_wall_seconds": 0.03945612900042761,
+          "max_gui_event_gap_seconds": 0.14931550199980848,
+          "gui_prepare_seconds": 0.38825362999978097,
+          "gui_refreshes": 9,
+          "gui_paint_seconds": 0.10765702599837823,
+          "gui_paints": 8,
+          "gui_viewport_px": [
+            1002,
+            619
+          ],
+          "engine_path": "/tmp/ats-sector-before/ats/simulation.py",
+          "initial_time": 600.0,
+          "robot_states_at_start": {
+            "DIGGING": 1
+          },
+          "robot_moving_seconds": 0.0,
+          "robot_working_seconds": 240.0,
+          "robot_relocations": 0
+        }
+      ],
+      "median": {
+        "headless": {
+          "wall_seconds": 3.517727270999785,
+          "model_seconds": 240.0,
+          "actual_speed": 68.2258690088242
+        },
+        "gui": {
+          "wall_seconds": 3.8329051999999137,
+          "model_seconds": 240.0,
+          "actual_speed": 62.61568900791113
+        }
+      }
+    },
+    {
+      "case": "coast45",
+      "label": "after",
+      "order": 1,
+      "snapshot_sha256": "a3fb9554e80b364074005490cd8f184ad622a3500de191ccc894584d2fcf4cf6",
+      "source_root": "/workspace/ats-project",
+      "python": "3.12.14",
+      "platform": "Linux",
+      "cpu_count": 5,
+      "physical_dt_seconds": 1,
+      "steps": 240,
+      "source": "coast45-v10.atsstate",
+      "trials": [
+        {
+          "mode": "headless",
+          "render": null,
+          "profiled": false,
+          "initialization_seconds": 1.2022160450005686,
+          "wall_seconds": 3.703707755999858,
+          "model_seconds": 240.0,
+          "actual_speed": 64.79992910110406,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 5672,
+          "state": "RUNNING",
+          "trips": 62,
+          "mass_error_kg": 0.0,
+          "energy_error_j": 1.8358230590820312e-05,
+          "physical_sha256": "fc0166bf2a152fd93f6ebf68cf7babff3592e69464809186455970cc333f258f",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 0.3986907770004109,
+          "p99_step_wall_seconds": 0.04898396299995511,
+          "max_gui_event_gap_seconds": null,
+          "gui_prepare_seconds": null,
+          "gui_refreshes": null,
+          "gui_paint_seconds": null,
+          "gui_paints": null,
+          "gui_viewport_px": null,
+          "engine_path": "/workspace/ats-project/ats/simulation.py",
+          "initial_time": 600.0,
+          "robot_states_at_start": {
+            "DIGGING": 1
+          },
+          "robot_moving_seconds": 0.0,
+          "robot_working_seconds": 240.0,
+          "robot_relocations": 0
+        },
+        {
+          "mode": "gui",
+          "render": "auto",
+          "profiled": false,
+          "initialization_seconds": 1.567136890999791,
+          "wall_seconds": 4.4172922600000675,
+          "model_seconds": 240.0,
+          "actual_speed": 54.33192686236168,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 5672,
+          "state": "RUNNING",
+          "trips": 62,
+          "mass_error_kg": 0.0,
+          "energy_error_j": 1.8358230590820312e-05,
+          "physical_sha256": "fc0166bf2a152fd93f6ebf68cf7babff3592e69464809186455970cc333f258f",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 0.38276121799935936,
+          "p99_step_wall_seconds": 0.049397118000342743,
+          "max_gui_event_gap_seconds": 0.475404673000412,
+          "gui_prepare_seconds": 0.461118140000508,
+          "gui_refreshes": 9,
+          "gui_paint_seconds": 0.11268834700058505,
+          "gui_paints": 8,
+          "gui_viewport_px": [
+            1002,
+            619
+          ],
+          "engine_path": "/workspace/ats-project/ats/simulation.py",
+          "initial_time": 600.0,
+          "robot_states_at_start": {
+            "DIGGING": 1
+          },
+          "robot_moving_seconds": 0.0,
+          "robot_working_seconds": 240.0,
+          "robot_relocations": 0
+        }
+      ],
+      "median": {
+        "headless": {
+          "wall_seconds": 3.703707755999858,
+          "model_seconds": 240.0,
+          "actual_speed": 64.79992910110406
+        },
+        "gui": {
+          "wall_seconds": 4.4172922600000675,
+          "model_seconds": 240.0,
+          "actual_speed": 54.33192686236168
+        }
+      }
+    },
+    {
+      "case": "coast45",
+      "label": "after",
+      "order": 2,
+      "snapshot_sha256": "a3fb9554e80b364074005490cd8f184ad622a3500de191ccc894584d2fcf4cf6",
+      "source_root": "/workspace/ats-project",
+      "python": "3.12.14",
+      "platform": "Linux",
+      "cpu_count": 5,
+      "physical_dt_seconds": 1,
+      "steps": 240,
+      "source": "coast45-v10.atsstate",
+      "trials": [
+        {
+          "mode": "headless",
+          "render": null,
+          "profiled": false,
+          "initialization_seconds": 1.1884338339996248,
+          "wall_seconds": 3.7846227199997884,
+          "model_seconds": 240.0,
+          "actual_speed": 63.41451123561754,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 5672,
+          "state": "RUNNING",
+          "trips": 62,
+          "mass_error_kg": 0.0,
+          "energy_error_j": 1.8358230590820312e-05,
+          "physical_sha256": "fc0166bf2a152fd93f6ebf68cf7babff3592e69464809186455970cc333f258f",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 0.43360242299968377,
+          "p99_step_wall_seconds": 0.05248624399973778,
+          "max_gui_event_gap_seconds": null,
+          "gui_prepare_seconds": null,
+          "gui_refreshes": null,
+          "gui_paint_seconds": null,
+          "gui_paints": null,
+          "gui_viewport_px": null,
+          "engine_path": "/workspace/ats-project/ats/simulation.py",
+          "initial_time": 600.0,
+          "robot_states_at_start": {
+            "DIGGING": 1
+          },
+          "robot_moving_seconds": 0.0,
+          "robot_working_seconds": 240.0,
+          "robot_relocations": 0
+        },
+        {
+          "mode": "gui",
+          "render": "auto",
+          "profiled": false,
+          "initialization_seconds": 1.6571162899999763,
+          "wall_seconds": 4.71127721799985,
+          "model_seconds": 240.0,
+          "actual_speed": 50.941600100087264,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 5672,
+          "state": "RUNNING",
+          "trips": 62,
+          "mass_error_kg": 0.0,
+          "energy_error_j": 1.8358230590820312e-05,
+          "physical_sha256": "fc0166bf2a152fd93f6ebf68cf7babff3592e69464809186455970cc333f258f",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 0.38875090799956524,
+          "p99_step_wall_seconds": 0.0517313929994998,
+          "max_gui_event_gap_seconds": 0.4610586090002471,
+          "gui_prepare_seconds": 0.46025028899930476,
+          "gui_refreshes": 10,
+          "gui_paint_seconds": 0.11441031999947882,
+          "gui_paints": 9,
+          "gui_viewport_px": [
+            1002,
+            619
+          ],
+          "engine_path": "/workspace/ats-project/ats/simulation.py",
+          "initial_time": 600.0,
+          "robot_states_at_start": {
+            "DIGGING": 1
+          },
+          "robot_moving_seconds": 0.0,
+          "robot_working_seconds": 240.0,
+          "robot_relocations": 0
+        }
+      ],
+      "median": {
+        "headless": {
+          "wall_seconds": 3.7846227199997884,
+          "model_seconds": 240.0,
+          "actual_speed": 63.41451123561754
+        },
+        "gui": {
+          "wall_seconds": 4.71127721799985,
+          "model_seconds": 240.0,
+          "actual_speed": 50.941600100087264
+        }
+      }
+    },
+    {
+      "case": "coast45",
+      "label": "before",
+      "order": 3,
+      "snapshot_sha256": "a3fb9554e80b364074005490cd8f184ad622a3500de191ccc894584d2fcf4cf6",
+      "source_root": "/tmp/ats-sector-before",
+      "python": "3.12.14",
+      "platform": "Linux",
+      "cpu_count": 5,
+      "physical_dt_seconds": 1,
+      "steps": 240,
+      "source": "coast45-v10.atsstate",
+      "trials": [
+        {
+          "mode": "headless",
+          "render": null,
+          "profiled": false,
+          "initialization_seconds": 1.2006701760001306,
+          "wall_seconds": 3.326422265999099,
+          "model_seconds": 240.0,
+          "actual_speed": 72.14958920073107,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 5672,
+          "state": "RUNNING",
+          "trips": 62,
+          "mass_error_kg": 0.0,
+          "energy_error_j": 1.8358230590820312e-05,
+          "physical_sha256": "f3711474156b1266538a7eca0a301d7acc1ec03736b083d4ec14b996dcb01cfc",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 0.04843422300018574,
+          "p99_step_wall_seconds": 0.04547547299989674,
+          "max_gui_event_gap_seconds": null,
+          "gui_prepare_seconds": null,
+          "gui_refreshes": null,
+          "gui_paint_seconds": null,
+          "gui_paints": null,
+          "gui_viewport_px": null,
+          "engine_path": "/tmp/ats-sector-before/ats/simulation.py",
+          "initial_time": 600.0,
+          "robot_states_at_start": {
+            "DIGGING": 1
+          },
+          "robot_moving_seconds": 0.0,
+          "robot_working_seconds": 240.0,
+          "robot_relocations": 0
+        },
+        {
+          "mode": "gui",
+          "render": "auto",
+          "profiled": false,
+          "initialization_seconds": 1.5597329370002626,
+          "wall_seconds": 4.358718385000429,
+          "model_seconds": 240.0,
+          "actual_speed": 55.062056962869455,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 5672,
+          "state": "RUNNING",
+          "trips": 62,
+          "mass_error_kg": 0.0,
+          "energy_error_j": 1.8358230590820312e-05,
+          "physical_sha256": "f3711474156b1266538a7eca0a301d7acc1ec03736b083d4ec14b996dcb01cfc",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 0.06802417899962165,
+          "p99_step_wall_seconds": 0.05094943099993543,
+          "max_gui_event_gap_seconds": 0.15649586000017734,
+          "gui_prepare_seconds": 0.49049671099965053,
+          "gui_refreshes": 9,
+          "gui_paint_seconds": 0.09908641499987425,
+          "gui_paints": 8,
+          "gui_viewport_px": [
+            1002,
+            619
+          ],
+          "engine_path": "/tmp/ats-sector-before/ats/simulation.py",
+          "initial_time": 600.0,
+          "robot_states_at_start": {
+            "DIGGING": 1
+          },
+          "robot_moving_seconds": 0.0,
+          "robot_working_seconds": 240.0,
+          "robot_relocations": 0
+        }
+      ],
+      "median": {
+        "headless": {
+          "wall_seconds": 3.326422265999099,
+          "model_seconds": 240.0,
+          "actual_speed": 72.14958920073107
+        },
+        "gui": {
+          "wall_seconds": 4.358718385000429,
+          "model_seconds": 240.0,
+          "actual_speed": 55.062056962869455
+        }
+      }
+    },
+    {
+      "case": "heavy14-start",
+      "label": "before",
+      "order": 0,
+      "snapshot_sha256": "b754e851dd5da102a1630ffa25b17398f84f0412b72126dec78292087b80f662",
+      "source_root": "/tmp/ats-sector-before",
+      "python": "3.12.14",
+      "platform": "Linux",
+      "cpu_count": 5,
+      "physical_dt_seconds": 1,
+      "steps": 20,
+      "source": "heavy14-start-v10.atsstate",
+      "trials": [
+        {
+          "mode": "headless",
+          "render": null,
+          "profiled": false,
+          "initialization_seconds": 3.8528736509997543,
+          "wall_seconds": 6.19903700299983,
+          "model_seconds": 20.0,
+          "actual_speed": 3.2263075684693647,
+          "grid_cells": 512,
+          "drones": 56,
+          "inventory_items": 79408,
+          "state": "RUNNING",
+          "trips": 0,
+          "mass_error_kg": 0.0,
+          "energy_error_j": 4.6118657337501645e-06,
+          "physical_sha256": "4c1c77b257bd8d59743576675d9c8c4688958a1fff5116e35eb17fbd9d794b0a",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 0.9635583879999103,
+          "p99_step_wall_seconds": 0.9635583879999103,
+          "max_gui_event_gap_seconds": null,
+          "gui_prepare_seconds": null,
+          "gui_refreshes": null,
+          "gui_paint_seconds": null,
+          "gui_paints": null,
+          "gui_viewport_px": null,
+          "engine_path": "/tmp/ats-sector-before/ats/simulation.py",
+          "initial_time": 0.0,
+          "robot_states_at_start": {
+            "DEPLOYING_SUPPORTS": 14
+          },
+          "robot_moving_seconds": 140.0,
+          "robot_working_seconds": 0.0,
+          "robot_relocations": 0
+        },
+        {
+          "mode": "gui",
+          "render": "auto",
+          "profiled": false,
+          "initialization_seconds": 4.280739748999622,
+          "wall_seconds": 8.225890857000195,
+          "model_seconds": 20.0,
+          "actual_speed": 2.4313476008474018,
+          "grid_cells": 512,
+          "drones": 56,
+          "inventory_items": 79408,
+          "state": "RUNNING",
+          "trips": 0,
+          "mass_error_kg": 0.0,
+          "energy_error_j": 4.6118657337501645e-06,
+          "physical_sha256": "4c1c77b257bd8d59743576675d9c8c4688958a1fff5116e35eb17fbd9d794b0a",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 0.9676636860003782,
+          "p99_step_wall_seconds": 0.9676636860003782,
+          "max_gui_event_gap_seconds": 1.608532987000217,
+          "gui_prepare_seconds": 1.0982558929999868,
+          "gui_refreshes": 4,
+          "gui_paint_seconds": 1.0793934179991993,
+          "gui_paints": 3,
+          "gui_viewport_px": [
+            1002,
+            619
+          ],
+          "engine_path": "/tmp/ats-sector-before/ats/simulation.py",
+          "initial_time": 0.0,
+          "robot_states_at_start": {
+            "DEPLOYING_SUPPORTS": 14
+          },
+          "robot_moving_seconds": 140.0,
+          "robot_working_seconds": 0.0,
+          "robot_relocations": 0
+        }
+      ],
+      "median": {
+        "headless": {
+          "wall_seconds": 6.19903700299983,
+          "model_seconds": 20.0,
+          "actual_speed": 3.2263075684693647
+        },
+        "gui": {
+          "wall_seconds": 8.225890857000195,
+          "model_seconds": 20.0,
+          "actual_speed": 2.4313476008474018
+        }
+      }
+    },
+    {
+      "case": "heavy14-start",
+      "label": "after",
+      "order": 1,
+      "snapshot_sha256": "b754e851dd5da102a1630ffa25b17398f84f0412b72126dec78292087b80f662",
+      "source_root": "/workspace/ats-project",
+      "python": "3.12.14",
+      "platform": "Linux",
+      "cpu_count": 5,
+      "physical_dt_seconds": 1,
+      "steps": 20,
+      "source": "heavy14-start-v10.atsstate",
+      "trials": [
+        {
+          "mode": "headless",
+          "render": null,
+          "profiled": false,
+          "initialization_seconds": 4.308257238999431,
+          "wall_seconds": 5.857071750000614,
+          "model_seconds": 20.0,
+          "actual_speed": 3.4146756013357535,
+          "grid_cells": 512,
+          "drones": 56,
+          "inventory_items": 79408,
+          "state": "RUNNING",
+          "trips": 0,
+          "mass_error_kg": 0.0,
+          "energy_error_j": 4.6118657337501645e-06,
+          "physical_sha256": "c0488f9cda67063d18defdcd00fd764929f9e4c77632e94b99a625638bf09417",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 1.0389125379997495,
+          "p99_step_wall_seconds": 1.0389125379997495,
+          "max_gui_event_gap_seconds": null,
+          "gui_prepare_seconds": null,
+          "gui_refreshes": null,
+          "gui_paint_seconds": null,
+          "gui_paints": null,
+          "gui_viewport_px": null,
+          "engine_path": "/workspace/ats-project/ats/simulation.py",
+          "initial_time": 0.0,
+          "robot_states_at_start": {
+            "DEPLOYING_SUPPORTS": 14
+          },
+          "robot_moving_seconds": 140.0,
+          "robot_working_seconds": 0.0,
+          "robot_relocations": 0
+        },
+        {
+          "mode": "gui",
+          "render": "auto",
+          "profiled": false,
+          "initialization_seconds": 4.3707957770002395,
+          "wall_seconds": 8.376959881999937,
+          "model_seconds": 20.0,
+          "actual_speed": 2.387500988631349,
+          "grid_cells": 512,
+          "drones": 56,
+          "inventory_items": 79408,
+          "state": "RUNNING",
+          "trips": 0,
+          "mass_error_kg": 0.0,
+          "energy_error_j": 4.6118657337501645e-06,
+          "physical_sha256": "c0488f9cda67063d18defdcd00fd764929f9e4c77632e94b99a625638bf09417",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 0.9900032030000148,
+          "p99_step_wall_seconds": 0.9900032030000148,
+          "max_gui_event_gap_seconds": 1.5978628450002361,
+          "gui_prepare_seconds": 1.1211438929985889,
+          "gui_refreshes": 4,
+          "gui_paint_seconds": 1.079534584000612,
+          "gui_paints": 3,
+          "gui_viewport_px": [
+            1002,
+            619
+          ],
+          "engine_path": "/workspace/ats-project/ats/simulation.py",
+          "initial_time": 0.0,
+          "robot_states_at_start": {
+            "DEPLOYING_SUPPORTS": 14
+          },
+          "robot_moving_seconds": 140.0,
+          "robot_working_seconds": 0.0,
+          "robot_relocations": 0
+        }
+      ],
+      "median": {
+        "headless": {
+          "wall_seconds": 5.857071750000614,
+          "model_seconds": 20.0,
+          "actual_speed": 3.4146756013357535
+        },
+        "gui": {
+          "wall_seconds": 8.376959881999937,
+          "model_seconds": 20.0,
+          "actual_speed": 2.387500988631349
+        }
+      }
+    },
+    {
+      "case": "heavy14-start",
+      "label": "after",
+      "order": 2,
+      "snapshot_sha256": "b754e851dd5da102a1630ffa25b17398f84f0412b72126dec78292087b80f662",
+      "source_root": "/workspace/ats-project",
+      "python": "3.12.14",
+      "platform": "Linux",
+      "cpu_count": 5,
+      "physical_dt_seconds": 1,
+      "steps": 20,
+      "source": "heavy14-start-v10.atsstate",
+      "trials": [
+        {
+          "mode": "headless",
+          "render": null,
+          "profiled": false,
+          "initialization_seconds": 4.227876324000135,
+          "wall_seconds": 5.929564748999837,
+          "model_seconds": 20.0,
+          "actual_speed": 3.37292884833975,
+          "grid_cells": 512,
+          "drones": 56,
+          "inventory_items": 79408,
+          "state": "RUNNING",
+          "trips": 0,
+          "mass_error_kg": 0.0,
+          "energy_error_j": 4.6118657337501645e-06,
+          "physical_sha256": "c0488f9cda67063d18defdcd00fd764929f9e4c77632e94b99a625638bf09417",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 0.9609348469994075,
+          "p99_step_wall_seconds": 0.9609348469994075,
+          "max_gui_event_gap_seconds": null,
+          "gui_prepare_seconds": null,
+          "gui_refreshes": null,
+          "gui_paint_seconds": null,
+          "gui_paints": null,
+          "gui_viewport_px": null,
+          "engine_path": "/workspace/ats-project/ats/simulation.py",
+          "initial_time": 0.0,
+          "robot_states_at_start": {
+            "DEPLOYING_SUPPORTS": 14
+          },
+          "robot_moving_seconds": 140.0,
+          "robot_working_seconds": 0.0,
+          "robot_relocations": 0
+        },
+        {
+          "mode": "gui",
+          "render": "auto",
+          "profiled": false,
+          "initialization_seconds": 4.131651226000031,
+          "wall_seconds": 8.256010613999933,
+          "model_seconds": 20.0,
+          "actual_speed": 2.4224775057926253,
+          "grid_cells": 512,
+          "drones": 56,
+          "inventory_items": 79408,
+          "state": "RUNNING",
+          "trips": 0,
+          "mass_error_kg": 0.0,
+          "energy_error_j": 4.6118657337501645e-06,
+          "physical_sha256": "c0488f9cda67063d18defdcd00fd764929f9e4c77632e94b99a625638bf09417",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 1.0212347570004567,
+          "p99_step_wall_seconds": 1.0212347570004567,
+          "max_gui_event_gap_seconds": 1.682511224999871,
+          "gui_prepare_seconds": 1.0828717770000367,
+          "gui_refreshes": 4,
+          "gui_paint_seconds": 1.0661471610001172,
+          "gui_paints": 3,
+          "gui_viewport_px": [
+            1002,
+            619
+          ],
+          "engine_path": "/workspace/ats-project/ats/simulation.py",
+          "initial_time": 0.0,
+          "robot_states_at_start": {
+            "DEPLOYING_SUPPORTS": 14
+          },
+          "robot_moving_seconds": 140.0,
+          "robot_working_seconds": 0.0,
+          "robot_relocations": 0
+        }
+      ],
+      "median": {
+        "headless": {
+          "wall_seconds": 5.929564748999837,
+          "model_seconds": 20.0,
+          "actual_speed": 3.37292884833975
+        },
+        "gui": {
+          "wall_seconds": 8.256010613999933,
+          "model_seconds": 20.0,
+          "actual_speed": 2.4224775057926253
+        }
+      }
+    },
+    {
+      "case": "heavy14-start",
+      "label": "before",
+      "order": 3,
+      "snapshot_sha256": "b754e851dd5da102a1630ffa25b17398f84f0412b72126dec78292087b80f662",
+      "source_root": "/tmp/ats-sector-before",
+      "python": "3.12.14",
+      "platform": "Linux",
+      "cpu_count": 5,
+      "physical_dt_seconds": 1,
+      "steps": 20,
+      "source": "heavy14-start-v10.atsstate",
+      "trials": [
+        {
+          "mode": "headless",
+          "render": null,
+          "profiled": false,
+          "initialization_seconds": 4.144577679000577,
+          "wall_seconds": 5.355075470999509,
+          "model_seconds": 20.0,
+          "actual_speed": 3.73477462797869,
+          "grid_cells": 512,
+          "drones": 56,
+          "inventory_items": 79408,
+          "state": "RUNNING",
+          "trips": 0,
+          "mass_error_kg": 0.0,
+          "energy_error_j": 4.6118657337501645e-06,
+          "physical_sha256": "4c1c77b257bd8d59743576675d9c8c4688958a1fff5116e35eb17fbd9d794b0a",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 0.9888879569998608,
+          "p99_step_wall_seconds": 0.9888879569998608,
+          "max_gui_event_gap_seconds": null,
+          "gui_prepare_seconds": null,
+          "gui_refreshes": null,
+          "gui_paint_seconds": null,
+          "gui_paints": null,
+          "gui_viewport_px": null,
+          "engine_path": "/tmp/ats-sector-before/ats/simulation.py",
+          "initial_time": 0.0,
+          "robot_states_at_start": {
+            "DEPLOYING_SUPPORTS": 14
+          },
+          "robot_moving_seconds": 140.0,
+          "robot_working_seconds": 0.0,
+          "robot_relocations": 0
+        },
+        {
+          "mode": "gui",
+          "render": "auto",
+          "profiled": false,
+          "initialization_seconds": 4.334568805999879,
+          "wall_seconds": 8.043759568000496,
+          "model_seconds": 20.0,
+          "actual_speed": 2.486399528842651,
+          "grid_cells": 512,
+          "drones": 56,
+          "inventory_items": 79408,
+          "state": "RUNNING",
+          "trips": 0,
+          "mass_error_kg": 0.0,
+          "energy_error_j": 4.6118657337501645e-06,
+          "physical_sha256": "4c1c77b257bd8d59743576675d9c8c4688958a1fff5116e35eb17fbd9d794b0a",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 0.9422695499997644,
+          "p99_step_wall_seconds": 0.9422695499997644,
+          "max_gui_event_gap_seconds": 1.5381729540004017,
+          "gui_prepare_seconds": 1.0739984480014755,
+          "gui_refreshes": 4,
+          "gui_paint_seconds": 1.0151942199991026,
+          "gui_paints": 3,
+          "gui_viewport_px": [
+            1002,
+            619
+          ],
+          "engine_path": "/tmp/ats-sector-before/ats/simulation.py",
+          "initial_time": 0.0,
+          "robot_states_at_start": {
+            "DEPLOYING_SUPPORTS": 14
+          },
+          "robot_moving_seconds": 140.0,
+          "robot_working_seconds": 0.0,
+          "robot_relocations": 0
+        }
+      ],
+      "median": {
+        "headless": {
+          "wall_seconds": 5.355075470999509,
+          "model_seconds": 20.0,
+          "actual_speed": 3.73477462797869
+        },
+        "gui": {
+          "wall_seconds": 8.043759568000496,
+          "model_seconds": 20.0,
+          "actual_speed": 2.486399528842651
+        }
+      }
+    },
+    {
+      "case": "heavy14-work",
+      "label": "before",
+      "order": 0,
+      "snapshot_sha256": "ff2bf13125de344deb3dcc7214df51eee58131189d7c68124cfa8a291297c376",
+      "source_root": "/tmp/ats-sector-before",
+      "python": "3.12.14",
+      "platform": "Linux",
+      "cpu_count": 5,
+      "physical_dt_seconds": 1,
+      "steps": 30,
+      "source": "heavy14-work-v10.atsstate",
+      "trials": [
+        {
+          "mode": "headless",
+          "render": null,
+          "profiled": false,
+          "initialization_seconds": 4.268772428000375,
+          "wall_seconds": 4.73471114899985,
+          "model_seconds": 30.0,
+          "actual_speed": 6.336183783109374,
+          "grid_cells": 512,
+          "drones": 56,
+          "inventory_items": 79408,
+          "state": "RUNNING",
+          "trips": 238,
+          "mass_error_kg": -7.275957614183426e-12,
+          "energy_error_j": 0.0001236051321029663,
+          "physical_sha256": "d354fcffa6ab7e167c9eefc2d8ded1b7f05cb179407166516d982ced68b31fe2",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 0.42664818899993406,
+          "p99_step_wall_seconds": 0.42664818899993406,
+          "max_gui_event_gap_seconds": null,
+          "gui_prepare_seconds": null,
+          "gui_refreshes": null,
+          "gui_paint_seconds": null,
+          "gui_paints": null,
+          "gui_viewport_px": null,
+          "engine_path": "/tmp/ats-sector-before/ats/simulation.py",
+          "initial_time": 235.0,
+          "robot_states_at_start": {
+            "WAITING_TRANSPORT": 14
+          },
+          "robot_moving_seconds": 0.0,
+          "robot_working_seconds": 0.0,
+          "robot_relocations": 0
+        },
+        {
+          "mode": "gui",
+          "render": "auto",
+          "profiled": false,
+          "initialization_seconds": 5.354861391999293,
+          "wall_seconds": 5.862851026000499,
+          "model_seconds": 30.0,
+          "actual_speed": 5.116964402976705,
+          "grid_cells": 512,
+          "drones": 56,
+          "inventory_items": 79408,
+          "state": "RUNNING",
+          "trips": 238,
+          "mass_error_kg": -7.275957614183426e-12,
+          "energy_error_j": 0.0001236051321029663,
+          "physical_sha256": "d354fcffa6ab7e167c9eefc2d8ded1b7f05cb179407166516d982ced68b31fe2",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 0.5483833509997567,
+          "p99_step_wall_seconds": 0.5483833509997567,
+          "max_gui_event_gap_seconds": 0.6237086810006076,
+          "gui_prepare_seconds": 0.22325490299954254,
+          "gui_refreshes": 6,
+          "gui_paint_seconds": 0.08648056899892254,
+          "gui_paints": 5,
+          "gui_viewport_px": [
+            1002,
+            619
+          ],
+          "engine_path": "/tmp/ats-sector-before/ats/simulation.py",
+          "initial_time": 235.0,
+          "robot_states_at_start": {
+            "WAITING_TRANSPORT": 14
+          },
+          "robot_moving_seconds": 0.0,
+          "robot_working_seconds": 0.0,
+          "robot_relocations": 0
+        }
+      ],
+      "median": {
+        "headless": {
+          "wall_seconds": 4.73471114899985,
+          "model_seconds": 30.0,
+          "actual_speed": 6.336183783109374
+        },
+        "gui": {
+          "wall_seconds": 5.862851026000499,
+          "model_seconds": 30.0,
+          "actual_speed": 5.116964402976705
+        }
+      }
+    },
+    {
+      "case": "heavy14-work",
+      "label": "after",
+      "order": 1,
+      "snapshot_sha256": "ff2bf13125de344deb3dcc7214df51eee58131189d7c68124cfa8a291297c376",
+      "source_root": "/workspace/ats-project",
+      "python": "3.12.14",
+      "platform": "Linux",
+      "cpu_count": 5,
+      "physical_dt_seconds": 1,
+      "steps": 30,
+      "source": "heavy14-work-v10.atsstate",
+      "trials": [
+        {
+          "mode": "headless",
+          "render": null,
+          "profiled": false,
+          "initialization_seconds": 4.343706034000206,
+          "wall_seconds": 5.151169032000325,
+          "model_seconds": 30.0,
+          "actual_speed": 5.823920708800787,
+          "grid_cells": 512,
+          "drones": 56,
+          "inventory_items": 79408,
+          "state": "RUNNING",
+          "trips": 238,
+          "mass_error_kg": -7.048583938740194e-12,
+          "energy_error_j": 0.0001236051321029663,
+          "physical_sha256": "506d228bec00b18c869ac14a3761fda8ee8e4ef7f11919bc72f001c5eb6950fe",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 0.611684213999979,
+          "p99_step_wall_seconds": 0.611684213999979,
+          "max_gui_event_gap_seconds": null,
+          "gui_prepare_seconds": null,
+          "gui_refreshes": null,
+          "gui_paint_seconds": null,
+          "gui_paints": null,
+          "gui_viewport_px": null,
+          "engine_path": "/workspace/ats-project/ats/simulation.py",
+          "initial_time": 235.0,
+          "robot_states_at_start": {
+            "WAITING_TRANSPORT": 14
+          },
+          "robot_moving_seconds": 0.0,
+          "robot_working_seconds": 0.0,
+          "robot_relocations": 0
+        },
+        {
+          "mode": "gui",
+          "render": "auto",
+          "profiled": false,
+          "initialization_seconds": 5.500625050000053,
+          "wall_seconds": 5.689026318000288,
+          "model_seconds": 30.0,
+          "actual_speed": 5.273310110216735,
+          "grid_cells": 512,
+          "drones": 56,
+          "inventory_items": 79408,
+          "state": "RUNNING",
+          "trips": 238,
+          "mass_error_kg": -7.048583938740194e-12,
+          "energy_error_j": 0.0001236051321029663,
+          "physical_sha256": "506d228bec00b18c869ac14a3761fda8ee8e4ef7f11919bc72f001c5eb6950fe",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 0.6986325040006705,
+          "p99_step_wall_seconds": 0.6986325040006705,
+          "max_gui_event_gap_seconds": 0.7876406240002325,
+          "gui_prepare_seconds": 0.2158220480014279,
+          "gui_refreshes": 6,
+          "gui_paint_seconds": 0.09092176300055144,
+          "gui_paints": 5,
+          "gui_viewport_px": [
+            1002,
+            619
+          ],
+          "engine_path": "/workspace/ats-project/ats/simulation.py",
+          "initial_time": 235.0,
+          "robot_states_at_start": {
+            "WAITING_TRANSPORT": 14
+          },
+          "robot_moving_seconds": 0.0,
+          "robot_working_seconds": 0.0,
+          "robot_relocations": 0
+        }
+      ],
+      "median": {
+        "headless": {
+          "wall_seconds": 5.151169032000325,
+          "model_seconds": 30.0,
+          "actual_speed": 5.823920708800787
+        },
+        "gui": {
+          "wall_seconds": 5.689026318000288,
+          "model_seconds": 30.0,
+          "actual_speed": 5.273310110216735
+        }
+      }
+    },
+    {
+      "case": "heavy14-work",
+      "label": "after",
+      "order": 2,
+      "snapshot_sha256": "ff2bf13125de344deb3dcc7214df51eee58131189d7c68124cfa8a291297c376",
+      "source_root": "/workspace/ats-project",
+      "python": "3.12.14",
+      "platform": "Linux",
+      "cpu_count": 5,
+      "physical_dt_seconds": 1,
+      "steps": 30,
+      "source": "heavy14-work-v10.atsstate",
+      "trials": [
+        {
+          "mode": "headless",
+          "render": null,
+          "profiled": false,
+          "initialization_seconds": 4.427955205000217,
+          "wall_seconds": 5.602991237999959,
+          "model_seconds": 30.0,
+          "actual_speed": 5.3542828688607385,
+          "grid_cells": 512,
+          "drones": 56,
+          "inventory_items": 79408,
+          "state": "RUNNING",
+          "trips": 238,
+          "mass_error_kg": -7.048583938740194e-12,
+          "energy_error_j": 0.0001236051321029663,
+          "physical_sha256": "506d228bec00b18c869ac14a3761fda8ee8e4ef7f11919bc72f001c5eb6950fe",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 0.640082715999597,
+          "p99_step_wall_seconds": 0.640082715999597,
+          "max_gui_event_gap_seconds": null,
+          "gui_prepare_seconds": null,
+          "gui_refreshes": null,
+          "gui_paint_seconds": null,
+          "gui_paints": null,
+          "gui_viewport_px": null,
+          "engine_path": "/workspace/ats-project/ats/simulation.py",
+          "initial_time": 235.0,
+          "robot_states_at_start": {
+            "WAITING_TRANSPORT": 14
+          },
+          "robot_moving_seconds": 0.0,
+          "robot_working_seconds": 0.0,
+          "robot_relocations": 0
+        },
+        {
+          "mode": "gui",
+          "render": "auto",
+          "profiled": false,
+          "initialization_seconds": 6.09118674399997,
+          "wall_seconds": 5.945008661000429,
+          "model_seconds": 30.0,
+          "actual_speed": 5.0462500074729215,
+          "grid_cells": 512,
+          "drones": 56,
+          "inventory_items": 79408,
+          "state": "RUNNING",
+          "trips": 238,
+          "mass_error_kg": -7.048583938740194e-12,
+          "energy_error_j": 0.0001236051321029663,
+          "physical_sha256": "506d228bec00b18c869ac14a3761fda8ee8e4ef7f11919bc72f001c5eb6950fe",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 0.665501229000256,
+          "p99_step_wall_seconds": 0.665501229000256,
+          "max_gui_event_gap_seconds": 0.742779260000134,
+          "gui_prepare_seconds": 0.23155025300093257,
+          "gui_refreshes": 6,
+          "gui_paint_seconds": 0.09405234399946494,
+          "gui_paints": 5,
+          "gui_viewport_px": [
+            1002,
+            619
+          ],
+          "engine_path": "/workspace/ats-project/ats/simulation.py",
+          "initial_time": 235.0,
+          "robot_states_at_start": {
+            "WAITING_TRANSPORT": 14
+          },
+          "robot_moving_seconds": 0.0,
+          "robot_working_seconds": 0.0,
+          "robot_relocations": 0
+        }
+      ],
+      "median": {
+        "headless": {
+          "wall_seconds": 5.602991237999959,
+          "model_seconds": 30.0,
+          "actual_speed": 5.3542828688607385
+        },
+        "gui": {
+          "wall_seconds": 5.945008661000429,
+          "model_seconds": 30.0,
+          "actual_speed": 5.0462500074729215
+        }
+      }
+    },
+    {
+      "case": "heavy14-work",
+      "label": "before",
+      "order": 3,
+      "snapshot_sha256": "ff2bf13125de344deb3dcc7214df51eee58131189d7c68124cfa8a291297c376",
+      "source_root": "/tmp/ats-sector-before",
+      "python": "3.12.14",
+      "platform": "Linux",
+      "cpu_count": 5,
+      "physical_dt_seconds": 1,
+      "steps": 30,
+      "source": "heavy14-work-v10.atsstate",
+      "trials": [
+        {
+          "mode": "headless",
+          "render": null,
+          "profiled": false,
+          "initialization_seconds": 4.451855238000462,
+          "wall_seconds": 5.34118985799978,
+          "model_seconds": 30.0,
+          "actual_speed": 5.616726010042019,
+          "grid_cells": 512,
+          "drones": 56,
+          "inventory_items": 79408,
+          "state": "RUNNING",
+          "trips": 238,
+          "mass_error_kg": -7.275957614183426e-12,
+          "energy_error_j": 0.0001236051321029663,
+          "physical_sha256": "d354fcffa6ab7e167c9eefc2d8ded1b7f05cb179407166516d982ced68b31fe2",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 0.45630830400023115,
+          "p99_step_wall_seconds": 0.45630830400023115,
+          "max_gui_event_gap_seconds": null,
+          "gui_prepare_seconds": null,
+          "gui_refreshes": null,
+          "gui_paint_seconds": null,
+          "gui_paints": null,
+          "gui_viewport_px": null,
+          "engine_path": "/tmp/ats-sector-before/ats/simulation.py",
+          "initial_time": 235.0,
+          "robot_states_at_start": {
+            "WAITING_TRANSPORT": 14
+          },
+          "robot_moving_seconds": 0.0,
+          "robot_working_seconds": 0.0,
+          "robot_relocations": 0
+        },
+        {
+          "mode": "gui",
+          "render": "auto",
+          "profiled": false,
+          "initialization_seconds": 5.729152457999589,
+          "wall_seconds": 5.8841030660005345,
+          "model_seconds": 30.0,
+          "actual_speed": 5.0984830930895315,
+          "grid_cells": 512,
+          "drones": 56,
+          "inventory_items": 79408,
+          "state": "RUNNING",
+          "trips": 238,
+          "mass_error_kg": -7.275957614183426e-12,
+          "energy_error_j": 0.0001236051321029663,
+          "physical_sha256": "d354fcffa6ab7e167c9eefc2d8ded1b7f05cb179407166516d982ced68b31fe2",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 0.5028625619997911,
+          "p99_step_wall_seconds": 0.5028625619997911,
+          "max_gui_event_gap_seconds": 0.5805651740001849,
+          "gui_prepare_seconds": 0.23938726200049132,
+          "gui_refreshes": 6,
+          "gui_paint_seconds": 0.09475366599872359,
+          "gui_paints": 5,
+          "gui_viewport_px": [
+            1002,
+            619
+          ],
+          "engine_path": "/tmp/ats-sector-before/ats/simulation.py",
+          "initial_time": 235.0,
+          "robot_states_at_start": {
+            "WAITING_TRANSPORT": 14
+          },
+          "robot_moving_seconds": 0.0,
+          "robot_working_seconds": 0.0,
+          "robot_relocations": 0
+        }
+      ],
+      "median": {
+        "headless": {
+          "wall_seconds": 5.34118985799978,
+          "model_seconds": 30.0,
+          "actual_speed": 5.616726010042019
+        },
+        "gui": {
+          "wall_seconds": 5.8841030660005345,
+          "model_seconds": 30.0,
+          "actual_speed": 5.0984830930895315
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "Sectors clipped at assigned work and current window; next region remains an explicit user command",
+    "Site search uses project sites and the current suitable position; no arbitrary new ground detours",
+    "Early empty-flight bound is not a full loaded-flight guarantee; ordinary payload/energy and collision planning remains active",
+    "Legacy committed moves may finish once before fixed-sector operation",
+    "Local Linux validation only; no new push or remote CI"
+  ]
+}

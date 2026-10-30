@@ -541,7 +541,13 @@ class RegionalTransition:
         if land.channel_project is not None and self.section is not None:land.channel_project['active_section']=self.section
         for u in p.units:
             s=u.simulation
-            if s.terrain.front is not None:s._base_front_anchor=s.terrain.front.start
+            if s.terrain.front is not None:
+                s._base_front_anchor=s.terrain.front.start
+                if s.terrain.front.sectors:
+                    # A user-requested regional move has already paid for a
+                    # safe arrival/deployment. Adopt that real position for
+                    # its current sector, without another short fold/drive.
+                    f=s.terrain.front;f.stationed=True;f.moving=False;f.revision=-1
             if s.logistics.battery_platforms:s.logistics.battery_platforms.request('DEPLOY')
         self._stage('DEPLOY','Развёртывание солнечных полей на новом участке');self.retry_at=0.
         self._deploy_fields()

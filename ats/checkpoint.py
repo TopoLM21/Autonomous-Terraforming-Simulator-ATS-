@@ -19,7 +19,7 @@ import numpy as np
 
 
 FORMAT='ATS_SIMULATION'
-VERSION=10
+VERSION=11
 MAX_BYTES=1_500_000_000
 MAX_NODES=2_000_000
 
@@ -182,6 +182,13 @@ def _validate(session):
     s=session.simulation
     if type(s) is not Simulation or not isinstance(s.state,MissionState):raise ValueError('Нет состояния симуляции')
     s.config.validate();t=s.terrain
+    if t.front is not None and t.front.sectors:
+        f=t.front
+        if (type(f.stationed) is not bool or type(f.moving) is not bool or
+                not all(math.isfinite(v) for v in (f.sector_start,f.sector_end,f.sector_centre,f.sector_tolerance)) or
+                f.sector_start<0 or f.sector_end<=f.sector_start or
+                not f.sector_start<=f.sector_centre<=f.sector_end or f.sector_tolerance<=0):
+            raise ValueError('Повреждено состояние рабочего сектора')
     shape=(s.config.terrain.n,)*2
     for key in ('height','reference','target','_initial_surface','dump_cap'):
         array=getattr(t,key)
@@ -312,7 +319,7 @@ def load_state(path):
                 raise ValueError('Сохранение превышает допустимый размер')
             if archive.getinfo('manifest.json').file_size>256_000_000:raise ValueError('Слишком большой список объектов')
             manifest=json.loads(archive.read('manifest.json'))
-            if manifest.get('format')!=FORMAT or type(manifest.get('version')) is not int or manifest['version'] not in (1,2,3,4,5,6,7,8,9,VERSION):
+            if manifest.get('format')!=FORMAT or type(manifest.get('version')) is not int or manifest['version'] not in range(1,VERSION+1):
                 raise ValueError('Неизвестный формат или версия сохранения')
             decoder=_Decoder(archive,manifest['nodes']);root=decoder.decode(manifest['root'])
             if manifest['version']==1:_migrate_v1(decoder)
@@ -329,6 +336,26 @@ def load_state(path):
                 if isinstance(value,LogisticsConfig) and 'battery_platforms' not in vars(value):value.battery_platforms=None
                 if isinstance(value,LogisticsConfig) and 'self_solar' not in vars(value):value.self_solar=None
                 if isinstance(value,Terrain) and not hasattr(value,'dump_slope'):value.dump_slope=value.slope
+            if manifest['version']<11:
+                from .workfront import Workfront
+                from .simulation import Simulation
+                # Scheduling-only migration. Keep the exact terrain, inventory,
+                # actor coordinates and every already committed move or flight.
+                for value in decoder.objects:
+                    if isinstance(value,Workfront):
+                        value.settings['sector_length_m']=200.
+                        value.stationed=True;value.moving=False;value.legacy_pickups=[]
+                        value._set_sector(value.position);value.update()
+                    elif isinstance(value,Config) and value.plan and (value.plan.channel or {}).get('operations'):
+                        value.plan.channel['operations']['sector_length_m']=200.
+                for value in decoder.objects:
+                    if isinstance(value,Simulation) and value.terrain.front is not None:
+                        value.terrain._spoil_front_key=None
+                        value.terrain.front.moving=value.base.destination is not None
+                        if value.terrain.front.moving:value.terrain.front.stationed=False;value.terrain.front.revision=-1
+                        value.terrain.front.legacy_pickups=[(*d.trip.dig,d.config.grab_radius) for d in value.drones
+                            if d.trip is not None and d.trip.source=='cut']
+                        value.event('Сохранение принято: фиксированные сектора 200 м; текущая позиция и начатые рейсы сохранены')
         session=Session(root['simulation'],root['landscape'],root['ui'],manifest.get('runtime',{}),root.get('complex_project'))
         if session.landscape is not None:
             from .channel import marine_window

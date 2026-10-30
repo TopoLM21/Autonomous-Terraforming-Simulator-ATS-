@@ -524,6 +524,8 @@ class Logistics:
 
     def generate_jobs(self):
         s=self.sim
+        front=s.terrain.front
+        if front is not None and front.sectors and not front.stationed and not getattr(s,'regional_stage',None):return
         regional=getattr(s,'regional_stage',None)
         if regional=='COLLECT':
             for item in self.inventory.mutable_items():
@@ -555,7 +557,7 @@ class Logistics:
                     if job is not None:job.soil_destination='fill' if fill is not None else 'dump'
                 else:
                     s.block('BLOCKED_DUMP_FULL: нет места для контейнерного груза')
-            elif regional is None and c.location==L.BASE_STORAGE and c.soil_kg==0 and self.excavator is not None:
+            elif regional is None and not (front is not None and front.complete) and c.location==L.BASE_STORAGE and c.soil_kg==0 and self.excavator is not None:
                 self.new_job('DELIVER_EMPTY_CONTAINER',c,c.position,self.rack,4)
             elif (regional is None and c.location==L.WORKSITE_RACK and c.soil_kg==0 and self.excavator is not None
                   and np.linalg.norm(np.array(c.position[:2])-self.rack[:2])>self.config.reach_m):
@@ -715,7 +717,7 @@ class Logistics:
         threshold=max(1,math.ceil(len(self.containers)*self.config.courier_fill_fraction))
         capacity=e.capacity(self.inventory)
         low=(not e.battery_ids or e.energy(self.inventory)<capacity*self.config.courier_low_soc)
-        finishing=s.terrain.remaining_cut<=s.config.terrain.completion_volume or s.landing_requested
+        finishing=s.terrain.remaining_cut<=s.config.terrain.completion_volume or s.landing_requested or s.terrain.front is not None and s.terrain.front.complete
         stranded=e.state.value in ('WAITING_TRANSPORT','WAITING_EMPTY_CONTAINER','LOW_BATTERY')
         reason=('REGIONAL_MOVE' if getattr(s,'regional_stage',None) and pending else 'LOW_SOC' if low else 'FILLED_THRESHOLD' if filled>=threshold else
                 'FINISH_BATCH' if finishing and filled else 'RELOCATION' if relocating and pending else
@@ -866,7 +868,8 @@ class Logistics:
         s=self.sim
         if self.group is not None:return
         waiting=bool(s.queue or any(s.drones[i].state==DS.WAIT_GROUND for i in self.tool_targets))
-        if not waiting or s.base.destination is not None or s.landing_requested or s.relocation_pending is not None:return
+        if (not waiting or s.base.destination is not None or s.landing_requested or
+                s.relocation_pending is not None and s.base_move_wait!='WAITING_FOLLOWER_ENERGY'):return
         if any(slot is None for slot in s.slots):return
         if self.parking:return
         for d in s.drones:
@@ -996,6 +999,7 @@ class Logistics:
                 or self.battery_service.robot_swap or self.battery_service.drone_swaps
                 or not channel and any(j.status=='QUEUED' for j in self.jobs)
                 or not all(d.grounded if channel else d.docked for d in s.drones) or s.landing_requested):return
+        if channel and s.terrain.front.sectors and not s._sector_followers_ready():return
         if self.battery_platforms and not self.battery_platforms.stowed:
             cost=s.base.route_energy(s.relocation_pending,s.terrain,s.drones) if channel else 0.
             if s.base.battery<cost*1.3+2*self.battery_platforms.energy_budget():
@@ -1415,6 +1419,9 @@ class Logistics:
                 self.wait_reason='WAITING_SOLAR_DEPLOYMENT_POWER'
             elif self.excavator is not None and self.excavator.state.value=='WAITING_RELOCATION':
                 self.wait_reason='WAITING_GROUP_SOC'
+            elif s.terrain.front is not None and s.terrain.front.sectors and not self.direct_ids and self.group is None:
+                detail=s._sector_range_reason(s.base.position[:2]) or (self.excavator.reason if self.excavator else 'нет доступного рейса с грунтом')
+                s.block('BLOCKED_SECTOR_NO_PROGRESS: '+detail+'; сектор не завершён, автоматический короткий переезд запрещён')
             elif not (self.config.direct_allowed or self.config.idle_digging):
                 s.block('BLOCKED_NO_PROGRESS: '+(self.excavator.reason if self.excavator else 'NO_EXECUTOR'))
 

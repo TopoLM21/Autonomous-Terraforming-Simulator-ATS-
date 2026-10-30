@@ -10,7 +10,7 @@ from ats.simulation import Simulation
 from tests.test_channel import coastal_dem
 
 
-def canal(*, logistics=True, slots=1, panels=None,self_deploying=False):
+def canal(*, logistics=True, slots=1, panels=None,self_deploying=False,sector_length=200.):
     r=coastal_dem(80)
     project=ChannelProject.create(r,[[50,150],[215,150]],width_m=1,depth_m=.05,side_m=128)
     c=Config()
@@ -19,13 +19,19 @@ def canal(*, logistics=True, slots=1, panels=None,self_deploying=False):
     c.drone.hover_power=1000
     if logistics:c=experiment_config(c,landing_slots=slots,panel_area=panels)
     if logistics and not self_deploying:c.logistics.self_solar=None
-    return Simulation(project.configuration(Landscape(r),c))
+    c=project.configuration(Landscape(r),c)
+    if sector_length is False:
+        ops=c.plan.channel['operations'];ops.pop('sector_length_m')
+        start=np.asarray(c.plan.segments[0].points[0])
+        _,c.base.x,c.base.y=min(ops['base_sites'],key=lambda p:np.linalg.norm(np.asarray(p[1:])-start))
+    else:c.plan.channel['operations']['sector_length_m']=sector_length
+    return Simulation(c)
 
 
-def test_bilateral_spoil_is_parallel_and_clear_of_final_cut_and_base_starts_at_face():
+def test_bilateral_spoil_is_parallel_and_clear_of_final_cut_and_base_starts_at_sector_centre():
     s=canal();t=s.terrain;f=t.front
     f.update()
-    assert abs(float(f.chainage[int(s.base.position[1]/t.cell),int(s.base.position[0]/t.cell)])-f.start)<10
+    assert abs(float(f.chainage[int(s.base.position[1]/t.cell),int(s.base.position[0]/t.cell)])-f.sector_centre)<10
     assert np.any(t.dump_mask & (f.signed>0)) and np.any(t.dump_mask & (f.signed<0))
     assert not np.any(t.dump_mask & t.design_work)
     iy,ix=np.nonzero(t.design_work)
@@ -38,7 +44,7 @@ def test_bilateral_spoil_is_parallel_and_clear_of_final_cut_and_base_starts_at_f
         trip=s._choose_trip(d,unreserved=True)
         assert trip is not None
         along=f.chainage[int(trip.dig[1]/t.cell),int(trip.dig[0]/t.cell)]
-        assert along<=f.position+f.settings['front_length_m']+t.cell
+        assert f.sector_start<=along<f.sector_end
         assert np.linalg.norm(np.asarray(trip.dump)-trip.dig)<35
         assert abs(trip.dump[0]-trip.dig[0])<3  # horizontal canal, local banks
 
@@ -112,7 +118,7 @@ def test_base_uphill_motion_includes_potential_energy_and_follows_ground():
 
 
 def test_fleet_with_one_dock_finishes_and_base_advances_without_teleporting_or_free_energy():
-    s=canal();w=s.logistics;t=s.terrain
+    s=canal(sector_length=False);w=s.logistics;t=s.terrain
     initial_base=s.base.position.copy();moved=0
     for _ in range(8000):
         old=s.base.position.copy()
@@ -138,7 +144,7 @@ def test_fleet_with_one_dock_finishes_and_base_advances_without_teleporting_or_f
 
 
 def test_large_solar_field_folds_moves_and_redeploys_with_finite_service_energy():
-    s=canal(panels=21);w=s.logistics
+    s=canal(panels=21,sector_length=False);w=s.logistics
     assert w.field_rect is not None
     w.field_ready=True;w.field_elapsed=w.config.field_deployment_seconds
     # A controlled base-only relocation isolates panel handling from mining.

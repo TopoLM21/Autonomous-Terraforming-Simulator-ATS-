@@ -1041,15 +1041,23 @@ class MainWindow(QtWidgets.QMainWindow):
             self.channel_status.setText(f"Канал: дно {channel['width_m']:g} м × −{channel['depth_m']:g} м MSL\nУчасток {channel['section']+1}/{channel['sections']} · маршрут {channel['length_m']/1000:.2f} км · береговой отступ {channel['shore_offset_m']:g} м\nКарта {t.cell*t.height.shape[0]:g} м · ячейка {t.cell:g} м")
         if t.front is not None:
             front=t.front;front.update();indices=front.active_indices
-            if len(indices):
-                xx,yy=t.x.ravel()[indices],t.y.ravel()[indices]
-                x0,x1,y0,y1=float(xx.min()-t.cell/2),float(xx.max()+t.cell/2),float(yy.min()-t.cell/2),float(yy.max()+t.cell/2)
-                self.workfront_outline.setData([x0,x1,x1,x0,x0],[y0,y0,y1,y1,y0])
+            key=(front,front.sector_start,front.sector_end) if front.sectors else None
+            if key is None or getattr(self,'_sector_outline_key',None)!=key:
+                if front.sectors:indices=front.indices[(front.along>=front.sector_start-1e-9)&(front.along<front.sector_end-1e-9)]
+                self._sector_outline_key=key;self._sector_outline_data=None
+                if len(indices):
+                    xx,yy=t.x.ravel()[indices],t.y.ravel()[indices]
+                    x0,x1,y0,y1=float(xx.min()-t.cell/2),float(xx.max()+t.cell/2),float(yy.min()-t.cell/2),float(yy.max()+t.cell/2)
+                    self._sector_outline_data=([x0,x1,x1,x0,x0],[y0,y0,y1,y1,y0])
+            if self._sector_outline_data:self.workfront_outline.setData(*self._sector_outline_data)
             else:self.workfront_outline.clear()
             if channel:
                 state=s.base_move_status
-                self.channel_status.setText(self.channel_status.text()+f"\nФронт {front.position/1000:.3f} км · рабочая зона {front.settings['front_length_m']:g} м · база {state}")
-        else:self.workfront_outline.clear()
+                zone=(f'Сектор {front.sector_start:g}–{front.sector_end:g} м · осталось {front.sector_remaining:.2f} м³'
+                    if front.sectors else f"Фронт {front.position/1000:.3f} км · рабочая зона {front.settings['front_length_m']:g} м")
+                self.channel_status.setText(self.channel_status.text()+f"\n{zone} · база {state}")
+        else:
+            self.workfront_outline.clear();self._sector_outline_key=None;self._sector_outline_data=None
         if self.config.georeference:
             self.latitude.blockSignals(True);self.latitude.setValue(b.config.latitude_deg);self.latitude.blockSignals(False)
         if self.render_mode.currentData()=='off':
