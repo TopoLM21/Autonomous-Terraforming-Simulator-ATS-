@@ -276,6 +276,10 @@ class Landscape:
             report['channel']=dict(project_id=p.identity,length_m=p.length,width_m=p.width_m,depth_m=p.depth_m,
                 target_msl=-p.depth_m,shore_offset_m=p.shore_offset_m,sections=p.section_count,
                 active_section=p.active_section,completed=list(p.completed))
+            from .sector_progress import merge
+            spans=merge(p.finished_spans)
+            report['channel'].update(finished_spans=spans,finished_profile_m=sum(b-a for a,b in spans),
+                project_profile_complete=bool(spans and spans[0][0]<=1e-8 and spans[0][1]>=p.length-1e-8))
         if self.soil_profile is not None:
             report.update(soil_profile=self.soil_profile.name,soil_modified_tiles=len(self.soil_tiles),
                           soil_storage_bytes=sum(a.nbytes for a in self.soil_tiles.values()))

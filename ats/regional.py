@@ -39,7 +39,7 @@ def target_configuration(project,origin,section=None,landscape=None):
         channel=ChannelProject.from_data(land.channel_project)
         if type(section) is not int or not 0<=section<channel.section_count:raise ValueError('Участок вне проекта канала')
         if channel.side_m!=side:raise ValueError('Для переезда сохраняйте размер рабочего окна')
-        return channel.configuration(land,source,section,origin=aligned(channel.origin(land.raster,section)))
+        return channel.configuration(land,source,section,origin=aligned(channel.origin(land.raster,section) if origin is None else origin))
     origin=aligned(origin)
     c=workspace_config(land,source,origin,side)
     stored=getattr(project,'window_plans',{}).get(window_key(origin))
@@ -117,7 +117,13 @@ class RegionalTransition:
     @classmethod
     def prepare(cls,project,origin,section):
         if project.landscape is None:raise ValueError('Переезд требует открытого регионального DEM')
-        if project.blocked:raise ValueError('Сначала устраните блокировку комплекса')
+        for u in project.units:
+            s=u.simulation
+            if s.state!=MissionState.BLOCKED:continue
+            code=s.reason.partition(':')[0]
+            if (s.terrain.front is None or not s.terrain.front.sectors or
+                    code not in ('BLOCKED_SECTOR_RANGE','BLOCKED_SECTOR_SITE')):
+                raise ValueError('Сначала устраните блокировку комплекса')
         if project.shared_site is None and len(project.units)!=1:
             raise ValueError('Переезд группы доступен для комплексов на одной общей карте')
         for u in project.units:
@@ -217,7 +223,7 @@ class RegionalTransition:
         if not hasattr(p,'window_history'):p.window_history=[]
         self.start_consumed_kwh=p.report()['consumed_kwh']
         for u in p.units:
-            s=u.simulation;s.regional_stage='DRAIN';s.request_landing();s.state=MissionState.RUNNING;s.reason=''
+            s=u.simulation;s.regional_stage='DRAIN';s.request_landing();s.state=MissionState.RUNNING;s.reason='';s._sector_range_key=None
             for job in s.logistics.jobs:
                 if job.status=='QUEUED' and job.kind!='PICKUP_FULL_CONTAINER':s.logistics.cancel_job(job.id)
             s.event('Переезд группы: завершаем рейсы и собираем оборудование')
@@ -494,11 +500,15 @@ class RegionalTransition:
     def _finish(self):
         p=self.project;site=p.shared_site;land=p.landscape;old=site.core
         source=p.units[0].simulation.config
+        from .sector_progress import record_window
+        record_window(p)
         preview=copy(land);preview.tiles=dict(land.tiles);preview.soil_tiles=dict(land.soil_tiles)
         preview.commit_window(self.old_origin,old.height,cell_size=old.cell,soil=old.soil)
         side=old.height.shape[0]*old.cell
         target=workspace_config(preview,source,self.new_origin,side)
         for key in GEOMETRY:setattr(target,key,deepcopy(getattr(self.target,key)))
+        if target.plan and target.plan.channel and source.plan and source.plan.channel:
+            target.plan.channel['finished_spans']=list(source.plan.channel.get('finished_spans',[]))
         replacement=Terrain(target)
         shift=np.asarray(self.old_origin)-self.new_origin
         for u in p.units:
@@ -568,7 +578,7 @@ class RegionalTransition:
         p=self.project
         for u in p.units:
             s=u.simulation;w=s.logistics
-            s.base.destination=None;s.regional_stage=None;s.landing_requested=self.previous_landing[u.id]
+            s.base.destination=None;s.regional_stage=None;s.landing_requested=self.previous_landing[u.id];s._sector_range_key=None
             if w.battery_platforms:w.battery_platforms.request('DEPLOY')
             for job in w.jobs:
                 if job.kind=='PACK_FOR_RELOCATION' and job.status=='QUEUED':w.cancel_job(job.id)

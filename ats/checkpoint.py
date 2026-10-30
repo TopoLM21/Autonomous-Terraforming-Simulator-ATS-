@@ -19,7 +19,7 @@ import numpy as np
 
 
 FORMAT='ATS_SIMULATION'
-VERSION=11
+VERSION=12
 MAX_BYTES=1_500_000_000
 MAX_NODES=2_000_000
 
@@ -78,7 +78,7 @@ class _Encoder:
             name=type(value).__module__+'.'+type(value).__name__
             if name not in self.classes:raise ValueError(f'Нельзя сохранить объект {name}')
             node.update(kind='object',type=name,attrs={k:self.encode(v,matrix=name=='ats.config.Config' and
-                k in ('initial_height','reference_height') and v is not None) for k,v in vars(value).items()})
+                k in ('initial_height','reference_height') and v is not None) for k,v in vars(value).items() if k!='_sector_progress_cache'})
         return {'ref':index}
 
 
@@ -185,9 +185,10 @@ def _validate(session):
     if t.front is not None and t.front.sectors:
         f=t.front
         if (type(f.stationed) is not bool or type(f.moving) is not bool or
-                not all(math.isfinite(v) for v in (f.sector_start,f.sector_end,f.sector_centre,f.sector_tolerance)) or
+                not all(math.isfinite(v) for v in (f.sector_start,f.sector_end,f.sector_centre,f.sector_tolerance,f.global_sector_start,f.global_sector_end,f.project_end)) or
                 f.sector_start<0 or f.sector_end<=f.sector_start or
-                not f.sector_start<=f.sector_centre<=f.sector_end or f.sector_tolerance<=0):
+                not f.sector_start<=f.sector_centre<=f.sector_end or f.sector_tolerance<=0 or
+                not 0<=f.global_sector_start<f.global_sector_end<=f.project_end):
             raise ValueError('Повреждено состояние рабочего сектора')
     shape=(s.config.terrain.n,)*2
     for key in ('height','reference','target','_initial_surface','dump_cap'):
@@ -367,6 +368,26 @@ def load_state(path):
                     key=(*geo['origin_m'],s.terrain.cell*s.terrain.height.shape[0])
                     if key not in masks:masks[key]=marine_window(session.landscape.raster,geo['origin_m'],key[-1])
                     geo['marine']=masks[key]
+        if manifest['version']<12:
+            from .workfront import Workfront
+            from .simulation import MissionState
+            from .sector_progress import record_visible,status
+            from .shared_site import WorkTerrain
+            for value in decoder.objects:
+                if isinstance(value,WorkTerrain):
+                    design=value.core.design_work if value.core.design_work is not None else value.core.work_mask
+                    value._design_indices=np.flatnonzero(design&(value.shared_site.owners==int(value.owner_id[8:])))
+            for value in decoder.objects:
+                if isinstance(value,Workfront) and value.sectors:
+                    value.refresh_design()
+                    value._set_sector(value.sector_id*value.settings['sector_length_m']+1e-8)
+            sims=[u.simulation for u in session.complex_project.units] if session.complex_project else [session.simulation]
+            for s in sims:
+                f=s.terrain.front
+                if s.state==MissionState.COMPLETED and f is not None and f.sectors and len(f.indices):
+                    record_visible(s.terrain)
+                    if status(f)['needs_next_window']:
+                        s.state=MissionState.RUNNING;s.reason='';s.base_move_wait='NEEDS_NEXT_WINDOW'
         _validate(session)
         return session
     except (zipfile.BadZipFile,EOFError,KeyError,TypeError,AttributeError,IndexError,OverflowError,RecursionError) as error:

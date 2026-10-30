@@ -361,6 +361,8 @@ class ComplexProject:
                     or w and (w.active or w.group or any(c.soil_kg for c in w.containers) or e and (e.bucket_kg or e.active_container))):
                 raise ValueError('Сначала посадите все комплексы и завершите перевозки всей группы')
         t=self.shared_site.core;s=self.units[0].simulation
+        from .sector_progress import record_window
+        record_window(self)
         self.landscape.commit_window(s.config.georeference['origin_m'],t.height,cell_size=t.cell,soil=t.soil)
         if self.landscape.channel_project is not None and t.remaining<=self.shared_site.completion_volume:
             from .channel import ChannelProject

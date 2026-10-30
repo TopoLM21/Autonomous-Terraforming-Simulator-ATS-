@@ -173,6 +173,7 @@ class ChannelProject:
     active_section:int=0
     completed:list=field(default_factory=list)
     history:list=field(default_factory=list)
+    finished_spans:list=field(default_factory=list)
     version:int=1
 
     def validate(self):
@@ -183,6 +184,8 @@ class ChannelProject:
             raise ValueError('Проверьте ширину, глубину канала, отступ, откосы и размер участка')
         if not isinstance(self.active_section,int) or not 0<=self.active_section<self.section_count:
             raise ValueError('Неверный номер участка канала')
+        if not isinstance(self.finished_spans,list) or any(not isinstance(p,(list,tuple)) or len(p)!=2 or not all(isinstance(v,(int,float)) and math.isfinite(v) for v in p) or not 0<=p[0]<p[1]<=self.length+1e-6 for p in self.finished_spans):
+            raise ValueError('Неверные интервалы завершённого профиля канала')
 
     @classmethod
     def create(cls,raster,points,**parameters):
@@ -204,7 +207,7 @@ class ChannelProject:
 
     @property
     def identity(self):
-        data={k:v for k,v in self.to_data().items() if k not in ('active_section','completed','history')}
+        data={k:v for k,v in self.to_data().items() if k not in ('active_section','completed','history','finished_spans')}
         for key in ('width_m','depth_m','shore_offset_m','angle_deg','side_m','spoil_height_m'):
             if data[key] is not None:data[key]=float(data[key])
         return hashlib.sha256(json.dumps(data,sort_keys=True).encode()).hexdigest()[:16]
@@ -233,7 +236,7 @@ class ChannelProject:
             starts.append(edge_start+float(np.linalg.norm(start-a)));first.append(index==0)
             segments.append(PlanSegment([start.tolist(),end.tolist()],'dig',self.width_m,-self.depth_m,f'Канал · линия {index+1}'))
         return PlanConfig(segments,channel=dict(start=p[0].tolist(),tangent=tangent.tolist(),project_id=self.identity,
-            chainage_starts=starts,first_edges=first))
+            chainage_starts=starts,first_edges=first,project_length_m=self.length,finished_spans=[p.copy() for p in self.finished_spans]))
 
     def configuration(self,landscape,config,index=None,*,origin=None):
         index=self.active_section if index is None else index
@@ -314,7 +317,7 @@ class ChannelProject:
         start=np.array([float(np.mean(np.broadcast_to(x,current.shape)[first_cells])),
                         float(np.mean(np.broadcast_to(y,current.shape)[first_cells]))]) if np.any(work) else np.array([self.side_m/2]*2)
         length=c.plan.channel['operations']['sector_length_m']
-        sector_end=min((math.floor((first+1e-9)/length)+1)*length,float(chainage[work].max())+cell/2)
+        sector_end=min((math.floor((first+1e-9)/length)+1)*length,float(chainage[work].max())+cell/2,self.length)
         centre=(max(math.floor((first+1e-9)/length)*length,first-cell/2)+sector_end)/2
         _,c.base.x,c.base.y=min(sites,key=lambda p:(abs(p[0]-centre),math.hypot(p[1]-start[0],p[2]-start[1])))
         c.plan.channel['operations'].update(base_sites=[list(p) for p in sites],base_chainage_m=first)
@@ -325,7 +328,8 @@ class ChannelProject:
         c.trench.x=float(np.clip(axis[ix],4+cell,self.side_m-4-cell))
         c.trench.y=float(np.clip(axis[iy],4+cell,self.side_m-4-cell))
         c.georeference['channel']=dict(project_id=self.identity,section=index,sections=self.section_count,
-            length_m=self.length,width_m=self.width_m,depth_m=self.depth_m,target_msl=-self.depth_m,shore_offset_m=self.shore_offset_m)
+            length_m=self.length,width_m=self.width_m,depth_m=self.depth_m,target_msl=-self.depth_m,shore_offset_m=self.shore_offset_m,
+            custom_window=bool(np.linalg.norm(np.asarray(origin)-self.origin(landscape.raster,index),ord=np.inf)>cell+1e-7))
         c.base.latitude_deg=latitude_at(c.georeference,c.base.x,c.base.y,c.base.latitude_deg)
         c.validate();return c
 
@@ -336,7 +340,7 @@ class ChannelProject:
         info=report.get('georeference',{}).get('channel',{})
         if info.get('project_id')!=self.identity:return
         index=info['section']
-        if report['state']=='COMPLETED' and index not in self.completed:
+        if report['state']=='COMPLETED' and not info.get('custom_window',False) and index not in self.completed:
             self.completed.append(index)
             self.history.append(dict(section=index,**{k:report[k] for k in ('time_seconds','excavated_m3','consumed_kwh','solar_generated_kwh','mass_error_kg','energy_error_j')}))
             self.history[-1]['initial_energy_kwh']=report['initial_energy_kwh']

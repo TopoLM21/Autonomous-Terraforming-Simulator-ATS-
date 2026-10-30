@@ -90,12 +90,7 @@ class Workfront:
         geometry=getattr(terrain,'_spoil_geometry',None)
         if geometry:self.chainage,self.signed=geometry['along'],geometry['signed']
         else:_, self.chainage, self.signed = coordinates(plan, terrain.x, terrain.y)
-        self.indices = np.flatnonzero(terrain.excavation)
-        self.along = self.chainage.ravel()[self.indices]
-        order=np.argsort(self.along,kind='stable')
-        self.indices,self.along=self.indices[order],self.along[order]
-        self.start = float(self.along.min()) if len(self.indices) else 0.
-        self.end = float(self.along.max()) if len(self.indices) else self.start
+        self.refresh_design()
         self.position = self.start
         self.revision = -1
         self.active_indices = self.indices
@@ -108,14 +103,28 @@ class Workfront:
             useful=np.flatnonzero(excess>1e-10)
             self._set_sector(float(self.along[useful[0]]) if len(useful) else self.start)
 
+    def refresh_design(self):
+        terrain=self.terrain
+        design=terrain.design_work if terrain.design_work is not None else terrain.excavation
+        self.indices=terrain.__dict__.get('_design_indices',np.flatnonzero(design))
+        self.along = self.chainage.ravel()[self.indices]
+        order=np.argsort(self.along,kind='stable')
+        self.indices,self.along=self.indices[order],self.along[order]
+        self.start = float(self.along.min()) if len(self.indices) else 0.
+        self.end = float(self.along.max()) if len(self.indices) else self.start
+
     @property
     def sectors(self):return self.settings.get('sector_length_m',0)>0
 
     def _set_sector(self,along):
+        from .sector_progress import project_length
         length=self.settings['sector_length_m']
-        self.sector_id=max(0,math.floor((along+1e-9)/length))
+        self.project_end=project_length(self.terrain)
+        self.sector_id=max(0,math.floor(min(along,max(0.,self.project_end-1e-8))/length))
+        self.global_sector_start=self.sector_id*length
+        self.global_sector_end=min(self.project_end,(self.sector_id+1)*length)
         self.sector_start=max(self.start-self.terrain.cell/2,self.sector_id*length)
-        self.sector_end=min(self.end+self.terrain.cell/2,(self.sector_id+1)*length)
+        self.sector_end=min(self.end+self.terrain.cell/2,self.global_sector_end)
         self.sector_centre=(self.sector_start+self.sector_end)/2
         count=max(1,math.ceil((self.end+self.terrain.cell/2)/length)-math.floor(max(0.,self.start-self.terrain.cell/2)/length))
         self.sector_tolerance=self.terrain.config.terrain.completion_volume*.1/count
@@ -123,7 +132,11 @@ class Workfront:
 
     def cut_mask(self,patch):
         along=self.chainage[patch]
-        return (along>=self.sector_start-1e-9)&(along<self.sector_end-1e-9)&self.stationed
+        return self.local_mask(along)&self.stationed
+
+    def local_mask(self,along):
+        upper=along<=self.sector_end+1e-9 if self.sector_end>=self.project_end-1e-8 else along<self.sector_end-1e-9
+        return (along>=self.sector_start-1e-9)&upper
 
     @property
     def complete(self):
@@ -134,7 +147,7 @@ class Workfront:
         """Called only after the controller has drained every carried load."""
         if not self.complete:return False
         excess=self.terrain.height.ravel()[self.indices]-self.terrain.target.ravel()[self.indices]
-        useful=(excess>1e-10)&(self.along>=self.sector_end-1e-9)
+        useful=(excess>1e-10)&~self.local_mask(self.along)&(self.along>=self.sector_end-1e-9)
         if not np.any(useful):return False
         self._set_sector(float(self.along[np.flatnonzero(useful)[0]]))
         self.legacy_pickups=[]
@@ -148,7 +161,7 @@ class Workfront:
         excess = t.height.ravel()[self.indices]-t.target.ravel()[self.indices]
         remaining = excess > 1e-10
         if self.sectors:
-            local=(self.along>=self.sector_start-1e-9)&(self.along<self.sector_end-1e-9)
+            local=self.local_mask(self.along)
             self.sector_remaining=float(np.maximum(excess[local],0).sum()*t.area)
             useful=remaining&local
             self.position=float(self.along[np.flatnonzero(useful)[0]]) if np.any(useful) else self.sector_end
@@ -175,4 +188,7 @@ class Workfront:
             sector_start_m=self.sector_start,sector_end_m=self.sector_end,
             sector_centre_m=self.sector_centre,sector_length_m=self.settings['sector_length_m'],
             sector_remaining_m3=self.sector_remaining,sector_complete=self.complete,stationed=self.stationed)
+        if self.sectors:
+            from .sector_progress import status
+            report.update(status(self));report['sector_complete']=report['global_sector_complete']
         return report

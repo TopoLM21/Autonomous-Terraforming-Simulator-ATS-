@@ -12,7 +12,7 @@ from .terrain import Terrain
 class WorkTerrain(Terrain):
     _local={'core','config','shared_site','owner_id','excavation','fill_mask','bottom',
         '_cut_indices','_fill_indices','front','initial_excavation','_remaining_revision',
-        '_remaining_cache','_cut_cache','_fill_cache'}
+        '_remaining_cache','_cut_cache','_fill_cache','_design_indices'}
 
     def __init__(self,core,config,site,owner_id):
         self.__dict__.update(core=core,config=config,shared_site=site,owner_id=owner_id)
@@ -32,6 +32,8 @@ class WorkTerrain(Terrain):
         self.excavation=self.core.excavation&mask;self.fill_mask=self.core.fill_mask&mask
         self.bottom=self.core.bottom&mask
         self._cut_indices=np.flatnonzero(self.excavation);self._fill_indices=np.flatnonzero(self.fill_mask)
+        design=self.core.design_work if self.core.design_work is not None else self.core.work_mask
+        self._design_indices=np.flatnonzero(design&mask)
         self._remaining_revision=-1;self.front=None
         if self.config.plan and self.config.plan.channel and self.config.plan.channel.get('operations'):
             from .workfront import Workfront

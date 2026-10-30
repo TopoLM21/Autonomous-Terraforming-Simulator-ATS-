@@ -886,6 +886,7 @@ class Logistics:
     def direct_dispatch(self):
         if not (self.config.direct_allowed or self.config.idle_digging) or self.group is not None:return
         s=self.sim
+        if s.terrain.remaining<=s.config.terrain.completion_volume:return
         if self._base_moving_step or s.base.destination is not None or s.relocation_pending is not None:return
         if self.excavator is not None and self.excavator.state.value=='WAITING_RELOCATION':return
         # Transport assignments and necessary tool changes have already been
@@ -1348,7 +1349,8 @@ class Logistics:
         self.base_battery_power_w=s.base.battery-battery_before
         self.base_load_power_w=s.base.consumed+s.base.charging_input+s.base.laser_input-before_bus
         self.detect_stall()
-        if (not getattr(s,'regional_stage',None) and s.terrain.remaining<=s.config.terrain.completion_volume and not s._terrain_active
+        if (not getattr(s,'regional_stage',None) and s.base_move_wait!='NEEDS_NEXT_WINDOW'
+                and s.terrain.remaining<=s.config.terrain.completion_volume and not s._terrain_active
                 and s.base.destination is None and self.base_move_job is None
                 and not self.battery_service.drone_swaps and not self.battery_service.robot_swap
                 and (self.battery_platforms is None or self.battery_platforms.settled)
@@ -1381,6 +1383,8 @@ class Logistics:
 
     def detect_stall(self):
         if getattr(self.sim,'regional_stage',None):return
+        if self.sim.base_move_wait=='NEEDS_NEXT_WINDOW':
+            self.wait_reason='NEEDS_NEXT_WINDOW: видимая часть готова; выберите соседнее окно региона';return
         if self.battery_platforms and not self.battery_platforms.settled:
             self.wait_reason=self.battery_platforms.issue or 'Подготовка батарейных платформ';self.progress_at=self.sim.time;return
         if getattr(self,'solar_array',None) is not None and not (self.solar_array.stowed if self.solar_array.mode=='FOLD' else self.solar_array.ready):

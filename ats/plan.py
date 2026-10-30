@@ -47,6 +47,12 @@ class PlanConfig:
                     raise ValueError('Неверная геометрия берегового отступа')
             if abs(math.hypot(*self.channel['tangent'])-1)>1e-6:
                 raise ValueError('Направление берегового отступа должно быть единичным')
+            length=self.channel.get('project_length_m')
+            if length is not None and (not isinstance(length,(int,float)) or not math.isfinite(length) or length<=0):
+                raise ValueError('Неверная длина регионального проекта')
+            spans=self.channel.get('finished_spans',[])
+            if not isinstance(spans,list) or any(not isinstance(p,(list,tuple)) or len(p)!=2 or not all(isinstance(v,(int,float)) and math.isfinite(v) for v in p) or not 0<=p[0]<p[1] or length is not None and p[1]>length+1e-6 for p in spans):
+                raise ValueError('Неверные интервалы завершённого профиля')
             if 'chainage_starts' in self.channel:
                 starts=self.channel['chainage_starts'];first=self.channel.get('first_edges',[])
                 if len(starts)!=len(self.segments) or len(first)!=len(starts) or any(not math.isfinite(v) or v<0 for v in starts):

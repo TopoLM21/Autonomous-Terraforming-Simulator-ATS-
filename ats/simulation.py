@@ -295,6 +295,7 @@ class Simulation:
                 'MOVING_WITH_WORKFRONT':'переезжает вдоль канала',
                 'DRAINING_SECTOR':'завершает вывоз грунта из сектора',
                 'POSITIONING_SECTOR':'подготавливает рабочую позицию следующего сектора',
+                'NEEDS_NEXT_WINDOW':'видимая часть готова; выберите соседнее окно региона',
                 'NO_SAFE_FORWARD_BASE_ROUTE':'ищет безопасный маршрут вперёд'}
         return labels.get(self.base_move_wait,'на рабочей позиции')
 
@@ -949,7 +950,7 @@ class Simulation:
         """
         f=self.terrain.front
         if not f.sectors:return ''
-        ids=f.indices[(f.along>=f.sector_start-1e-9)&(f.along<f.sector_end-1e-9)];t=self.terrain
+        ids=f.indices[f.local_mask(f.along)];t=self.terrain
         ids=ids[t.height.ravel()[ids]-t.target.ravel()[ids]>1e-10]
         if not len(ids):return ''
         xy=np.column_stack((t.x.ravel()[ids],t.y.ravel()[ids]))
@@ -976,7 +977,10 @@ class Simulation:
             front.moving=False;front.stationed=True;front.revision=-1;front.update()
             self.base_move_wait='';self.event('База заняла рабочую позицию сектора')
         if front.stationed:
-            if not front.complete:
+            from .sector_progress import context
+            core,site,_=context(self.terrain)
+            window_complete=core.remaining<=(site.completion_volume if site else self.config.terrain.completion_volume)
+            if not front.complete and not window_complete:
                 # This is an entry/hardware screen, not a second per-flight
                 # planner. Actual flights and stall diagnosis use the current
                 # terrain/obstacle clearance; avoid an O(fleet) geometry query
@@ -989,6 +993,15 @@ class Simulation:
                 return
             self.base_move_wait='DRAINING_SECTOR'
             if not self._sector_drained():return
+            if len(front.indices):
+                from .sector_progress import record,record_visible,status,context
+                record(self.terrain,front.global_sector_start,front.global_sector_end)
+                core,site,_=context(self.terrain)
+                if core.remaining<=(site.completion_volume if site else self.config.terrain.completion_volume):record_visible(self.terrain)
+                progress=status(front)
+                if progress['needs_next_window']:
+                    self.base_move_wait='NEEDS_NEXT_WINDOW'
+                    return
             if not front.advance_sector():return
             self.event(f'Сектор завершён и грунт вывезен; следующий {front.sector_start:g}–{front.sector_end:g} м')
         if self.time-self._relocation_attempt_time<30:return
@@ -1018,10 +1031,11 @@ class Simulation:
         t=self.terrain;front=t.front
         if front is None or self.base.destination is not None or self.relocation_pending is not None:return
         front.update()
-        if self.landing_requested or t.remaining<=self.config.terrain.completion_volume:return
+        if self.landing_requested:return
         if front.sectors:
             self._update_sector(front)
             return
+        if t.remaining<=self.config.terrain.completion_volume:return
         advance=front.position-self._base_front_anchor
         if advance<max(4.,front.settings['front_length_m']/2):return
         if self.time-self._relocation_attempt_time<30:return
@@ -1096,7 +1110,7 @@ class Simulation:
         if self.pending_equipment is not None:return
         if not all(d.grounded for d in self.drones):
             return
-        if self.terrain.remaining <= self.config.terrain.completion_volume and not self._terrain_active and all(d.cargo == 0 for d in self.drones):
+        if self.base_move_wait!='NEEDS_NEXT_WINDOW' and self.terrain.remaining <= self.config.terrain.completion_volume and not self._terrain_active and all(d.cargo == 0 for d in self.drones):
             self.state = MissionState.COMPLETED
             self.event("Работа завершена: все дроны приземлились, достигнут допуск выемки")
             return

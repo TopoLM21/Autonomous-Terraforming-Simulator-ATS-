@@ -1043,7 +1043,7 @@ class MainWindow(QtWidgets.QMainWindow):
             front=t.front;front.update();indices=front.active_indices
             key=(front,front.sector_start,front.sector_end) if front.sectors else None
             if key is None or getattr(self,'_sector_outline_key',None)!=key:
-                if front.sectors:indices=front.indices[(front.along>=front.sector_start-1e-9)&(front.along<front.sector_end-1e-9)]
+                if front.sectors:indices=front.indices[front.local_mask(front.along)]
                 self._sector_outline_key=key;self._sector_outline_data=None
                 if len(indices):
                     xx,yy=t.x.ravel()[indices],t.y.ravel()[indices]
@@ -1053,8 +1053,14 @@ class MainWindow(QtWidgets.QMainWindow):
             else:self.workfront_outline.clear()
             if channel:
                 state=s.base_move_status
-                zone=(f'Сектор {front.sector_start:g}–{front.sector_end:g} м · осталось {front.sector_remaining:.2f} м³'
+                zone=(f'Сектор {front.global_sector_start:g}–{front.global_sector_end:g} м · осталось {front.sector_remaining:.2f} м³ в назначении'
                     if front.sectors else f"Фронт {front.position/1000:.3f} км · рабочая зона {front.settings['front_length_m']:g} м")
+                if front.sectors:
+                    progress=front.report()
+                    if progress['global_sector_complete']:zone+=' · весь сектор готов'
+                    elif progress['visible_part_complete']:zone+=' · видимая часть готова'
+                    if progress['window_limited']:zone+='\nПрофиль выходит за границу окна'
+                    if progress['visible_part_complete'] and progress['needs_next_window']:zone+=' · нужно соседнее окно'
                 self.channel_status.setText(self.channel_status.text()+f"\n{zone} · база {state}")
         else:
             self.workfront_outline.clear();self._sector_outline_key=None;self._sector_outline_data=None
