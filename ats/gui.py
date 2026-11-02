@@ -612,6 +612,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def closeEvent(self,event):
         self.timer.stop();self.running=False
+        if self.landscape is not None:self.landscape.cancel_prefetch()
         if self.map_dialog is not None:self.map_dialog.close()
         if hasattr(self,'logistics_window'):self.logistics_window.close()
         if hasattr(self,'power_window'):self.power_window.close()
@@ -864,6 +865,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.install_simulation(sim,region)
 
     def install_simulation(self, sim, landscape=None,complex_project=None):
+        if self.landscape is not None and self.landscape is not landscape:self.landscape.cancel_prefetch()
         if hasattr(self,'complex_window') and self.complex_window.project is not complex_project:
             self.complex_window.close();self.complex_window.project=None
         self.complex_project=complex_project
@@ -956,6 +958,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if hasattr(self,'timer'):self.timer.setInterval(0 if self.running else self.config.display_interval_ms)
 
     def on_frame(self):
+        if self.landscape is not None and (self.complex_project is None or self.complex_project.transition is None):
+            self.landscape.ensure_next_prefetch(self.sim)
         was_running=self.running
         now = time.perf_counter()
         elapsed = min(now-self.last_wall, 0.25)

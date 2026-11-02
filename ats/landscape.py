@@ -4,11 +4,16 @@ Coordinates in the simulator are always metres; elevations are metres above MSL.
 No hydrology and no automatic regional excavation/transport are implied.
 """
 from dataclasses import dataclass
-from copy import deepcopy
+from copy import copy,deepcopy
+from contextlib import nullcontext
 from pathlib import Path
 import json
 import math
+import os
+import tempfile
+import zipfile
 import numpy as np
+from .tile_cache import TileCache,TileMap,OverlayTiles,DEFAULT_TILE_RAM
 
 EARTH_RADIUS = 6_371_008.8
 
@@ -167,18 +172,22 @@ class Landscape:
     persistent allocation. All patch edits store FLOAT64 elevation deltas, so a
     cut in one patch and spoil in another are counted in the same volume ledger.
     """
-    def __init__(self, raster, cell_size=.25, tile_cells=64,soil_profile=None):
+    def __init__(self, raster, cell_size=.25, tile_cells=64,soil_profile=None,*,cache_bytes=DEFAULT_TILE_RAM):
         if not math.isfinite(cell_size) or cell_size <= 0 or not isinstance(tile_cells, int) or not 8 <= tile_cells <= 256:
             raise ValueError('Неверное разрешение или размер блока ландшафта')
         self.raster, self.cell_size, self.tile_cells = raster, cell_size, tile_cells
-        self.tiles = {}
+        self._tile_cache=TileCache(cache_bytes)
+        self.tiles = TileMap(self._tile_cache,'height')
         self.corridors = []
         self.channel_project = None
         self.soil_profile=soil_profile
-        self.soil_tiles={}
+        self.soil_tiles=TileMap(self._tile_cache,'soil')
+        self.prefetch_enabled=True;self.prefetch_request=None;self.prefetch_cancelled=None
+        self._prefetch_runtime=None
+        self._prefetch_auto_key=None
         if soil_profile is not None:soil_profile.validate()
 
-    def _window(self, origin, n, cell_size=None):
+    def _grid(self, origin, n, cell_size=None):
         if len(origin) != 2 or not all(math.isfinite(v) for v in origin) or not isinstance(n,int) or not 16 <= n <= 1024:
             raise ValueError('Неверный рабочий участок; максимум 1024×1024')
         cell=self.cell_size if cell_size is None else cell_size
@@ -191,9 +200,19 @@ class Landscape:
         maximum = np.asarray(origin)+n*cell
         if np.any(index < 0) or np.any(maximum > self.raster.extent_m):
             raise ValueError('Участок выходит за границы DEM')
+        return index,factor
+
+    def _window(self, origin, n, cell_size=None,check=None):
+        index,factor=self._grid(origin,n,cell_size)
+        cell=self.cell_size if cell_size is None else cell_size
         axis = (np.arange(n)+.5)*cell
-        x, y = np.meshgrid(axis+origin[0],axis+origin[1])
-        return index, self.raster.sample(x,y),factor
+        baseline=np.empty((n,n),dtype=np.float64)
+        # Bound interpolation scratch arrays and offer cancellation between
+        # strips. Coordinates/operations per sample remain bitwise identical.
+        for row in range(0,n,64):
+            if check:check(.25*row/n)
+            baseline[row:row+64]=self.raster.sample((axis+origin[0])[None,:],(axis[row:row+64]+origin[1])[:,None])
+        return index,baseline,factor
 
     def _overlaps(self, index, n):
         size = self.tile_cells
@@ -205,11 +224,25 @@ class Landscape:
                 tile = (slice(lo[1]-ty*size,hi[1]-ty*size),slice(lo[0]-tx*size,hi[0]-tx*size))
                 yield (tx,ty), local, tile
 
-    def read_window(self, origin, n=256, *, cell_size=None):
-        index, baseline,factor = self._window(origin,n,cell_size)
+    def _tokens(self,mapping,index,n):
+        return {key:mapping.token(key) for key,_,_ in self._overlaps(index,n)}
+
+    def read_window(self, origin, n=256, *, cell_size=None,prepared=None,check=None):
+        cell=self.cell_size if cell_size is None else cell_size
+        index,factor=self._grid(origin,n,cell)
+        usable=(prepared is not None and prepared.key==(*map(float,origin),n,cell)
+                and prepared.fine_cell==self.cell_size and prepared.tile_cells==self.tile_cells
+                and prepared.raster is self.raster)
+        if usable:
+            baseline=prepared.baseline.copy()
+            if self._tokens(self.tiles,index,n*factor)==prepared.height_tokens:
+                return baseline,prepared.current.copy()
+        else:_,baseline,_=self._window(origin,n,cell,check)
+        if check:check(.25)
         current = baseline.copy()
         changes=np.zeros_like(current) if factor>1 else None
         for key, local, tile in self._overlaps(index,n*factor):
+            if check:check()
             if key in self.tiles:
                 if factor==1:current[local] += self.tiles[key][tile]
                 else:
@@ -220,6 +253,11 @@ class Landscape:
         return baseline, current
 
     def commit_window(self, origin, height, *, cell_size=None,soil=None):
+        cache=getattr(self,'_tile_cache',None)
+        with cache.transaction() if cache is not None else nullcontext():
+            self._commit_window(origin,height,cell_size=cell_size,soil=soil)
+
+    def _commit_window(self, origin, height, *, cell_size=None,soil=None):
         height = np.asarray(height,dtype=float)
         if height.ndim != 2 or height.shape[0] != height.shape[1] or not np.all(np.isfinite(height)):
             raise ValueError('Неверные высоты рабочего участка')
@@ -243,33 +281,134 @@ class Landscape:
                 values=increments[rows[:,None],cols[None,:]]
             if key not in self.tiles and not np.any(values != 0):
                 continue
-            block = self.tiles.get(key, np.zeros((self.tile_cells,self.tile_cells))).copy()
+            old=self.tiles.get(key)
+            block = np.zeros((self.tile_cells,self.tile_cells)) if old is None else old.copy()
             if factor==1:block[tile] = values
             else:block[tile] += values
             if np.any(block != 0):
-                self.tiles[key] = block
+                if old is None or not np.array_equal(old,block):self.tiles[key] = block
             else:
                 self.tiles.pop(key,None)
         if soil is not None:
             for key,local,tile in self._overlaps(index,n*factor):
                 if key not in soil.tiles:continue
-                block=self.soil_tiles.get(key,np.zeros_like(soil.tiles[key])).copy()
+                old=self.soil_tiles.get(key)
+                block=np.zeros_like(soil.tiles[key]) if old is None else old.copy()
                 block[:,tile[0],tile[1]]=soil.tiles[key][:,tile[0],tile[1]]
-                self.soil_tiles[key]=block
+                if old is None or not np.array_equal(old,block):self.soil_tiles[key]=block
 
-    def soil_window(self,origin,n,cell_size):
+    def soil_window(self,origin,n,cell_size,*,prepared=None,check=None):
         if self.soil_profile is None:return None
-        index,_,factor=self._window(origin,n,cell_size)
+        index,factor=self._grid(origin,n,cell_size)
+        if (prepared is not None and prepared.key==(*map(float,origin),n,cell_size)
+                and prepared.soil_profile==self.soil_profile and prepared.fine_cell==self.cell_size
+                and prepared.tile_cells==self.tile_cells
+                and prepared.raster is self.raster
+                and self._tokens(self.soil_tiles,index,n*factor)==prepared.soil_tokens):
+            return {**prepared.soil,'tiles':[[x,y,a.copy()] for x,y,a in prepared.soil['tiles']]}
         keys=[key for key,_,_ in self._overlaps(index,n*factor) if key in self.soil_tiles]
+        tiles=[]
+        for x,y in keys:
+            if check:check()
+            tiles.append([x,y,self.soil_tiles[x,y].copy()])
         return dict(fine_cell=self.cell_size,tile_cells=self.tile_cells,origin_m=list(origin),
-                    tiles=[[x,y,self.soil_tiles[x,y].copy()] for x,y in keys])
+                    tiles=tiles)
+
+    def snapshot(self):
+        """Freeze version references; previews allocate only their edited blocks."""
+        result=copy(self)
+        result.tiles=OverlayTiles(self._tile_cache.snapshot('height'))
+        result.soil_tiles=OverlayTiles(self._tile_cache.snapshot('soil'))
+        result._tile_cache=None;result._prefetch_runtime=None;result.prefetch_request=None
+        result.soil_profile=deepcopy(self.soil_profile);result.channel_project=deepcopy(self.channel_project)
+        return result
+
+    def prepare_window(self,origin,n,cell_size,*,budget,check):
+        from .window_prefetch import PreparedWindow
+        index,factor=self._grid(origin,n,cell_size)
+        height_tokens=self._tokens(self.tiles,index,n*factor)
+        soil_tokens=self._tokens(self.soil_tiles,index,n*factor)
+        estimated=2*n*n*8+sum(v.nbytes for v in soil_tokens.values() if v is not None)
+        if estimated>budget:raise ValueError('Окно превышает лимит памяти предзагрузки; используйте обычный переезд или меньшее окно')
+        baseline,current=self.read_window(origin,n,cell_size=cell_size,check=check)
+        check(.65);soil=self.soil_window(origin,n,cell_size,check=check)
+        baseline.flags.writeable=False;current.flags.writeable=False
+        for _,_,a in (soil or {}).get('tiles',[]):a.flags.writeable=False
+        return PreparedWindow(tuple(map(float,origin)),n,cell_size,baseline,current,soil,height_tokens,soil_tokens,
+            self.cell_size,self.tile_cells,self.soil_profile,self.raster)
+
+    def prefetch_window(self,origin,n=256,*,cell_size=None,force=True,automatic=False):
+        from .window_prefetch import WindowPrefetch,PREFETCH_BYTES
+        cell=self.cell_size if cell_size is None else cell_size;self._grid(origin,n,cell)
+        key=(*map(float,origin),n,cell)
+        if not force and (not self.prefetch_enabled or self.prefetch_cancelled==list(key)):return False
+        if self.prefetch_request and tuple(self.prefetch_request['key'])==key and self._prefetch_runtime is not None and not force:return False
+        snapshot=self.snapshot()
+        if self._prefetch_runtime is None:self._prefetch_runtime=WindowPrefetch()
+        self.prefetch_request=dict(key=list(key),automatic=automatic)
+        self.prefetch_cancelled=None
+        self._prefetch_runtime.request(snapshot,key,PREFETCH_BYTES)
+        return True
+
+    def resume_prefetch(self):
+        if self.prefetch_request is not None and self._prefetch_runtime is None:
+            key=self.prefetch_request['key'];automatic=self.prefetch_request.get('automatic',False)
+            self.prefetch_window(key[:2],key[2],cell_size=key[3],automatic=automatic)
+
+    def cancel_prefetch(self):
+        if self.prefetch_request:self.prefetch_cancelled=self.prefetch_request['key'].copy()
+        self.prefetch_request=None
+        if self._prefetch_runtime is not None:self._prefetch_runtime.cancel()
+
+    def clear_prefetch(self):
+        self.cancel_prefetch();self._prefetch_runtime=None;self.prefetch_cancelled=None
+
+    def prepared_window(self,origin,n,cell):
+        self.resume_prefetch()
+        return self._prefetch_runtime.prepared((*map(float,origin),n,cell)) if self._prefetch_runtime else None
+
+    def cache_report(self):
+        report=self._tile_cache.report()
+        report['prefetch']=(self._prefetch_runtime.report() if self._prefetch_runtime else
+            dict(state='QUEUED' if self.prefetch_request else 'CANCELLED' if self.prefetch_cancelled else 'IDLE',
+                key=self.prefetch_request['key'] if self.prefetch_request else None,error='',progress=0.,read_seconds=0.,prepared_bytes=0))
+        return report
+
+    def ensure_next_prefetch(self,simulation):
+        self.resume_prefetch()
+        if not self.prefetch_enabled or self.prefetch_request is not None:return
+        geo=simulation.config.georeference or {};info=geo.get('channel',{})
+        if not self.channel_project or not info:return
+        key=(id(geo),id(self.channel_project),tuple(geo['origin_m']),info['section'],
+             simulation.config.terrain.n,simulation.config.terrain.cell_size)
+        if getattr(self,'_prefetch_auto_key',None)==key:return
+        self._prefetch_auto_key=key
+        from .channel import ChannelProject
+        from .regional import window_spec
+        channel=ChannelProject.from_data(self.channel_project);index=info['section']+1
+        if (index>=channel.section_count or channel.side_m!=simulation.config.terrain.n*simulation.config.terrain.cell_size
+                or info.get('project_id')!=channel.identity):return
+        origin,n,cell=window_spec(self,simulation.config,None,index)
+        if origin==geo['origin_m']:return
+        self.prefetch_window(origin,n,cell_size=cell,force=False,automatic=True)
+
+    def restore_cache(self):
+        """Migrate a legacy in-memory region without changing any array values."""
+        if isinstance(self.tiles,TileMap):return
+        cache=TileCache();height,soil=self.tiles,self.soil_tiles
+        self._tile_cache=cache;self.tiles=TileMap(cache,'height');self.soil_tiles=TileMap(cache,'soil')
+        with cache.transaction():
+            for k,a in height.items():self.tiles[k]=a
+            for k,a in soil.items():self.soil_tiles[k]=a
+        self.prefetch_enabled=True;self.prefetch_request=None;self.prefetch_cancelled=None;self._prefetch_runtime=None;self._prefetch_auto_key=None
 
     def report(self):
+        height_bytes,sums=self.tiles.totals()
         report=dict(source=self.raster.metadata,vertical_datum='MSL', extent_m=list(self.raster.extent_m),
                     source_resolution_m=list(self.raster.resolution_m),fine_cell_size_m=self.cell_size,
-                    modified_tiles=len(self.tiles),fine_storage_bytes=sum(t.nbytes for t in self.tiles.values()),
+                    modified_tiles=len(self.tiles),fine_storage_bytes=height_bytes,
                     dem_storage_bytes=self.raster.height.nbytes,
-                    soil_delta_m3=math.fsum(float(t.sum(dtype=np.float64))*self.cell_size**2 for t in self.tiles.values()))
+                    soil_delta_m3=math.fsum(total*self.cell_size**2 for total in sums))
         if self.channel_project:
             from .channel import ChannelProject
             p=ChannelProject.from_data(self.channel_project)
@@ -282,17 +421,29 @@ class Landscape:
                 project_profile_complete=bool(spans and spans[0][0]<=1e-8 and spans[0][1]>=p.length-1e-8))
         if self.soil_profile is not None:
             report.update(soil_profile=self.soil_profile.name,soil_modified_tiles=len(self.soil_tiles),
-                          soil_storage_bytes=sum(a.nbytes for a in self.soil_tiles.values()))
+                          soil_storage_bytes=self.soil_tiles.totals()[0])
         return report
 
     def save(self, path):
         from dataclasses import asdict
         metadata = dict(version=2,raster=self.raster.metadata,cell_size=self.cell_size,tile_cells=self.tile_cells,corridors=self.corridors,channel_project=self.channel_project,
-                        soil_profile=asdict(self.soil_profile) if self.soil_profile is not None else None)
-        arrays = {f'tile_{x}_{y}':t for (x,y),t in self.tiles.items()}
-        arrays.update({f'soil_{x}_{y}':t for (x,y),t in self.soil_tiles.items()})
-        with open(path,'wb') as f:
-            np.savez_compressed(f,height=self.raster.height,metadata=json.dumps(metadata,ensure_ascii=False),**arrays)
+                        soil_profile=asdict(self.soil_profile) if self.soil_profile is not None else None,
+                        tile_cache_limit_bytes=self._tile_cache.limit_bytes,prefetch_enabled=self.prefetch_enabled)
+        path=Path(path);temporary=None
+        try:
+            with tempfile.NamedTemporaryFile(dir=path.parent,prefix='.'+path.name+'.',suffix='.tmp',delete=False) as f:
+                temporary=Path(f.name)
+                with zipfile.ZipFile(f,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=6) as archive:
+                    def write(name,array):
+                        with archive.open(name+'.npy','w',force_zip64=True) as stream:
+                            np.lib.format.write_array(stream,np.asarray(array),allow_pickle=False)
+                    write('height',self.raster.height);write('metadata',json.dumps(metadata,ensure_ascii=False))
+                    for prefix,mapping in (('tile',self.tiles),('soil',self.soil_tiles)):
+                        for (x,y),array in mapping.items():write(f'{prefix}_{x}_{y}',array)
+                f.flush();os.fsync(f.fileno())
+            os.replace(temporary,path);temporary=None
+        finally:
+            if temporary is not None:temporary.unlink(missing_ok=True)
 
     @classmethod
     def load(cls,path):
@@ -300,7 +451,9 @@ class Landscape:
             m = json.loads(str(data['metadata']))
             if m.get('version') not in (1,2):
                 raise ValueError('Неизвестная версия ландшафта')
-            result = cls(ElevationRaster(data['height'],m['raster']),m['cell_size'],m['tile_cells'])
+            result = cls(ElevationRaster(data['height'],m['raster']),m['cell_size'],m['tile_cells'],cache_bytes=m.get('tile_cache_limit_bytes',DEFAULT_TILE_RAM))
+            result.prefetch_enabled=m.get('prefetch_enabled',True)
+            if type(result.prefetch_enabled) is not bool:raise ValueError('Неверная настройка предзагрузки')
             result.corridors = m.get('corridors',[])
             result.channel_project = m.get('channel_project')
             if m.get('soil_profile') is not None:
@@ -324,16 +477,20 @@ class Landscape:
             return result
 
 
-def workspace_config(landscape, config, origin, side_m=64.):
+def workspace_config(landscape, config, origin, side_m=64.,*,prepared=None):
     """Start a local SI workspace without flattening or rebasing the DEM to zero."""
     from .plan import PlanConfig
     from .maps import workspace_cell
-    c = deepcopy(config)
+    # These matrices and the old plan/frame are replaced below. Copying them
+    # first doubles a large window's transient RAM for no physical purpose.
+    c=copy(config)
+    c.initial_height=c.reference_height=c.initial_soil=c.plan=c.georeference=None
+    c=deepcopy(c)
     cell = workspace_cell(side_m,landscape.cell_size)
     n = round(side_m/cell)
     if not 32 <= side_m <= 1024 or abs(n*cell-side_m) > 1e-8:
         raise ValueError('Рабочий участок: 32…1024 м, кратно ячейке')
-    baseline, current = landscape.read_window(origin,n,cell_size=cell)
+    baseline, current = landscape.read_window(origin,n,cell_size=cell,prepared=prepared)
     c.terrain.n, c.terrain.cell_size = n, cell
     c.terrain.roughness = 0.
     c.terrain.floor = min(-1000.,float(current.min())-100.,float(baseline.min())-100.)
@@ -345,7 +502,7 @@ def workspace_config(landscape, config, origin, side_m=64.):
     c.plan = PlanConfig([])
     c.reference_height, c.initial_height = baseline.tolist(),current.tolist()
     c.soil_profile=deepcopy(landscape.soil_profile)
-    c.initial_soil=landscape.soil_window(origin,n,cell)
+    c.initial_soil=landscape.soil_window(origin,n,cell,prepared=prepared)
     source = landscape.raster
     anchor = [float(v) for v in source.to_source(*origin)]
     c.georeference = dict(vertical_datum='MSL',source=source.metadata,origin_m=list(origin),

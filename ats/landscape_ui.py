@@ -74,6 +74,20 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.cancel_move_button.clicked.connect(self.cancel_move)
         for button in (self.move_button,self.move_next_button,self.cancel_move_button):travel.addWidget(button)
         layout.addLayout(travel)
+        streaming=QtWidgets.QHBoxLayout()
+        self.prefetch_auto=QtWidgets.QCheckBox('Заранее читать следующее окно')
+        self.cache_limit=QtWidgets.QSpinBox();self.cache_limit.setRange(0,4096);self.cache_limit.setSuffix(' МиБ тайлов в RAM')
+        self.prefetch_button=QtWidgets.QPushButton('Предзагрузить выбранное окно')
+        self.prefetch_cancel=QtWidgets.QPushButton('Отменить предзагрузку')
+        self.prefetch_retry=QtWidgets.QPushButton('Повторить чтение при переезде')
+        for widget in (self.prefetch_auto,self.cache_limit,self.prefetch_button,self.prefetch_cancel,self.prefetch_retry):streaming.addWidget(widget)
+        layout.addLayout(streaming)
+        self.prefetch_status=QtWidgets.QLabel();self.prefetch_status.setWordWrap(True);layout.addWidget(self.prefetch_status)
+        self.prefetch_button.clicked.connect(self.prefetch_selected)
+        self.prefetch_cancel.clicked.connect(self.cancel_prefetch)
+        self.prefetch_retry.clicked.connect(self.retry_window)
+        self.prefetch_auto.toggled.connect(self.change_prefetch)
+        self.cache_limit.valueChanged.connect(self.change_cache_limit)
         self.profile=pg.PlotWidget();self.profile.setLabel('left','Высота MSL',units='m');self.profile.setLabel('bottom','Вдоль коридора',units='m')
         self.ground=self.profile.plot(pen='#efce8b');self.design=self.profile.plot(pen=pg.mkPen('#59cde4',style=QtCore.Qt.PenStyle.DashLine));layout.addWidget(self.profile,1)
         self.result=QtWidgets.QLabel('ЛКМ выбирает участок; в режиме коридора добавляет вершины линии. Оценка коридора не запускает земляные работы и не выбирает оптимальный маршрут.');self.result.setWordWrap(True);layout.addWidget(self.result)
@@ -85,6 +99,50 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.cancel_move_button.setEnabled(moving)
         self.move_button.setEnabled(not moving);self.move_next_button.setEnabled(not moving)
         if moving:self.result.setText(group.transition.reason)
+        self.prefetch_timer=QtCore.QTimer(self);self.prefetch_timer.timeout.connect(self.refresh_prefetch);self.prefetch_timer.start(250)
+        self.finished.connect(lambda _:self.prefetch_timer.stop())
+        self.refresh_prefetch()
+
+    def prefetch_selected(self):
+        try:
+            if self.region is not self.window.landscape:raise ValueError('Выберите действующий регион для подготовки переезда')
+            from .regional import window_spec
+            section=self.section.value()-1 if self.project else None
+            origin,n,cell=window_spec(self.region,self.window.config,[self.x.value(),self.y.value()],section)
+            self.region.prefetch_window(origin,n,cell_size=cell)
+            self.refresh_prefetch()
+        except (ValueError,OSError,TypeError,KeyError) as error:self.result.setText(str(error))
+
+    def cancel_prefetch(self):
+        self.region.cancel_prefetch();self.refresh_prefetch()
+
+    def change_prefetch(self,value):
+        self.region.prefetch_enabled=value;self.region._prefetch_auto_key=None
+        if not value:self.region.cancel_prefetch()
+
+    def change_cache_limit(self,value):
+        self.region._tile_cache.set_limit(value*1024**2);self.refresh_prefetch()
+
+    def retry_window(self):
+        p=self.window.complex_project
+        if p is not None and p.transition is not None:
+            p.transition.retry_window()
+            self.window.running=True;self.window.credit=0.;self.window.play.setText('⏸ Pause')
+            self.accept()
+        else:self.refresh_prefetch()
+
+    def refresh_prefetch(self):
+        self.region.resume_prefetch();r=self.region.cache_report();p=r['prefetch']
+        names=dict(IDLE='не запрошена',QUEUED='в очереди',READING='читается',READY='данные готовы',
+                   CANCELLED='отменена',ERROR='ошибка чтения')
+        self.prefetch_status.setText(f"Тайлы: RAM {r['resident_bytes']/1024**2:.1f} / {r['limit_bytes']/1024**2:g} МиБ · данные на диске {r['logical_bytes']/1024**2:.1f} МиБ\nПредзагрузка: {names[p['state']]} · отдельное окно {p['prepared_bytes']/1024**2:.1f} МиБ. Площадка и путь проверяются при переезде."+(f"\n{p['error']}" if p['error'] else ''))
+        self.prefetch_cancel.setEnabled(p['state'] in ('QUEUED','READING','READY'))
+        group=self.window.complex_project;move=group.transition if group else None
+        self.prefetch_retry.setEnabled(bool(move and getattr(move,'window_error',None)))
+        for widget,value in ((self.prefetch_auto,self.region.prefetch_enabled),(self.cache_limit,r['limit_bytes']//1024**2)):
+            widget.blockSignals(True)
+            widget.setChecked(value) if widget is self.prefetch_auto else widget.setValue(value)
+            widget.blockSignals(False)
 
     def move_group(self):
         try:
@@ -99,7 +157,7 @@ class LandscapeDialog(QtWidgets.QDialog):
             self.window.complex_project=p;self.window.template_library=p.templates
             self.window.running=True;self.window.credit=0.;self.window.play.setText('⏸ Pause')
             self.accept()
-        except (ValueError,TypeError,KeyError) as error:self.result.setText(str(error))
+        except (ValueError,OSError,TypeError,KeyError) as error:self.result.setText(str(error))
 
     def move_next(self):
         if self.project is None:self.result.setText('Сначала откройте проект канала');return

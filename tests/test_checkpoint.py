@@ -100,7 +100,7 @@ def test_snapshot_includes_sparse_landscape_dem_front_and_panel_progress(tmp_pat
     from tests.test_workfront import canal
     s=canal(panels=100,slots=4);s.run(30)
     region=Landscape(coastal_dem(80));region.corridors=[{'name':'test','points':[[1,2],[3,4]]}]
-    region.tiles[(0,0)]=np.zeros((region.tile_cells,)*2);region.tiles[(0,0)][2,3]=.2
+    tile=np.zeros((region.tile_cells,)*2);tile[2,3]=.2;region.tiles[(0,0)]=tile
     session=identical_continuation(tmp_path/'landscape.atsstate',s,60,region)
     assert session.landscape.report()==region.report() and session.landscape.corridors==region.corridors
     assert not session.landscape.raster.height.flags.writeable

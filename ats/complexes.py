@@ -318,6 +318,9 @@ class ComplexProject:
 
     def step(self):
         if not self.running:return
+        if self.landscape is not None:
+            if self.transition is None:self.landscape.ensure_next_prefetch(self.units[0].simulation)
+            else:self.landscape.resume_prefetch()
         if self.transition is not None:self.transition.before_step()
         if self.shared_site is not None:self.shared_site.start_tick()
         for unit in self.units:

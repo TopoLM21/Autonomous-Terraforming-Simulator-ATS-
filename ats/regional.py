@@ -22,8 +22,8 @@ GEOMETRY=('terrain','trench','plan','georeference','local_reference')
 def window_key(origin):return tuple(map(float,origin))
 
 
-def target_configuration(project,origin,section=None,landscape=None):
-    land=landscape or project.landscape;source=project.units[0].simulation.config
+def window_spec(land,source,origin,section=None):
+    """Resolve only coordinates; no terrain read, physics or preflight mutation."""
     side=source.terrain.n*source.terrain.cell_size
     old=np.asarray(source.georeference['origin_m']);cell=source.terrain.cell_size
     def aligned(point):
@@ -39,9 +39,17 @@ def target_configuration(project,origin,section=None,landscape=None):
         channel=ChannelProject.from_data(land.channel_project)
         if type(section) is not int or not 0<=section<channel.section_count:raise ValueError('Участок вне проекта канала')
         if channel.side_m!=side:raise ValueError('Для переезда сохраняйте размер рабочего окна')
-        return channel.configuration(land,source,section,origin=aligned(channel.origin(land.raster,section) if origin is None else origin))
-    origin=aligned(origin)
-    c=workspace_config(land,source,origin,side)
+        origin=channel.origin(land.raster,section) if origin is None else origin
+    return aligned(origin),source.terrain.n,cell
+
+
+def target_configuration(project,origin,section=None,landscape=None,prepared=None):
+    land=landscape or project.landscape;source=project.units[0].simulation.config
+    origin,n,cell=window_spec(land,source,origin,section)
+    if section is not None:
+        from .channel import ChannelProject
+        return ChannelProject.from_data(land.channel_project).configuration(land,source,section,origin=origin,prepared=prepared)
+    c=workspace_config(land,source,origin,n*cell,prepared=prepared)
     stored=getattr(project,'window_plans',{}).get(window_key(origin))
     if stored:
         for key in GEOMETRY:setattr(c,key,deepcopy(stored[key]))
@@ -134,9 +142,11 @@ class RegionalTransition:
         if not geo:raise ValueError('У действующей карты нет региональной привязки')
         old=np.asarray(geo['origin_m'],dtype=float);side=s.terrain.height.shape[0]*s.terrain.cell
         # A preview receives the live overlay without modifying the user's region.
-        preview=copy(project.landscape);preview.tiles=dict(preview.tiles);preview.soil_tiles=dict(preview.soil_tiles)
+        preview=project.landscape.snapshot()
         preview.commit_window(old,s.terrain.height,cell_size=s.terrain.cell,soil=s.terrain.soil)
-        c=target_configuration(project,origin,section,preview);new=np.asarray(c.georeference['origin_m'])
+        point,n,cell=window_spec(project.landscape,s.config,origin,section)
+        prepared=project.landscape.prepared_window(point,n,cell)
+        c=target_configuration(project,origin,section,preview,prepared);new=np.asarray(c.georeference['origin_m'])
         if np.array_equal(old,new):raise ValueError('Выбрано текущее рабочее окно')
         lo=np.maximum(old,new);hi=np.minimum(old+side,new+side)
         if np.any(hi-lo<=4*s.terrain.cell):raise ValueError('Нужны соседние перекрывающиеся окна; выберите более близкий участок')
@@ -498,14 +508,27 @@ class RegionalTransition:
         self.project.shared_site.invalidate_geometry()
 
     def _finish(self):
+        # Called after every member's physical step, only after landing/draining.
+        # Failed disk reads/writes retain the old live window and can be retried.
+        if getattr(self,'window_error',None):return
+        try:self._finish_window()
+        except OSError as error:
+            self.window_error=str(error)
+            self.reason='Данные соседнего окна недоступны: '+str(error)+'; повторите чтение или отмените переезд'
+
+    def retry_window(self):
+        self.window_error=None
+
+    def _finish_window(self):
         p=self.project;site=p.shared_site;land=p.landscape;old=site.core
         source=p.units[0].simulation.config
         from .sector_progress import record_window
         record_window(p)
-        preview=copy(land);preview.tiles=dict(land.tiles);preview.soil_tiles=dict(land.soil_tiles)
+        preview=land.snapshot()
         preview.commit_window(self.old_origin,old.height,cell_size=old.cell,soil=old.soil)
         side=old.height.shape[0]*old.cell
-        target=workspace_config(preview,source,self.new_origin,side)
+        prepared=land.prepared_window(self.new_origin,old.height.shape[0],old.cell)
+        target=workspace_config(preview,source,self.new_origin,side,prepared=prepared)
         for key in GEOMETRY:setattr(target,key,deepcopy(getattr(self.target,key)))
         if target.plan and target.plan.channel and source.plan and source.plan.channel:
             target.plan.channel['finished_spans']=list(source.plan.channel.get('finished_spans',[]))
@@ -516,13 +539,15 @@ class RegionalTransition:
             probe.position=np.r_[point,replacement.sample(*point)]
             if not probe.safe_path(point,replacement):
                 self.routes={};self._unfold_for_wait(f'{u.name}: площадка нового окна изменилась; требуется другой маршрут');return
+        # The write-through transaction completes before any actor/frame swap.
+        land.commit_window(self.old_origin,old.height,cell_size=old.cell,soil=old.soil)
         if land.channel_project is not None and old.remaining<=site.completion_volume:
             from .channel import ChannelProject
             channel=ChannelProject.from_data(land.channel_project);report=p.report()
             report.update(state='COMPLETED',georeference=source.georeference,
                           solar_generated_kwh=sum(u.simulation.base.generated for u in p.units)/3_600_000)
             channel.record(report);land.channel_project=channel.to_data()
-        land.commit_window(self.old_origin,old.height,cell_size=old.cell,soil=old.soil)
+        land.clear_prefetch()
         p.window_plans[window_key(self.old_origin)]={key:deepcopy(getattr(source,key)) for key in GEOMETRY}
         mass_offset=getattr(site,'archived_mass_error',0.)+old.mass_change
         materials=(site.material_errors().copy() if old.soil is not None else None)

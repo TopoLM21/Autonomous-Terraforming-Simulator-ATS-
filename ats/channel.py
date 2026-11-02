@@ -238,10 +238,10 @@ class ChannelProject:
         return PlanConfig(segments,channel=dict(start=p[0].tolist(),tangent=tangent.tolist(),project_id=self.identity,
             chainage_starts=starts,first_edges=first,project_length_m=self.length,finished_spans=[p.copy() for p in self.finished_spans]))
 
-    def configuration(self,landscape,config,index=None,*,origin=None):
+    def configuration(self,landscape,config,index=None,*,origin=None,prepared=None):
         index=self.active_section if index is None else index
         self.validate();origin=self.origin(landscape.raster,index) if origin is None else origin
-        c=workspace_config(landscape,config,origin,self.side_m)
+        c=workspace_config(landscape,config,origin,self.side_m,prepared=prepared)
         c.trench.angle_deg=self.angle_deg;c.terrain.dump_max_height=self.spoil_height_m
         c.plan=self.plan(origin)
         c.plan.channel.update(marine=marine_window(landscape.raster,origin,self.side_m),cell_size=c.terrain.cell_size)

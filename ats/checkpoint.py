@@ -19,7 +19,7 @@ import numpy as np
 
 
 FORMAT='ATS_SIMULATION'
-VERSION=12
+VERSION=13
 MAX_BYTES=1_500_000_000
 MAX_NODES=2_000_000
 
@@ -33,7 +33,8 @@ def _classes():
              activity,plan,laser,workfront,landscape,soil,complexes,power_design,shared_site,regional,solar_array,battery_platforms,self_solar)
     classes=[value for module in modules for value in vars(module).values()
              if isinstance(value,type) and value.__module__==module.__name__]
-    return {c.__module__+'.'+c.__name__:c for c in [*classes,SimpleNamespace]}
+    from .tile_cache import TileMap
+    return {c.__module__+'.'+c.__name__:c for c in [*classes,SimpleNamespace,TileMap]}
 
 
 @dataclass
@@ -50,6 +51,7 @@ class _Encoder:
         self.archive=archive;self.nodes=[];self.seen={};self.classes=_classes()
 
     def encode(self, value, matrix=False):
+        from .tile_cache import TileCache
         if isinstance(value,np.generic):
             if value.dtype.kind not in 'biuf' or value.dtype.itemsize>8:raise ValueError('Неподдерживаемый скаляр')
             return {'scalar':value.dtype.str,'value':self.encode(value.item())}
@@ -65,7 +67,16 @@ class _Encoder:
         if len(self.nodes)>MAX_NODES:raise ValueError('Слишком много объектов для одного сохранения')
         if matrix and isinstance(value,list):
             value=np.asarray(value,dtype=np.float64);node['kind']='matrix_list'
-        if isinstance(value,np.ndarray):
+        if isinstance(value,TileCache):
+            entries=[]
+            if len(value._records)+len(self.archive.filelist)>20000:raise ValueError('Слишком много тайлов для одного снимка')
+            for number,(key,record) in enumerate(value._records.items()):
+                name=f'tiles/{index}/{number}.npy'
+                with self.archive.open(name,'w',force_zip64=True) as stream:
+                    np.lib.format.write_array(stream,record.read(),allow_pickle=False)
+                entries.append([list(key),name])
+            node.update(kind='tile_cache',limit_bytes=value.limit_bytes,entries=entries)
+        elif isinstance(value,np.ndarray):
             if value.dtype.kind not in 'biuf' or value.dtype.itemsize>8:raise ValueError('Неподдерживаемый тип массива')
             name=f'arrays/{index}.npy';buffer=BytesIO();np.save(buffer,value,allow_pickle=False)
             self.archive.writestr(name,buffer.getvalue())
@@ -78,7 +89,8 @@ class _Encoder:
             name=type(value).__module__+'.'+type(value).__name__
             if name not in self.classes:raise ValueError(f'Нельзя сохранить объект {name}')
             node.update(kind='object',type=name,attrs={k:self.encode(v,matrix=name=='ats.config.Config' and
-                k in ('initial_height','reference_height') and v is not None) for k,v in vars(value).items() if k!='_sector_progress_cache'})
+                k in ('initial_height','reference_height') and v is not None) for k,v in vars(value).items()
+                if k not in ('_sector_progress_cache','_prefetch_runtime','_prefetch_auto_key')})
         return {'ref':index}
 
 
@@ -86,9 +98,29 @@ class _Decoder:
     def __init__(self, archive, nodes):
         if not isinstance(nodes,list) or len(nodes)>MAX_NODES:raise ValueError('Неверный список объектов')
         self.archive=archive;self.nodes=nodes;self.classes=_classes();self.objects=[];self.building=set()
-        for node in nodes:
+        for index,node in enumerate(nodes):
             kind=node['kind']
-            if kind in ('array','matrix_list'):
+            if kind=='tile_cache':
+                from .tile_cache import TileCache
+                value=TileCache(node['limit_bytes']);entries=node['entries'];keys=set()
+                if not isinstance(entries,list) or len(entries)>20000:raise ValueError('Неверный индекс тайлов')
+                for number,(key,name) in enumerate(entries):
+                    if not isinstance(key,list):raise ValueError('Неверный адрес тайла')
+                    key=tuple(key);value.validate_key(key)
+                    if key in keys or name!=f'tiles/{index}/{number}.npy':raise ValueError('Неверная ссылка тайла')
+                    keys.add(key)
+                    info=archive.getinfo(name)
+                    if info.file_size>32*256*256*8+65536:raise ValueError('Слишком большой тайл')
+                    with archive.open(name) as stream:
+                        version=np.lib.format.read_magic(stream)
+                        if version not in ((1,0),(2,0)):raise ValueError('Неверный заголовок тайла')
+                        reader=np.lib.format.read_array_header_1_0 if version==(1,0) else np.lib.format.read_array_header_2_0
+                        shape,_,dtype=reader(stream)
+                        if (dtype!=np.dtype('float64') or len(shape) not in (2,3) or
+                                math.prod(shape)*8!=info.file_size-stream.tell()):raise ValueError('Неверный размер тайла')
+                        stream.seek(0);array=np.load(stream,allow_pickle=False)
+                    value.write(key,array)
+            elif kind in ('array','matrix_list'):
                 name=node['file']
                 if not name.startswith('arrays/') or not name.endswith('.npy'):raise ValueError('Неверное имя массива')
                 payload=BytesIO(archive.read(name));version=np.lib.format.read_magic(payload)
@@ -358,6 +390,28 @@ def load_state(path):
                             if d.trip is not None and d.trip.source=='cut']
                         value.event('Сохранение принято: фиксированные сектора 200 м; текущая позиция и начатые рейсы сохранены')
         session=Session(root['simulation'],root['landscape'],root['ui'],manifest.get('runtime',{}),root.get('complex_project'))
+        from .landscape import Landscape
+        from .tile_cache import TileCache,TileMap
+        for value in decoder.objects:
+            if isinstance(value,Landscape):
+                value.restore_cache();value._prefetch_runtime=None;value._prefetch_auto_key=None
+                if (type(value._tile_cache) is not TileCache or type(value.tiles) is not TileMap or
+                        type(value.soil_tiles) is not TileMap or value.tiles.cache is not value._tile_cache or
+                        value.soil_tiles.cache is not value._tile_cache or value.tiles.kind!='height' or value.soil_tiles.kind!='soil' or
+                        type(value.prefetch_enabled) is not bool):raise ValueError('Повреждён кэш ландшафта')
+                for (kind,_,_),record in value._tile_cache._records.items():
+                    shape=((value.tile_cells,)*2 if kind=='height' else
+                           ((len(value.soil_profile.materials)+1,value.tile_cells,value.tile_cells) if value.soil_profile is not None else None))
+                    if record.shape!=shape:raise ValueError('Размер тайла не соответствует ландшафту')
+                if value.prefetch_request is not None:
+                    if not isinstance(value.prefetch_request,dict):raise ValueError('Повреждён запрос предзагрузки')
+                    key=value.prefetch_request['key']
+                    if not isinstance(key,list) or len(key)!=4:raise ValueError('Повреждён запрос предзагрузки')
+                    value._grid(key[:2],key[2],key[3])
+                if value.prefetch_cancelled is not None:
+                    key=value.prefetch_cancelled
+                    if not isinstance(key,list) or len(key)!=4:raise ValueError('Повреждено состояние отмены предзагрузки')
+                    value._grid(key[:2],key[2],key[3])
         if session.landscape is not None:
             from .channel import marine_window
             simulations=[u.simulation for u in session.complex_project.units] if session.complex_project else [session.simulation]
