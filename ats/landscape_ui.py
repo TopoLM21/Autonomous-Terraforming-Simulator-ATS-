@@ -5,16 +5,17 @@ import numpy as np
 from .landscape import Landscape,load_dem,qattara_dem,workspace_config,corridor_profile
 from .channel import ChannelProject
 from .soil import SoilProfile
+from .procedural import default_generation
 
 
 class LandscapeDialog(QtWidgets.QDialog):
     def __init__(self, window):
         super().__init__(window)
-        self.window=window;self.region=getattr(window,'landscape',None) or Landscape(qattara_dem(),soil_profile=SoilProfile.qattara())
+        self.window=window;self.region=getattr(window,'landscape',None) or Landscape(qattara_dem(),soil_profile=SoilProfile.qattara(),generation=default_generation())
         self.points=[];self.project=None;self.setWindowTitle('Маршрут и проект канала · офлайн DEM');self.resize(1250,950)
         layout=QtWidgets.QVBoxLayout(self)
         buttons=QtWidgets.QHBoxLayout()
-        for text,handler in [('Каттара / NOAA',self.use_qattara),('Импорт DEM…',self.import_dem),('Открыть ландшафт…',self.load_region),('Сохранить ландшафт…',self.save_region),('Слои грунта…',self.edit_soil)]:
+        for text,handler in [('Каттара / NOAA',self.use_qattara),('Импорт DEM…',self.import_dem),('Открыть ландшафт…',self.load_region),('Сохранить ландшафт…',self.save_region),('Слои грунта…',self.edit_soil),('Рельеф / подгрузка…',self.edit_generation)]:
             button=QtWidgets.QPushButton(text);button.clicked.connect(handler);buttons.addWidget(button)
         self.crs=QtWidgets.QComboBox();self.crs.addItem('ASC: WGS84 (градусы)','EPSG:4326');self.crs.addItem('ASC: локальные метры','LOCAL_METRES')
         self.msl=QtWidgets.QCheckBox('Импорт: метры над MSL');buttons.addWidget(self.crs);buttons.addWidget(self.msl)
@@ -75,7 +76,7 @@ class LandscapeDialog(QtWidgets.QDialog):
         for button in (self.move_button,self.move_next_button,self.cancel_move_button):travel.addWidget(button)
         layout.addLayout(travel)
         streaming=QtWidgets.QHBoxLayout()
-        self.prefetch_auto=QtWidgets.QCheckBox('Заранее читать следующее окно')
+        self.prefetch_auto=QtWidgets.QCheckBox('Автоподгрузка областей')
         self.cache_limit=QtWidgets.QSpinBox();self.cache_limit.setRange(0,4096);self.cache_limit.setSuffix(' МиБ тайлов в RAM')
         self.prefetch_button=QtWidgets.QPushButton('Предзагрузить выбранное окно')
         self.prefetch_cancel=QtWidgets.QPushButton('Отменить предзагрузку')
@@ -100,24 +101,57 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.move_button.setEnabled(not moving);self.move_next_button.setEnabled(not moving)
         if moving:self.result.setText(group.transition.reason)
         self.prefetch_timer=QtCore.QTimer(self);self.prefetch_timer.timeout.connect(self.refresh_prefetch);self.prefetch_timer.start(250)
-        self.finished.connect(lambda _:self.prefetch_timer.stop())
+        self.selection_timer=QtCore.QTimer(self);self.selection_timer.setSingleShot(True)
+        self.selection_timer.timeout.connect(self.prefetch_selected)
+        self.finished.connect(self.finish_reading)
         self.refresh_prefetch()
+
+    def finish_reading(self,_):
+        self.prefetch_timer.stop();self.selection_timer.stop()
+        if self.region.prefetch_mode=='world' and self.region.prefetch_request:
+            self.region.prefetch_request['automatic']=True
+            self.region._prefetch_world_stamp=None
+
+    def edit_generation(self):
+        dialog=QtWidgets.QDialog(self);dialog.setWindowTitle('Рельеф и подгрузка областей')
+        form=QtWidgets.QFormLayout(dialog)
+        enabled=QtWidgets.QCheckBox('Условные мелкие неровности поверх DEM')
+        seed=QtWidgets.QDoubleSpinBox();seed.setRange(0,2**32-1);seed.setDecimals(0)
+        amplitude=QtWidgets.QDoubleSpinBox();amplitude.setRange(0,1);amplitude.setDecimals(2);amplitude.setSingleStep(.05);amplitude.setSuffix(' м')
+        scale=QtWidgets.QDoubleSpinBox();scale.setRange(4,1024);scale.setSuffix(' м')
+        spec=self.region.generation or default_generation()
+        enabled.setChecked(self.region.generation is not None);seed.setValue(spec['seed']);amplitude.setValue(spec['amplitude_m']);scale.setValue(spec['scale_m'])
+        locked=self.region.baseline_locked or bool(self.region.tiles or self.region.soil_tiles)
+        for widget in (enabled,seed,amplitude,scale):widget.setEnabled(not locked)
+        mode=QtWidgets.QComboBox();mode.addItem('Вокруг всей техники · любое направление','world');mode.addItem('Следующий участок канала','route')
+        mode.setCurrentIndex(mode.findData(self.region.prefetch_mode))
+        for label,widget in (('Генератор v1',enabled),('Seed',seed),('Макс. неровность',amplitude),('Основной масштаб',scale),('Автоподгрузка',mode)):form.addRow(label,widget)
+        note=QtWidgets.QLabel('Неровности условные: точность исходного DEM не повышается. Область ограничена этим DEM.\n'+('Поверхность уже закреплена: настройки генератора сохраняются без изменений.' if locked else 'После начала работ seed и модель поверхности закрепляются за регионом.'))
+        note.setWordWrap(True);form.addRow(note)
+        buttons=QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Ok|QtWidgets.QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(dialog.accept);buttons.rejected.connect(dialog.reject);form.addRow(buttons)
+        if dialog.exec():
+            try:
+                if not locked:self.region.configure_generation(default_generation(int(seed.value()),amplitude.value(),scale.value()) if enabled.isChecked() else None)
+                if self.region.prefetch_mode!=mode.currentData():self.region.clear_prefetch()
+                self.region.prefetch_mode=mode.currentData();self.show_region();self.refresh_prefetch()
+            except ValueError as error:self.result.setText(str(error))
 
     def prefetch_selected(self):
         try:
-            if self.region is not self.window.landscape:raise ValueError('Выберите действующий регион для подготовки переезда')
-            from .regional import window_spec
-            section=self.section.value()-1 if self.project else None
-            origin,n,cell=window_spec(self.region,self.window.config,[self.x.value(),self.y.value()],section)
+            side=self.side.currentData();n=min(1024,round(side/self.region.cell_size));cell=side/n
+            origin=[round(v/self.region.cell_size)*self.region.cell_size for v in (self.x.value(),self.y.value())]
             self.region.prefetch_window(origin,n,cell_size=cell)
             self.refresh_prefetch()
         except (ValueError,OSError,TypeError,KeyError) as error:self.result.setText(str(error))
 
     def cancel_prefetch(self):
+        self.selection_timer.stop()
         self.region.cancel_prefetch();self.refresh_prefetch()
 
     def change_prefetch(self,value):
         self.region.prefetch_enabled=value;self.region._prefetch_auto_key=None
+        self.region._prefetch_world_stamp=None
         if not value:self.region.cancel_prefetch()
 
     def change_cache_limit(self,value):
@@ -135,7 +169,8 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.region.resume_prefetch();r=self.region.cache_report();p=r['prefetch']
         names=dict(IDLE='не запрошена',QUEUED='в очереди',READING='читается',READY='данные готовы',
                    CANCELLED='отменена',ERROR='ошибка чтения')
-        self.prefetch_status.setText(f"Тайлы: RAM {r['resident_bytes']/1024**2:.1f} / {r['limit_bytes']/1024**2:g} МиБ · данные на диске {r['logical_bytes']/1024**2:.1f} МиБ\nПредзагрузка: {names[p['state']]} · отдельное окно {p['prepared_bytes']/1024**2:.1f} МиБ. Площадка и путь проверяются при переезде."+(f"\n{p['error']}" if p['error'] else ''))
+        mode='в любом направлении' if self.region.prefetch_mode=='world' else 'по маршруту'
+        self.prefetch_status.setText(f"Тайлы: RAM {r['resident_bytes']/1024**2:.1f} / {r['limit_bytes']/1024**2:g} МиБ · данные на диске {r['logical_bytes']/1024**2:.1f} МиБ\nПредзагрузка {mode}: {names[p['state']]} · готово {p.get('ready_windows',0)} окон · {p['prepared_bytes']/1024**2:.1f} / 64 МиБ. Площадка и путь проверяются при переезде."+(f"\n{p['error']}" if p['error'] else ''))
         self.prefetch_cancel.setEnabled(p['state'] in ('QUEUED','READING','READY'))
         group=self.window.complex_project;move=group.transition if group else None
         self.prefetch_retry.setEnabled(bool(move and getattr(move,'window_error',None)))
@@ -211,12 +246,15 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.info.setText(f"{r.metadata.get('source','DEM')} · {h.shape[1]}×{h.shape[0]} · шаг {rx:.0f}×{ry:.0f} м · MSL: {finite.min():.0f}…{finite.max():.0f} м\nИзменённых блоков: {s['modified_tiles']} · подробные данные: {s['fine_storage_bytes']/1024:.1f} КиБ. Мелкая сетка интерполирует DEM, точность источника остаётся прежней. Жёлтый участок намного меньше региона; увеличьте масштаб колесом.")
         profile=self.region.soil_profile
         self.info.setText(self.info.text()+('\nГрунт: '+profile.name+' · условная модель, без геологической съёмки' if profile is not None else '\nГрунт: однородный, прежняя модель'))
+        if self.region.generation:
+            g=self.region.generation;self.info.setText(self.info.text()+f" · Рельеф v{g['version']}, seed {g['seed']}, неровности ≤{g['amplitude_m']:g} м")
 
     def update_selection(self):
         x,y=self.x.value(),self.y.value();side=self.side.currentData()
         self.marker.setData([x,x+side,x+side,x,x],[y,y,y+side,y+side,y])
         a,b=self.region.raster.to_source(x,y)
         self.anchor.setText(f"Привязка начала: X/долгота {a:.6f}, Y/широта {b:.6f} · {self.region.raster.metadata['crs']} · 0 м = уровень моря")
+        if hasattr(self,'selection_timer') and self.region.prefetch_enabled and self.region.prefetch_mode=='world':self.selection_timer.start(180)
 
     def map_clicked(self,event):
         if event.button()!=QtCore.Qt.MouseButton.LeftButton or not self.map.sceneBoundingRect().contains(event.scenePos()):return
@@ -283,8 +321,12 @@ class LandscapeDialog(QtWidgets.QDialog):
     def select_section(self):
         if self.project is None:return
         self.project.active_section=self.section.value()-1
-        origin=self.project.origin(self.region.raster)
-        self.x.setValue(origin[0]);self.y.setValue(origin[1]);self.side.setCurrentIndex(self.side.findData(self.project.side_m))
+        active=self.window.config.georeference or {}
+        if self.region is getattr(self.window,'landscape',None) and active.get('channel',{}).get('project_id')==self.project.identity:
+            from .regional import window_spec
+            origin,n,cell=window_spec(self.region,self.window.config,None,self.project.active_section);side=n*cell
+        else:origin=self.project.origin(self.region.raster);side=self.project.side_m
+        self.x.setValue(origin[0]);self.y.setValue(origin[1]);self.side.setCurrentIndex(self.side.findData(side))
         self.region.channel_project=self.project.to_data()
 
     def start_channel(self):
@@ -322,7 +364,7 @@ class LandscapeDialog(QtWidgets.QDialog):
         except (ValueError,OSError) as error:self.result.setText(str(error))
 
     def use_qattara(self):
-        self.region=Landscape(qattara_dem(),soil_profile=SoilProfile.qattara());self.show_region()
+        self.region=Landscape(qattara_dem(),soil_profile=SoilProfile.qattara(),generation=default_generation());self.show_region()
 
     def edit_soil(self):
         from .soil_ui import SoilDialog
@@ -334,7 +376,7 @@ class LandscapeDialog(QtWidgets.QDialog):
         path,_=QtWidgets.QFileDialog.getOpenFileName(self,'Импорт локального DEM','','DEM (*.npz *.asc *.tif *.tiff)')
         if not path:return
         try:
-            self.region=Landscape(load_dem(path,crs=self.crs.currentData(),vertical_datum='MSL' if self.msl.isChecked() else None))
+            self.region=Landscape(load_dem(path,crs=self.crs.currentData(),vertical_datum='MSL' if self.msl.isChecked() else None),generation=default_generation())
             self.show_region()
         except (OSError,ValueError,KeyError,TypeError) as error:self.result.setText(str(error))
 

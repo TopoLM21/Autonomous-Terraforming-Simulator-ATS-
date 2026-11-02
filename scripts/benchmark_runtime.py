@@ -43,6 +43,10 @@ def profile_rows(profile):
 
 def trial(args, mode, number):
     gc.collect();begin=time.perf_counter();session=session_factory(args.state);sim=session.simulation
+    if getattr(args,'world_prefetch',False):
+        if session.landscape is None or not hasattr(session.landscape,'ensure_world_prefetch'):
+            raise ValueError('Этот checkout/сценарий не поддерживает подгрузку в любом направлении')
+        session.landscape.clear_prefetch();session.landscape.prefetch_mode='world'
     project=getattr(session,'complex_project',None)
     actor=project if project is not None else sim
     clock=lambda:project.time if project is not None else sim.time
@@ -166,6 +170,7 @@ def main():
     parser.add_argument('--warmup',type=int,default=0,help='Untimed model steps after each load; use the same value in comparisons')
     parser.add_argument('--max-wall-seconds',type=float,default=300.)
     parser.add_argument('--offscreen',action='store_true',help='Use Qt offscreen instead of a visible desktop window')
+    parser.add_argument('--world-prefetch',action='store_true',help='Measure route-independent background reads on the same saved physical mission')
     parser.add_argument('--profile',help='Write first-trial cProfile files and timing tables; profiler affects speed')
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args()

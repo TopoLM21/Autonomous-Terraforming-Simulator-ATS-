@@ -176,7 +176,7 @@ def test_snapshot_while_reader_runs_is_self_contained_and_resumes_request(tmp_pa
         land.prefetch_window([96.,64.],256,cell_size=.5);assert start.wait(5.)
         path=tmp_path/'reading.atsstate';save_state(path,p.active.simulation,land,complex_project=p)
         with zipfile.ZipFile(path) as archive:
-            manifest=json.loads(archive.read('manifest.json'));assert manifest['version']==13
+            manifest=json.loads(archive.read('manifest.json'));assert manifest['version']==14
             assert 'ats-window-read' not in json.dumps(manifest) and land._tile_cache._files.directory.name not in json.dumps(manifest)
         q=load_state(path).complex_project
         assert q.report()==p.report() and q.landscape._prefetch_runtime is None

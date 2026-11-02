@@ -221,7 +221,8 @@ class ChannelProject:
         # Quarter-metre alignment preserves the landscape's permanent fine grid.
         return (np.floor(np.clip(center-self.side_m/2,0,extent-self.side_m)/.25)*.25).tolist()
 
-    def plan(self,origin):
+    def plan(self,origin,*,side_m=None):
+        side=self.side_m if side_m is None else side_m
         p=np.asarray(self.points)-origin
         tangent=(p[1]-p[0])/np.linalg.norm(p[1]-p[0])
         # Only nearby edges are evaluated on the fine grid; no regional fine map.
@@ -229,8 +230,8 @@ class ChannelProject:
         segments=[];starts=[];first=[];distance=0.
         for index,(a,b) in enumerate(zip(p,p[1:])):
             edge_start=distance;distance+=float(np.linalg.norm(b-a))
-            if np.any(np.maximum(a,b)<-reach) or np.any(np.minimum(a,b)>self.side_m+reach):continue
-            clipped=_clip_edge(a,b,-reach,self.side_m+reach)
+            if np.any(np.maximum(a,b)<-reach) or np.any(np.minimum(a,b)>side+reach):continue
+            clipped=_clip_edge(a,b,-reach,side+reach)
             if clipped is None:continue
             start,end=clipped
             starts.append(edge_start+float(np.linalg.norm(start-a)));first.append(index==0)
@@ -238,13 +239,17 @@ class ChannelProject:
         return PlanConfig(segments,channel=dict(start=p[0].tolist(),tangent=tangent.tolist(),project_id=self.identity,
             chainage_starts=starts,first_edges=first,project_length_m=self.length,finished_spans=[p.copy() for p in self.finished_spans]))
 
-    def configuration(self,landscape,config,index=None,*,origin=None,prepared=None):
+    def configuration(self,landscape,config,index=None,*,origin=None,prepared=None,side_m=None):
         index=self.active_section if index is None else index
+        side=self.side_m if side_m is None else side_m
         self.validate();origin=self.origin(landscape.raster,index) if origin is None else origin
-        c=workspace_config(landscape,config,origin,self.side_m,prepared=prepared)
+        c=workspace_config(landscape,config,origin,side,prepared=prepared)
         c.trench.angle_deg=self.angle_deg;c.terrain.dump_max_height=self.spoil_height_m
-        c.plan=self.plan(origin)
-        c.plan.channel.update(marine=marine_window(landscape.raster,origin,self.side_m),cell_size=c.terrain.cell_size)
+        c.plan=self.plan(origin,side_m=side)
+        if not c.plan.segments:
+            c.plan=PlanConfig([]);c.validate();return c
+        c.plan.channel.update(marine=marine_window(landscape.raster,origin,side),cell_size=c.terrain.cell_size)
+        c.georeference['marine']=c.plan.channel['marine']
         n,cell=c.terrain.n,c.terrain.cell_size
         axis=(np.arange(n)+.5)*cell;x,y=np.meshgrid(axis,axis,sparse=True)
         current=np.asarray(c.initial_height)
@@ -264,8 +269,8 @@ class ChannelProject:
         from .workfront import bank_layout
         pad_extent=math.ceil((max(c.fleet.count,c.fleet.charge_slots)-1)/2)*c.fleet.pad_spacing
         service_width=2*(pad_extent+c.fleet.waiting_offset+c.fleet.separation+cell)
-        c.plan.channel['operations']=dict(front_length_m=min(32.,self.side_m/3),sector_length_m=200.,
-            setback_m=max(6.,min(24.,service_width,self.side_m*.23)),bank_width_m=max(4.,self.side_m*.22))
+        c.plan.channel['operations']=dict(front_length_m=min(32.,side/3),sector_length_m=200.,
+            setback_m=max(6.,min(24.,service_width,side*.23)),bank_width_m=max(4.,side*.22))
         dump,cap,chainage,signed=bank_layout(terrain,c.plan,work,protected,target)
         if not np.any(dump & (cap>terrain.reference)) and np.any(work&(current-target>1e-10)):
             raise ValueError('Канал с откосами не оставляет места для боковых отвалов. Увеличьте локальную карту')
@@ -276,8 +281,8 @@ class ChannelProject:
         pads=[(0.,0.)]+[(0.,(i+1)//2*(1 if i%2 else -1)*c.fleet.pad_spacing) for i in range(1,max(c.fleet.count,c.fleet.charge_slots))]
         pad_margin=margin+c.fleet.waiting_offset+2
         sites=[]
-        candidates=[(bx,by) for bx in np.linspace(pad_margin,self.side_m-pad_margin,13)
-                    for by in np.linspace(pad_margin,self.side_m-pad_margin,13)]
+        candidates=[(bx,by) for bx in np.linspace(pad_margin,side-pad_margin,13)
+                    for by in np.linspace(pad_margin,side-pad_margin,13)]
         remaining=work & (current-target>1e-10)
         first=float(chainage[remaining].min()) if np.any(remaining) else float(chainage[work].min()) if np.any(work) else 0.
         work_along,work_side=chainage[work],signed[work]
@@ -285,20 +290,20 @@ class ChannelProject:
         for segment in c.plan.segments:
             a,b=np.asarray(segment.points[0]),np.asarray(segment.points[-1]);v=b-a
             length=float(np.linalg.norm(v));normal=np.array([-v[1],v[0]])/max(length,1e-12)
-            for u in np.linspace(0,1,max(2,math.ceil(length/max(3.,self.side_m/96)))):
+            for u in np.linspace(0,1,max(2,math.ceil(length/max(3.,side/96)))):
                 p=a+u*v
-                if np.any(p<0) or np.any(p>=self.side_m):continue
+                if np.any(p<0) or np.any(p>=side):continue
                 local=np.abs(work_along-chainage[min(n-1,int(p[1]/cell)),min(n-1,int(p[0]/cell))])<max(3.,cell)
                 opening=max(segment.width/2,float(np.max(np.abs(work_side[local]))) if np.any(local) else 0.)
                 for sign in (-1,1):
                     candidates.append(tuple(p+sign*normal*(opening+c.plan.channel['operations']['setback_m']/2)))
         for bx,by in candidates:
-            if not (pad_margin<=bx<=self.side_m-pad_margin and margin<=by<=self.side_m-margin):continue
+            if not (pad_margin<=bx<=side-pad_margin and margin<=by<=side-margin):continue
             safe=True
             for px,py in pads+[(px-c.fleet.waiting_offset,py) for px,py in pads]:
                 xx,yy=bx+px,by+py
                 clearance=c.fleet.separation+cell
-                if not (clearance<=xx<=self.side_m-clearance and clearance<=yy<=self.side_m-clearance):
+                if not (clearance<=xx<=side-clearance and clearance<=yy<=side-clearance):
                     safe=False;break
                 ix,iy=int(xx/cell),int(yy/cell);radius=math.ceil(c.fleet.separation/cell)+1
                 row=slice(max(0,iy-radius),min(n,iy+radius+1));col=slice(max(0,ix-radius),min(n,ix+radius+1))
@@ -315,7 +320,7 @@ class ChannelProject:
         if not sites:raise ValueError('Не найдена сухая устойчивая площадка базы вне канала и отвала. Измените размер карты/маршрут')
         first_cells=np.where(work & (np.abs(chainage-first)<=cell*2))
         start=np.array([float(np.mean(np.broadcast_to(x,current.shape)[first_cells])),
-                        float(np.mean(np.broadcast_to(y,current.shape)[first_cells]))]) if np.any(work) else np.array([self.side_m/2]*2)
+                        float(np.mean(np.broadcast_to(y,current.shape)[first_cells]))]) if np.any(work) else np.array([side/2]*2)
         length=c.plan.channel['operations']['sector_length_m']
         sector_end=min((math.floor((first+1e-9)/length)+1)*length,float(chainage[work].max())+cell/2,self.length)
         centre=(max(math.floor((first+1e-9)/length)*length,first-cell/2)+sector_end)/2
@@ -325,11 +330,11 @@ class ChannelProject:
         available=np.flatnonzero((excess>1e-10)&work)
         cell_index=int(available[np.argmin(chainage.ravel()[available])]) if len(available) else int(np.argmax(excess))
         iy,ix=np.unravel_index(cell_index,excess.shape)
-        c.trench.x=float(np.clip(axis[ix],4+cell,self.side_m-4-cell))
-        c.trench.y=float(np.clip(axis[iy],4+cell,self.side_m-4-cell))
+        c.trench.x=float(np.clip(axis[ix],4+cell,side-4-cell))
+        c.trench.y=float(np.clip(axis[iy],4+cell,side-4-cell))
         c.georeference['channel']=dict(project_id=self.identity,section=index,sections=self.section_count,
             length_m=self.length,width_m=self.width_m,depth_m=self.depth_m,target_msl=-self.depth_m,shore_offset_m=self.shore_offset_m,
-            custom_window=bool(np.linalg.norm(np.asarray(origin)-self.origin(landscape.raster,index),ord=np.inf)>cell+1e-7))
+            custom_window=bool(side!=self.side_m or np.linalg.norm(np.asarray(origin)-self.origin(landscape.raster,index),ord=np.inf)>cell+1e-7))
         c.base.latitude_deg=latitude_at(c.georeference,c.base.x,c.base.y,c.base.latitude_deg)
         c.validate();return c
 

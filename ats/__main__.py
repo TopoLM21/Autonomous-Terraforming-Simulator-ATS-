@@ -153,6 +153,9 @@ def main():
     dem_source.add_argument('--dem',help='Offline DEM: NPZ, ESRI ASC or optional GeoTIFF')
     dem_source.add_argument('--qattara',action='store_true',help='Bundled real NOAA ETOPO1: Qattara and Mediterranean, no internet')
     dem_source.add_argument('--landscape',help='Resume terrain edits from an .atsregion file (local machinery starts a new run)')
+    parser.add_argument('--procedural',action='store_true',help='New DEM region: deterministic conditional fine relief and route-independent prefetch')
+    parser.add_argument('--terrain-seed',type=int,default=42,help='Procedural terrain seed; fixed in saved regions')
+    parser.add_argument('--terrain-detail',type=float,default=.1,help='Conditional fine relief amplitude, 0..1 metres; default 0.1')
     parser.add_argument('--dem-crs',help='ASC CRS: EPSG:4326 or LOCAL_METRES (or use .json sidecar)')
     parser.add_argument('--dem-datum',choices=('MSL',),help='Confirm that imported ASC/GeoTIFF elevations are metres above mean sea level')
     location=parser.add_mutually_exclusive_group()
@@ -270,6 +273,11 @@ def main():
             from .landscape import Landscape,load_dem,qattara_dem,workspace_config
             region=(Landscape.load(args.landscape) if args.landscape else
                     Landscape(qattara_dem() if args.qattara else load_dem(args.dem,crs=args.dem_crs,vertical_datum=args.dem_datum)))
+            if args.procedural:
+                if args.landscape:raise ValueError('Генератор выбирается только для нового DEM-региона, не для сохранённого ландшафта')
+                from .procedural import default_generation
+                region.configure_generation(default_generation(args.terrain_seed,args.terrain_detail))
+                region.prefetch_mode='world'
             if args.soil_profile is not None:
                 if region.tiles or region.soil_tiles:raise ValueError('Профиль грунта выбирается до земляных работ; существующий ландшафт сохранит свой состав')
                 region.soil_profile=config.soil_profile

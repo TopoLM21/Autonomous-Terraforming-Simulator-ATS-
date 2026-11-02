@@ -19,7 +19,7 @@ import numpy as np
 
 
 FORMAT='ATS_SIMULATION'
-VERSION=13
+VERSION=14
 MAX_BYTES=1_500_000_000
 MAX_NODES=2_000_000
 
@@ -90,7 +90,7 @@ class _Encoder:
             if name not in self.classes:raise ValueError(f'Нельзя сохранить объект {name}')
             node.update(kind='object',type=name,attrs={k:self.encode(v,matrix=name=='ats.config.Config' and
                 k in ('initial_height','reference_height') and v is not None) for k,v in vars(value).items()
-                if k not in ('_sector_progress_cache','_prefetch_runtime','_prefetch_auto_key')})
+                if k not in ('_sector_progress_cache','_prefetch_runtime','_prefetch_auto_key','_prefetch_world_stamp')})
         return {'ref':index}
 
 
@@ -283,7 +283,12 @@ def _validate(session):
         for d in s.drones:
             if any(w.inventory.items[id].holder_id!=f'drone_{d.serial}' for id in d.battery_ids):
                 raise ValueError('Потеряна установленная батарея')
-    if session.landscape is not None and type(session.landscape) is not Landscape:raise ValueError('Неверный ландшафт')
+    if session.landscape is not None:
+        if type(session.landscape) is not Landscape:raise ValueError('Неверный ландшафт')
+        simulations=[u.simulation for u in session.complex_project.units] if session.complex_project else [s]
+        for sim in simulations:
+            if sim.config.georeference and sim.config.georeference.get('terrain_generation')!=session.landscape.generation:
+                raise ValueError('Генератор активного участка не совпадает с сохранённым ландшафтом')
     if not isinstance(session.ui,dict):raise ValueError('Неверные параметры просмотра')
     ui=session.ui
     if 'speed' in ui and ui['speed'] not in (1,10,50,200,1000,2000):raise ValueError('Неверное ускорение просмотра')
@@ -394,7 +399,7 @@ def load_state(path):
         from .tile_cache import TileCache,TileMap
         for value in decoder.objects:
             if isinstance(value,Landscape):
-                value.restore_cache();value._prefetch_runtime=None;value._prefetch_auto_key=None
+                value.restore_cache();value.restore_generation();value._prefetch_runtime=None;value._prefetch_auto_key=None
                 if (type(value._tile_cache) is not TileCache or type(value.tiles) is not TileMap or
                         type(value.soil_tiles) is not TileMap or value.tiles.cache is not value._tile_cache or
                         value.soil_tiles.cache is not value._tile_cache or value.tiles.kind!='height' or value.soil_tiles.kind!='soil' or
@@ -408,10 +413,24 @@ def load_state(path):
                     key=value.prefetch_request['key']
                     if not isinstance(key,list) or len(key)!=4:raise ValueError('Повреждён запрос предзагрузки')
                     value._grid(key[:2],key[2],key[3])
+                    keys=value.prefetch_request.get('keys',[key])
+                    if not isinstance(keys,list) or not 1<=len(keys)<=8 or keys[0]!=key:
+                        raise ValueError('Повреждена очередь предзагрузки')
+                    for k in keys:
+                        if not isinstance(k,list) or len(k)!=4:raise ValueError('Повреждена очередь предзагрузки')
+                        value._grid(k[:2],k[2],k[3])
+                    if type(value.prefetch_request.get('automatic',False)) is not bool:
+                        raise ValueError('Повреждён режим предзагрузки')
                 if value.prefetch_cancelled is not None:
                     key=value.prefetch_cancelled
                     if not isinstance(key,list) or len(key)!=4:raise ValueError('Повреждено состояние отмены предзагрузки')
                     value._grid(key[:2],key[2],key[3])
+                keys=value.prefetch_cancelled_keys
+                if keys is not None:
+                    if not isinstance(keys,list) or not 1<=len(keys)<=8:raise ValueError('Повреждена отмена очереди предзагрузки')
+                    for key in keys:
+                        if not isinstance(key,list) or len(key)!=4:raise ValueError('Повреждена отмена очереди предзагрузки')
+                        value._grid(key[:2],key[2],key[3])
         if session.landscape is not None:
             from .channel import marine_window
             simulations=[u.simulation for u in session.complex_project.units] if session.complex_project else [session.simulation]

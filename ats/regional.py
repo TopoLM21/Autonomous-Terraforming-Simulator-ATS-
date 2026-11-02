@@ -38,8 +38,9 @@ def window_spec(land,source,origin,section=None):
         if land.channel_project is None:raise ValueError('Нет регионального проекта канала')
         channel=ChannelProject.from_data(land.channel_project)
         if type(section) is not int or not 0<=section<channel.section_count:raise ValueError('Участок вне проекта канала')
-        if channel.side_m!=side:raise ValueError('Для переезда сохраняйте размер рабочего окна')
-        origin=channel.origin(land.raster,section) if origin is None else origin
+        if origin is None:
+            centre=np.asarray(channel.origin(land.raster,section))+channel.side_m/2
+            origin=np.clip(centre-side/2,0,np.asarray(land.raster.extent_m)-side).tolist()
     return aligned(origin),source.terrain.n,cell
 
 
@@ -48,13 +49,32 @@ def target_configuration(project,origin,section=None,landscape=None,prepared=Non
     origin,n,cell=window_spec(land,source,origin,section)
     if section is not None:
         from .channel import ChannelProject
-        return ChannelProject.from_data(land.channel_project).configuration(land,source,section,origin=origin,prepared=prepared)
-    c=workspace_config(land,source,origin,n*cell,prepared=prepared)
+        return ChannelProject.from_data(land.channel_project).configuration(land,source,section,origin=origin,prepared=prepared,side_m=n*cell)
     stored=getattr(project,'window_plans',{}).get(window_key(origin))
+    if not stored and source.plan is not None and source.plan.channel is not None:
+        from .channel import ChannelProject
+        if land.channel_project is None:raise ValueError('Не найден глобальный проект канала')
+        channel=ChannelProject.from_data(land.channel_project)
+        if source.plan.channel.get('project_id')!=channel.identity:raise ValueError('Окно принадлежит другому проекту канала')
+        index=(source.georeference or {}).get('channel',{}).get('section',channel.active_section)
+        return channel.configuration(land,source,index,origin=origin,prepared=prepared,side_m=n*cell)
+    c=workspace_config(land,source,origin,n*cell,prepared=prepared)
     if stored:
+        fresh_geo=deepcopy(c.georeference);floor=c.terrain.floor
         for key in GEOMETRY:setattr(c,key,deepcopy(stored[key]))
-    elif source.plan is not None and source.plan.channel is not None:
-        raise ValueError('Для нового участка канала укажите номер участка проекта')
+        # A remembered plan belongs to world coordinates, not to an obsolete
+        # array shape. Keep its manual settings when returning after enlarge.
+        c.terrain.n=n;c.terrain.cell_size=cell;c.terrain.grab_radius=max(cell,c.terrain.grab_radius)
+        c.terrain.floor=min(floor,c.terrain.floor)
+        c.georeference=fresh_geo
+        if stored['georeference'].get('channel') is not None:
+            c.georeference['channel']=deepcopy(stored['georeference']['channel'])
+            previous=stored['terrain']
+            if previous.n*previous.cell_size!=n*cell:c.georeference['channel']['custom_window']=True
+        if c.plan is not None and c.plan.channel is not None:
+            from .channel import marine_window
+            c.plan.channel.update(cell_size=cell,marine=marine_window(land.raster,origin,n*cell))
+            c.georeference['marine']=c.plan.channel['marine']
     c.validate();return c
 
 

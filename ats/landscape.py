@@ -172,7 +172,7 @@ class Landscape:
     persistent allocation. All patch edits store FLOAT64 elevation deltas, so a
     cut in one patch and spoil in another are counted in the same volume ledger.
     """
-    def __init__(self, raster, cell_size=.25, tile_cells=64,soil_profile=None,*,cache_bytes=DEFAULT_TILE_RAM):
+    def __init__(self, raster, cell_size=.25, tile_cells=64,soil_profile=None,*,cache_bytes=DEFAULT_TILE_RAM,generation=None):
         if not math.isfinite(cell_size) or cell_size <= 0 or not isinstance(tile_cells, int) or not 8 <= tile_cells <= 256:
             raise ValueError('Неверное разрешение или размер блока ландшафта')
         self.raster, self.cell_size, self.tile_cells = raster, cell_size, tile_cells
@@ -182,9 +182,13 @@ class Landscape:
         self.channel_project = None
         self.soil_profile=soil_profile
         self.soil_tiles=TileMap(self._tile_cache,'soil')
-        self.prefetch_enabled=True;self.prefetch_request=None;self.prefetch_cancelled=None
+        self.prefetch_enabled=True;self.prefetch_request=None;self.prefetch_cancelled=None;self.prefetch_cancelled_keys=None
         self._prefetch_runtime=None
         self._prefetch_auto_key=None
+        from .procedural import validate_generation
+        validate_generation(generation)
+        self.generation=deepcopy(generation);self.baseline_locked=False
+        self.prefetch_mode='world' if generation is not None else 'route'
         if soil_profile is not None:soil_profile.validate()
 
     def _grid(self, origin, n, cell_size=None):
@@ -205,13 +209,21 @@ class Landscape:
     def _window(self, origin, n, cell_size=None,check=None):
         index,factor=self._grid(origin,n,cell_size)
         cell=self.cell_size if cell_size is None else cell_size
-        axis = (np.arange(n)+.5)*cell
+        generated=self.generation is not None and self.generation['amplitude_m']>0
+        # A generated coarse cell is the mean of its original fine columns.
+        # This preserves the same baseline when a loaded window changes scale.
+        count=n*factor if generated else n;step=self.cell_size if generated else cell
+        axis = (np.arange(count)+.5)*step
         baseline=np.empty((n,n),dtype=np.float64)
         # Bound interpolation scratch arrays and offer cancellation between
         # strips. Coordinates/operations per sample remain bitwise identical.
-        for row in range(0,n,64):
-            if check:check(.25*row/n)
-            baseline[row:row+64]=self.raster.sample((axis+origin[0])[None,:],(axis[row:row+64]+origin[1])[:,None])
+        from .procedural import sample
+        for row in range(0,count,64):
+            if check:check(.25*row/count)
+            block=sample(self.raster,(axis+origin[0])[None,:],(axis[row:row+64]+origin[1])[:,None],self.generation)
+            if generated:
+                baseline[row//factor:(row+len(block))//factor]=block.reshape(len(block)//factor,factor,n,factor).mean(axis=(1,3))
+            else:baseline[row:row+64]=block
         return index,baseline,factor
 
     def _overlaps(self, index, n):
@@ -232,7 +244,7 @@ class Landscape:
         index,factor=self._grid(origin,n,cell)
         usable=(prepared is not None and prepared.key==(*map(float,origin),n,cell)
                 and prepared.fine_cell==self.cell_size and prepared.tile_cells==self.tile_cells
-                and prepared.raster is self.raster)
+                and prepared.raster is self.raster and prepared.generation==self.generation_signature())
         if usable:
             baseline=prepared.baseline.copy()
             if self._tokens(self.tiles,index,n*factor)==prepared.height_tokens:
@@ -304,6 +316,7 @@ class Landscape:
                 and prepared.soil_profile==self.soil_profile and prepared.fine_cell==self.cell_size
                 and prepared.tile_cells==self.tile_cells
                 and prepared.raster is self.raster
+                and prepared.generation==self.generation_signature()
                 and self._tokens(self.soil_tiles,index,n*factor)==prepared.soil_tokens):
             return {**prepared.soil,'tiles':[[x,y,a.copy()] for x,y,a in prepared.soil['tiles']]}
         keys=[key for key,_,_ in self._overlaps(index,n*factor) if key in self.soil_tiles]
@@ -321,6 +334,7 @@ class Landscape:
         result.soil_tiles=OverlayTiles(self._tile_cache.snapshot('soil'))
         result._tile_cache=None;result._prefetch_runtime=None;result.prefetch_request=None
         result.soil_profile=deepcopy(self.soil_profile);result.channel_project=deepcopy(self.channel_project)
+        result.generation=deepcopy(self.generation)
         return result
 
     def prepare_window(self,origin,n,cell_size,*,budget,check):
@@ -335,7 +349,32 @@ class Landscape:
         baseline.flags.writeable=False;current.flags.writeable=False
         for _,_,a in (soil or {}).get('tiles',[]):a.flags.writeable=False
         return PreparedWindow(tuple(map(float,origin)),n,cell_size,baseline,current,soil,height_tokens,soil_tokens,
-            self.cell_size,self.tile_cells,self.soil_profile,self.raster)
+            self.cell_size,self.tile_cells,self.soil_profile,self.raster,self.generation_signature())
+
+    def window_bytes(self,origin,n,cell):
+        index,factor=self._grid(origin,n,cell)
+        return 2*n*n*8+sum(v.nbytes for v in self._tokens(self.soil_tiles,index,n*factor).values() if v is not None)
+
+    def generation_signature(self):
+        from .procedural import signature
+        return signature(self.generation)
+
+    def configure_generation(self,spec):
+        from .procedural import validate_generation
+        validate_generation(spec)
+        if self.baseline_locked or self.tiles or self.soil_tiles:
+            raise ValueError('Исходный рельеф уже закреплён за регионом. Создайте новый регион для другого генератора.')
+        self.clear_prefetch();self.generation=deepcopy(spec)
+
+    def restore_generation(self):
+        from .procedural import validate_generation
+        if not hasattr(self,'generation'):
+            self.generation=None;self.baseline_locked=True;self.prefetch_mode='route'
+        validate_generation(self.generation)
+        if type(self.baseline_locked) is not bool or self.prefetch_mode not in ('route','world'):
+            raise ValueError('Повреждена модель исходного рельефа')
+        if not hasattr(self,'prefetch_cancelled_keys'):self.prefetch_cancelled_keys=None
+        self._prefetch_world_stamp=None
 
     def prefetch_window(self,origin,n=256,*,cell_size=None,force=True,automatic=False):
         from .window_prefetch import WindowPrefetch,PREFETCH_BYTES
@@ -346,22 +385,27 @@ class Landscape:
         snapshot=self.snapshot()
         if self._prefetch_runtime is None:self._prefetch_runtime=WindowPrefetch()
         self.prefetch_request=dict(key=list(key),automatic=automatic)
-        self.prefetch_cancelled=None
+        self.prefetch_cancelled=None;self.prefetch_cancelled_keys=None
         self._prefetch_runtime.request(snapshot,key,PREFETCH_BYTES)
         return True
 
     def resume_prefetch(self):
         if self.prefetch_request is not None and self._prefetch_runtime is None:
+            if 'keys' in self.prefetch_request:
+                self.prefetch_windows(self.prefetch_request['keys'],automatic=self.prefetch_request.get('automatic',False))
+                return
             key=self.prefetch_request['key'];automatic=self.prefetch_request.get('automatic',False)
             self.prefetch_window(key[:2],key[2],cell_size=key[3],automatic=automatic)
 
     def cancel_prefetch(self):
         if self.prefetch_request:self.prefetch_cancelled=self.prefetch_request['key'].copy()
+        self.prefetch_cancelled_keys=self.prefetch_request.get('keys') if self.prefetch_request else getattr(self,'prefetch_cancelled_keys',None)
         self.prefetch_request=None
         if self._prefetch_runtime is not None:self._prefetch_runtime.cancel()
 
     def clear_prefetch(self):
-        self.cancel_prefetch();self._prefetch_runtime=None;self.prefetch_cancelled=None
+        self.cancel_prefetch();self._prefetch_runtime=None;self.prefetch_cancelled=None;self.prefetch_cancelled_keys=None
+        self._prefetch_world_stamp=None;self._prefetch_auto_key=None
 
     def prepared_window(self,origin,n,cell):
         self.resume_prefetch()
@@ -376,6 +420,8 @@ class Landscape:
 
     def ensure_next_prefetch(self,simulation):
         self.resume_prefetch()
+        if self.prefetch_mode=='world':
+            self.ensure_world_prefetch(simulation);return
         if not self.prefetch_enabled or self.prefetch_request is not None:return
         geo=simulation.config.georeference or {};info=geo.get('channel',{})
         if not self.channel_project or not info:return
@@ -386,11 +432,37 @@ class Landscape:
         from .channel import ChannelProject
         from .regional import window_spec
         channel=ChannelProject.from_data(self.channel_project);index=info['section']+1
-        if (index>=channel.section_count or channel.side_m!=simulation.config.terrain.n*simulation.config.terrain.cell_size
-                or info.get('project_id')!=channel.identity):return
+        if index>=channel.section_count or info.get('project_id')!=channel.identity:return
         origin,n,cell=window_spec(self,simulation.config,None,index)
         if origin==geo['origin_m']:return
         self.prefetch_window(origin,n,cell_size=cell,force=False,automatic=True)
+
+    def prefetch_windows(self,keys,*,automatic=True):
+        from .window_prefetch import WindowPrefetch,PREFETCH_BYTES
+        keys=[list(k) for k in keys]
+        if not 1<=len(keys)<=8:raise ValueError('Предзагрузка: требуется 1…8 окон')
+        for key in keys:
+            if len(key)!=4:raise ValueError('Неверная геометрия предзагрузки')
+            self._grid(key[:2],key[2],key[3])
+        cancelled=getattr(self,'prefetch_cancelled_keys',None)
+        if automatic and cancelled and sorted(keys)==sorted(cancelled):return False
+        if self._prefetch_runtime is None:self._prefetch_runtime=WindowPrefetch()
+        self.prefetch_request=dict(key=keys[0],keys=keys,automatic=automatic)
+        self.prefetch_cancelled=None;self.prefetch_cancelled_keys=None
+        self._prefetch_runtime.request_many(self.snapshot(),keys,PREFETCH_BYTES)
+        return True
+
+    def ensure_world_prefetch(self,simulation):
+        if not self.prefetch_enabled or self.prefetch_request and not self.prefetch_request.get('automatic',False):return
+        geo=simulation.config.georeference
+        if not geo:return
+        stamp=(simulation.time//5,id(geo),tuple(geo['origin_m']),simulation.config.terrain.n,simulation.config.terrain.cell_size)
+        if getattr(self,'_prefetch_world_stamp',None)==stamp:return
+        self._prefetch_world_stamp=stamp
+        from .world_regions import interest_windows
+        keys=interest_windows(self,simulation)
+        if not keys or self.prefetch_request and self.prefetch_request.get('keys')==keys:return
+        self.prefetch_windows(keys)
 
     def restore_cache(self):
         """Migrate a legacy in-memory region without changing any array values."""
@@ -422,13 +494,15 @@ class Landscape:
         if self.soil_profile is not None:
             report.update(soil_profile=self.soil_profile.name,soil_modified_tiles=len(self.soil_tiles),
                           soil_storage_bytes=self.soil_tiles.totals()[0])
+        if self.generation is not None:report['generation']=deepcopy(self.generation)
         return report
 
     def save(self, path):
         from dataclasses import asdict
-        metadata = dict(version=2,raster=self.raster.metadata,cell_size=self.cell_size,tile_cells=self.tile_cells,corridors=self.corridors,channel_project=self.channel_project,
+        metadata = dict(version=3 if self.generation is not None else 2,raster=self.raster.metadata,cell_size=self.cell_size,tile_cells=self.tile_cells,corridors=self.corridors,channel_project=self.channel_project,
                         soil_profile=asdict(self.soil_profile) if self.soil_profile is not None else None,
-                        tile_cache_limit_bytes=self._tile_cache.limit_bytes,prefetch_enabled=self.prefetch_enabled)
+                        tile_cache_limit_bytes=self._tile_cache.limit_bytes,prefetch_enabled=self.prefetch_enabled,
+                        generation=self.generation,baseline_locked=self.baseline_locked,prefetch_mode=self.prefetch_mode)
         path=Path(path);temporary=None
         try:
             with tempfile.NamedTemporaryFile(dir=path.parent,prefix='.'+path.name+'.',suffix='.tmp',delete=False) as f:
@@ -449,9 +523,12 @@ class Landscape:
     def load(cls,path):
         with np.load(path,allow_pickle=False) as data:
             m = json.loads(str(data['metadata']))
-            if m.get('version') not in (1,2):
+            if m.get('version') not in (1,2,3):
                 raise ValueError('Неизвестная версия ландшафта')
-            result = cls(ElevationRaster(data['height'],m['raster']),m['cell_size'],m['tile_cells'],cache_bytes=m.get('tile_cache_limit_bytes',DEFAULT_TILE_RAM))
+            result = cls(ElevationRaster(data['height'],m['raster']),m['cell_size'],m['tile_cells'],cache_bytes=m.get('tile_cache_limit_bytes',DEFAULT_TILE_RAM),generation=m.get('generation'))
+            if m.get('version')<3 and result.generation is not None:raise ValueError('Процедурный рельеф требует формат региона 3')
+            result.baseline_locked=m.get('baseline_locked',True);result.prefetch_mode=m.get('prefetch_mode','route')
+            result.restore_generation()
             result.prefetch_enabled=m.get('prefetch_enabled',True)
             if type(result.prefetch_enabled) is not bool:raise ValueError('Неверная настройка предзагрузки')
             result.corridors = m.get('corridors',[])
@@ -508,6 +585,7 @@ def workspace_config(landscape, config, origin, side_m=64.,*,prepared=None):
     c.georeference = dict(vertical_datum='MSL',source=source.metadata,origin_m=list(origin),
                           source_origin=anchor,source_resolution_m=list(source.resolution_m),
                           projection='local equirectangular' if source.metadata['crs']=='EPSG:4326' else source.metadata['crs'])
+    if landscape.generation is not None:c.georeference['terrain_generation']=deepcopy(landscape.generation)
     from .channel import marine_window
     if source.metadata['crs']!='LOCAL_METRES' or source.metadata.get('ocean_boundary',False):
         c.georeference['marine']=marine_window(source,origin,side_m)
@@ -515,7 +593,7 @@ def workspace_config(landscape, config, origin, side_m=64.,*,prepared=None):
         c.base.latitude_deg = float(source.to_source(origin[0]+c.base.x,origin[1]+c.base.y)[1])
     elif 'latitude_deg' in source.metadata:
         c.base.latitude_deg = source.metadata['latitude_deg']
-    c.validate()
+    c.validate();landscape.baseline_locked=True
     return c
 
 

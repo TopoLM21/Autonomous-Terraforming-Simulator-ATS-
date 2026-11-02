@@ -210,6 +210,11 @@ class SharedSite:
         initial_soil=old.soil.export() if old.soil is not None else None
         if landscape is not None:
             reference,current=landscape.read_window(origin,n,cell_size=cell)
+            if c.georeference and ('marine' in c.georeference or c.plan is not None and c.plan.channel is not None
+                    or landscape.raster.metadata['crs']!='LOCAL_METRES' or landscape.raster.metadata.get('ocean_boundary',False)):
+                from .channel import marine_window
+                marine=marine_window(landscape.raster,origin,side)
+                c.georeference['marine']=marine
             if old.soil is not None:
                 outside=landscape.soil_window(origin,n,cell)
                 merged={(x,y):a for x,y,a in outside['tiles']}
