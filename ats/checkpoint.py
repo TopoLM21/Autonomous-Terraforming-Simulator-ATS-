@@ -19,7 +19,7 @@ import numpy as np
 
 
 FORMAT='ATS_SIMULATION'
-VERSION=14
+VERSION=15
 MAX_BYTES=1_500_000_000
 MAX_NODES=2_000_000
 
@@ -27,10 +27,10 @@ MAX_NODES=2_000_000
 def _classes():
     from . import (config,equipment,simulation,solar_base,drone,terrain,planner,dust,
                    logistics,logistics_config,inventory,batteries,excavator,cooperative_lift,
-                   productivity,activity,plan,laser,workfront,landscape,soil,complexes,power_design,shared_site,regional,solar_array,battery_platforms,self_solar)
+                   productivity,activity,plan,laser,workfront,landscape,soil,complexes,power_design,shared_site,regional,solar_array,battery_platforms,self_solar,hydrology)
     modules=(config,equipment,simulation,solar_base,drone,terrain,planner,dust,logistics,
              logistics_config,inventory,batteries,excavator,cooperative_lift,productivity,
-             activity,plan,laser,workfront,landscape,soil,complexes,power_design,shared_site,regional,solar_array,battery_platforms,self_solar)
+             activity,plan,laser,workfront,landscape,soil,complexes,power_design,shared_site,regional,solar_array,battery_platforms,self_solar,hydrology)
     classes=[value for module in modules for value in vars(module).values()
              if isinstance(value,type) and value.__module__==module.__name__]
     from .tile_cache import TileMap
@@ -90,7 +90,7 @@ class _Encoder:
             if name not in self.classes:raise ValueError(f'Нельзя сохранить объект {name}')
             node.update(kind='object',type=name,attrs={k:self.encode(v,matrix=name=='ats.config.Config' and
                 k in ('initial_height','reference_height') and v is not None) for k,v in vars(value).items()
-                if k not in ('_sector_progress_cache','_prefetch_runtime','_prefetch_auto_key','_prefetch_world_stamp')})
+                if k not in ('_sector_progress_cache','_prefetch_runtime','_prefetch_auto_key','_prefetch_world_stamp','_flooding_basis')})
         return {'ref':index}
 
 
@@ -400,6 +400,12 @@ def load_state(path):
         for value in decoder.objects:
             if isinstance(value,Landscape):
                 value.restore_cache();value.restore_generation();value._prefetch_runtime=None;value._prefetch_auto_key=None
+                if not hasattr(value,'flooding'):value.flooding=None
+                if value.flooding is not None:
+                    from .hydrology import Flooding
+                    if type(value.flooding) is not Flooding:raise ValueError('Повреждён водоём региона')
+                    value.flooding.validate()
+                    if value.flooding.curve.shape!=value.raster.height.shape:raise ValueError('Водоём относится к другой сетке DEM')
                 if (type(value._tile_cache) is not TileCache or type(value.tiles) is not TileMap or
                         type(value.soil_tiles) is not TileMap or value.tiles.cache is not value._tile_cache or
                         value.soil_tiles.cache is not value._tile_cache or value.tiles.kind!='height' or value.soil_tiles.kind!='soil' or

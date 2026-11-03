@@ -88,10 +88,33 @@ def _make_project(sim,region,args):
     return project
 
 
+def _flood_outputs(args,region,config,report):
+    if not (args.flood_days is not None or args.instant_channel or args.flood_report or args.new_flood or args.evaporation_mm_day is not None):return
+    from .channel import ChannelProject
+    from .hydrology import create_experiment,BasinCurve
+    from pathlib import Path
+    if region is None or region.channel_project is None:raise ValueError('Для воды нужен региональный проект канала')
+    project=ChannelProject.from_data(region.channel_project)
+    model=region.flooding
+    if model is None or args.new_flood:model=create_experiment(region,project,latitude=config.base.latitude_deg)
+    if model.project_id!=project.identity:raise ValueError('Вода относится к другому маршруту; --new-flood создаст новый сухой сценарий')
+    curve=BasinCurve.from_landscape(region,project.points[-1])
+    excess=max(0.,model.volume_m3-curve.capacity);model.volume_m3-=excess;model.spilled_m3+=excess;model.curve=curve
+    if args.instant_channel:model.channel_open=True
+    if args.evaporation_mm_day is not None:model.config.evaporation_mm_day=args.evaporation_mm_day
+    model.config.validate()
+    model.advance((args.flood_days or 0)*86400);region.flooding=model
+    report['flooding']=model.report()
+    if 'landscape' in report:report['landscape']=region.report()
+    if args.flood_report:
+        Path(args.flood_report).write_text(json.dumps(dict(report=model.report(),config=vars(model.config),history=model.history),ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+
+
 def _resume(args, parser):
     from .checkpoint import load_state,save_state
     allowed={'--load-state','--save-state','--headless','--steps','--json','--panel-area','--base-batteries',
-             '--power-report','--save-complex-template','--work-hours','--work-start-hour','--drone-duty','--measured-power','--continuous-design'}
+             '--power-report','--save-complex-template','--work-hours','--work-start-hour','--drone-duty','--measured-power','--continuous-design',
+             '--flood-days','--instant-channel','--evaporation-mm-day','--flood-report','--new-flood'}
     forbidden=[v.split('=')[0] for v in sys.argv[1:] if v.startswith('--') and v.split('=')[0] not in allowed]
     if forbidden:parser.error('Сохранение уже задаёт сценарий; несовместимые параметры: '+', '.join(forbidden))
     session=load_state(args.load_state);sim=session.simulation
@@ -103,6 +126,7 @@ def _resume(args, parser):
     if session.complex_project is not None:report=_run_project(session.complex_project,args.steps)
     else:report=sim.run(args.steps);_finish_region(sim,session.landscape,report)
     _design_outputs(args,sim.config,sim.report(full=False))
+    _flood_outputs(args,session.landscape,sim.config,report)
     if args.save_state:save_state(args.save_state,sim,session.landscape,session.ui,session.complex_project)
     _write_report(report,args.json_path)
     return 2 if report['state']=='BLOCKED' else 0
@@ -165,6 +189,11 @@ def main():
     parser.add_argument('--save-landscape',help='Save DEM and sparse edits after headless run; requires unloaded and landed machinery')
     parser.add_argument('--dig-rate',type=float,help='Drone soil intake limit, kg/s; standard loose-sand estimate 6')
     parser.add_argument('--soil-profile',choices=('uniform','qattara'),help='Conditional layers; new --qattara runs default to qattara, old saves retain uniform soil')
+    parser.add_argument('--flood-days',type=float,help='Separate reservoir experiment days; earthworks time/soil are unaffected')
+    parser.add_argument('--instant-channel',action='store_true',help='Assume the entire sea-connected canal ready in the reservoir experiment')
+    parser.add_argument('--evaporation-mm-day',type=float,help='Conditional mean evaporation, mm/day; seasonal amplitude defaults to 50%%')
+    parser.add_argument('--new-flood',action='store_true',help='Explicitly replace the saved reservoir experiment with a dry one')
+    parser.add_argument('--flood-report',help='Save the reservoir parameters, balance and history as JSON')
     parser.add_argument('--power-report',help='Save a daily solar/storage and spare-pack sizing report JSON')
     parser.add_argument('--save-complex-template',help='Save the calculated hardware recipe as an .atstemplate')
     parser.add_argument('--complex-template',help='Start a fresh complex from an .atstemplate hardware recipe')
@@ -183,6 +212,12 @@ def main():
     parser.add_argument('--channel-depth',type=float,help='Positive depth below MSL, e.g. 5 means bottom -5 m MSL')
     parser.add_argument('--shore-offset',type=float,help='Dry start offset along alignment from sea coastline, default 10 m')
     args = parser.parse_args()
+    flooding=any((args.flood_days is not None,args.instant_channel,args.flood_report,args.new_flood,args.evaporation_mm_day is not None))
+    if flooding:
+        import math
+        if not args.headless or args.compare_fleet or args.batch_experiments:parser.error('Параметры воды требуют один --headless-прогон; в GUI используйте «Водоём / прокоп»')
+        if args.flood_days is not None and (not math.isfinite(args.flood_days) or args.flood_days<0):parser.error('--flood-days: неотрицательное конечное число')
+        if args.evaporation_mm_day is not None and (not math.isfinite(args.evaporation_mm_day) or not 0<=args.evaporation_mm_day<=100):parser.error('--evaporation-mm-day: 0…100')
     if not 1<=args.complexes<=20:parser.error('--complexes: от 1 до 20')
     if args.complex_template and (args.configuration or args.equipment):parser.error('Шаблон комплекса уже задаёт оборудование')
     if (args.channel_width is not None or args.channel_depth is not None or args.shore_offset is not None or args.channel_section!=1) and not (args.channel or args.channel_route):
@@ -380,6 +415,8 @@ def main():
                     report = sim.run(args.steps)
                     _finish_region(sim,region,report,args.save_landscape)
                 _design_outputs(args,config,sim.report(full=False))
+                _flood_outputs(args,region,config,report)
+                if args.save_landscape and region is not None and 'flooding' in report:region.save(args.save_landscape)
                 if args.save_state:
                     from .checkpoint import save_state
                     save_state(args.save_state,sim,region,complex_project=project)

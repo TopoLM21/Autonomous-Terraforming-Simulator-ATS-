@@ -1,7 +1,8 @@
 """Offline coarse DEM with sparse, conservative fine-grid work patches.
 
 Coordinates in the simulator are always metres; elevations are metres above MSL.
-No hydrology and no automatic regional excavation/transport are implied.
+The optional global reservoir experiment has separate clocks and never
+performs local earthworks or changes the soil inventory.
 """
 from dataclasses import dataclass
 from copy import copy,deepcopy
@@ -180,6 +181,7 @@ class Landscape:
         self.tiles = TileMap(self._tile_cache,'height')
         self.corridors = []
         self.channel_project = None
+        self.flooding=None
         self.soil_profile=soil_profile
         self.soil_tiles=TileMap(self._tile_cache,'soil')
         self.prefetch_enabled=True;self.prefetch_request=None;self.prefetch_cancelled=None;self.prefetch_cancelled_keys=None
@@ -335,6 +337,7 @@ class Landscape:
         result._tile_cache=None;result._prefetch_runtime=None;result.prefetch_request=None
         result.soil_profile=deepcopy(self.soil_profile);result.channel_project=deepcopy(self.channel_project)
         result.generation=deepcopy(self.generation)
+        result.flooding=None
         return result
 
     def prepare_window(self,origin,n,cell_size,*,budget,check):
@@ -495,14 +498,16 @@ class Landscape:
             report.update(soil_profile=self.soil_profile.name,soil_modified_tiles=len(self.soil_tiles),
                           soil_storage_bytes=self.soil_tiles.totals()[0])
         if self.generation is not None:report['generation']=deepcopy(self.generation)
+        if getattr(self,'flooding',None) is not None:report['flooding']=self.flooding.report()
         return report
 
     def save(self, path):
         from dataclasses import asdict
-        metadata = dict(version=3 if self.generation is not None else 2,raster=self.raster.metadata,cell_size=self.cell_size,tile_cells=self.tile_cells,corridors=self.corridors,channel_project=self.channel_project,
+        metadata = dict(version=4 if self.flooding is not None else 3 if self.generation is not None else 2,raster=self.raster.metadata,cell_size=self.cell_size,tile_cells=self.tile_cells,corridors=self.corridors,channel_project=self.channel_project,
                         soil_profile=asdict(self.soil_profile) if self.soil_profile is not None else None,
                         tile_cache_limit_bytes=self._tile_cache.limit_bytes,prefetch_enabled=self.prefetch_enabled,
-                        generation=self.generation,baseline_locked=self.baseline_locked,prefetch_mode=self.prefetch_mode)
+                        generation=self.generation,baseline_locked=self.baseline_locked,prefetch_mode=self.prefetch_mode,
+                        flooding=self.flooding.to_data() if self.flooding is not None else None)
         path=Path(path);temporary=None
         try:
             with tempfile.NamedTemporaryFile(dir=path.parent,prefix='.'+path.name+'.',suffix='.tmp',delete=False) as f:
@@ -523,12 +528,17 @@ class Landscape:
     def load(cls,path):
         with np.load(path,allow_pickle=False) as data:
             m = json.loads(str(data['metadata']))
-            if m.get('version') not in (1,2,3):
+            if m.get('version') not in (1,2,3,4):
                 raise ValueError('Неизвестная версия ландшафта')
             result = cls(ElevationRaster(data['height'],m['raster']),m['cell_size'],m['tile_cells'],cache_bytes=m.get('tile_cache_limit_bytes',DEFAULT_TILE_RAM),generation=m.get('generation'))
             if m.get('version')<3 and result.generation is not None:raise ValueError('Процедурный рельеф требует формат региона 3')
             result.baseline_locked=m.get('baseline_locked',True);result.prefetch_mode=m.get('prefetch_mode','route')
             result.restore_generation()
+            if m.get('flooding') is not None:
+                if m['version']<4:raise ValueError('Водоём требует формат региона 4')
+                from .hydrology import Flooding
+                result.flooding=Flooding.from_data(m['flooding'])
+                if result.flooding.curve.shape!=result.raster.height.shape:raise ValueError('Водоём относится к другой сетке DEM')
             result.prefetch_enabled=m.get('prefetch_enabled',True)
             if type(result.prefetch_enabled) is not bool:raise ValueError('Неверная настройка предзагрузки')
             result.corridors = m.get('corridors',[])

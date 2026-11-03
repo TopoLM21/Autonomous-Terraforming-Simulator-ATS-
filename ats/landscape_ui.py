@@ -11,7 +11,8 @@ from .procedural import default_generation
 class LandscapeDialog(QtWidgets.QDialog):
     def __init__(self, window):
         super().__init__(window)
-        self.window=window;self.region=getattr(window,'landscape',None) or Landscape(qattara_dem(),soil_profile=SoilProfile.qattara(),generation=default_generation())
+        self.window=window;self.region=(getattr(window,'landscape',None) or getattr(window,'_landscape_draft',None) or
+            Landscape(qattara_dem(),soil_profile=SoilProfile.qattara(),generation=default_generation()))
         self.points=[];self.project=None;self.setWindowTitle('Маршрут и проект канала · офлайн DEM');self.resize(1250,950)
         layout=QtWidgets.QVBoxLayout(self)
         buttons=QtWidgets.QHBoxLayout()
@@ -65,6 +66,7 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.start_button=QtWidgets.QPushButton('Начать копание выбранного участка');self.start_button.clicked.connect(self.start_channel)
         self.next_button=QtWidgets.QPushButton('Следующий участок · новая расстановка');self.next_button.clicked.connect(self.next_section)
         for b in (self.prepare_button,self.start_button,self.next_button):launch.addWidget(b)
+        self.water_button=QtWidgets.QPushButton('Водоём / прокоп…');self.water_button.clicked.connect(self.open_flooding);launch.addWidget(self.water_button)
         layout.addLayout(launch)
         travel=QtWidgets.QHBoxLayout()
         self.move_button=QtWidgets.QPushButton('Переехать всей группой в выбранное окно')
@@ -105,6 +107,18 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.selection_timer.timeout.connect(self.prefetch_selected)
         self.finished.connect(self.finish_reading)
         self.refresh_prefetch()
+
+    def open_flooding(self):
+        if not self._new_run_allowed():return
+        if self.project is None and not self.prepare_channel():return
+        try:
+            from .hydrology_ui import FloodingDialog
+            dialog=FloodingDialog(self)
+            if self.region is not self.window.landscape:self.window._landscape_draft=self.region
+            try:dialog.exec()
+            finally:dialog.deleteLater()
+            self.refresh_prefetch()
+        except (ValueError,OSError,TypeError) as error:self.result.setText(str(error))
 
     def finish_reading(self,_):
         self.prefetch_timer.stop();self.selection_timer.stop()
