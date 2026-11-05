@@ -89,7 +89,8 @@ def _make_project(sim,region,args):
 
 
 def _flood_outputs(args,region,config,report):
-    if not (args.flood_days is not None or args.instant_channel or args.flood_report or args.new_flood or args.evaporation_mm_day is not None):return
+    if not (args.flood_days is not None or args.instant_channel or args.flood_report or args.new_flood or
+            any(v is not None for v in (args.evaporation_mm_day,args.salt_inflow_g_l,args.initial_salinity_g_l,args.solubility_g_l))):return
     from .channel import ChannelProject
     from .hydrology import create_experiment,BasinCurve
     from pathlib import Path
@@ -99,10 +100,13 @@ def _flood_outputs(args,region,config,report):
     if model is None or args.new_flood:model=create_experiment(region,project,latitude=config.base.latitude_deg)
     if model.project_id!=project.identity:raise ValueError('Вода относится к другому маршруту; --new-flood создаст новый сухой сценарий')
     curve=BasinCurve.from_landscape(region,project.points[-1])
-    excess=max(0.,model.volume_m3-curve.capacity);model.volume_m3-=excess;model.spilled_m3+=excess;model.curve=curve
+    model.replace_curve(curve)
     if args.instant_channel:model.channel_open=True
     if args.evaporation_mm_day is not None:model.config.evaporation_mm_day=args.evaporation_mm_day
+    if args.salt_inflow_g_l is not None:model.config.inflow_salinity_g_l=args.salt_inflow_g_l
+    if args.solubility_g_l is not None:model.config.solubility_g_l=args.solubility_g_l
     model.config.validate()
+    if args.initial_salinity_g_l is not None:model.initialize_salt(args.initial_salinity_g_l)
     model.advance((args.flood_days or 0)*86400);region.flooding=model
     report['flooding']=model.report()
     if 'landscape' in report:report['landscape']=region.report()
@@ -114,7 +118,8 @@ def _resume(args, parser):
     from .checkpoint import load_state,save_state
     allowed={'--load-state','--save-state','--headless','--steps','--json','--panel-area','--base-batteries',
              '--power-report','--save-complex-template','--work-hours','--work-start-hour','--drone-duty','--measured-power','--continuous-design',
-             '--flood-days','--instant-channel','--evaporation-mm-day','--flood-report','--new-flood'}
+             '--flood-days','--instant-channel','--evaporation-mm-day','--flood-report','--new-flood',
+             '--salt-inflow-g-l','--initial-salinity-g-l','--solubility-g-l'}
     forbidden=[v.split('=')[0] for v in sys.argv[1:] if v.startswith('--') and v.split('=')[0] not in allowed]
     if forbidden:parser.error('Сохранение уже задаёт сценарий; несовместимые параметры: '+', '.join(forbidden))
     session=load_state(args.load_state);sim=session.simulation
@@ -194,6 +199,9 @@ def main():
     parser.add_argument('--evaporation-mm-day',type=float,help='Conditional mean evaporation, mm/day; seasonal amplitude defaults to 50%%')
     parser.add_argument('--new-flood',action='store_true',help='Explicitly replace the saved reservoir experiment with a dry one')
     parser.add_argument('--flood-report',help='Save the reservoir parameters, balance and history as JSON')
+    parser.add_argument('--salt-inflow-g-l',type=float,help='Conditional salt concentration of future sea inflow, g/L (= kg/m3), default 38')
+    parser.add_argument('--initial-salinity-g-l',type=float,help='Explicitly reset current lake salt inventory to this dissolved concentration, g/L')
+    parser.add_argument('--solubility-g-l',type=float,help='Conditional dissolved concentration limit, g/L; excess is reversible solid residue, default 300')
     parser.add_argument('--power-report',help='Save a daily solar/storage and spare-pack sizing report JSON')
     parser.add_argument('--save-complex-template',help='Save the calculated hardware recipe as an .atstemplate')
     parser.add_argument('--complex-template',help='Start a fresh complex from an .atstemplate hardware recipe')
@@ -212,12 +220,15 @@ def main():
     parser.add_argument('--channel-depth',type=float,help='Positive depth below MSL, e.g. 5 means bottom -5 m MSL')
     parser.add_argument('--shore-offset',type=float,help='Dry start offset along alignment from sea coastline, default 10 m')
     args = parser.parse_args()
-    flooding=any((args.flood_days is not None,args.instant_channel,args.flood_report,args.new_flood,args.evaporation_mm_day is not None))
+    flooding=any((args.flood_days is not None,args.instant_channel,args.flood_report,args.new_flood,
+                  any(v is not None for v in (args.evaporation_mm_day,args.salt_inflow_g_l,args.initial_salinity_g_l,args.solubility_g_l))))
     if flooding:
         import math
         if not args.headless or args.compare_fleet or args.batch_experiments:parser.error('Параметры воды требуют один --headless-прогон; в GUI используйте «Водоём / прокоп»')
         if args.flood_days is not None and (not math.isfinite(args.flood_days) or args.flood_days<0):parser.error('--flood-days: неотрицательное конечное число')
         if args.evaporation_mm_day is not None and (not math.isfinite(args.evaporation_mm_day) or not 0<=args.evaporation_mm_day<=100):parser.error('--evaporation-mm-day: 0…100')
+        for name,value,lo in (('--salt-inflow-g-l',args.salt_inflow_g_l,0),('--initial-salinity-g-l',args.initial_salinity_g_l,0),('--solubility-g-l',args.solubility_g_l,.001)):
+            if value is not None and (not math.isfinite(value) or not lo<=value<=1000):parser.error(f'{name}: {lo}…1000 г/л')
     if not 1<=args.complexes<=20:parser.error('--complexes: от 1 до 20')
     if args.complex_template and (args.configuration or args.equipment):parser.error('Шаблон комплекса уже задаёт оборудование')
     if (args.channel_width is not None or args.channel_depth is not None or args.shore_offset is not None or args.channel_section!=1) and not (args.channel or args.channel_route):

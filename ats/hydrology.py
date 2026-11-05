@@ -146,14 +146,17 @@ class FloodConfig:
     season_amplitude: float=.5
     start_day: float=172.
     latitude: float=31.078
+    inflow_salinity_g_l: float=38.
+    solubility_g_l: float=300.
 
     def validate(self):
         values=vars(self)
         if any(type(v) not in (int,float) or not math.isfinite(v) for v in values.values()):raise ValueError('Нужны конечные параметры водоёма')
         if not (0<self.width_m<=10000 and 0<self.depth_m<=1000 and 0<self.length_m<=1e7 and 0<=self.side_slope<=20 and
                 .005<=self.roughness<=.3 and 0<=self.opening<=1 and 0<=self.flow_limit_m3_s<=1e6 and
-                0<=self.evaporation_mm_day<=100 and 0<=self.season_amplitude<=1 and 1<=self.start_day<=365 and -90<=self.latitude<=90):
-            raise ValueError('Проверьте размеры канала, шероховатость, затвор и испарение')
+                0<=self.evaporation_mm_day<=100 and 0<=self.season_amplitude<=1 and 1<=self.start_day<=365 and -90<=self.latitude<=90 and
+                0<=self.inflow_salinity_g_l<=1000 and 0<self.solubility_g_l<=1000):
+            raise ValueError('Проверьте размеры канала, шероховатость, затвор, испарение и солёность')
 
     def flow(self,level):
         """Approximate open-channel rating; no pump or arbitrarily large drop.
@@ -193,23 +196,105 @@ class Flooding:
     last_inflow_m3_s: float=0.
     last_evaporation_m3_s: float=0.
     history: list=field(default_factory=list)
-    version: int=1
+    version: int=2
+    salt_mass_kg: float=0.
+    initial_salt_kg: float=0.
+    imported_salt_kg: float=0.
+    exported_salt_kg: float=0.
+    salt_baseline_seconds: float=0.
+    salt_known: bool=True
+    salt_origin: str='dry_start'
+
+    def restore_legacy(self):
+        """Migrate both JSON regions and old graph-decoded mission objects.
+
+        Old water histories contain no salinity observations. Only an initially
+        dry, non-spilling run permits an estimate from the recorded sea inflow.
+        Otherwise keep the water and explicitly leave its salt inventory unknown.
+        """
+        if vars(self).get('version')!=1:return
+        vars(self.config).setdefault('inflow_salinity_g_l',38.)
+        vars(self.config).setdefault('solubility_g_l',300.)
+        known=self.initial_volume_m3==0 and self.spilled_m3==0
+        mass=self.inflow_m3*self.config.inflow_salinity_g_l if known else 0.
+        self.salt_mass_kg=mass;self.initial_salt_kg=0.;self.imported_salt_kg=mass;self.exported_salt_kg=0.
+        self.salt_baseline_seconds=0. if known else self.elapsed_seconds
+        self.salt_known=known;self.salt_origin='legacy_assumed_inflow' if known else 'legacy_unknown'
+        self.version=2
+
+    def initialize_salt(self,salinity_g_l):
+        """Explicit current-state assumption; never reinterpret past evaporation."""
+        if (type(salinity_g_l) not in (int,float) or not math.isfinite(salinity_g_l) or
+                not 0<=salinity_g_l<=self.config.solubility_g_l):
+            raise ValueError('Начальная солёность: от 0 до условного предела растворимости, г/л')
+        self.salt_mass_kg=self.initial_salt_kg=self.volume_m3*salinity_g_l
+        self.imported_salt_kg=self.exported_salt_kg=0.;self.salt_baseline_seconds=self.elapsed_seconds
+        self.salt_known=True;self.salt_origin='manual'
+        self._record_history()
+
+    @property
+    def dissolved_salt_kg(self):
+        return min(self.salt_mass_kg,self.volume_m3*self.config.solubility_g_l) if self.salt_known else None
+    @property
+    def precipitated_salt_kg(self):
+        return max(0.,self.salt_mass_kg-self.dissolved_salt_kg) if self.salt_known else None
+    @property
+    def salinity_g_l(self):
+        # 1 g/L = 1 kg/m³. This is a mass/volume concentration, not PSU or g/kg.
+        return self.dissolved_salt_kg/self.volume_m3 if self.salt_known and self.volume_m3>0 else None
+    @property
+    def salt_balance_error(self):
+        return math.fsum((self.salt_mass_kg,-self.initial_salt_kg,-self.imported_salt_kg,self.exported_salt_kg)) if self.salt_known else None
+
+    def _salt_flux(self,incoming,volume_before_spill,spilled=0.):
+        if not self.salt_known:return
+        imported=incoming*self.config.inflow_salinity_g_l
+        self.salt_mass_kg+=imported;self.imported_salt_kg+=imported
+        if spilled>0 and volume_before_spill>0:
+            concentration=min(self.config.solubility_g_l,self.salt_mass_kg/volume_before_spill)
+            exported=min(self.salt_mass_kg,concentration*spilled)
+            self.salt_mass_kg-=exported;self.exported_salt_kg+=exported
+
+    def replace_curve(self,curve):
+        """Terrain changes preserve water and salt; excess leaves as mixed brine."""
+        curve.validate()
+        if curve.shape!=self.curve.shape:raise ValueError('Водоём относится к другой сетке DEM')
+        spilled=max(0.,self.volume_m3-curve.capacity)
+        self._salt_flux(0.,self.volume_m3,spilled)
+        self.volume_m3-=spilled;self.spilled_m3+=spilled;self.curve=curve
+        self.validate()
+
+    def _record_history(self):
+        self.history.append(dict(seconds=self.elapsed_seconds,level_msl=self.level,volume_m3=self.volume_m3,
+            area_m2=self.area,salinity_g_l=self.salinity_g_l,salt_mass_kg=self.salt_mass_kg if self.salt_known else None))
+        if len(self.history)>2000:self.history=self.history[::2]
 
     def validate(self):
         self.curve.validate();self.config.validate()
-        if self.version!=1 or type(self.project_id) is not str or not self.project_id or type(self.channel_open) is not bool:
+        if self.version!=2 or type(self.project_id) is not str or not self.project_id or type(self.channel_open) is not bool:
             raise ValueError('Повреждён гидрологический сценарий')
         for name in ('volume_m3','initial_volume_m3','elapsed_seconds','inflow_m3','evaporated_m3','spilled_m3','skipped_seconds','last_inflow_m3_s','last_evaporation_m3_s'):
             value=getattr(self,name)
             if type(value) not in (int,float) or not math.isfinite(value) or value<0:raise ValueError('Повреждён баланс воды')
         if self.volume_m3>self.curve.capacity+1e-6 or abs(self.balance_error)>max(1e-6,(self.initial_volume_m3+self.inflow_m3)*1e-11):
             raise ValueError('Нарушен баланс воды')
+        if type(self.salt_known) is not bool or self.salt_origin not in ('dry_start','manual','legacy_assumed_inflow','legacy_unknown'):
+            raise ValueError('Повреждён источник солевого баланса')
+        for name in ('salt_mass_kg','initial_salt_kg','imported_salt_kg','exported_salt_kg','salt_baseline_seconds'):
+            value=getattr(self,name)
+            if type(value) not in (int,float) or not math.isfinite(value) or value<0:raise ValueError('Повреждён баланс соли')
+        if self.salt_baseline_seconds>self.elapsed_seconds+1e-6:raise ValueError('Начало солевого баланса позже текущего времени')
+        if self.salt_known and abs(self.salt_balance_error)>max(1e-6,(self.initial_salt_kg+self.imported_salt_kg)*1e-11):
+            raise ValueError('Нарушен баланс соли')
         if len(self.history)>2000:raise ValueError('Слишком длинная история воды')
         if type(self.calculations) is not int or self.calculations<0:raise ValueError('Повреждён счётчик расчётов воды')
         previous=-1.
         for row in self.history:
-            if (not isinstance(row,dict) or set(row)!={'seconds','level_msl','volume_m3','area_m2'} or
-                    any(type(v) not in (int,float) or not math.isfinite(v) for v in row.values()) or
+            keys={'seconds','level_msl','volume_m3','area_m2'}
+            if (not isinstance(row,dict) or set(row) not in (keys,keys|{'salinity_g_l','salt_mass_kg'}) or
+                    any(type(row[k]) not in (int,float) or not math.isfinite(row[k]) for k in keys) or
+                    any(v is not None and (type(v) not in (int,float) or not math.isfinite(v) or v<0)
+                        for k,v in row.items() if k not in keys) or
                     not previous<=row['seconds']<=self.elapsed_seconds+1e-6 or row['volume_m3']<0 or row['area_m2']<0):
                 raise ValueError('Повреждена история водоёма')
             previous=row['seconds']
@@ -247,7 +332,7 @@ class Flooding:
         if not math.isfinite(max_step) or not 0<max_step<=86400:raise ValueError('Шаг воды: 0…86400 секунд')
         self.config.validate()
         end=self.elapsed_seconds+seconds
-        if not self.history:self.history.append(dict(seconds=self.elapsed_seconds,level_msl=self.level,volume_m3=self.volume_m3,area_m2=self.area))
+        if not self.history:self._record_history()
         remaining=float(seconds)
         while remaining>1e-8:
             # Seasonal forcing changes even when the surface is momentarily at
@@ -261,6 +346,7 @@ class Flooding:
                 self.skipped_seconds+=remaining;self.elapsed_seconds+=remaining
                 self.last_inflow_m3_s=q;self.last_evaporation_m3_s=min(q,e) if self.volume_m3==0 else e
                 if q>0:
+                    self._salt_flux(q*remaining,self.volume_m3)
                     self.inflow_m3+=q*remaining;self.evaporated_m3+=q*remaining
                 break
             change_limit=.02*self.curve.capacity/abs(q-e) if q!=e else max_step
@@ -297,14 +383,16 @@ class Flooding:
                 evap=min((er+fraction*(el-er))*dt,old+incoming)
                 new=math.fsum((old,incoming,-evap))
                 if snapped and balanced and abs(new-root)<=max(1e-12,abs(root)*3e-15):new=root
-            spilled=max(0.,new-self.curve.capacity);new=min(self.curve.capacity,max(0.,new))
+            spilled=max(0.,new-self.curve.capacity)
+            self._salt_flux(incoming,max(0.,new),spilled)
+            new=min(self.curve.capacity,max(0.,new))
             self.volume_m3=new;self.inflow_m3+=incoming;self.evaporated_m3+=evap;self.spilled_m3+=spilled
             self.last_inflow_m3_s=incoming/dt;self.last_evaporation_m3_s=evap/dt
             self.elapsed_seconds+=dt;remaining-=dt;self.calculations+=1
             if not self.history or self.elapsed_seconds-self.history[-1]['seconds']>=86400:
-                self.history.append(dict(seconds=self.elapsed_seconds,level_msl=self.level,volume_m3=self.volume_m3,area_m2=self.area))
-                if len(self.history)>2000:self.history=self.history[::2]
+                self._record_history()
         self.elapsed_seconds=end
+        if self.elapsed_seconds-self.history[-1]['seconds']>=86400:self._record_history()
         return self.report()
 
     def report(self):
@@ -313,17 +401,27 @@ class Flooding:
             elapsed_seconds=self.elapsed_seconds,level_msl=self.level,volume_m3=self.volume_m3,area_m2=self.area,
             capacity_m3=self.curve.capacity,inflow_m3=self.inflow_m3,evaporated_m3=self.evaporated_m3,spilled_m3=self.spilled_m3,
             inflow_m3_s=q,evaporation_m3_s=e,
-            water_balance_error_m3=self.balance_error,calculations=self.calculations,skipped_seconds=self.skipped_seconds)
+            water_balance_error_m3=self.balance_error,calculations=self.calculations,skipped_seconds=self.skipped_seconds,
+            salt_known=self.salt_known,salt_origin=self.salt_origin,salt_baseline_seconds=self.salt_baseline_seconds,
+            salinity_g_l=self.salinity_g_l,inflow_salinity_g_l=self.config.inflow_salinity_g_l,
+            solubility_g_l=self.config.solubility_g_l,salt_mass_kg=self.salt_mass_kg if self.salt_known else None,
+            dissolved_salt_kg=self.dissolved_salt_kg,precipitated_salt_kg=self.precipitated_salt_kg,
+            initial_salt_kg=self.initial_salt_kg if self.salt_known else None,
+            imported_salt_kg=self.imported_salt_kg if self.salt_known else None,
+            exported_salt_kg=self.exported_salt_kg if self.salt_known else None,salt_balance_error_kg=self.salt_balance_error)
 
     def to_data(self):
         from dataclasses import asdict
         state={k:deepcopy(v) for k,v in vars(self).items() if k not in ('curve','config')}
         curve=dict(shape=list(self.curve.shape),indices=self.curve.indices.tolist(),bottom=self.curve.bottom.tolist(),
                    areas=self.curve.areas.tolist(),maximum=self.curve.maximum)
-        return dict(format='ATS_FLOODING',version=1,state=state,config=asdict(self.config),curve=curve)
+        return dict(format='ATS_FLOODING',version=self.version,state=state,config=asdict(self.config),curve=curve)
 
     @classmethod
     def from_data(cls,data):
-        if data.get('format')!='ATS_FLOODING' or data.get('version')!=1:raise ValueError('Неизвестный формат водоёма')
+        if data.get('format')!='ATS_FLOODING' or data.get('version') not in (1,2):raise ValueError('Неизвестный формат водоёма')
         curve=BasinCurve.create(**data['curve']);config=FloodConfig(**data['config'])
-        result=cls(curve,config,**deepcopy(data['state']));result.validate();return result
+        state=deepcopy(data['state'])
+        if state.get('version',data['version'])!=data['version']:raise ValueError('Несогласованные версии водоёма')
+        state['version']=data['version']
+        result=cls(curve,config,**state);result.restore_legacy();result.validate();return result

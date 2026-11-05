@@ -1,0 +1,1668 @@
+{
+  "date_utc": "2026-11-05",
+  "baseline_commit": "af72d97652021f02e69a665fcd50b9d63815f792",
+  "environment": {
+    "python": "3.12.14",
+    "os": "Linux",
+    "numpy": "2.5.4",
+    "qt": "6.12.0",
+    "qt_platform": "offscreen"
+  },
+  "tests": {
+    "full_suite_passed": 727,
+    "new_salt_cases": 20,
+    "full_suite_seconds": 668.25,
+    "legacy_cli_groups": [
+      {
+        "group": "legacy",
+        "commands": 1,
+        "passed": true,
+        "seconds": 1.5115602269979718
+      },
+      {
+        "group": "ATS 2.0 logistics smoke test",
+        "commands": 6,
+        "passed": true,
+        "seconds": 9.636077993000072
+      },
+      {
+        "group": "Offline real DEM smoke test",
+        "commands": 2,
+        "passed": true,
+        "seconds": 0.3718149730011646
+      },
+      {
+        "group": "Save and resume airborne simulation",
+        "commands": 4,
+        "passed": true,
+        "seconds": 2.587658887001453
+      },
+      {
+        "group": "Prepared Qattara channel smoke test",
+        "commands": 2,
+        "passed": true,
+        "seconds": 3.2183731340010127
+      },
+      {
+        "group": "Layered soil and complete snapshot continuation",
+        "commands": 4,
+        "passed": true,
+        "seconds": 2.646979935998388
+      },
+      {
+        "group": "Energy sizing and executable equipment template",
+        "commands": 3,
+        "passed": true,
+        "seconds": 0.5938180789999024
+      },
+      {
+        "group": "Two complexes on common regional project and exact resume",
+        "commands": 4,
+        "passed": true,
+        "seconds": 23.183516745997622
+      },
+      {
+        "group": "Twenty complexes on one physical map and exact snapshot continuation",
+        "commands": 4,
+        "passed": true,
+        "seconds": 8.582924366000952
+      },
+      {
+        "group": "Continuous design includes real platform hardware",
+        "commands": 2,
+        "passed": true,
+        "seconds": 0.7397006350001902
+      }
+    ],
+    "legacy_cli_commands": 32,
+    "ci": "not run; local changes only"
+  },
+  "water_solver_comparison": {
+    "baseline_commit": "af72d97652021f02e69a665fcd50b9d63815f792",
+    "python": "3.12.14",
+    "trials": [
+      {
+        "baseline": {
+          "seconds": 1.857483735002461,
+          "water": {
+            "elapsed_seconds": 63072000.0,
+            "volume_m3": 4505671685.84634,
+            "level_msl": -101.03485552814132,
+            "area_m2": 356927920.7662656,
+            "inflow_m3": 5313321651.946793,
+            "evaporated_m3": 807649966.1001495,
+            "spilled_m3": 0.0,
+            "calculations": 2920,
+            "skipped_seconds": 0.0,
+            "water_balance_error_m3": -0.00030291080474853516
+          }
+        },
+        "salt": {
+          "seconds": 1.7836767270018754,
+          "water": {
+            "elapsed_seconds": 63072000.0,
+            "volume_m3": 4505671685.84634,
+            "level_msl": -101.03485552814132,
+            "area_m2": 356927920.7662656,
+            "inflow_m3": 5313321651.946793,
+            "evaporated_m3": 807649966.1001495,
+            "spilled_m3": 0.0,
+            "calculations": 2920,
+            "skipped_seconds": 0.0,
+            "water_balance_error_m3": -0.00030291080474853516
+          },
+          "salt": {
+            "salinity_g_l": 44.811570139077055,
+            "salt_mass_kg": 201906222773.95685,
+            "balance_error_kg": 0.0
+          }
+        }
+      },
+      {
+        "salt": {
+          "seconds": 1.957530471998325,
+          "water": {
+            "elapsed_seconds": 63072000.0,
+            "volume_m3": 4505671685.84634,
+            "level_msl": -101.03485552814132,
+            "area_m2": 356927920.7662656,
+            "inflow_m3": 5313321651.946793,
+            "evaporated_m3": 807649966.1001495,
+            "spilled_m3": 0.0,
+            "calculations": 2920,
+            "skipped_seconds": 0.0,
+            "water_balance_error_m3": -0.00030291080474853516
+          },
+          "salt": {
+            "salinity_g_l": 44.811570139077055,
+            "salt_mass_kg": 201906222773.95685,
+            "balance_error_kg": 0.0
+          }
+        },
+        "baseline": {
+          "seconds": 2.007272633996763,
+          "water": {
+            "elapsed_seconds": 63072000.0,
+            "volume_m3": 4505671685.84634,
+            "level_msl": -101.03485552814132,
+            "area_m2": 356927920.7662656,
+            "inflow_m3": 5313321651.946793,
+            "evaporated_m3": 807649966.1001495,
+            "spilled_m3": 0.0,
+            "calculations": 2920,
+            "skipped_seconds": 0.0,
+            "water_balance_error_m3": -0.00030291080474853516
+          }
+        }
+      },
+      {
+        "baseline": {
+          "seconds": 1.7175242369994521,
+          "water": {
+            "elapsed_seconds": 63072000.0,
+            "volume_m3": 4505671685.84634,
+            "level_msl": -101.03485552814132,
+            "area_m2": 356927920.7662656,
+            "inflow_m3": 5313321651.946793,
+            "evaporated_m3": 807649966.1001495,
+            "spilled_m3": 0.0,
+            "calculations": 2920,
+            "skipped_seconds": 0.0,
+            "water_balance_error_m3": -0.00030291080474853516
+          }
+        },
+        "salt": {
+          "seconds": 1.9027365790025215,
+          "water": {
+            "elapsed_seconds": 63072000.0,
+            "volume_m3": 4505671685.84634,
+            "level_msl": -101.03485552814132,
+            "area_m2": 356927920.7662656,
+            "inflow_m3": 5313321651.946793,
+            "evaporated_m3": 807649966.1001495,
+            "spilled_m3": 0.0,
+            "calculations": 2920,
+            "skipped_seconds": 0.0,
+            "water_balance_error_m3": -0.00030291080474853516
+          },
+          "salt": {
+            "salinity_g_l": 44.811570139077055,
+            "salt_mass_kg": 201906222773.95685,
+            "balance_error_kg": 0.0
+          }
+        }
+      }
+    ],
+    "model_years_per_trial": 2,
+    "median_seconds": {
+      "baseline": 1.857483735002461,
+      "salt": 1.9027365790025215
+    },
+    "water_results_identical": true,
+    "source_salinity_g_l": 38.0,
+    "solubility_g_l": 300.0,
+    "note": "Short paired headless controls; salt is passive. No 23-hour earthworks freeze reproduction.",
+    "median_relative_overhead": 0.024362444282722384
+  },
+  "qattara_water": {
+    "python": "3.12.14",
+    "source": "bundled NOAA Qattara DEM",
+    "grid": [
+      241,
+      301
+    ],
+    "curve_nodes": 6543,
+    "preparation_seconds": 0.05353351300072973,
+    "years": 10,
+    "per_year_seconds": [
+      0.9405461900023511,
+      0.9234822199978225,
+      0.8813497049995931,
+      0.813959225997678,
+      0.8319152530020801,
+      0.8198757320024015,
+      0.7953792179978336,
+      0.791126249001536,
+      0.8119300299986207,
+      0.8449533079983667
+    ],
+    "median_year_seconds": 0.8258954925022408,
+    "active": {
+      "mode": "regional_reservoir",
+      "version": 2,
+      "channel_open": true,
+      "project_id": "536175967cf90fac",
+      "elapsed_seconds": 315360000.0,
+      "level_msl": -89.55039599551783,
+      "volume_m3": 12777248628.27779,
+      "area_m2": 1195708534.5669975,
+      "capacity_m3": 1186675283772.197,
+      "inflow_m3": 26566608259.72561,
+      "evaporated_m3": 13789359631.454744,
+      "spilled_m3": 0.0,
+      "inflow_m3_s": 84.24216216302777,
+      "evaporation_m3_s": 103.79414362560743,
+      "water_balance_error_m3": 0.0069255828857421875,
+      "calculations": 14600,
+      "skipped_seconds": 0.0,
+      "salt_known": true,
+      "salt_origin": "dry_start",
+      "salt_baseline_seconds": 0.0,
+      "salinity_g_l": 79.01005476526093,
+      "inflow_salinity_g_l": 38.0,
+      "solubility_g_l": 300.0,
+      "salt_mass_kg": 1009531113869.5833,
+      "dissolved_salt_kg": 1009531113869.5833,
+      "precipitated_salt_kg": 0.0,
+      "initial_salt_kg": 0.0,
+      "imported_salt_kg": 1009531113869.5833,
+      "exported_salt_kg": 0.0,
+      "salt_balance_error_kg": 0.0
+    },
+    "first_year": {
+      "mode": "regional_reservoir",
+      "version": 2,
+      "channel_open": true,
+      "project_id": "536175967cf90fac",
+      "elapsed_seconds": 31536000.0,
+      "level_msl": -108.64297922917164,
+      "volume_m3": 2379705420.128729,
+      "area_m2": 217131151.79947826,
+      "capacity_m3": 1186675283772.197,
+      "inflow_m3": 2656660825.973263,
+      "evaporated_m3": 276955405.8445138,
+      "spilled_m3": 0.0,
+      "inflow_m3_s": 84.24216216302777,
+      "evaporation_m3_s": 18.84819026037138,
+      "water_balance_error_m3": -2.014636993408203e-05,
+      "calculations": 1460,
+      "skipped_seconds": 0.0,
+      "salt_known": true,
+      "salt_origin": "dry_start",
+      "salt_baseline_seconds": 0.0,
+      "salinity_g_l": 42.42252445747016,
+      "inflow_salinity_g_l": 38.0,
+      "solubility_g_l": 300.0,
+      "salt_mass_kg": 100953111386.9853,
+      "dissolved_salt_kg": 100953111386.9853,
+      "precipitated_salt_kg": 0.0,
+      "initial_salt_kg": 0.0,
+      "imported_salt_kg": 100953111386.9853,
+      "exported_salt_kg": 0.0,
+      "salt_balance_error_kg": 0.0
+    },
+    "idle_1000_year_seconds": 0.00010551000013947487,
+    "idle_calculations": 0,
+    "refinement": {
+      "default_max_step_seconds": 21600,
+      "reference_max_step_seconds": 5400,
+      "year_volume_relative_difference": 5.1551076248369084e-05,
+      "year_level_difference_m": 0.0005650165762460801,
+      "year_salinity_difference_g_l": 0.002186926793008581
+    },
+    "soil_unchanged": true,
+    "note": "Conditional instant-channel experiment, single communicating basin, seasonal evaporation. No resolved water propagation or ground erosion. Timings are short headless controls, not desktop FPS or a 23-hour mission reproduction."
+  },
+  "earthworks_profiles": {
+    "coast45": {
+      "source_root": "/workspace/ats-project",
+      "python": "3.12.14",
+      "platform": "Linux",
+      "cpu_count": 5,
+      "physical_dt_seconds": 1,
+      "steps": 120,
+      "source": "ats-salt-coast.atsstate",
+      "trials": [
+        {
+          "mode": "headless",
+          "render": null,
+          "profiled": true,
+          "initialization_seconds": 1.3111170079973817,
+          "wall_seconds": 1.5501901990028273,
+          "model_seconds": 120.0,
+          "actual_speed": 77.4098559500576,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 5672,
+          "state": "RUNNING",
+          "trips": 40,
+          "mass_error_kg": 3.979039320256561e-13,
+          "energy_error_j": 4.649162292480469e-06,
+          "physical_sha256": "a1a7cbdc78159dc76fb8a7eb82c6eb300677ef425fe3614a12cf6df83c6b9fb9",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 0.06985815000007278,
+          "p99_step_wall_seconds": 0.05776142200193135,
+          "max_gui_event_gap_seconds": null,
+          "gui_prepare_seconds": null,
+          "gui_refreshes": null,
+          "gui_paint_seconds": null,
+          "gui_paints": null,
+          "gui_viewport_px": null,
+          "engine_path": "/workspace/ats-project/ats/simulation.py",
+          "initial_time": 480.0,
+          "robot_states_at_start": {
+            "DIGGING": 1
+          },
+          "robot_moving_seconds": 0.0,
+          "robot_working_seconds": 120.0,
+          "robot_relocations": 0,
+          "self_top": [
+            {
+              "file": "excavator.py",
+              "line": 98,
+              "function": "reachable_mask",
+              "calls": 75,
+              "self_seconds": 0.103244889,
+              "cumulative_seconds": 0.114658744
+            },
+            {
+              "file": "dust.py",
+              "line": 42,
+              "function": "tick",
+              "calls": 120,
+              "self_seconds": 0.085204112,
+              "cumulative_seconds": 0.105125225
+            },
+            {
+              "file": "inventory.py",
+              "line": 148,
+              "function": "validate",
+              "calls": 120,
+              "self_seconds": 0.08393797500000001,
+              "cumulative_seconds": 0.127003634
+            },
+            {
+              "file": "logistics.py",
+              "line": 1381,
+              "function": "<genexpr>",
+              "calls": 264656,
+              "self_seconds": 0.06677250800000001,
+              "cumulative_seconds": 0.10244407200000001
+            },
+            {
+              "file": "logistics.py",
+              "line": 492,
+              "function": "<genexpr>",
+              "calls": 1320,
+              "self_seconds": 0.056265187,
+              "cumulative_seconds": 0.056265187
+            },
+            {
+              "file": "battery_platforms.py",
+              "line": 358,
+              "function": "position_items",
+              "calls": 120,
+              "self_seconds": 0.050276332,
+              "cumulative_seconds": 0.148705784
+            },
+            {
+              "file": "battery_platforms.py",
+              "line": 390,
+              "function": "<genexpr>",
+              "calls": 518592,
+              "self_seconds": 0.046034553000000006,
+              "cumulative_seconds": 0.048227581000000005
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<method 'get' of 'dict' objects>",
+              "calls": 272430,
+              "self_seconds": 0.045647721,
+              "cumulative_seconds": 0.045647721
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<built-in method builtins.any>",
+              "calls": 3390,
+              "self_seconds": 0.044184016,
+              "cumulative_seconds": 0.10449045800000001
+            },
+            {
+              "file": "battery_platforms.py",
+              "line": 346,
+              "function": "<genexpr>",
+              "calls": 96696,
+              "self_seconds": 0.040703309,
+              "cumulative_seconds": 0.040703309
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<built-in method builtins.getattr>",
+              "calls": 287019,
+              "self_seconds": 0.040586456,
+              "cumulative_seconds": 0.040586456
+            },
+            {
+              "file": "terrain.py",
+              "line": 431,
+              "function": "dump_location",
+              "calls": 129,
+              "self_seconds": 0.035311477,
+              "cumulative_seconds": 0.055790077
+            },
+            {
+              "file": "self_solar.py",
+              "line": 462,
+              "function": "obstacle_height",
+              "calls": 2852,
+              "self_seconds": 0.035219526,
+              "cumulative_seconds": 0.21154145100000002
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<built-in method builtins.sum>",
+              "calls": 5731,
+              "self_seconds": 0.031251058000000005,
+              "cumulative_seconds": 0.21638247800000002
+            },
+            {
+              "file": "base_layout.py",
+              "line": 166,
+              "function": "rotate_offset",
+              "calls": 21229,
+              "self_seconds": 0.027240397000000003,
+              "cumulative_seconds": 0.053498281
+            },
+            {
+              "file": "logistics.py",
+              "line": 1175,
+              "function": "sync_batteries",
+              "calls": 120,
+              "self_seconds": 0.023345955,
+              "cumulative_seconds": 0.316401182
+            },
+            {
+              "file": "_index_tricks_impl.py",
+              "line": 343,
+              "function": "__getitem__",
+              "calls": 3290,
+              "self_seconds": 0.023110382000000002,
+              "cumulative_seconds": 0.034488231
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<method 'reduce' of 'numpy.ufunc' objects>",
+              "calls": 13761,
+              "self_seconds": 0.023027870000000002,
+              "cumulative_seconds": 0.023027870000000002
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<built-in method numpy.array>",
+              "calls": 37591,
+              "self_seconds": 0.0217603,
+              "cumulative_seconds": 0.0217603
+            },
+            {
+              "file": "self_solar.py",
+              "line": 67,
+              "function": "_polygon",
+              "calls": 3400,
+              "self_seconds": 0.020687106,
+              "cumulative_seconds": 0.068133677
+            },
+            {
+              "file": "inventory.py",
+              "line": 132,
+              "function": "select",
+              "calls": 1677,
+              "self_seconds": 0.018921573,
+              "cumulative_seconds": 0.019826624
+            },
+            {
+              "file": "batteries.py",
+              "line": 150,
+              "function": "update_slot_states",
+              "calls": 240,
+              "self_seconds": 0.017659818,
+              "cumulative_seconds": 0.023197481000000002
+            },
+            {
+              "file": "battery_platforms.py",
+              "line": 341,
+              "function": "_cache_positions",
+              "calls": 136,
+              "self_seconds": 0.016650875000000002,
+              "cumulative_seconds": 0.09038837300000001
+            },
+            {
+              "file": "_linalg.py",
+              "line": 2615,
+              "function": "norm",
+              "calls": 6714,
+              "self_seconds": 0.015403136000000001,
+              "cumulative_seconds": 0.029980874
+            },
+            {
+              "file": "simulation.py",
+              "line": 612,
+              "function": "_move",
+              "calls": 168,
+              "self_seconds": 0.015077373000000002,
+              "cumulative_seconds": 0.270420622
+            }
+          ],
+          "cumulative_top": [
+            {
+              "file": "benchmark_runtime.py",
+              "line": 66,
+              "function": "timed_step",
+              "calls": 120,
+              "self_seconds": 0.00053384,
+              "cumulative_seconds": 1.538813298
+            },
+            {
+              "file": "simulation.py",
+              "line": 1141,
+              "function": "step",
+              "calls": 120,
+              "self_seconds": 0.001702443,
+              "cumulative_seconds": 1.538160723
+            },
+            {
+              "file": "logistics.py",
+              "line": 1218,
+              "function": "step",
+              "calls": 120,
+              "self_seconds": 0.013138618000000001,
+              "cumulative_seconds": 1.5212674880000001
+            },
+            {
+              "file": "logistics.py",
+              "line": 1175,
+              "function": "sync_batteries",
+              "calls": 120,
+              "self_seconds": 0.023345955,
+              "cumulative_seconds": 0.316401182
+            },
+            {
+              "file": "simulation.py",
+              "line": 763,
+              "function": "_airborne",
+              "calls": 168,
+              "self_seconds": 0.0012303910000000002,
+              "cumulative_seconds": 0.277272841
+            },
+            {
+              "file": "simulation.py",
+              "line": 612,
+              "function": "_move",
+              "calls": 168,
+              "self_seconds": 0.015077373000000002,
+              "cumulative_seconds": 0.270420622
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<built-in method builtins.sum>",
+              "calls": 5731,
+              "self_seconds": 0.031251058000000005,
+              "cumulative_seconds": 0.21638247800000002
+            },
+            {
+              "file": "self_solar.py",
+              "line": 462,
+              "function": "obstacle_height",
+              "calls": 2852,
+              "self_seconds": 0.035219526,
+              "cumulative_seconds": 0.21154145100000002
+            },
+            {
+              "file": "excavator.py",
+              "line": 227,
+              "function": "tick",
+              "calls": 120,
+              "self_seconds": 0.005052343,
+              "cumulative_seconds": 0.151042063
+            },
+            {
+              "file": "battery_platforms.py",
+              "line": 358,
+              "function": "position_items",
+              "calls": 120,
+              "self_seconds": 0.050276332,
+              "cumulative_seconds": 0.148705784
+            },
+            {
+              "file": "inventory.py",
+              "line": 148,
+              "function": "validate",
+              "calls": 120,
+              "self_seconds": 0.08393797500000001,
+              "cumulative_seconds": 0.127003634
+            },
+            {
+              "file": "logistics.py",
+              "line": 1380,
+              "function": "storage_power",
+              "calls": 556,
+              "self_seconds": 0.0009011490000000001,
+              "cumulative_seconds": 0.125269596
+            },
+            {
+              "file": "battery_platforms.py",
+              "line": 501,
+              "function": "step",
+              "calls": 120,
+              "self_seconds": 0.0020877250000000003,
+              "cumulative_seconds": 0.11955518000000001
+            },
+            {
+              "file": "batteries.py",
+              "line": 196,
+              "function": "tick_drone_swaps",
+              "calls": 87,
+              "self_seconds": 0.0016834830000000002,
+              "cumulative_seconds": 0.118089392
+            },
+            {
+              "file": "excavator.py",
+              "line": 98,
+              "function": "reachable_mask",
+              "calls": 75,
+              "self_seconds": 0.103244889,
+              "cumulative_seconds": 0.114658744
+            },
+            {
+              "file": "battery_platforms.py",
+              "line": 387,
+              "function": "busy",
+              "calls": 1200,
+              "self_seconds": 0.0022298500000000002,
+              "cumulative_seconds": 0.111876444
+            },
+            {
+              "file": "batteries.py",
+              "line": 264,
+              "function": "_physical_drone_swap",
+              "calls": 316,
+              "self_seconds": 0.011629009000000001,
+              "cumulative_seconds": 0.10676438
+            },
+            {
+              "file": "dust.py",
+              "line": 42,
+              "function": "tick",
+              "calls": 120,
+              "self_seconds": 0.085204112,
+              "cumulative_seconds": 0.105125225
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<built-in method builtins.any>",
+              "calls": 3390,
+              "self_seconds": 0.044184016,
+              "cumulative_seconds": 0.10449045800000001
+            },
+            {
+              "file": "logistics.py",
+              "line": 1381,
+              "function": "<genexpr>",
+              "calls": 264656,
+              "self_seconds": 0.06677250800000001,
+              "cumulative_seconds": 0.10244407200000001
+            },
+            {
+              "file": "logistics.py",
+              "line": 886,
+              "function": "direct_dispatch",
+              "calls": 120,
+              "self_seconds": 0.000661556,
+              "cumulative_seconds": 0.0992889
+            },
+            {
+              "file": "logistics.py",
+              "line": 925,
+              "function": "direct_trip",
+              "calls": 4,
+              "self_seconds": 1.4582e-05,
+              "cumulative_seconds": 0.098066015
+            },
+            {
+              "file": "simulation.py",
+              "line": 673,
+              "function": "_choose_trip",
+              "calls": 4,
+              "self_seconds": 5.1147000000000003e-05,
+              "cumulative_seconds": 0.09805143300000001
+            },
+            {
+              "file": "planner.py",
+              "line": 48,
+              "function": "choose",
+              "calls": 4,
+              "self_seconds": 5.7948e-05,
+              "cumulative_seconds": 0.097648597
+            },
+            {
+              "file": "planner.py",
+              "line": 61,
+              "function": "_choose_source",
+              "calls": 4,
+              "self_seconds": 0.0045714250000000005,
+              "cumulative_seconds": 0.097577018
+            }
+          ]
+        }
+      ],
+      "median": {}
+    },
+    "shared14": {
+      "source_root": "/workspace/ats-project",
+      "python": "3.12.14",
+      "platform": "Linux",
+      "cpu_count": 5,
+      "physical_dt_seconds": 1,
+      "steps": 120,
+      "source": "world14-work.atsstate",
+      "trials": [
+        {
+          "mode": "headless",
+          "render": null,
+          "profiled": true,
+          "initialization_seconds": 0.804664617000526,
+          "wall_seconds": 11.77266739499828,
+          "model_seconds": 120.0,
+          "actual_speed": 10.193102036585442,
+          "grid_cells": 512,
+          "drones": 56,
+          "inventory_items": 1218,
+          "state": "RUNNING",
+          "trips": 56,
+          "mass_error_kg": 0.0,
+          "energy_error_j": 1.525477273389697e-07,
+          "physical_sha256": "9278bc3aefce40ff3a34dc493761ae6f7bb246b8a2a39f1b442f293f97fd9b4c",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 0.1636201049986994,
+          "p99_step_wall_seconds": 0.15050844100187533,
+          "max_gui_event_gap_seconds": null,
+          "gui_prepare_seconds": null,
+          "gui_refreshes": null,
+          "gui_paint_seconds": null,
+          "gui_paints": null,
+          "gui_viewport_px": null,
+          "engine_path": "/workspace/ats-project/ats/simulation.py",
+          "initial_time": 45.0,
+          "robot_states_at_start": {
+            "MOVING_LOCAL": 13,
+            "WAITING_RELOCATION": 1
+          },
+          "robot_moving_seconds": 918.0,
+          "robot_working_seconds": 0.0,
+          "robot_relocations": 12,
+          "self_top": [
+            {
+              "file": "shared_site.py",
+              "line": 386,
+              "function": "_geometry_key",
+              "calls": 885598,
+              "self_seconds": 2.962993093,
+              "cumulative_seconds": 4.172749509
+            },
+            {
+              "file": "shared_site.py",
+              "line": 402,
+              "function": "_refresh_geometry",
+              "calls": 63257,
+              "self_seconds": 1.097053295,
+              "cumulative_seconds": 5.73899601
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<built-in method builtins.getattr>",
+              "calls": 6343239,
+              "self_seconds": 0.6764418130000001,
+              "cumulative_seconds": 0.683137659
+            },
+            {
+              "file": "simulation.py",
+              "line": 612,
+              "function": "_move",
+              "calls": 5469,
+              "self_seconds": 0.374771621,
+              "cumulative_seconds": 7.763399378000001
+            },
+            {
+              "file": "shared_site.py",
+              "line": 278,
+              "function": "collision",
+              "calls": 5508,
+              "self_seconds": 0.350543875,
+              "cumulative_seconds": 0.592146637
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<method 'get' of 'dict' objects>",
+              "calls": 1647294,
+              "self_seconds": 0.23727250800000002,
+              "cumulative_seconds": 0.23727250800000002
+            },
+            {
+              "file": "enum.py",
+              "line": 202,
+              "function": "__get__",
+              "calls": 913202,
+              "self_seconds": 0.22609405800000001,
+              "cumulative_seconds": 0.323882516
+            },
+            {
+              "file": "terrain.py",
+              "line": 208,
+              "function": "sample",
+              "calls": 66744,
+              "self_seconds": 0.200837024,
+              "cumulative_seconds": 0.459824261
+            },
+            {
+              "file": "_linalg.py",
+              "line": 2615,
+              "function": "norm",
+              "calls": 109310,
+              "self_seconds": 0.194016624,
+              "cumulative_seconds": 0.41276633100000004
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<built-in method builtins.id>",
+              "calls": 1851836,
+              "self_seconds": 0.189139568,
+              "cumulative_seconds": 0.189139568
+            },
+            {
+              "file": "logistics.py",
+              "line": 213,
+              "function": "solar_ground_rects",
+              "calls": 888221,
+              "self_seconds": 0.183086816,
+              "cumulative_seconds": 0.264322375
+            },
+            {
+              "file": "shared_site.py",
+              "line": 21,
+              "function": "__getattr__",
+              "calls": 450052,
+              "self_seconds": 0.173004451,
+              "cumulative_seconds": 0.279819727
+            },
+            {
+              "file": "_methods.py",
+              "line": 96,
+              "function": "_clip",
+              "calls": 50710,
+              "self_seconds": 0.159460828,
+              "cumulative_seconds": 0.198536398
+            },
+            {
+              "file": "shared_site.py",
+              "line": 295,
+              "function": "obstacle_height",
+              "calls": 58903,
+              "self_seconds": 0.14756154500000002,
+              "cumulative_seconds": 5.474030406000001
+            },
+            {
+              "file": "logistics.py",
+              "line": 1218,
+              "function": "step",
+              "calls": 1680,
+              "self_seconds": 0.143594429,
+              "cumulative_seconds": 11.557126405
+            },
+            {
+              "file": "traffic.py",
+              "line": 5,
+              "function": "closest_separation",
+              "calls": 16524,
+              "self_seconds": 0.133879405,
+              "cumulative_seconds": 0.27598372800000004
+            },
+            {
+              "file": "function_base.py",
+              "line": 27,
+              "function": "linspace",
+              "calls": 6844,
+              "self_seconds": 0.12540326000000002,
+              "cumulative_seconds": 0.206797695
+            },
+            {
+              "file": "inventory.py",
+              "line": 148,
+              "function": "validate",
+              "calls": 1680,
+              "self_seconds": 0.12354352,
+              "cumulative_seconds": 0.17164124800000002
+            },
+            {
+              "file": "terrain.py",
+              "line": 431,
+              "function": "dump_location",
+              "calls": 49,
+              "self_seconds": 0.12097928100000001,
+              "cumulative_seconds": 0.18978273
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<method 'dot' of 'numpy.ndarray' objects>",
+              "calls": 108366,
+              "self_seconds": 0.111206146,
+              "cumulative_seconds": 0.111206146
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<method 'reduce' of 'numpy.ufunc' objects>",
+              "calls": 74067,
+              "self_seconds": 0.11050729100000001,
+              "cumulative_seconds": 0.11050729100000001
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<built-in method numpy.array>",
+              "calls": 42354,
+              "self_seconds": 0.107601919,
+              "cumulative_seconds": 0.107601919
+            },
+            {
+              "file": "enum.py",
+              "line": 1291,
+              "function": "value",
+              "calls": 913202,
+              "self_seconds": 0.09778845800000001,
+              "cumulative_seconds": 0.09778845800000001
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<built-in method builtins.max>",
+              "calls": 335933,
+              "self_seconds": 0.096346415,
+              "cumulative_seconds": 0.100049946
+            },
+            {
+              "file": "soil.py",
+              "line": 235,
+              "function": "extract",
+              "calls": 2597,
+              "self_seconds": 0.090237469,
+              "cumulative_seconds": 0.335861306
+            }
+          ],
+          "cumulative_top": [
+            {
+              "file": "benchmark_runtime.py",
+              "line": 66,
+              "function": "timed_step",
+              "calls": 120,
+              "self_seconds": 0.000468184,
+              "cumulative_seconds": 11.769964786000001
+            },
+            {
+              "file": "complexes.py",
+              "line": 319,
+              "function": "step",
+              "calls": 120,
+              "self_seconds": 0.005102466,
+              "cumulative_seconds": 11.769292351
+            },
+            {
+              "file": "simulation.py",
+              "line": 1141,
+              "function": "step",
+              "calls": 1680,
+              "self_seconds": 0.017745787000000002,
+              "cumulative_seconds": 11.655650808
+            },
+            {
+              "file": "logistics.py",
+              "line": 1218,
+              "function": "step",
+              "calls": 1680,
+              "self_seconds": 0.143594429,
+              "cumulative_seconds": 11.557126405
+            },
+            {
+              "file": "simulation.py",
+              "line": 763,
+              "function": "_airborne",
+              "calls": 6720,
+              "self_seconds": 0.045070110000000004,
+              "cumulative_seconds": 8.926463635000001
+            },
+            {
+              "file": "simulation.py",
+              "line": 612,
+              "function": "_move",
+              "calls": 5469,
+              "self_seconds": 0.374771621,
+              "cumulative_seconds": 7.763399378000001
+            },
+            {
+              "file": "shared_site.py",
+              "line": 377,
+              "function": "_ensure_geometry",
+              "calls": 63137,
+              "self_seconds": 0.078782292,
+              "cumulative_seconds": 5.761589553
+            },
+            {
+              "file": "shared_site.py",
+              "line": 402,
+              "function": "_refresh_geometry",
+              "calls": 63257,
+              "self_seconds": 1.097053295,
+              "cumulative_seconds": 5.73899601
+            },
+            {
+              "file": "shared_site.py",
+              "line": 295,
+              "function": "obstacle_height",
+              "calls": 58903,
+              "self_seconds": 0.14756154500000002,
+              "cumulative_seconds": 5.474030406000001
+            },
+            {
+              "file": "shared_site.py",
+              "line": 386,
+              "function": "_geometry_key",
+              "calls": 885598,
+              "self_seconds": 2.962993093,
+              "cumulative_seconds": 4.172749509
+            },
+            {
+              "file": "excavator.py",
+              "line": 227,
+              "function": "tick",
+              "calls": 1680,
+              "self_seconds": 0.037664048000000006,
+              "cumulative_seconds": 0.923773425
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<built-in method builtins.getattr>",
+              "calls": 6343239,
+              "self_seconds": 0.6764418130000001,
+              "cumulative_seconds": 0.683137659
+            },
+            {
+              "file": "simulation.py",
+              "line": 736,
+              "function": "_continue_or_return",
+              "calls": 56,
+              "self_seconds": 0.0010214380000000002,
+              "cumulative_seconds": 0.682355119
+            },
+            {
+              "file": "simulation.py",
+              "line": 673,
+              "function": "_choose_trip",
+              "calls": 49,
+              "self_seconds": 0.001141195,
+              "cumulative_seconds": 0.6802036730000001
+            },
+            {
+              "file": "planner.py",
+              "line": 48,
+              "function": "choose",
+              "calls": 49,
+              "self_seconds": 0.0007280990000000001,
+              "cumulative_seconds": 0.669602118
+            },
+            {
+              "file": "planner.py",
+              "line": 61,
+              "function": "_choose_source",
+              "calls": 49,
+              "self_seconds": 0.040662536,
+              "cumulative_seconds": 0.6685898250000001
+            },
+            {
+              "file": "excavator.py",
+              "line": 210,
+              "function": "_safe_drive_step",
+              "calls": 919,
+              "self_seconds": 0.032254445,
+              "cumulative_seconds": 0.59463771
+            },
+            {
+              "file": "shared_site.py",
+              "line": 278,
+              "function": "collision",
+              "calls": 5508,
+              "self_seconds": 0.350543875,
+              "cumulative_seconds": 0.592146637
+            },
+            {
+              "file": "terrain.py",
+              "line": 283,
+              "function": "_soil_cut",
+              "calls": 2597,
+              "self_seconds": 0.028304629,
+              "cumulative_seconds": 0.528338284
+            },
+            {
+              "file": "terrain.py",
+              "line": 208,
+              "function": "sample",
+              "calls": 66744,
+              "self_seconds": 0.200837024,
+              "cumulative_seconds": 0.459824261
+            },
+            {
+              "file": "terrain.py",
+              "line": 297,
+              "function": "preview_load",
+              "calls": 2254,
+              "self_seconds": 0.0030718950000000003,
+              "cumulative_seconds": 0.44102064700000004
+            },
+            {
+              "file": "excavator.py",
+              "line": 174,
+              "function": "_path_clear",
+              "calls": 944,
+              "self_seconds": 0.067249926,
+              "cumulative_seconds": 0.432519961
+            },
+            {
+              "file": "_linalg.py",
+              "line": 2615,
+              "function": "norm",
+              "calls": 109310,
+              "self_seconds": 0.194016624,
+              "cumulative_seconds": 0.41276633100000004
+            },
+            {
+              "file": "logistics.py",
+              "line": 1384,
+              "function": "detect_stall",
+              "calls": 1680,
+              "self_seconds": 0.01841666,
+              "cumulative_seconds": 0.372536319
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<built-in method builtins.all>",
+              "calls": 5717,
+              "self_seconds": 0.005334037000000001,
+              "cumulative_seconds": 0.361983345
+            }
+          ]
+        }
+      ],
+      "median": {}
+    },
+    "coast45_gui": {
+      "source_root": "/workspace/ats-project",
+      "python": "3.12.14",
+      "platform": "Linux",
+      "cpu_count": 5,
+      "physical_dt_seconds": 1,
+      "steps": 120,
+      "source": "ats-salt-coast.atsstate",
+      "trials": [
+        {
+          "mode": "gui",
+          "render": "auto",
+          "profiled": true,
+          "initialization_seconds": 2.0346003569975437,
+          "wall_seconds": 2.078711767000641,
+          "model_seconds": 120.0,
+          "actual_speed": 57.72806115065543,
+          "grid_cells": 1024,
+          "drones": 4,
+          "inventory_items": 5672,
+          "state": "RUNNING",
+          "trips": 40,
+          "mass_error_kg": 3.979039320256561e-13,
+          "energy_error_j": 4.649162292480469e-06,
+          "physical_sha256": "a1a7cbdc78159dc76fb8a7eb82c6eb300677ef425fe3614a12cf6df83c6b9fb9",
+          "wall_limit_reached": false,
+          "max_step_wall_seconds": 0.09912156299833441,
+          "p99_step_wall_seconds": 0.06598661200041533,
+          "max_gui_event_gap_seconds": 0.17227470900252229,
+          "gui_prepare_seconds": 0.272024499001418,
+          "gui_refreshes": 5,
+          "gui_paint_seconds": 0.06330679100210546,
+          "gui_paints": 4,
+          "gui_viewport_px": [
+            1002,
+            619
+          ],
+          "engine_path": "/workspace/ats-project/ats/simulation.py",
+          "initial_time": 480.0,
+          "robot_states_at_start": {
+            "DIGGING": 1
+          },
+          "robot_moving_seconds": 0.0,
+          "robot_working_seconds": 120.0,
+          "robot_relocations": 0,
+          "self_top": [
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<method 'reduce' of 'numpy.ufunc' objects>",
+              "calls": 15114,
+              "self_seconds": 0.082649204,
+              "cumulative_seconds": 0.083294554
+            },
+            {
+              "file": "inventory.py",
+              "line": 148,
+              "function": "validate",
+              "calls": 120,
+              "self_seconds": 0.081296674,
+              "cumulative_seconds": 0.124242293
+            },
+            {
+              "file": "dust.py",
+              "line": 42,
+              "function": "tick",
+              "calls": 120,
+              "self_seconds": 0.078647778,
+              "cumulative_seconds": 0.140682951
+            },
+            {
+              "file": "logistics.py",
+              "line": 1381,
+              "function": "<genexpr>",
+              "calls": 264656,
+              "self_seconds": 0.069692038,
+              "cumulative_seconds": 0.110642245
+            },
+            {
+              "file": "excavator.py",
+              "line": 98,
+              "function": "reachable_mask",
+              "calls": 75,
+              "self_seconds": 0.069219234,
+              "cumulative_seconds": 0.507766189
+            },
+            {
+              "file": "logistics.py",
+              "line": 492,
+              "function": "<genexpr>",
+              "calls": 1320,
+              "self_seconds": 0.057148331000000004,
+              "cumulative_seconds": 0.057148331000000004
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<method 'get' of 'dict' objects>",
+              "calls": 324583,
+              "self_seconds": 0.055543259000000005,
+              "cumulative_seconds": 0.055543259000000005
+            },
+            {
+              "file": "battery_platforms.py",
+              "line": 358,
+              "function": "position_items",
+              "calls": 120,
+              "self_seconds": 0.051878324,
+              "cumulative_seconds": 0.16968573
+            },
+            {
+              "file": "battery_platforms.py",
+              "line": 346,
+              "function": "<genexpr>",
+              "calls": 96696,
+              "self_seconds": 0.050813469,
+              "cumulative_seconds": 0.050813469
+            },
+            {
+              "file": "battery_platforms.py",
+              "line": 390,
+              "function": "<genexpr>",
+              "calls": 518592,
+              "self_seconds": 0.048630237,
+              "cumulative_seconds": 0.051128524
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<built-in method builtins.getattr>",
+              "calls": 291455,
+              "self_seconds": 0.047383502,
+              "cumulative_seconds": 0.047383502
+            },
+            {
+              "file": "terrain.py",
+              "line": 431,
+              "function": "dump_location",
+              "calls": 129,
+              "self_seconds": 0.041227258,
+              "cumulative_seconds": 0.063952546
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<built-in method builtins.any>",
+              "calls": 3452,
+              "self_seconds": 0.040923518000000006,
+              "cumulative_seconds": 0.104902772
+            },
+            {
+              "file": "self_solar.py",
+              "line": 462,
+              "function": "obstacle_height",
+              "calls": 2852,
+              "self_seconds": 0.040859539,
+              "cumulative_seconds": 0.24656564300000003
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<method 'play' of 'PySide6.QtGui.QPicture' objects>",
+              "calls": 8,
+              "self_seconds": 0.038645857000000006,
+              "cumulative_seconds": 0.038645857000000006
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<built-in method builtins.sum>",
+              "calls": 6540,
+              "self_seconds": 0.035341817000000005,
+              "cumulative_seconds": 0.236641968
+            },
+            {
+              "file": "self_solar.py",
+              "line": 67,
+              "function": "_polygon",
+              "calls": 3400,
+              "self_seconds": 0.027741455,
+              "cumulative_seconds": 0.083754989
+            },
+            {
+              "file": "base_layout.py",
+              "line": 166,
+              "function": "rotate_offset",
+              "calls": 21429,
+              "self_seconds": 0.027241683000000003,
+              "cumulative_seconds": 0.052257632000000005
+            },
+            {
+              "file": "landscape.py",
+              "line": 231,
+              "function": "_overlaps",
+              "calls": 5450,
+              "self_seconds": 0.026494701000000002,
+              "cumulative_seconds": 0.034629752
+            },
+            {
+              "file": "logistics.py",
+              "line": 1175,
+              "function": "sync_batteries",
+              "calls": 120,
+              "self_seconds": 0.026243174,
+              "cumulative_seconds": 0.31456579500000004
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<built-in method numpy.array>",
+              "calls": 38757,
+              "self_seconds": 0.025791445000000003,
+              "cumulative_seconds": 0.045677640000000005
+            },
+            {
+              "file": "battery_platforms.py",
+              "line": 341,
+              "function": "_cache_positions",
+              "calls": 136,
+              "self_seconds": 0.024429897000000002,
+              "cumulative_seconds": 0.110564009
+            },
+            {
+              "file": "map_visuals.py",
+              "line": 57,
+              "function": "terrain_rgb",
+              "calls": 4,
+              "self_seconds": 0.023458641000000002,
+              "cumulative_seconds": 0.040258742
+            },
+            {
+              "file": "_index_tricks_impl.py",
+              "line": 343,
+              "function": "__getitem__",
+              "calls": 3352,
+              "self_seconds": 0.023174498,
+              "cumulative_seconds": 0.032994101000000005
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<method 'dot' of 'numpy.ndarray' objects>",
+              "calls": 6537,
+              "self_seconds": 0.021112628,
+              "cumulative_seconds": 0.021112628
+            }
+          ],
+          "cumulative_top": [
+            {
+              "file": "gui.py",
+              "line": 960,
+              "function": "on_frame",
+              "calls": 28,
+              "self_seconds": 0.003148697,
+              "cumulative_seconds": 2.351352519
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<built-in method exec>",
+              "calls": 1,
+              "self_seconds": 0.014163315000000001,
+              "cumulative_seconds": 2.078586929
+            },
+            {
+              "file": "benchmark_runtime.py",
+              "line": 95,
+              "function": "step",
+              "calls": 120,
+              "self_seconds": 0.000802526,
+              "cumulative_seconds": 2.046651562
+            },
+            {
+              "file": "benchmark_runtime.py",
+              "line": 66,
+              "function": "timed_step",
+              "calls": 120,
+              "self_seconds": 0.000994708,
+              "cumulative_seconds": 2.006035963
+            },
+            {
+              "file": "simulation.py",
+              "line": 1141,
+              "function": "step",
+              "calls": 120,
+              "self_seconds": 0.0037732560000000004,
+              "cumulative_seconds": 1.9596102270000002
+            },
+            {
+              "file": "logistics.py",
+              "line": 1218,
+              "function": "step",
+              "calls": 120,
+              "self_seconds": 0.013661407,
+              "cumulative_seconds": 1.9090156440000001
+            },
+            {
+              "file": "excavator.py",
+              "line": 227,
+              "function": "tick",
+              "calls": 120,
+              "self_seconds": 0.004502697,
+              "cumulative_seconds": 0.547767403
+            },
+            {
+              "file": "excavator.py",
+              "line": 98,
+              "function": "reachable_mask",
+              "calls": 75,
+              "self_seconds": 0.069219234,
+              "cumulative_seconds": 0.507766189
+            },
+            {
+              "file": "benchmark_runtime.py",
+              "line": 101,
+              "function": "refresh",
+              "calls": 5,
+              "self_seconds": 8.6228e-05,
+              "cumulative_seconds": 0.37134612300000003
+            },
+            {
+              "file": "gui.py",
+              "line": 1032,
+              "function": "refresh",
+              "calls": 5,
+              "self_seconds": 0.009961423,
+              "cumulative_seconds": 0.37125475500000005
+            },
+            {
+              "file": "simulation.py",
+              "line": 763,
+              "function": "_airborne",
+              "calls": 168,
+              "self_seconds": 0.001450389,
+              "cumulative_seconds": 0.32955022100000003
+            },
+            {
+              "file": "simulation.py",
+              "line": 612,
+              "function": "_move",
+              "calls": 168,
+              "self_seconds": 0.019229285000000002,
+              "cumulative_seconds": 0.325046585
+            },
+            {
+              "file": "logistics.py",
+              "line": 1175,
+              "function": "sync_batteries",
+              "calls": 120,
+              "self_seconds": 0.026243174,
+              "cumulative_seconds": 0.31456579500000004
+            },
+            {
+              "file": "threading.py",
+              "line": 1018,
+              "function": "_bootstrap",
+              "calls": 1,
+              "self_seconds": 3.816e-06,
+              "cumulative_seconds": 0.28911121700000003
+            },
+            {
+              "file": "threading.py",
+              "line": 1058,
+              "function": "_bootstrap_inner",
+              "calls": 1,
+              "self_seconds": 0.0029081610000000003,
+              "cumulative_seconds": 0.28910740100000004
+            },
+            {
+              "file": "self_solar.py",
+              "line": 462,
+              "function": "obstacle_height",
+              "calls": 2852,
+              "self_seconds": 0.040859539,
+              "cumulative_seconds": 0.24656564300000003
+            },
+            {
+              "file": "~",
+              "line": 0,
+              "function": "<built-in method builtins.sum>",
+              "calls": 6540,
+              "self_seconds": 0.035341817000000005,
+              "cumulative_seconds": 0.236641968
+            },
+            {
+              "file": "procedural.py",
+              "line": 47,
+              "function": "sample",
+              "calls": 16,
+              "self_seconds": 0.0008512210000000001,
+              "cumulative_seconds": 0.21550571300000002
+            },
+            {
+              "file": "landscape.py",
+              "line": 79,
+              "function": "sample",
+              "calls": 16,
+              "self_seconds": 0.019263188,
+              "cumulative_seconds": 0.19302233500000002
+            },
+            {
+              "file": "battery_platforms.py",
+              "line": 358,
+              "function": "position_items",
+              "calls": 120,
+              "self_seconds": 0.051878324,
+              "cumulative_seconds": 0.16968573
+            },
+            {
+              "file": "gui.py",
+              "line": 27,
+              "function": "terrain_view",
+              "calls": 8,
+              "self_seconds": 0.00037301900000000004,
+              "cumulative_seconds": 0.16134831200000002
+            },
+            {
+              "file": "dust.py",
+              "line": 42,
+              "function": "tick",
+              "calls": 120,
+              "self_seconds": 0.078647778,
+              "cumulative_seconds": 0.140682951
+            },
+            {
+              "file": "logistics.py",
+              "line": 1380,
+              "function": "storage_power",
+              "calls": 556,
+              "self_seconds": 0.0009434170000000001,
+              "cumulative_seconds": 0.134819304
+            },
+            {
+              "file": "_type_check_impl.py",
+              "line": 368,
+              "function": "nan_to_num",
+              "calls": 64,
+              "self_seconds": 0.006144706000000001,
+              "cumulative_seconds": 0.129265118
+            },
+            {
+              "file": "batteries.py",
+              "line": 196,
+              "function": "tick_drone_swaps",
+              "calls": 87,
+              "self_seconds": 0.0022939640000000003,
+              "cumulative_seconds": 0.126021369
+            }
+          ]
+        }
+      ],
+      "median": {}
+    }
+  },
+  "notes": [
+    "Salt is a passive mass/volume tracer; no erosion or salt feedback on evaporation/density.",
+    "Profile percentages are inclusive where stated and cannot be added for nested functions.",
+    "Shared 14x4 control has 68 m² PV per complex and moving local excavators; it is not 14 seasonal 45-platform complexes.",
+    "Short controls and offscreen event gaps do not reproduce a user PC FPS or the reported 23-hour freezing."
+  ]
+}

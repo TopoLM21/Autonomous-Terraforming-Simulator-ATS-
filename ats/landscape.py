@@ -503,7 +503,7 @@ class Landscape:
 
     def save(self, path):
         from dataclasses import asdict
-        metadata = dict(version=4 if self.flooding is not None else 3 if self.generation is not None else 2,raster=self.raster.metadata,cell_size=self.cell_size,tile_cells=self.tile_cells,corridors=self.corridors,channel_project=self.channel_project,
+        metadata = dict(version=5 if self.flooding is not None else 3 if self.generation is not None else 2,raster=self.raster.metadata,cell_size=self.cell_size,tile_cells=self.tile_cells,corridors=self.corridors,channel_project=self.channel_project,
                         soil_profile=asdict(self.soil_profile) if self.soil_profile is not None else None,
                         tile_cache_limit_bytes=self._tile_cache.limit_bytes,prefetch_enabled=self.prefetch_enabled,
                         generation=self.generation,baseline_locked=self.baseline_locked,prefetch_mode=self.prefetch_mode,
@@ -528,7 +528,7 @@ class Landscape:
     def load(cls,path):
         with np.load(path,allow_pickle=False) as data:
             m = json.loads(str(data['metadata']))
-            if m.get('version') not in (1,2,3,4):
+            if m.get('version') not in (1,2,3,4,5):
                 raise ValueError('Неизвестная версия ландшафта')
             result = cls(ElevationRaster(data['height'],m['raster']),m['cell_size'],m['tile_cells'],cache_bytes=m.get('tile_cache_limit_bytes',DEFAULT_TILE_RAM),generation=m.get('generation'))
             if m.get('version')<3 and result.generation is not None:raise ValueError('Процедурный рельеф требует формат региона 3')

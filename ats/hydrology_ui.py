@@ -1,10 +1,47 @@
 """A global, explicitly counterfactual filling experiment beside earthworks."""
 import math
 import time
+from dataclasses import replace
 from PySide6 import QtCore,QtWidgets
 import pyqtgraph as pg
 import numpy as np
 from .hydrology import BasinCurve,create_experiment
+
+
+class SaltDialog(QtWidgets.QDialog):
+    def __init__(self,owner):
+        super().__init__(owner);self.owner=owner;self.model=owner.model
+        self.setWindowTitle('Водоём · приближённый баланс соли');self.resize(570,310)
+        form=QtWidgets.QFormLayout(self)
+        note=QtWidgets.QLabel('Единый перемешанный водоём. Концентрация в г/л = кг/м³, не PSU и не ‰. '
+            '38 г/л притока и предел растворимости 300 г/л — условные исходные оценки. '
+            'Испарение оставляет соль; избыток выпадает в осадок и может раствориться снова. '
+            'Поправки испарения и плотности по солёности пока нет.')
+        note.setWordWrap(True);form.addRow(note)
+        self.source=QtWidgets.QDoubleSpinBox();self.source.setRange(0,1000);self.source.setDecimals(3);self.source.setSuffix(' г/л')
+        self.source.setValue(self.model.config.inflow_salinity_g_l);form.addRow('Солёность будущего притока',self.source)
+        self.limit=QtWidgets.QDoubleSpinBox();self.limit.setRange(.001,1000);self.limit.setDecimals(3);self.limit.setSuffix(' г/л')
+        self.limit.setValue(self.model.config.solubility_g_l);form.addRow('Условный предел растворимости',self.limit)
+        self.initialize=QtWidgets.QCheckBox('Задать состав имеющейся воды заново (обнулит баланс соли)')
+        form.addRow(self.initialize)
+        self.current=QtWidgets.QDoubleSpinBox();self.current.setRange(0,1000);self.current.setDecimals(3);self.current.setSuffix(' г/л')
+        self.current.setValue(self.model.salinity_g_l or 0.);self.current.setEnabled(False)
+        self.initialize.toggled.connect(self.current.setEnabled);form.addRow('Новая исходная солёность воды',self.current)
+        self.error=QtWidgets.QLabel('Без этой галочки изменение параметров сохраняет всю накопленную соль. '
+            'Новая исходная оценка также заменяет прежний сухой осадок.');self.error.setWordWrap(True);form.addRow(self.error)
+        self.buttons=QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Ok|QtWidgets.QDialogButtonBox.StandardButton.Cancel)
+        self.buttons.accepted.connect(self.apply);self.buttons.rejected.connect(self.reject);form.addRow(self.buttons)
+
+    def apply(self):
+        try:
+            config=replace(self.model.config,inflow_salinity_g_l=self.source.value(),solubility_g_l=self.limit.value())
+            config.validate()
+            if self.initialize.isChecked() and self.current.value()>config.solubility_g_l:
+                raise ValueError('Исходная растворённая концентрация выше заданного предела растворимости')
+            self.model.config=config
+            if self.initialize.isChecked():self.model.initialize_salt(self.current.value())
+            self.owner.refresh();self.accept()
+        except ValueError as error:self.error.setText(str(error))
 
 
 class FloodingDialog(QtWidgets.QDialog):
@@ -26,6 +63,9 @@ class FloodingDialog(QtWidgets.QDialog):
         self.route=self.map.plot(pen=pg.mkPen('#ffbf62',width=2));self.tabs.addTab(self.map,'Регион и затопление')
         self.profile=pg.PlotWidget();self.profile.setLabel('bottom','Время сценария',units='day');self.profile.setLabel('left','Уровень MSL',units='m')
         self.line=self.profile.plot(pen='#63c9ff');self.tabs.addTab(self.profile,'История уровня')
+        self.salt_profile=pg.PlotWidget();self.salt_profile.setLabel('bottom','Время сценария',units='day')
+        self.salt_profile.setLabel('left','Растворённая соль',units='g/L')
+        self.salt_line=self.salt_profile.plot(pen='#efc87d');self.tabs.addTab(self.salt_profile,'История солёности')
         actions=QtWidgets.QHBoxLayout();layout.addLayout(actions)
         self.instant=QtWidgets.QPushButton('Мгновенный прокоп → открыть канал');self.instant.clicked.connect(self.open_channel)
         self.close_gate=QtWidgets.QPushButton('Перекрыть приток');self.close_gate.clicked.connect(self.shut_channel)
@@ -53,7 +93,8 @@ class FloodingDialog(QtWidgets.QDialog):
         self.rebuild=QtWidgets.QPushButton('Обновить объём и площадь по текущему рельефу')
         self.rebuild.clicked.connect(self.rebuild_basin)
         self.save_button=QtWidgets.QPushButton('Сохранить регион и воду…');self.save_button.clicked.connect(self.save_region)
-        storage=QtWidgets.QHBoxLayout();storage.addWidget(self.rebuild);storage.addWidget(self.save_button);layout.addLayout(storage)
+        self.salt_button=QtWidgets.QPushButton('Соль…');self.salt_button.clicked.connect(self.open_salt_settings)
+        storage=QtWidgets.QHBoxLayout();storage.addWidget(self.salt_button);storage.addWidget(self.rebuild);storage.addWidget(self.save_button);layout.addLayout(storage)
         self.model=self.region.flooding
         if self.model is None:self.new_scenario()
         self._different_route=self.model.project_id!=self.project.identity
@@ -96,8 +137,7 @@ class FloodingDialog(QtWidgets.QDialog):
     def rebuild_basin(self):
         try:
             curve=BasinCurve.from_landscape(self.view(),self.project.points[-1]);m=self.model
-            excess=max(0.,m.volume_m3-curve.capacity);m.volume_m3-=excess;m.spilled_m3+=excess;m.curve=curve
-            m.validate();self._draw_key=None
+            m.replace_curve(curve);self._draw_key=None
             self._topography_error=False
             self.region._flooding_basis=self.basis_key()
             if hasattr(self,'timer'):self.make_map();self.refresh()
@@ -115,6 +155,13 @@ class FloodingDialog(QtWidgets.QDialog):
     def load_inputs(self):
         for name,spin in self.inputs.items():
             spin.blockSignals(True);spin.setValue(getattr(self.model.config,name));spin.blockSignals(False)
+
+    def open_salt_settings(self):
+        running,credit=self.running,self.credit;self.running=False;self.credit=0.
+        dialog=SaltDialog(self)
+        try:dialog.exec()
+        finally:
+            dialog.deleteLater();self.running=running;self.credit=credit;self.last_wall=time.perf_counter();self.refresh()
 
     def apply_inputs(self):
         for name,spin in self.inputs.items():setattr(self.model.config,name,spin.value())
@@ -167,12 +214,19 @@ class FloodingDialog(QtWidgets.QDialog):
         if m is None:return
         r=m.report();q,e=m.current_rates()
         level_label=f'уровень {m.level:+.3f} м MSL' if m.volume_m3>0 else f'сухо · дно {m.level:+.3f} м MSL'
+        origin=dict(dry_start='сухой старт',manual='задано вручную',legacy_assumed_inflow='оценка из прежнего притока',
+                    legacy_unknown='старое сохранение: исходная соль неизвестна')[m.salt_origin]
+        if m.salt_known:
+            concentration=f'{m.salinity_g_l:,.3f} г/л' if m.volume_m3>0 else 'сухо, концентрация не определена'
+            salt=f'Солёность: {concentration} · растворено {m.dissolved_salt_kg/1000:,.2f} т · осадок {m.precipitated_salt_kg/1000:,.2f} т · баланс соли {m.salt_balance_error:.3g} кг'
+        else:salt='Солёность неизвестна: задайте исходную оценку через «Соль…»; водный баланс продолжает считаться.'
         self.status.setText(f"Время сценария: {m.elapsed_seconds/86400:,.2f} суток · {level_label} · объём {m.volume_m3/1e9:.6f} км³\n"
             f"Затоплено {m.area/1e6:,.3f} км² · приток {q:,.3f} м³/с · испарение {e:,.3f} м³/с · баланс {m.balance_error:.3g} м³\n"
-            f"Поступило {m.inflow_m3/1e9:.6f} км³ · испарилось {m.evaporated_m3/1e9:.6f} км³ · перелив {m.spilled_m3/1e9:.6f} км³ · длина канала {m.config.length_m/1000:.2f} км")
+            f"Поступило {m.inflow_m3/1e9:.6f} км³ · испарилось {m.evaporated_m3/1e9:.6f} км³ · перелив {m.spilled_m3/1e9:.6f} км³ · длина канала {m.config.length_m/1000:.2f} км\n"
+            f"{salt}\nПриток: {m.config.inflow_salinity_g_l:g} г/л · {origin} · баланс соли с суток {m.salt_baseline_seconds/86400:,.2f}")
         different=getattr(self,'_different_route',False);invalid=getattr(self,'_topography_error',False)
         self.instant.setEnabled(not different and not invalid and not m.channel_open);self.close_gate.setEnabled(not different and not invalid and m.channel_open)
-        for widget in (self.play,self.day,self.year,*self.inputs.values()):widget.setEnabled(not different and not invalid)
+        for widget in (self.play,self.day,self.year,self.salt_button,*self.inputs.values()):widget.setEnabled(not different and not invalid)
         self.rebuild.setEnabled(not different)
         self.play.setText('⏸ Пауза воды' if self.running or self.credit>0 else '▶ Расчёт воды')
         key=(id(m.curve),m.volume_m3)
@@ -187,6 +241,11 @@ class FloodingDialog(QtWidgets.QDialog):
             self.water_image.setImage(rgba);self.water_image.setRect(self._map_rect);self._draw_key=key
         rows=m.history
         self.line.setData([r['seconds']/86400 for r in rows]+[m.elapsed_seconds/86400],[r['level_msl'] for r in rows]+[m.level])
+        # Dry/unknown intervals are gaps, not invented zero-salinity samples.
+        x=[r['seconds']/86400 for r in rows]+[m.elapsed_seconds/86400]
+        y=[r.get('salinity_g_l') if r.get('salinity_g_l') is not None else np.nan for r in rows]
+        y.append(m.salinity_g_l if m.salinity_g_l is not None else np.nan)
+        self.salt_line.setData(x,y,connect='finite')
 
     def finish(self,_):
         if getattr(self,'_finished',False):return

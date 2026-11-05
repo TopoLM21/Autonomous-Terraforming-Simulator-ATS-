@@ -19,7 +19,7 @@ import numpy as np
 
 
 FORMAT='ATS_SIMULATION'
-VERSION=15
+VERSION=16
 MAX_BYTES=1_500_000_000
 MAX_NODES=2_000_000
 
@@ -404,6 +404,7 @@ def load_state(path):
                 if value.flooding is not None:
                     from .hydrology import Flooding
                     if type(value.flooding) is not Flooding:raise ValueError('Повреждён водоём региона')
+                    value.flooding.restore_legacy()
                     value.flooding.validate()
                     if value.flooding.curve.shape!=value.raster.height.shape:raise ValueError('Водоём относится к другой сетке DEM')
                 if (type(value._tile_cache) is not TileCache or type(value.tiles) is not TileMap or
