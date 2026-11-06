@@ -90,7 +90,7 @@ def _make_project(sim,region,args):
 
 def _flood_outputs(args,region,config,report):
     if not (args.flood_days is not None or args.instant_channel or args.flood_report or args.new_flood or
-            any(v is not None for v in (args.evaporation_mm_day,args.salt_inflow_g_l,args.initial_salinity_g_l,args.solubility_g_l))):return
+            any(v is not None for v in (args.evaporation_mm_day,args.salt_inflow_g_l,args.initial_salinity_g_l,args.solubility_g_l,args.exchange_factor))):return
     from .channel import ChannelProject
     from .hydrology import create_experiment,BasinCurve
     from pathlib import Path
@@ -105,6 +105,7 @@ def _flood_outputs(args,region,config,report):
     if args.evaporation_mm_day is not None:model.config.evaporation_mm_day=args.evaporation_mm_day
     if args.salt_inflow_g_l is not None:model.config.inflow_salinity_g_l=args.salt_inflow_g_l
     if args.solubility_g_l is not None:model.config.solubility_g_l=args.solubility_g_l
+    if args.exchange_factor is not None:model.config.exchange_factor=args.exchange_factor
     model.config.validate()
     if args.initial_salinity_g_l is not None:model.initialize_salt(args.initial_salinity_g_l)
     model.advance((args.flood_days or 0)*86400);region.flooding=model
@@ -119,7 +120,7 @@ def _resume(args, parser):
     allowed={'--load-state','--save-state','--headless','--steps','--json','--panel-area','--base-batteries',
              '--power-report','--save-complex-template','--work-hours','--work-start-hour','--drone-duty','--measured-power','--continuous-design',
              '--flood-days','--instant-channel','--evaporation-mm-day','--flood-report','--new-flood',
-             '--salt-inflow-g-l','--initial-salinity-g-l','--solubility-g-l'}
+             '--salt-inflow-g-l','--initial-salinity-g-l','--solubility-g-l','--exchange-factor'}
     forbidden=[v.split('=')[0] for v in sys.argv[1:] if v.startswith('--') and v.split('=')[0] not in allowed]
     if forbidden:parser.error('Сохранение уже задаёт сценарий; несовместимые параметры: '+', '.join(forbidden))
     session=load_state(args.load_state);sim=session.simulation
@@ -152,6 +153,8 @@ def main():
     parser.add_argument("--drones", type=int, help="Fleet size, 1..6; default 1 legacy / 4 logistics")
     parser.add_argument("--charge-slots", type=int, help="Landing/charging sockets, 1..6; share total charging power")
     parser.add_argument("--wait-mode", choices=("ground","air"), default="ground")
+    parser.add_argument('--airspace',choices=('per_drone','shared_lanes'),help='Cruise allocation; new GUI defaults to four shared levels')
+    parser.add_argument('--cut-policy',choices=('profile','natural'),help='Exact profile or bottom-only excavation with natural slopes; new GUI defaults to natural')
     parser.add_argument("--charge-threshold", type=float, default=30, help="Lower charging trigger, percent; charging then continues to 100%%")
     parser.add_argument("--plan", help="Load a brush plan JSON, including its starting terrain")
     parser.add_argument("--equipment", help="Load an equipment inventory JSON exported from the equipment editor")
@@ -202,6 +205,7 @@ def main():
     parser.add_argument('--salt-inflow-g-l',type=float,help='Conditional salt concentration of future sea inflow, g/L (= kg/m3), default 38')
     parser.add_argument('--initial-salinity-g-l',type=float,help='Explicitly reset current lake salt inventory to this dissolved concentration, g/L')
     parser.add_argument('--solubility-g-l',type=float,help='Conditional dissolved concentration limit, g/L; excess is reversible solid residue, default 300')
+    parser.add_argument('--exchange-factor',type=float,help='Conditional two-layer sea exchange factor, 0..1; 0 retains the one-way boundary')
     parser.add_argument('--power-report',help='Save a daily solar/storage and spare-pack sizing report JSON')
     parser.add_argument('--save-complex-template',help='Save the calculated hardware recipe as an .atstemplate')
     parser.add_argument('--complex-template',help='Start a fresh complex from an .atstemplate hardware recipe')
@@ -221,7 +225,7 @@ def main():
     parser.add_argument('--shore-offset',type=float,help='Dry start offset along alignment from sea coastline, default 10 m')
     args = parser.parse_args()
     flooding=any((args.flood_days is not None,args.instant_channel,args.flood_report,args.new_flood,
-                  any(v is not None for v in (args.evaporation_mm_day,args.salt_inflow_g_l,args.initial_salinity_g_l,args.solubility_g_l))))
+                  any(v is not None for v in (args.evaporation_mm_day,args.salt_inflow_g_l,args.initial_salinity_g_l,args.solubility_g_l,args.exchange_factor))))
     if flooding:
         import math
         if not args.headless or args.compare_fleet or args.batch_experiments:parser.error('Параметры воды требуют один --headless-прогон; в GUI используйте «Водоём / прокоп»')
@@ -229,6 +233,7 @@ def main():
         if args.evaporation_mm_day is not None and (not math.isfinite(args.evaporation_mm_day) or not 0<=args.evaporation_mm_day<=100):parser.error('--evaporation-mm-day: 0…100')
         for name,value,lo in (('--salt-inflow-g-l',args.salt_inflow_g_l,0),('--initial-salinity-g-l',args.initial_salinity_g_l,0),('--solubility-g-l',args.solubility_g_l,.001)):
             if value is not None and (not math.isfinite(value) or not lo<=value<=1000):parser.error(f'{name}: {lo}…1000 г/л')
+        if args.exchange_factor is not None and (not math.isfinite(args.exchange_factor) or not 0<=args.exchange_factor<=1):parser.error('--exchange-factor: 0…1')
     if not 1<=args.complexes<=20:parser.error('--complexes: от 1 до 20')
     if args.complex_template and (args.configuration or args.equipment):parser.error('Шаблон комплекса уже задаёт оборудование')
     if (args.channel_width is not None or args.channel_depth is not None or args.shore_offset is not None or args.channel_section!=1) and not (args.channel or args.channel_route):
@@ -274,6 +279,11 @@ def main():
         if args.configuration:
             from .experiments import load_configuration
             config=load_configuration(args.configuration)
+        fresh_gui=not args.headless and not any((args.configuration,args.complex_template,args.equipment,args.plan))
+        if args.cut_policy is not None:config.terrain.cut_policy=args.cut_policy
+        elif fresh_gui and mode!='legacy':config.terrain.cut_policy='natural'
+        if args.airspace is not None:config.fleet.airspace_mode=args.airspace
+        elif fresh_gui and mode!='legacy':config.fleet.airspace_mode='shared_lanes'
         if mode!='legacy' and (not (args.configuration or args.complex_template) or config.logistics is None or args.mode is not None):
             from .experiments import experiment_config
             profile=args.laser_profile or ('existing_legacy' if config.base.equipment and any(e.enabled for e in config.base.equipment.emitters) else 'laser_off')

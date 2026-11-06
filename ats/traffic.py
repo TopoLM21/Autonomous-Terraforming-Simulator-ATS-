@@ -14,6 +14,9 @@ def conflicts(drone, old, new, others, starts, separation):
     for other in others:
         if other is drone:
             continue
-        if closest_separation(old, new, starts[other.identifier], other.position) < separation-1e-9:
+        before=starts[other.identifier]
+        if (min(old[2],new[2])-max(before[2],other.position[2])>=separation or
+                min(before[2],other.position[2])-max(old[2],new[2])>=separation):continue
+        if closest_separation(old, new, before, other.position) < separation-1e-9:
             return other
     return None

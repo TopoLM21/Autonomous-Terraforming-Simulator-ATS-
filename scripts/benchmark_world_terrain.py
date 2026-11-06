@@ -11,7 +11,7 @@ import sys
 import time
 
 
-def runtime_fixtures(folder):
+def runtime_fixtures(folder,cut_policy='profile',airspace='per_drone'):
     """Create the exact 14×4 DEM controls under the selected engine checkout."""
     import numpy as np
     from ats.landscape import Landscape,ElevationRaster,workspace_config
@@ -26,6 +26,8 @@ def runtime_fixtures(folder):
     land=Landscape(ElevationRaster(np.zeros((6,6)),dict(crs='LOCAL_METRES',units='metres',
         vertical_datum='MSL',x0=0.,y0=0.,dx=1000.,dy=1000.)),cell_size=1.,soil_profile=SoilProfile.qattara())
     c=workspace_config(land,experiment_config(Config(),drones=4,containers=2),[1024.,1024.],512.)
+    if cut_policy!='profile':c.terrain.cut_policy=cut_policy
+    if airspace!='per_drone':c.fleet.airspace_mode=airspace
     c.logistics.field_deployment_seconds=2.
     c.plan=PlanConfig([PlanSegment([[20,100],[450,100]],width=4,height=-.5)])
     p=ComplexProject(Simulation(c),land);p.enable_shared()
@@ -41,12 +43,14 @@ def main():
     parser.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[1])
     parser.add_argument('--procedural',action='store_true')
     parser.add_argument('--runtime-fixtures',type=Path,help='Create 14 complexes × 4 drones at model times 0 and 45 s')
+    parser.add_argument('--cut-policy',choices=('profile','natural'),default='profile')
+    parser.add_argument('--airspace',choices=('per_drone','shared_lanes'),default='per_drone')
     parser.add_argument('--output',type=Path)
     args=parser.parse_args();sys.path.insert(0,str(args.root.resolve()))
     os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
     if args.runtime_fixtures:
         if args.procedural:parser.error('Runtime controls use the unchanged baseline for paired comparisons')
-        runtime_fixtures(args.runtime_fixtures);return
+        runtime_fixtures(args.runtime_fixtures,args.cut_policy,args.airspace);return
     if args.output is None:parser.error('--output or --runtime-fixtures required')
     import numpy as np
     from ats.landscape import Landscape,ElevationRaster

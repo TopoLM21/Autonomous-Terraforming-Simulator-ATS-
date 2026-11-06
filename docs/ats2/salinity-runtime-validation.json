@@ -1662,7 +1662,7 @@
   "notes": [
     "Salt is a passive mass/volume tracer; no erosion or salt feedback on evaporation/density.",
     "Profile percentages are inclusive where stated and cannot be added for nested functions.",
-    "Shared 14x4 control has 68 m² PV per complex and moving local excavators; it is not 14 seasonal 45-platform complexes.",
+    "Shared 14x4 control has 20 m² PV per complex (no modular PV carriers) and moving local excavators; it is not 14 seasonal 45-platform complexes.",
     "Short controls and offscreen event gaps do not reproduce a user PC FPS or the reported 23-hour freezing."
   ]
 }

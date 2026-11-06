@@ -86,10 +86,19 @@ class Planner:
         best = None
         shared=local and getattr(terrain,'shared_site',None) is not None
         shared_dump=None;shared_dump_volume=0.
-        if self.config.reference_height is not None or getattr(terrain,'shared_site',None) is not None:
-            altitude = terrain.clearance_surface+d.work_height+self.config.base.roof_height
-        else:altitude = max(float(terrain.reference.max()), t.dump_max_height) + d.work_height + self.config.base.roof_height
-        altitude += (drone.identifier if drone is not None else 0)*self.config.fleet.altitude_spacing
+        altitude=None
+        if self.config.fleet.airspace_mode=='shared_lanes' and drone is not None:
+            owner=getattr(terrain,'_site_owner',None)
+            site=getattr(terrain,'shared_site',None)
+            if site:owner=next(u.simulation for u in site.project.units if u.simulation.base is base)
+            if owner is not None:
+                from .airspace import cruise
+                altitude=cruise(owner,drone)
+        if altitude is None:
+            if self.config.reference_height is not None or getattr(terrain,'shared_site',None) is not None:
+                altitude = terrain.clearance_surface+d.work_height+self.config.base.roof_height
+            else:altitude = max(float(terrain.reference.max()), t.dump_max_height) + d.work_height + self.config.base.roof_height
+            altitude += (drone.identifier if drone is not None else 0)*self.config.fleet.altitude_spacing
         for index in candidates[order]:
             dig = (float(terrain.x.ravel()[index]), float(terrain.y.ravel()[index]))
             load=None

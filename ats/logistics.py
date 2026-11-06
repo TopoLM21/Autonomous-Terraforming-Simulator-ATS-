@@ -617,6 +617,8 @@ class Logistics:
                 hoist=self.inventory.items[f'hoist_{d.serial}']
                 if not self.inventory.reserve([hoist.id],job.id):continue
                 job.status,job.executor,job.estimated_energy_j,job.eta_seconds='ACTIVE',d.serial,energy,eta
+                if s.config.fleet.airspace_mode=='shared_lanes':
+                    job.flight_altitude_m=s.cruise(d);d.flight_altitude_m=job.flight_altitude_m
                 job.resource_ids.append(hoist.id)
                 self.active[d.identifier]=job
                 if d.identifier in s.queue:s.queue.remove(d.identifier)
@@ -1102,7 +1104,9 @@ class Logistics:
         lift=max(0.,d.position[2]-s.terrain.sample(*d.position[:2])) if phase=='LIFT' else 0.
         if not s.consume_drone(d.power(moving,winching,lift_height=lift),d):return
         d.airborne_seconds+=1.;d.flight_seconds+=1.;d.longest_flight_seconds=max(d.longest_flight_seconds,d.flight_seconds)
-        job.elapsed+=1.;phase_elapsed=job.elapsed;altitude=s.cruise(d)
+        job.elapsed+=1.;phase_elapsed=job.elapsed
+        altitude=getattr(job,'flight_altitude_m',None)
+        if altitude is None:altitude=s.cruise(d)
         if phase=='TAKEOFF':
             self.fly(d,job,(*d.position[:2],altitude),'ORIGIN')
             if job.phase=='ORIGIN':s._clear_slot(d)

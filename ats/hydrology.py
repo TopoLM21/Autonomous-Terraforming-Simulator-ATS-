@@ -148,6 +148,7 @@ class FloodConfig:
     latitude: float=31.078
     inflow_salinity_g_l: float=38.
     solubility_g_l: float=300.
+    exchange_factor: float=.25
 
     def validate(self):
         values=vars(self)
@@ -155,7 +156,7 @@ class FloodConfig:
         if not (0<self.width_m<=10000 and 0<self.depth_m<=1000 and 0<self.length_m<=1e7 and 0<=self.side_slope<=20 and
                 .005<=self.roughness<=.3 and 0<=self.opening<=1 and 0<=self.flow_limit_m3_s<=1e6 and
                 0<=self.evaporation_mm_day<=100 and 0<=self.season_amplitude<=1 and 1<=self.start_day<=365 and -90<=self.latitude<=90 and
-                0<=self.inflow_salinity_g_l<=1000 and 0<self.solubility_g_l<=1000):
+                0<=self.inflow_salinity_g_l<=1000 and 0<self.solubility_g_l<=1000 and 0<=self.exchange_factor<=1):
             raise ValueError('Проверьте размеры канала, шероховатость, затвор, испарение и солёность')
 
     def flow(self,level):
@@ -178,6 +179,24 @@ class FloodConfig:
         peak=172 if self.latitude>=0 else 355
         return self.evaporation_mm_day*.001/86400*(1+self.season_amplitude*math.cos(2*math.pi*(day-peak)/365))
 
+    def exchange_geometry(self,level,net_flow,available_depth=math.inf):
+        """Conditional two-layer friction bound, not a resolved estuary model.
+
+        Return flow needs a submerged outlet AND density head exceeding the
+        opposing free-surface head. Equal counterflows leave net storage alone.
+        Half-section/interface drag is deliberately conservative. No tidal or
+        wind forcing is invented. Density contrast is an approximate 0.7 kg/m³
+        per g/L; it affects this rating only, not the water volume equation.
+        """
+        wet=min(self.depth_m,max(0.,self.depth_m+level),max(0.,available_depth))
+        if wet<=0 or self.exchange_factor==0 or self.opening==0:return (0.,0.,0.,0.)
+        area=wet*(self.width_m+self.side_slope*wet)/2
+        perimeter=self.width_m+wet*math.hypot(1,self.side_slope)+2*self.side_slope*wet
+        conductance=self.opening*self.exchange_factor*area/self.roughness*(area/perimeter)**(2/3)/math.sqrt(self.length_m)
+        capacity=max(0.,(self.flow(-self.depth_m)-net_flow)/2)
+        critical=self.opening*area*math.sqrt(9.81*wet/2)
+        return conductance,max(0.,-level),.7*wet/(1000.+.7*self.inflow_salinity_g_l),min(capacity,critical)
+
 
 @dataclass
 class Flooding:
@@ -196,7 +215,7 @@ class Flooding:
     last_inflow_m3_s: float=0.
     last_evaporation_m3_s: float=0.
     history: list=field(default_factory=list)
-    version: int=2
+    version: int=3
     salt_mass_kg: float=0.
     initial_salt_kg: float=0.
     imported_salt_kg: float=0.
@@ -204,6 +223,8 @@ class Flooding:
     salt_baseline_seconds: float=0.
     salt_known: bool=True
     salt_origin: str='dry_start'
+    exchanged_m3: float=0.
+    exchange_calculations: int=0
 
     def restore_legacy(self):
         """Migrate both JSON regions and old graph-decoded mission objects.
@@ -212,15 +233,17 @@ class Flooding:
         dry, non-spilling run permits an estimate from the recorded sea inflow.
         Otherwise keep the water and explicitly leave its salt inventory unknown.
         """
-        if vars(self).get('version')!=1:return
-        vars(self.config).setdefault('inflow_salinity_g_l',38.)
-        vars(self.config).setdefault('solubility_g_l',300.)
-        known=self.initial_volume_m3==0 and self.spilled_m3==0
-        mass=self.inflow_m3*self.config.inflow_salinity_g_l if known else 0.
-        self.salt_mass_kg=mass;self.initial_salt_kg=0.;self.imported_salt_kg=mass;self.exported_salt_kg=0.
-        self.salt_baseline_seconds=0. if known else self.elapsed_seconds
-        self.salt_known=known;self.salt_origin='legacy_assumed_inflow' if known else 'legacy_unknown'
-        self.version=2
+        if vars(self).get('version') not in (1,2):return
+        if self.version==1:
+            vars(self.config).setdefault('inflow_salinity_g_l',38.)
+            vars(self.config).setdefault('solubility_g_l',300.)
+            known=self.initial_volume_m3==0 and self.spilled_m3==0
+            mass=self.inflow_m3*self.config.inflow_salinity_g_l if known else 0.
+            self.salt_mass_kg=mass;self.initial_salt_kg=0.;self.imported_salt_kg=mass;self.exported_salt_kg=0.
+            self.salt_baseline_seconds=0. if known else self.elapsed_seconds
+            self.salt_known=known;self.salt_origin='legacy_assumed_inflow' if known else 'legacy_unknown'
+        # Existing experiments keep their one-way boundary until explicitly enabled.
+        self.config.exchange_factor=0.;self.exchanged_m3=0.;self.exchange_calculations=0;self.version=3
 
     def initialize_salt(self,salinity_g_l):
         """Explicit current-state assumption; never reinterpret past evaporation."""
@@ -255,6 +278,50 @@ class Flooding:
             exported=min(self.salt_mass_kg,concentration*spilled)
             self.salt_mass_kg-=exported;self.exported_salt_kg+=exported
 
+    def _exchange_geometry(self):
+        if not self.channel_open or not self.salt_known or self.volume_m3<=0:return (0.,0.,0.,0.)
+        level=self.level
+        return self.config.exchange_geometry(level,self.config.flow(level),level-float(self.curve.levels[0]))
+
+    def _exchange_rate(self,concentration,geometry):
+        conductance,head,density,capacity=geometry
+        return min(capacity,conductance*math.sqrt(max(0.,abs(concentration-self.config.inflow_salinity_g_l)*density-head)))
+
+    @property
+    def exchange_rate(self):
+        return self._exchange_rate(self.salinity_g_l,self._exchange_geometry()) if self.salinity_g_l is not None else 0.
+
+    def _exchange_salt(self,seconds):
+        """Implicit scalar salt exchange; stiff tiny reservoirs cannot go negative.
+
+        Net inlet salt has already arrived. Dissolved outflow is bounded by
+        solubility; a solid reserve can dissolve, but never leaves as sediment.
+        Gross counterflows are recorded separately and cancel in water storage.
+        """
+        geometry=self._exchange_geometry()
+        if not self.salt_known or not geometry[0] or not geometry[3]:return
+        v=self.volume_m3;old=self.salt_mass_kg;source=self.config.inflow_salinity_g_l;limit=self.config.solubility_g_l
+        concentration=min(limit,old/v)
+        if self._exchange_rate(concentration,geometry)==0:return
+        q=self._exchange_rate(limit,geometry)
+        saturated=old+(source-limit)*q*seconds>=limit*v
+        if saturated:new=old+(source-limit)*q*seconds
+        else:
+            low,high=0.,limit
+            for _ in range(64):
+                c=(low+high)/2;q=self._exchange_rate(c,geometry)
+                residual=c*v-old-(source-c)*q*seconds
+                if residual>0:high=c
+                else:low=c
+                if high-low<=max(1e-12,c*2e-15):break
+            q=self._exchange_rate((low+high)/2,geometry)
+            fraction=(q*seconds)/(v+q*seconds)
+            new=old*(1-fraction)+source*v*fraction
+        exchanged=q*seconds;imported=source*exchanged
+        exported=max(0.,math.fsum((old,imported,-new)))
+        self.salt_mass_kg=new;self.imported_salt_kg+=imported;self.exported_salt_kg+=exported
+        self.exchanged_m3+=exchanged;self.exchange_calculations+=1
+
     def replace_curve(self,curve):
         """Terrain changes preserve water and salt; excess leaves as mixed brine."""
         curve.validate()
@@ -271,9 +338,9 @@ class Flooding:
 
     def validate(self):
         self.curve.validate();self.config.validate()
-        if self.version!=2 or type(self.project_id) is not str or not self.project_id or type(self.channel_open) is not bool:
+        if self.version!=3 or type(self.project_id) is not str or not self.project_id or type(self.channel_open) is not bool:
             raise ValueError('Повреждён гидрологический сценарий')
-        for name in ('volume_m3','initial_volume_m3','elapsed_seconds','inflow_m3','evaporated_m3','spilled_m3','skipped_seconds','last_inflow_m3_s','last_evaporation_m3_s'):
+        for name in ('volume_m3','initial_volume_m3','elapsed_seconds','inflow_m3','evaporated_m3','spilled_m3','skipped_seconds','last_inflow_m3_s','last_evaporation_m3_s','exchanged_m3'):
             value=getattr(self,name)
             if type(value) not in (int,float) or not math.isfinite(value) or value<0:raise ValueError('Повреждён баланс воды')
         if self.volume_m3>self.curve.capacity+1e-6 or abs(self.balance_error)>max(1e-6,(self.initial_volume_m3+self.inflow_m3)*1e-11):
@@ -288,6 +355,7 @@ class Flooding:
             raise ValueError('Нарушен баланс соли')
         if len(self.history)>2000:raise ValueError('Слишком длинная история воды')
         if type(self.calculations) is not int or self.calculations<0:raise ValueError('Повреждён счётчик расчётов воды')
+        if type(self.exchange_calculations) is not int or self.exchange_calculations<0:raise ValueError('Повреждён счётчик обмена с морем')
         previous=-1.
         for row in self.history:
             keys={'seconds','level_msl','volume_m3','area_m2'}
@@ -343,12 +411,17 @@ class Flooding:
             if (q==0 and (self.volume_m3==0 or self.config.evaporation_mm_day==0) or
                     self.volume_m3==0 and q<=minimum_evap or
                     self.config.season_amplitude==0 and q==e):
-                self.skipped_seconds+=remaining;self.elapsed_seconds+=remaining
+                exchange_possible=bool(self._exchange_geometry()[0])
+                salt_changes=self.exchange_rate>0 or q*self.config.inflow_salinity_g_l>0
+                dt=min(remaining,max_step,86400.-self.elapsed_seconds%86400) if exchange_possible and salt_changes else remaining
+                self.skipped_seconds+=dt;self.elapsed_seconds+=dt
                 self.last_inflow_m3_s=q;self.last_evaporation_m3_s=min(q,e) if self.volume_m3==0 else e
                 if q>0:
-                    self._salt_flux(q*remaining,self.volume_m3)
-                    self.inflow_m3+=q*remaining;self.evaporated_m3+=q*remaining
-                break
+                    self._salt_flux(q*dt,self.volume_m3)
+                    self.inflow_m3+=q*dt;self.evaporated_m3+=q*dt
+                self._exchange_salt(dt);remaining-=dt
+                if self.elapsed_seconds-self.history[-1]['seconds']>=86400:self._record_history()
+                continue
             change_limit=.02*self.curve.capacity/abs(q-e) if q!=e else max_step
             dt=min(remaining,max_step,86400.-self.elapsed_seconds%86400,change_limit)
             mid=self.elapsed_seconds+dt/2;old=self.volume_m3
@@ -387,6 +460,7 @@ class Flooding:
             self._salt_flux(incoming,max(0.,new),spilled)
             new=min(self.curve.capacity,max(0.,new))
             self.volume_m3=new;self.inflow_m3+=incoming;self.evaporated_m3+=evap;self.spilled_m3+=spilled
+            self._exchange_salt(dt)
             self.last_inflow_m3_s=incoming/dt;self.last_evaporation_m3_s=evap/dt
             self.elapsed_seconds+=dt;remaining-=dt;self.calculations+=1
             if not self.history or self.elapsed_seconds-self.history[-1]['seconds']>=86400:
@@ -408,7 +482,10 @@ class Flooding:
             dissolved_salt_kg=self.dissolved_salt_kg,precipitated_salt_kg=self.precipitated_salt_kg,
             initial_salt_kg=self.initial_salt_kg if self.salt_known else None,
             imported_salt_kg=self.imported_salt_kg if self.salt_known else None,
-            exported_salt_kg=self.exported_salt_kg if self.salt_known else None,salt_balance_error_kg=self.salt_balance_error)
+            exported_salt_kg=self.exported_salt_kg if self.salt_known else None,salt_balance_error_kg=self.salt_balance_error,
+            exchange_factor=self.config.exchange_factor,exchange_m3_s=self.exchange_rate,exchanged_m3=self.exchanged_m3,
+            gross_inflow_m3=self.inflow_m3+self.exchanged_m3,channel_outflow_m3=self.exchanged_m3,
+            exchange_calculations=self.exchange_calculations)
 
     def to_data(self):
         from dataclasses import asdict
@@ -419,7 +496,7 @@ class Flooding:
 
     @classmethod
     def from_data(cls,data):
-        if data.get('format')!='ATS_FLOODING' or data.get('version') not in (1,2):raise ValueError('Неизвестный формат водоёма')
+        if data.get('format')!='ATS_FLOODING' or data.get('version') not in (1,2,3):raise ValueError('Неизвестный формат водоёма')
         curve=BasinCurve.create(**data['curve']);config=FloodConfig(**data['config'])
         state=deepcopy(data['state'])
         if state.get('version',data['version'])!=data['version']:raise ValueError('Несогласованные версии водоёма')

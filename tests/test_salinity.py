@@ -18,7 +18,8 @@ def legacy_data(model):
     data=model.to_data();data['version']=data['state']['version']=1
     for name in list(data['state']):
         if 'salt' in name:del data['state'][name]
-    for name in ('inflow_salinity_g_l','solubility_g_l'):del data['config'][name]
+    for name in ('inflow_salinity_g_l','solubility_g_l','exchange_factor'):del data['config'][name]
+    data['state'].pop('exchanged_m3',None);data['state'].pop('exchange_calculations',None)
     for row in data['state']['history']:
         row.pop('salinity_g_l',None);row.pop('salt_mass_kg',None)
     return data
@@ -125,7 +126,7 @@ def test_legacy_water_import_does_not_invent_measured_salt(volume,spill,known):
     old=legacy_data(m);water={k:getattr(m,k) for k in ('volume_m3','inflow_m3','spilled_m3','elapsed_seconds')}
     q=Flooding.from_data(old)
     assert all(getattr(q,k)==v for k,v in water.items())
-    assert q.version==2 and q.salt_known==known
+    assert q.version==3 and q.salt_known==known
     assert all('salinity_g_l' not in r for r in q.history)
     if known:
         assert q.salt_origin=='legacy_assumed_inflow'
@@ -170,7 +171,7 @@ def test_previous_state_v15_and_region_v4_migrate_without_mutating_source_files(
                         node['attrs']['version']=1
                         node['attrs']={k:v for k,v in node['attrs'].items() if 'salt' not in k}
                     elif node.get('type')=='ats.hydrology.FloodConfig':
-                        for k in ('inflow_salinity_g_l','solubility_g_l'):node['attrs'].pop(k,None)
+                        for k in ('inflow_salinity_g_l','solubility_g_l','exchange_factor'):node['attrs'].pop(k,None)
                     elif node['kind']=='dict':
                         node['items']=[kv for kv in node['items'] if kv[0] not in ('salinity_g_l','salt_mass_kg')]
                 payload=json.dumps(manifest).encode()

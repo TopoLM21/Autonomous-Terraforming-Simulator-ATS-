@@ -174,6 +174,7 @@ class ChannelProject:
     completed:list=field(default_factory=list)
     history:list=field(default_factory=list)
     finished_spans:list=field(default_factory=list)
+    progress_policy:str='profile'
     version:int=1
 
     def validate(self):
@@ -186,6 +187,7 @@ class ChannelProject:
             raise ValueError('Неверный номер участка канала')
         if not isinstance(self.finished_spans,list) or any(not isinstance(p,(list,tuple)) or len(p)!=2 or not all(isinstance(v,(int,float)) and math.isfinite(v) for v in p) or not 0<=p[0]<p[1]<=self.length+1e-6 for p in self.finished_spans):
             raise ValueError('Неверные интервалы завершённого профиля канала')
+        if self.progress_policy not in ('natural','profile'):raise ValueError('Неверный критерий завершения канала')
 
     @classmethod
     def create(cls,raster,points,**parameters):
@@ -207,7 +209,7 @@ class ChannelProject:
 
     @property
     def identity(self):
-        data={k:v for k,v in self.to_data().items() if k not in ('active_section','completed','history','finished_spans')}
+        data={k:v for k,v in self.to_data().items() if k not in ('active_section','completed','history','finished_spans','progress_policy')}
         for key in ('width_m','depth_m','shore_offset_m','angle_deg','side_m','spoil_height_m'):
             if data[key] is not None:data[key]=float(data[key])
         return hashlib.sha256(json.dumps(data,sort_keys=True).encode()).hexdigest()[:16]
@@ -237,7 +239,7 @@ class ChannelProject:
             starts.append(edge_start+float(np.linalg.norm(start-a)));first.append(index==0)
             segments.append(PlanSegment([start.tolist(),end.tolist()],'dig',self.width_m,-self.depth_m,f'Канал · линия {index+1}'))
         return PlanConfig(segments,channel=dict(start=p[0].tolist(),tangent=tangent.tolist(),project_id=self.identity,
-            chainage_starts=starts,first_edges=first,project_length_m=self.length,finished_spans=[p.copy() for p in self.finished_spans]))
+            chainage_starts=starts,first_edges=first,project_length_m=self.length,finished_spans=[p.copy() for p in self.finished_spans],completion_policy=self.progress_policy))
 
     def configuration(self,landscape,config,index=None,*,origin=None,prepared=None,side_m=None):
         index=self.active_section if index is None else index
@@ -245,6 +247,8 @@ class ChannelProject:
         self.validate();origin=self.origin(landscape.raster,index) if origin is None else origin
         c=workspace_config(landscape,config,origin,side,prepared=prepared)
         c.trench.angle_deg=self.angle_deg;c.terrain.dump_max_height=self.spoil_height_m
+        if self.finished_spans or self.completed:c.terrain.cut_policy=self.progress_policy
+        else:self.progress_policy='natural' if c.terrain.cut_policy=='natural' and self.angle_deg is None else 'profile'
         c.plan=self.plan(origin,side_m=side)
         if not c.plan.segments:
             c.plan=PlanConfig([]);c.validate();return c

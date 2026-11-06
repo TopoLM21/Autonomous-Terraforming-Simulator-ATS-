@@ -34,6 +34,7 @@ class TerrainConfig:
     spoil_reserve_margin: float = .2
     spoil_front_sections: float = 2.
     completion_volume: float = 0.05
+    cut_policy: str = 'profile'  # natural: remove bottom cells, let faces relax
 
 
 @dataclass
@@ -120,6 +121,7 @@ class FleetConfig:
     waiting_offset: float = 3.0
     ground_clearance: float = 0.4
     altitude_spacing: float = 3.0
+    airspace_mode: str = 'per_drone'  # shared_lanes: four scene-wide cruise levels
     detour_distance: float = 3.0
     emergency_landing_seconds: float = 20.0
     comparison_step_limit: int = 2_000_000
@@ -188,6 +190,7 @@ class Config:
         require(not f.models or len(f.models) == f.count, "Число моделей не совпадает с числом дронов")
         require(f.wait_mode in ("ground", "air"), "Неизвестный режим очереди")
         require(f.separation > 0 and f.pad_spacing > f.separation and f.altitude_spacing > f.separation and f.waiting_offset > f.separation and f.ground_clearance > 0 and f.detour_distance > f.separation and f.emergency_landing_seconds > 0 and f.comparison_step_limit > 0, "Неверные расстояния безопасности или предел сравнения")
+        require(f.airspace_mode in ('per_drone','shared_lanes'), 'Неверный режим эшелонов')
         for model in f.models:
             clone = Config(terrain=t, trench=q, drone=model, base=b, dust=dust, seed=self.seed, dt=self.dt, start_hour=self.start_hour)
             clone.validate()
@@ -198,6 +201,7 @@ class Config:
         require(isinstance(t.avalanche_sweeps, int) and t.avalanche_sweeps > 0, "Неверное число проходов осыпания")
         require(t.grab_radius >= t.cell_size and t.completion_volume > 0 and t.avalanche_epsilon > 0, "Неверный радиус/допуск")
         require(t.avalanche_stop_volume > 0, "Неверный допуск остановки осыпания")
+        require(t.cut_policy in ('profile','natural'), 'Неверный режим разработки откосов')
         require(isinstance(self.seed, int) and self.seed >= 0, "Seed должен быть неотрицательным целым числом")
         require(self.event_limit > 0 and self.frame_budget_ms > 0 and self.max_frame_steps > 0 and self.display_interval_ms > 0 and self.terrain_display_seconds > 0, "Неверные параметры обновления интерфейса")
         require(self.slope_model in ('materials','legacy'), 'Неизвестная механика откосов')

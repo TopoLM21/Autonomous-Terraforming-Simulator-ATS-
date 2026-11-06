@@ -189,6 +189,11 @@ class Simulation:
         return np.array([x, y, self.terrain.sample(x, y)+f.ground_clearance])
 
     def cruise(self, d):
+        if self.config.fleet.airspace_mode=='shared_lanes':
+            assigned=getattr(d,'flight_altitude_m',None)
+            if not d.grounded and assigned is not None:return assigned
+            from .airspace import cruise
+            return cruise(self,d)
         surface = self.terrain.clearance_surface if self.config.reference_height is not None or self.shared_site is not None else max(float(self.terrain.reference.max()), self.config.terrain.dump_max_height)
         return surface+d.config.work_height+self.config.base.roof_height+d.identifier*self.config.fleet.altitude_spacing
 
@@ -233,7 +238,7 @@ class Simulation:
             if np.any(candidate.work_mask & near):
                 raise ValueError("Кисть пересекает базу или посадочную площадку")
         t = self.terrain
-        for key in ("target", "segment_labels", "excavation", "fill_mask", "bottom", "_cut_indices", "_fill_indices"):
+        for key in ("target", "segment_labels", "excavation", "fill_mask", "bottom", "core_mask", "_dig_mask", "_cut_indices", "_fill_indices"):
             setattr(t, key, getattr(candidate, key))
         t.revision += 1
         t.initial_excavation = t.remaining
@@ -635,19 +640,21 @@ class Simulation:
                         break
             return
         self._event_keys.pop((d.identifier,"traffic"),None)
-        distance = np.linalg.norm(d.position-previous)
-        count = max(2,int(math.ceil(distance/(self.terrain.cell/2)))+1)
-        for p in np.linspace(previous,d.position,count):
-            ground = self.terrain.sample(*p[:2])
-            if self.shared_site is not None:ground=max(ground,self.shared_site.obstacle_height(p))
-            elif self.logistics and getattr(getattr(self.logistics,'solar_array',None),'mechanism',None)=='self_deploying':ground=max(ground,self.logistics.solar_array.obstacle_height(self.logistics,p))
-            if np.linalg.norm(p[:2]-self.base.position[:2]) <= self.config.base.radius:
-                ground = max(ground,self.base.position[2]+self.config.base.roof_height)
-            if p[2] < ground-1e-9:
-                d.position[:] = previous
-                d.velocity[:] = 0
-                self.block(f"Траектория дрона {d.serial} пересекает рельеф или базу")
-                return
+        from .airspace import above_ground
+        if not above_ground(self,previous,d.position):
+            distance = np.linalg.norm(d.position-previous)
+            count = max(2,int(math.ceil(distance/(self.terrain.cell/2)))+1)
+            for p in np.linspace(previous,d.position,count):
+                ground = self.terrain.sample(*p[:2])
+                if self.shared_site is not None:ground=max(ground,self.shared_site.obstacle_height(p))
+                elif self.logistics and getattr(getattr(self.logistics,'solar_array',None),'mechanism',None)=='self_deploying':ground=max(ground,self.logistics.solar_array.obstacle_height(self.logistics,p))
+                if np.linalg.norm(p[:2]-self.base.position[:2]) <= self.config.base.radius:
+                    ground = max(ground,self.base.position[2]+self.config.base.roof_height)
+                if p[2] < ground-1e-9:
+                    d.position[:] = previous
+                    d.velocity[:] = 0
+                    self.block(f"Траектория дрона {d.serial} пересекает рельеф или базу")
+                    return
         if arrived:
             if d.detour is not None:
                 d.detour = None
@@ -751,6 +758,7 @@ class Simulation:
         self._reserve_return(d)
 
     def _landed(self,d):
+        d.flight_altitude_m=None
         d.trip = None
         d.destination = None
         d.detour = None
@@ -776,6 +784,9 @@ class Simulation:
                 if d.identifier in self.queue:self.queue.remove(d.identifier)
                 d.trip=trip=next_trip;d.destination=None;d.detour=None;d.transition(DS.TO_DIG)
                 self.drone_event(d,"заряжен лазером до 100%: продолжает работу в воздухе")
+        if self.config.fleet.airspace_mode=='shared_lanes':
+            if trip is not None:d.flight_altitude_m=trip.altitude
+            elif getattr(d,'flight_altitude_m',None) is None:d.flight_altitude_m=self.cruise(d)
         d.elapsed += dt
         if d.state == DS.TAKEOFF:
             self._move(d,[*d.position[:2],trip.altitude],DS.TO_DIG,dt)
@@ -1246,6 +1257,11 @@ class Simulation:
             drone_rows[-1].update(dig_rate_kg_s=d.config.dig_rate_kg_s,full_scoop_seconds=d.config.scoop_duration(d.config.payload),digging_j_m3=d.config.digging_j_m3)
             drone_rows[-1].update(laser_received_kwh=d.laser_received/KWH,laser_power_w=d.laser_power_w,laser_status=d.laser_status,flight_power_w=d.last_flight_power_w,airborne_seconds=d.airborne_seconds,current_flight_seconds=d.flight_seconds,last_flight_seconds=d.last_flight_seconds,longest_flight_seconds=d.longest_flight_seconds)
         extra = {"remaining_cut_m3":t.remaining_cut,"remaining_fill_m3":t.remaining_fill,"stockpile_m3":t.stockpile_volume,"filled_mass_kg":self.filled_mass,"filled_m3":self.filled_mass/self.config.terrain.density,"plan_segments":len(self.config.plan.segments) if self.config.plan is not None else 1,"landing_requested":self.landing_requested}
+        if t.natural_excavation or self.config.fleet.airspace_mode=='shared_lanes':
+            from .airspace import ground_ceiling
+            extra['operation_policy']=dict(excavation='natural' if t.natural_excavation else 'profile',
+                airspace=self.config.fleet.airspace_mode,static_ceiling_msl=ground_ceiling(self),
+                cruise_levels_msl=sorted({self.cruise(d) for d in self.drones}))
         extra.update(map_side_m=t.cell*t.height.shape[0],grid_cells=t.height.shape[0],cell_size_m=t.cell)
         extra['georeference']=self.config.georeference
         extra.update(base_capacity_kwh=b.config.battery/KWH,

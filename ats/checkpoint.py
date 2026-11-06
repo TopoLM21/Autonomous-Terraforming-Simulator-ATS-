@@ -19,7 +19,7 @@ import numpy as np
 
 
 FORMAT='ATS_SIMULATION'
-VERSION=16
+VERSION=17
 MAX_BYTES=1_500_000_000
 MAX_NODES=2_000_000
 
@@ -90,7 +90,7 @@ class _Encoder:
             if name not in self.classes:raise ValueError(f'Нельзя сохранить объект {name}')
             node.update(kind='object',type=name,attrs={k:self.encode(v,matrix=name=='ats.config.Config' and
                 k in ('initial_height','reference_height') and v is not None) for k,v in vars(value).items()
-                if k not in ('_sector_progress_cache','_prefetch_runtime','_prefetch_auto_key','_prefetch_world_stamp','_flooding_basis')})
+                if k not in ('_sector_progress_cache','_prefetch_runtime','_prefetch_auto_key','_prefetch_world_stamp','_flooding_basis','_flight_ceiling_cache')})
         return {'ref':index}
 
 
@@ -227,6 +227,12 @@ def _validate(session):
         array=getattr(t,key)
         if not isinstance(array,np.ndarray) or array.shape!=shape or not np.all(np.isfinite(array)):
             raise ValueError('Повреждён рельеф')
+    for key in ('core_mask','_dig_mask'):
+        array=getattr(t,key)
+        if not isinstance(array,np.ndarray) or array.shape!=shape or array.dtype!=np.dtype(bool):raise ValueError('Повреждена маска разработки дна')
+    expected=t.excavation&t.core_mask if t.natural_excavation else t.excavation
+    if not np.array_equal(t.dig_mask,expected) or not np.array_equal(t._cut_indices,np.flatnonzero(expected)):
+        raise ValueError('Маска разработки не соответствует режиму')
     if s.config.soil_profile is not None:
         from .soil import SoilField
         if not isinstance(t.soil,SoilField) or t.soil.profile!=s.config.soil_profile:
@@ -244,6 +250,10 @@ def _validate(session):
     if len(s.drones)!=s.config.fleet.count or [d.identifier for d in s.drones]!=list(range(len(s.drones))):
         raise ValueError('Повреждён состав флота')
     if len({d.serial for d in s.drones})!=len(s.drones):raise ValueError('Повторяющийся экземпляр дрона')
+    for d in s.drones:
+        assigned=getattr(d,'flight_altitude_m',None)
+        if assigned is not None and (not isinstance(assigned,(int,float)) or not math.isfinite(assigned)):
+            raise ValueError('Повреждена назначенная высота полёта')
     if t.config is not s.config or s.base.config is not s.config.base or s.planner.config is not s.config:
         raise ValueError('Нарушены ссылки на конфигурацию')
     if not -1e-7<=s.base.battery<=s.base.config.battery+1e-7:raise ValueError('Неверный заряд базы')
@@ -279,6 +289,10 @@ def _validate(session):
             w.excavator.soil.validate(w.excavator.bucket_kg)
             if w.excavator.soil.profile!=s.config.soil_profile:raise ValueError('Неверный материал ковша')
         jobs={id(job) for job in w.jobs}
+        for job in w.jobs:
+            assigned=getattr(job,'flight_altitude_m',None)
+            if assigned is not None and (not isinstance(assigned,(int,float)) or not math.isfinite(assigned)):
+                raise ValueError('Повреждена высота логистического рейса')
         if any(id(job) not in jobs for job in w.active.values()):raise ValueError('Потеряно активное задание')
         for d in s.drones:
             if any(w.inventory.items[id].holder_id!=f'drone_{d.serial}' for id in d.battery_ids):
@@ -364,16 +378,26 @@ def load_state(path):
             # Old missions keep their exact target and original common-angle
             # law. No automatic re-excavation or silent material conversion.
             from .config import Config
-            from .config import TerrainConfig
+            from .config import TerrainConfig,FleetConfig
             from .logistics_config import LogisticsConfig
             from .terrain import Terrain
             for value in decoder.objects:
                 if isinstance(value,Config) and 'slope_model' not in vars(value):value.slope_model='legacy'
                 if isinstance(value,TerrainConfig) and 'compact_spoil' not in vars(value):value.compact_spoil=False
+                if isinstance(value,TerrainConfig) and 'cut_policy' not in vars(value):value.cut_policy='profile'
+                if isinstance(value,FleetConfig) and 'airspace_mode' not in vars(value):value.airspace_mode='per_drone'
                 if isinstance(value,LogisticsConfig) and 'solar' not in vars(value):value.solar=None
                 if isinstance(value,LogisticsConfig) and 'battery_platforms' not in vars(value):value.battery_platforms=None
                 if isinstance(value,LogisticsConfig) and 'self_solar' not in vars(value):value.self_solar=None
                 if isinstance(value,Terrain) and not hasattr(value,'dump_slope'):value.dump_slope=value.slope
+            # Previous missions retain exact-profile goals and committed jobs.
+            # Core masks are rebuilt only when absent, never by changing height.
+            for value in decoder.objects:
+                if isinstance(value,Terrain) and 'core' not in vars(value) and '_dig_mask' not in vars(value):
+                    value.core_mask=value.bottom.copy();value._set_dig_indices()
+            for value in decoder.objects:
+                if isinstance(value,Terrain) and 'core' in vars(value) and '_dig_mask' not in vars(value):
+                    value.core_mask=value.core.core_mask&value.excavation;value._set_dig_indices()
             if manifest['version']<11:
                 from .workfront import Workfront
                 from .simulation import Simulation

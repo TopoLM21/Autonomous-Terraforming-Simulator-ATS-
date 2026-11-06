@@ -22,6 +22,7 @@ def main():
     from ats import self_solar
     from ats.battery_platforms import BatteryPlatforms
     from ats.shared_site import SharedSite
+    from ats.terrain import Terrain
     from ats.checkpoint import load_state
     session=load_state(args.state);sim=session.simulation;project=session.complex_project
     actor=project or sim;counts={};originals=[]
@@ -33,10 +34,23 @@ def main():
         setattr(owner,name,wrapped)
     watch(SharedSite,'_build_geometry','geometry_passes')
     watch(SharedSite,'_unit_geometry','geometry_units_rebuilt')
+    watch(SharedSite,'_geometry_key','geometry_key_checks')
+    watch(SharedSite,'obstacle_height','flight_obstacle_queries')
+    watch(Terrain,'sample','height_samples')
     watch(self_solar,'support_safe','support_ground_checks')
     watch(BatteryPlatforms,'slot_position','slot_queries')
     watch(BatteryPlatforms,'_slot_coordinates','slot_coordinates')
     watch(self_solar.SelfSolarArray,'panel_pose','panel_pose_calculations')
+    try:
+        from ats import airspace
+    except ImportError:pass
+    else:
+        original=airspace.above_ground;originals.append((airspace,'above_ground',original))
+        counts['fast_ground_segments']=0;counts['low_ground_segments']=0
+        def above(*args,**kwargs):
+            result=original(*args,**kwargs);counts['fast_ground_segments' if result else 'low_ground_segments']+=1
+            return result
+        airspace.above_ground=above
     start=actor.time
     try:
         for _ in range(args.steps):

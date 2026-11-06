@@ -55,7 +55,7 @@ def cargo_clear(terrain):
 def geometry(terrain,lo,hi):
     core,site,_=context(terrain);plan=core.config.plan;front=core.front or terrain.front
     cache=core.__dict__.setdefault('_sector_progress_cache',{})
-    key=(id(core.target),id(core.design_work),float(lo),float(hi),core.cell)
+    key=(id(core.target),id(core.design_work),id(core.dig_mask),float(lo),float(hi),core.cell)
     if key in cache:return cache[key]
     step=core.cell;count=max(1,math.ceil((hi-lo)/step))
     edges=np.minimum(hi,lo+np.arange(count+1)*step);centres=(edges[1:]+edges[:-1])/2
@@ -78,6 +78,7 @@ def geometry(terrain,lo,hi):
     for offset in range(-2,3):
         bad=bins+offset;bad=bad[(bad>=0)&(bad<count)];loaded[bad]=False
     ids=np.flatnonzero(work&(along>=lo-1e-9)&(along<hi+1e-9))
+    if core.natural_excavation:ids=ids[(core.dig_mask|core.fill_mask).ravel()[ids]]
     indices=np.clip(np.floor((along.ravel()[ids]-lo)/step).astype(int),0,count-1)
     result=dict(edges=edges,loaded=loaded,ids=ids,indices=indices,revision=None)
     cache[key]=result
@@ -89,7 +90,10 @@ def ready_bins(terrain,lo,hi):
     tolerance=site.completion_volume if site else core.config.terrain.completion_volume
     stamp=(core.revision,tolerance)
     if g['revision']!=stamp:
-        residual=np.abs(core.height.ravel()[g['ids']]-core.target.ravel()[g['ids']])*core.area
+        difference=core.height.ravel()[g['ids']]-core.target.ravel()[g['ids']]
+        if core.natural_excavation:
+            residual=np.where(core.dig_mask.ravel()[g['ids']],np.maximum(difference,0),np.maximum(-difference,0))*core.area
+        else:residual=np.abs(difference)*core.area
         volumes=np.bincount(g['indices'],weights=residual,minlength=len(g['loaded']))
         ready=volumes<=tolerance*.1*np.diff(g['edges'])/max(hi-lo,core.cell)
         # Keep the engine's existing per-window completion tolerance. A field
@@ -137,10 +141,11 @@ def record(terrain,lo,hi):
     if cargo_clear(terrain):spans=merge([*spans,*intervals(g['edges'],g['ready'])])
     land=site.project.landscape if site else None
     external=land.channel_project if land and land.channel_project is not None else None
-    if spans==old and (external is None or external.get('finished_spans',[])==spans) and all(s.config.plan.channel.get('finished_spans',[])==spans for s in sims):return
+    policy='natural' if core.natural_excavation else 'profile'
+    if spans==old and (external is None or external.get('finished_spans',[])==spans and external.get('progress_policy','profile')==policy) and all(s.config.plan.channel.get('finished_spans',[])==spans for s in sims):return
     core.config.plan.channel['finished_spans']=spans
     for s in sims:s.config.plan.channel['finished_spans']=spans
-    if external is not None:external['finished_spans']=spans
+    if external is not None:external['finished_spans']=spans;external['progress_policy']=policy
 
 
 def record_visible(terrain):

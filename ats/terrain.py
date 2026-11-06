@@ -28,6 +28,7 @@ class Terrain:
         dx = np.maximum(np.abs(self.x-q.x)-q.length/2, 0)
         dy = np.maximum(np.abs(self.y-q.y)-q.width/2, 0)
         self.bottom = (dx == 0) & (dy == 0)
+        self.core_mask=self.bottom.copy()
         from .slopes import envelope
         self.target = np.minimum(self.reference, envelope(self,np.hypot(dx,dy),-q.depth,'dig'))
         if config.reference_height is not None:
@@ -63,11 +64,12 @@ class Terrain:
             self.dump_mask,self.dump_cap,_,_=bank_layout(self,config.plan,labels>0,protected)
         if config.plan is not None:
             self.set_plan(config.plan)
-        self._cut_indices=np.flatnonzero(self.excavation)
+        self._set_dig_indices()
         self._fill_indices=np.flatnonzero(self.fill_mask)
         self._dump_indices=np.flatnonzero(self.dump_mask & (self.dump_cap>self.reference))
         self._clearance_surface=max(float(self.reference.max()),float(self.dump_cap.max()),
                                     float(self.height.max()),float(self.target.max()))
+        self._clearance_revision=self.revision
         self.minimum_surface=float(min(self.reference.min(),self.target.min()))
         if config.plan is not None and config.plan.channel and config.plan.channel.get('operations'):
             from .workfront import Workfront
@@ -137,6 +139,11 @@ class Terrain:
     @property
     def clearance_surface(self):
         # Dump height is relative to the DEM, whereas flight Z is absolute.
+        if getattr(self,'_clearance_revision',None)!=self.revision:
+            # Explicit external edits use revision invalidation; normal scoops
+            # and capped deposits maintain this bound locally in _mark_dirty.
+            self._clearance_surface=max(self._clearance_surface,float(self.height.max()),float(self.dump_cap.max()),float(self.target.max()))
+            self._clearance_revision=self.revision
         return self._clearance_surface
 
     @property
@@ -149,6 +156,19 @@ class Terrain:
             self._remaining_cache=self._cut_cache+self._fill_cache
             self._remaining_revision=revision
         return self._remaining_cache
+
+    @property
+    def natural_excavation(self):
+        core=self.__dict__.get('core',self)
+        return core.config.terrain.cut_policy=='natural' and core.config.trench.angle_deg is None
+
+    @property
+    def dig_mask(self):return self._dig_mask
+
+    def _set_dig_indices(self):
+        self._dig_mask=self.excavation&self.core_mask if self.natural_excavation else self.excavation
+        self._cut_indices=np.flatnonzero(self._dig_mask)
+        self._remaining_revision=-1
 
     @property
     def remaining_cut(self):
@@ -178,8 +198,12 @@ class Terrain:
         target, labels = target_surface(self, plan)
         cutting = np.zeros(self.height.shape,dtype=bool)
         filling = np.zeros(self.height.shape,dtype=bool)
+        core_mask=np.zeros(self.height.shape,dtype=bool)
         for number,segment in enumerate(plan.segments,1):
-            if segment.mode=='dig':cutting |= labels==number
+            if segment.mode=='dig':
+                cutting |= labels==number
+                from .plan import line_distance
+                core_mask |= (labels==number)&(line_distance(self.x,self.y,segment.points)<=segment.width/2+1e-10)
             else:filling |= labels==number
         work = cutting | filling
         if np.any(work & self.dump_mask):
@@ -197,7 +221,7 @@ class Terrain:
                 raise ValueError("Переход между мазками круче угла откоса: увеличьте расстояние, измените высоты или удалите перекрывающийся мазок")
         self.target, self.segment_labels = target, labels
         self.excavation, self.fill_mask = cutting, filling
-        self._cut_indices=np.flatnonzero(cutting);self._fill_indices=np.flatnonzero(filling)
+        self.core_mask=core_mask;self._set_dig_indices();self._fill_indices=np.flatnonzero(filling)
         self.bottom = labels > 0
         self.revision += 1
 
@@ -237,7 +261,7 @@ class Terrain:
             versions.ravel()[ids]+=1
 
     def source_excess(self, source="cut"):
-        mask, surface = (self.dump_mask, self.reference) if source == "stockpile" else (self.excavation, self.target)
+        mask, surface = (self.dump_mask, self.reference) if source == "stockpile" else (self.dig_mask, self.target)
         return np.where(mask, np.maximum(self.height-surface, 0), 0)
 
     def source_indices(self, source='cut'):
@@ -263,7 +287,7 @@ class Terrain:
         left=max(0,math.floor((x-radius)/self.cell));right=min(n,math.floor((x+radius)/self.cell)+1)
         bottom=max(0,math.floor((y-radius)/self.cell));top=min(n,math.floor((y+radius)/self.cell)+1)
         patch=(slice(bottom,top),slice(left,right))
-        mask,surface=(self.dump_mask,self.reference) if source=='stockpile' else (self.excavation,self.target)
+        mask,surface=(self.dump_mask,self.reference) if source=='stockpile' else (self.dig_mask,self.target)
         footprint=(self.x[patch]-x)**2+(self.y[patch]-y)**2<=radius**2
         if source=='cut' and self.front is not None and self.front.sectors:
             allowed=self.front.cut_mask(patch)
@@ -585,6 +609,9 @@ class Terrain:
     def _mark_dirty(self,patch,mask):
         yy,xx=np.nonzero(mask)
         if not len(xx):return
+        core=self.__dict__.get('core',self)
+        self._clearance_surface=max(Terrain.clearance_surface.fget(core),float(self.height[patch].max()))
+        self._clearance_revision=self.revision+1
         self._touch_route_cells(yy+patch[0].start,xx+patch[1].start)
         if np.any(self.dump_mask[patch]&mask):self._dump_content_revision=getattr(self,'_dump_content_revision',0)+1
         self._grow_bounds(int(yy.min())+patch[0].start,int(yy.max())+patch[0].start+1,
@@ -614,6 +641,7 @@ class Terrain:
         t = self.config.terrain
         height = self.height.ravel()
         moved = 0.0
+        old_revision=self.revision
         count=t.avalanche_sweeps if sweeps is None else sweeps
         pairs=self._local_pairs(count) if self.config.reference_height is not None or self.soil is not None else self._pairs
         for _ in range(count):
@@ -662,6 +690,7 @@ class Terrain:
                 break
         if moved > 0:
             self.revision += 1
+            if getattr(self,'_clearance_revision',None)==old_revision:self._clearance_revision=self.revision
         return moved
 
     def max_slope_excess(self):

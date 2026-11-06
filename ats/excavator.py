@@ -110,7 +110,7 @@ class Excavator:
     def work_point(self, terrain, inventory):
         if not self.stable(self.position,terrain):return None
         patch=terrain.patch(*self.position[:2],self.config.reach_m)
-        available=np.where(terrain.excavation[patch]&self.reachable_mask(terrain,inventory,patch=patch),
+        available=np.where(terrain.dig_mask[patch]&self.reachable_mask(terrain,inventory,patch=patch),
                            np.maximum(terrain.height[patch]-terrain.target[patch],0),0.)
         if terrain.front is not None and not terrain.front.sectors:
             terrain.front.update()
@@ -144,7 +144,7 @@ class Excavator:
                     distance=float(np.linalg.norm(p-self.position))
                     if distance<=terrain.cell:continue
                     patch=terrain.patch(*p[:2],self.config.reach_m)
-                    excess=np.where(terrain.excavation[patch],np.maximum(terrain.height[patch]-terrain.target[patch],0),0.)
+                    excess=np.where(terrain.dig_mask[patch],np.maximum(terrain.height[patch]-terrain.target[patch],0),0.)
                     if terrain.front is not None and not terrain.front.sectors:
                         excess=np.where(terrain.front.chainage[patch]<=terrain.front.position+terrain.front.settings['front_length_m'],excess,0.)
                     mask=self.reachable_mask(terrain,inventory,p,patch)

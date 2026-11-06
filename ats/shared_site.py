@@ -12,7 +12,7 @@ from .terrain import Terrain
 class WorkTerrain(Terrain):
     _local={'core','config','shared_site','owner_id','excavation','fill_mask','bottom',
         '_cut_indices','_fill_indices','front','initial_excavation','_remaining_revision',
-        '_remaining_cache','_cut_cache','_fill_cache','_design_indices'}
+        '_remaining_cache','_cut_cache','_fill_cache','_design_indices','_dig_mask','core_mask'}
 
     def __init__(self,core,config,site,owner_id):
         self.__dict__.update(core=core,config=config,shared_site=site,owner_id=owner_id)
@@ -30,8 +30,9 @@ class WorkTerrain(Terrain):
     def assign(self,mask):
         previous=getattr(self,'front',None)
         self.excavation=self.core.excavation&mask;self.fill_mask=self.core.fill_mask&mask
+        self.core_mask=self.core.core_mask&mask
         self.bottom=self.core.bottom&mask
-        self._cut_indices=np.flatnonzero(self.excavation);self._fill_indices=np.flatnonzero(self.fill_mask)
+        self._set_dig_indices();self._fill_indices=np.flatnonzero(self.fill_mask)
         design=self.core.design_work if self.core.design_work is not None else self.core.work_mask
         self._design_indices=np.flatnonzero(design&mask)
         self._remaining_revision=-1;self.front=None
@@ -89,7 +90,7 @@ class SharedSite:
         return mask
 
     def partition(self):
-        t=self.core;indices=np.flatnonzero(t.work_mask)
+        t=self.core;indices=np.flatnonzero(t.dig_mask|t.fill_mask)
         if not len(indices):self._refresh();return
         fixed=self.reserved_mask().ravel()[indices]
         free=indices[~fixed];units=self.project.units
@@ -130,7 +131,7 @@ class SharedSite:
         if t.remaining<=self.completion_volume:return
         idle=[u for u in self.project.units if u.simulation.state.value=='COMPLETED']
         if not idle:return
-        fixed=self.reserved_mask();available=t.work_mask&~fixed&(np.abs(t.height-t.target)>1e-10)
+        fixed=self.reserved_mask();available=(t.dig_mask|t.fill_mask)&~fixed&(np.abs(t.height-t.target)>1e-10)
         changed=False
         for unit in idle:
             candidates=np.flatnonzero(available)
@@ -164,12 +165,15 @@ class SharedSite:
                 if np.any(candidate.work_mask[patch]&near):raise ValueError('Общий план пересекает посадочную зону комплекса')
             if s.logistics:
                 from .compact_layout import active_rectangles
-                for rect in active_rectangles(s):boxes.append((*rect,float(b.position[2])))
+                for rect in active_rectangles(s):
+                    from .site_ground import rectangle_patch
+                    patch=rectangle_patch(t,rect)
+                    if patch is None or np.any(candidate.work_mask[patch]):raise ValueError('Общий план пересекает платформы или проходы комплекса')
                 for rect in s.logistics.solar_ground_rects():
                     from .site_ground import rectangle_patch
                     patch=rectangle_patch(t,rect)
                     if patch is None or np.any(candidate.work_mask[patch]):raise ValueError('Общий план пересекает солнечное поле комплекса')
-        for key in ('target','segment_labels','excavation','fill_mask','bottom','_cut_indices','_fill_indices'):setattr(t,key,getattr(candidate,key))
+        for key in ('target','segment_labels','excavation','fill_mask','bottom','core_mask','_dig_mask','_cut_indices','_fill_indices'):setattr(t,key,getattr(candidate,key))
         t.revision+=1;t.initial_excavation=t.remaining;t.design_work=t.work_mask
         t.config.plan=deepcopy(plan)
         t.minimum_surface=float(min(t.reference.min(),t.target.min()));t._clearance_surface=max(float(t.reference.max()),float(t.dump_cap.max()),float(t.height.max()),float(t.target.max()))
@@ -281,6 +285,13 @@ class SharedSite:
         ids=np.array([i for i in ids if not self._actor_groups[i] or self._actors[i].phase in ('LIFT','FLY','LOWER')],dtype=int)
         if not len(ids):return None
         current=np.array([self._actors[i].cargo_position if self._actor_groups[i] else self._actors[i].position for i in ids])
+        # Vertical broad phase uses actual swept intervals, including takeoff
+        # and descent; lane labels alone never suppress a collision check.
+        margin=self._actor_radii[ids]
+        overlaps=(np.minimum(old[2],new[2])-np.maximum(self._actor_starts[ids,2],current[:,2])<margin)&(
+            np.minimum(self._actor_starts[ids,2],current[:,2])-max(old[2],new[2])<margin)
+        ids=ids[overlaps];current=current[overlaps]
+        if not len(ids):return None
         relative=np.asarray(old)-self._actor_starts[ids]
         velocity=(np.asarray(new)-old)-(current-self._actor_starts[ids])
         norm=np.einsum('ij,ij->i',velocity,velocity)
@@ -335,6 +346,8 @@ class SharedSite:
         return tuple(sorted(rows))
 
     def invalidate_geometry(self,simulation=None):
+        for unit in self.project.units:
+            if simulation is None or unit.simulation is simulation:unit.simulation._flight_ceiling_cache=None
         if simulation is None:
             self._geometry_time=None;self._geometry_units=None
         else:

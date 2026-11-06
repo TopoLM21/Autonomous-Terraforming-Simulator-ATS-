@@ -45,12 +45,16 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.angle=QtWidgets.QDoubleSpinBox();self.angle.setRange(0,75);self.angle.setValue(0);self.angle.setSuffix('°')
         self.angle.setSpecialValueText('Авто · минимальная ширина')
         self.angle.setToolTip('Авто: минимальная устойчивая выемка по слоям. Число задаёт проектный угол; параметры грунта от него не меняются.')
+        self.cut_policy=QtWidgets.QComboBox();self.cut_policy.addItem('Дно + естественное осыпание','natural');self.cut_policy.addItem('Точный проектный профиль','profile')
+        self.cut_policy.setCurrentIndex(self.cut_policy.findData(window.config.terrain.cut_policy))
+        self.airspace=QtWidgets.QComboBox();self.airspace.addItem('Общие 4 эшелона','shared_lanes');self.airspace.addItem('Прежние высоты','per_drone')
+        self.airspace.setCurrentIndex(self.airspace.findData(window.config.fleet.airspace_mode))
         self.project_side=QtWidgets.QComboBox()
         for size in (32,64,128,256,512,1024):self.project_side.addItem(f'{size} м',size)
         self.project_side.setCurrentIndex(self.project_side.findData(512))
         self.spoil=QtWidgets.QDoubleSpinBox();self.spoil.setRange(.1,200);self.spoil.setValue(20);self.spoil.setSuffix(' м')
         self.section=QtWidgets.QSpinBox();self.section.setRange(1,1)
-        for i,(label,widget) in enumerate([('Ширина дна',self.width),('Глубина дна',self.depth),('Отступ от берега',self.offset),('Проектный откос',self.angle),('Карта рабочего участка',self.project_side),('Высота отвала',self.spoil),('Участок проекта',self.section)]):
+        for i,(label,widget) in enumerate([('Ширина дна',self.width),('Глубина дна',self.depth),('Отступ от берега',self.offset),('Проектный откос',self.angle),('Карта рабочего участка',self.project_side),('Высота отвала',self.spoil),('Участок проекта',self.section),('Разработка',self.cut_policy),('Полётные эшелоны',self.airspace)]):
             channel.addWidget(QtWidgets.QLabel(label),i//4*2,i%4);channel.addWidget(widget,i//4*2+1,i%4)
         layout.addLayout(channel)
         self.depth.valueChanged.connect(lambda v:self.target.setValue(-v))
@@ -321,6 +325,11 @@ class LandscapeDialog(QtWidgets.QDialog):
 
     def show_project(self):
         p=self.project;r=self.region.raster
+        pinned=bool(p.finished_spans or p.completed)
+        if pinned:self.cut_policy.setCurrentIndex(self.cut_policy.findData(p.progress_policy))
+        self.cut_policy.setEnabled(not pinned)
+        self.cut_policy.setToolTip('Критерий подтверждённых участков сохранён. Для другого критерия создайте новый проект; изменения грунта останутся.' if pinned else
+            'Для естественного откоса копается дно; для заданного числом угла выполняется точный профиль.')
         self.section.blockSignals(True);self.section.setRange(1,p.section_count);self.section.setValue(p.active_section+1);self.section.blockSignals(False)
         self.route.setData(np.asarray(p.points))
         self.endpoints.setData([dict(pos=p.points[0],brush='#63e5b1'),dict(pos=p.points[-1],brush='#ffbd69')])
@@ -353,7 +362,9 @@ class LandscapeDialog(QtWidgets.QDialog):
                 stored=ChannelProject.from_data(self.region.channel_project)
                 if stored.identity==self.project.identity:self.project=stored
             self.project.active_section=self.section.value()-1
-            c=self.project.configuration(self.region,self.window.config)
+            from copy import deepcopy
+            base=deepcopy(self.window.config);base.terrain.cut_policy=self.cut_policy.currentData();base.fleet.airspace_mode=self.airspace.currentData()
+            c=self.project.configuration(self.region,base)
             self.window.replace_simulation(c)
             self.window.landscape=self.region;self.region.channel_project=self.project.to_data()
             self.window.plan_editor.height.setValue(-self.project.depth_m)

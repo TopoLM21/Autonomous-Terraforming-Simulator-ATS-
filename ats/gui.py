@@ -297,6 +297,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.angle = self.spin(0, 75, config.trench.angle_deg or 0, 1)
         self.angle.setSpecialValueText('Авто · минимальная ширина')
         self.angle.setToolTip('0: наиболее крутой устойчивый профиль по слоям; число: проектный угол к горизонту. Устойчивость грунта задаётся отдельно.')
+        self.cut_policy=QtWidgets.QComboBox();self.cut_policy.addItem('Дно + естественное осыпание','natural');self.cut_policy.addItem('Точный проектный профиль','profile')
+        self.cut_policy.setCurrentIndex(self.cut_policy.findData(config.terrain.cut_policy))
+        self.cut_policy.setToolTip('Для нового сценария. Заданный числом проектный угол требует точного профиля. При естественном откосе контур — запас площади, завершение по дну и прекращению осыпания.')
+        self.airspace=QtWidgets.QComboBox();self.airspace.addItem('Общие 4 эшелона','shared_lanes');self.airspace.addItem('Прежние высоты по номеру дрона','per_drone')
+        self.airspace.setCurrentIndex(self.airspace.findData(config.fleet.airspace_mode))
         self.start_hour = self.spin(0, 23.99, config.start_hour, 0.5)
         self.roughness = self.spin(0, 0.03, config.terrain.roughness, 0.005, 3)
         self.seed = QtWidgets.QSpinBox()
@@ -305,6 +310,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for label, widget in [("Длина дна", self.length), ("Ширина дна", self.width), ("Глубина", self.depth), ("Центр X", self.cx), ("Центр Y", self.cy), ("Проектный откос, °", self.angle), ("Стартовый час", self.start_hour), ("Неровности, ±м", self.roughness), ("Seed", self.seed)]:
             form.addRow(label, widget)
         form.addRow('Сторона новой карты',self.map_size);form.addRow(self.grid_info)
+        form.addRow('Разработка откосов',self.cut_policy);form.addRow('Полётные эшелоны',self.airspace)
         self.map_size.valueChanged.connect(self.update_map_size_controls);self.update_map_size_controls()
         solar_group = QtWidgets.QGroupBox("База и солнце")
         solar_form = QtWidgets.QFormLayout(solar_group)
@@ -882,6 +888,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cx.setValue(config.trench.x);self.cy.setValue(config.trench.y)
         self.length.setValue(config.trench.length);self.width.setValue(config.trench.width)
         self.depth.setValue(config.trench.depth);self.angle.setValue(config.trench.angle_deg or 0)
+        self.cut_policy.setCurrentIndex(self.cut_policy.findData(config.terrain.cut_policy))
+        self.airspace.setCurrentIndex(self.airspace.findData(config.fleet.airspace_mode))
         self.seed.setValue(config.seed);self.roughness.setValue(config.terrain.roughness)
         self.start_hour.setValue(config.start_hour)
         self.calendar.setDate(QtCore.QDate(2025,1,1).addDays(config.base.start_day_of_year-1))
@@ -907,6 +915,7 @@ class MainWindow(QtWidgets.QMainWindow):
         q = config.trench
         q.length, q.width, q.depth = self.length.value(), self.width.value(), self.depth.value()
         q.x, q.y, q.angle_deg = self.cx.value(), self.cy.value(), self.angle.value() or None
+        config.terrain.cut_policy=self.cut_policy.currentData();config.fleet.airspace_mode=self.airspace.currentData()
         config.seed = self.seed.value()
         config.start_hour = self.start_hour.value()
         config.terrain.roughness = self.roughness.value()
@@ -1213,6 +1222,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.progress.setToolTip(f'Допуск общего плана: {site.completion_volume:.3f} м³')
             state='Группа работает' if project.running and self.running else 'Группа на паузе' if project.running else 'Группа остановлена' if project.blocked else 'Общий план завершён'
             self.status.setText(f'<b>{state}</b><br>Комплексов: {len(project.units)} · выбран {project.active_id[8:]}')
+        flight_text='Общие 4 уровня' if s.config.fleet.airspace_mode=='shared_lanes' else 'Высоты по номеру дрона'
+        if report.get('operation_policy'):
+            flight_text+=' · '+', '.join(f'{h:.1f}' for h in report['operation_policy']['cruise_levels_msl'])+' м MSL'
         rows = [
             ("Прошло с запуска", report["elapsed_display"]),
             ("Дата / солнечное время", f"{s.date_text} · {s.clock_text}"),
@@ -1220,7 +1232,9 @@ class MainWindow(QtWidgets.QMainWindow):
             ("Зарядные слоты",f"{sum(v is not None for v in s.slots)} / {len(s.slots)} · {b.config.charge_power/1000:.1f} кВт всего"),
             ("Проект / остаток", f"{report['initial_excavation_m3']:.3f} / {report['remaining_m3']:.3f} м³"),
             ("Выемка / засыпка осталось",f"{report['remaining_cut_m3']:.3f} / {report['remaining_fill_m3']:.3f} м³"),
-            ("Проектный откос",'Авто · минимальная устойчивая ширина' if s.config.trench.angle_deg is None else f'{s.config.trench.angle_deg:g}°'),
+            ("Проектный откос",'Естественный · контур резерва площади' if t.natural_excavation else 'Авто · минимальная устойчивая ширина' if s.config.trench.angle_deg is None else f'{s.config.trench.angle_deg:g}°'),
+            ('Разработка', 'Дно + естественный откос; контур — прогноз' if t.natural_excavation else 'Точный проектный профиль'),
+            ('Эшелоны',flight_text),
             ("Устойчивость грунта",'По слоям и составу насыпи' if s.config.slope_model=='materials' and t.soil else 'Однородный грунт · физический угол' if s.config.slope_model=='materials' else 'Прежний общий угол · сохранённый расчёт'),
             ("Вынуто / рейсы", f"{report['excavated_m3']:.3f} м³ / {s.trips}"),
             ("Общий груз", f"{report['cargo_kg']:.1f} кг"),

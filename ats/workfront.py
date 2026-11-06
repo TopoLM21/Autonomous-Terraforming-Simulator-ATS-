@@ -107,6 +107,7 @@ class Workfront:
         terrain=self.terrain
         design=terrain.design_work if terrain.design_work is not None else terrain.excavation
         self.indices=terrain.__dict__.get('_design_indices',np.flatnonzero(design))
+        if terrain.natural_excavation:self.indices=self.indices[terrain.dig_mask.ravel()[self.indices]]
         self.along = self.chainage.ravel()[self.indices]
         order=np.argsort(self.along,kind='stable')
         self.indices,self.along=self.indices[order],self.along[order]

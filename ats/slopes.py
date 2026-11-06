@@ -93,6 +93,11 @@ def envelope(terrain,offset,height,mode):
     if c.trench.angle_deg is not None:
         ramp=offset*math.tan(math.radians(c.trench.angle_deg))
         return height+ramp if mode=='dig' else height-ramp
+    if mode=='dig' and c.terrain.cut_policy=='natural':
+        # A conservative forecast/reservation, not a second excavation target.
+        # Only the requested bottom is actionable; native and transported soil
+        # still relax under their own actual local material laws.
+        return height+offset*min(minimum_slope(c),minimum_slope(c,loose=True))
     if mode=='fill':return height-offset*minimum_slope(c,loose=True)
     if terrain.soil is None:return height+offset*minimum_slope(c)
     result=baseline.copy();depth=np.maximum(baseline-height,0.)

@@ -16,12 +16,17 @@ class SaltDialog(QtWidgets.QDialog):
         note=QtWidgets.QLabel('Единый перемешанный водоём. Концентрация в г/л = кг/м³, не PSU и не ‰. '
             '38 г/л притока и предел растворимости 300 г/л — условные исходные оценки. '
             'Испарение оставляет соль; избыток выпадает в осадок и может раствориться снова. '
-            'Поправки испарения и плотности по солёности пока нет.')
+            'Обратный обмен — условная двухслойная оценка после затопления устья, '
+            'если плотностный напор преодолевает перепад уровней. Поправки испарения по солёности пока нет.')
         note.setWordWrap(True);form.addRow(note)
         self.source=QtWidgets.QDoubleSpinBox();self.source.setRange(0,1000);self.source.setDecimals(3);self.source.setSuffix(' г/л')
         self.source.setValue(self.model.config.inflow_salinity_g_l);form.addRow('Солёность будущего притока',self.source)
         self.limit=QtWidgets.QDoubleSpinBox();self.limit.setRange(.001,1000);self.limit.setDecimals(3);self.limit.setSuffix(' г/л')
         self.limit.setValue(self.model.config.solubility_g_l);form.addRow('Условный предел растворимости',self.limit)
+        self.exchange=QtWidgets.QDoubleSpinBox();self.exchange.setRange(0,1);self.exchange.setDecimals(3)
+        self.exchange.setValue(self.model.config.exchange_factor)
+        self.exchange.setToolTip('0 — прежняя односторонняя модель. Условный множитель двухслойного обмена; не измеренный расход Каттары.')
+        form.addRow('Обмен с морем · 0 выключает',self.exchange)
         self.initialize=QtWidgets.QCheckBox('Задать состав имеющейся воды заново (обнулит баланс соли)')
         form.addRow(self.initialize)
         self.current=QtWidgets.QDoubleSpinBox();self.current.setRange(0,1000);self.current.setDecimals(3);self.current.setSuffix(' г/л')
@@ -34,7 +39,7 @@ class SaltDialog(QtWidgets.QDialog):
 
     def apply(self):
         try:
-            config=replace(self.model.config,inflow_salinity_g_l=self.source.value(),solubility_g_l=self.limit.value())
+            config=replace(self.model.config,inflow_salinity_g_l=self.source.value(),solubility_g_l=self.limit.value(),exchange_factor=self.exchange.value())
             config.validate()
             if self.initialize.isChecked() and self.current.value()>config.solubility_g_l:
                 raise ValueError('Исходная растворённая концентрация выше заданного предела растворимости')
@@ -221,9 +226,10 @@ class FloodingDialog(QtWidgets.QDialog):
             salt=f'Солёность: {concentration} · растворено {m.dissolved_salt_kg/1000:,.2f} т · осадок {m.precipitated_salt_kg/1000:,.2f} т · баланс соли {m.salt_balance_error:.3g} кг'
         else:salt='Солёность неизвестна: задайте исходную оценку через «Соль…»; водный баланс продолжает считаться.'
         self.status.setText(f"Время сценария: {m.elapsed_seconds/86400:,.2f} суток · {level_label} · объём {m.volume_m3/1e9:.6f} км³\n"
-            f"Затоплено {m.area/1e6:,.3f} км² · приток {q:,.3f} м³/с · испарение {e:,.3f} м³/с · баланс {m.balance_error:.3g} м³\n"
-            f"Поступило {m.inflow_m3/1e9:.6f} км³ · испарилось {m.evaporated_m3/1e9:.6f} км³ · перелив {m.spilled_m3/1e9:.6f} км³ · длина канала {m.config.length_m/1000:.2f} км\n"
-            f"{salt}\nПриток: {m.config.inflow_salinity_g_l:g} г/л · {origin} · баланс соли с суток {m.salt_baseline_seconds/86400:,.2f}")
+            f"Затоплено {m.area/1e6:,.3f} км² · чистый приток {q:,.3f} м³/с · испарение {e:,.3f} м³/с · баланс {m.balance_error:.3g} м³\n"
+            f"Чисто поступило {m.inflow_m3/1e9:.6f} км³ · испарилось {m.evaporated_m3/1e9:.6f} км³ · перелив {m.spilled_m3/1e9:.6f} км³ · длина канала {m.config.length_m/1000:.2f} км\n"
+            f"{salt}\nПриток: {m.config.inflow_salinity_g_l:g} г/л · {origin} · баланс соли с суток {m.salt_baseline_seconds/86400:,.2f} · "
+            f"встречный обмен {m.exchange_rate:,.3f} м³/с · возврат в море {m.exchanged_m3/1e9:.6f} км³")
         different=getattr(self,'_different_route',False);invalid=getattr(self,'_topography_error',False)
         self.instant.setEnabled(not different and not invalid and not m.channel_open);self.close_gate.setEnabled(not different and not invalid and m.channel_open)
         for widget in (self.play,self.day,self.year,self.salt_button,*self.inputs.values()):widget.setEnabled(not different and not invalid)
