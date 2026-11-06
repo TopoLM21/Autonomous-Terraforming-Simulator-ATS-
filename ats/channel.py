@@ -176,10 +176,11 @@ class ChannelProject:
     finished_spans:list=field(default_factory=list)
     progress_policy:str='profile'
     version:int=1
+    shore_reference:str='axis'
 
     def validate(self):
         _geometry(self.raw_points);_geometry(self.points)
-        if self.version!=1 or not all(math.isfinite(v) for v in (self.width_m,self.depth_m,self.shore_offset_m,self.side_m,self.spoil_height_m)):
+        if self.version not in (1,2) or self.shore_reference not in ('axis','crest') or self.version==1 and self.shore_reference!='axis' or not all(math.isfinite(v) for v in (self.width_m,self.depth_m,self.shore_offset_m,self.side_m,self.spoil_height_m)):
             raise ValueError('Неверный проект канала')
         if not (1<=self.width_m<=300 and .01<=self.depth_m<=500 and .01<=self.shore_offset_m<=10000 and (self.angle_deg is None or math.isfinite(self.angle_deg) and 5<=self.angle_deg<=75) and 32<=self.side_m<=1024 and .1<=self.spoil_height_m<=200):
             raise ValueError('Проверьте ширину, глубину канала, отступ, откосы и размер участка')
@@ -192,6 +193,7 @@ class ChannelProject:
     @classmethod
     def create(cls,raster,points,**parameters):
         route,coast=coastal_alignment(raster,points,parameters.get('shore_offset_m',10.))
+        parameters.setdefault('version',2);parameters.setdefault('shore_reference','axis' if parameters['version']==1 else 'crest')
         result=cls(np.asarray(points,dtype=float).tolist(),route.tolist(),coast.tolist(),**parameters)
         result.validate();return result
 
@@ -210,18 +212,20 @@ class ChannelProject:
     @property
     def identity(self):
         data={k:v for k,v in self.to_data().items() if k not in ('active_section','completed','history','finished_spans','progress_policy')}
+        if self.version==1:data.pop('shore_reference')
         for key in ('width_m','depth_m','shore_offset_m','angle_deg','side_m','spoil_height_m'):
             if data[key] is not None:data[key]=float(data[key])
         return hashlib.sha256(json.dumps(data,sort_keys=True).encode()).hexdigest()[:16]
 
-    def origin(self,raster,index=None):
+    def origin(self,raster,index=None,*,side_m=None):
         index=self.active_section if index is None else index
         if not 0<=index<self.section_count:raise ValueError('Номер участка вне проекта')
         p,axis=_geometry(self.points);center=_point(p,axis,min(axis[-1],(index+.5)*self.side_m/2))
+        side=self.side_m if side_m is None else side_m
         extent=np.asarray(raster.extent_m)
-        if np.any(extent<self.side_m):raise ValueError('Локальная карта больше исходного DEM')
+        if np.any(extent<side):raise ValueError('Локальная карта больше исходного DEM')
         # Quarter-metre alignment preserves the landscape's permanent fine grid.
-        return (np.floor(np.clip(center-self.side_m/2,0,extent-self.side_m)/.25)*.25).tolist()
+        return (np.floor(np.clip(center-side/2,0,extent-side)/.25)*.25).tolist()
 
     def plan(self,origin,*,side_m=None):
         side=self.side_m if side_m is None else side_m
@@ -238,10 +242,30 @@ class ChannelProject:
             start,end=clipped
             starts.append(edge_start+float(np.linalg.norm(start-a)));first.append(index==0)
             segments.append(PlanSegment([start.tolist(),end.tolist()],'dig',self.width_m,-self.depth_m,f'Канал · линия {index+1}'))
-        return PlanConfig(segments,channel=dict(start=p[0].tolist(),tangent=tangent.tolist(),project_id=self.identity,
+        plan=PlanConfig(segments,channel=dict(start=p[0].tolist(),tangent=tangent.tolist(),project_id=self.identity,
             chainage_starts=starts,first_edges=first,project_length_m=self.length,finished_spans=[p.copy() for p in self.finished_spans],completion_policy=self.progress_policy))
+        if self.shore_reference=='crest':plan.channel.update(shore_reference='crest',shore_offset_m=self.shore_offset_m)
+        return plan
 
     def configuration(self,landscape,config,index=None,*,origin=None,prepared=None,side_m=None):
+        # A legacy design or an explicit regional destination retains its exact
+        # frame. Enlargement here is only a new initial delivery, never a move.
+        if self.shore_reference!='crest' or origin is not None or side_m is not None:
+            return self._configuration(landscape,config,index,origin=origin,prepared=prepared,side_m=side_m)
+        from .channel_site import SiteError
+        sizes=[self.side_m,*[s for s in (64.,128.,256.,512.,1024.) if s>self.side_m]]
+        failures=[]
+        for side in sizes:
+            if np.any(np.asarray(landscape.raster.extent_m)<side):continue
+            try:
+                result=self._configuration(landscape,config,index,origin=self.origin(landscape.raster,index,side_m=side),side_m=side)
+                result.georeference['channel'].update(custom_window=False,auto_window=side!=self.side_m)
+                return result
+            except SiteError as error:failures.append(f'{side:g} м: {error}')
+        if failures:raise SiteError('Рабочее окно не вмещает канал, откосы, отвал и комплекс. '+failures[-1]+' Максимум текущей сетки — 1024 м; профиль и безопасность не уменьшены.')
+        raise ValueError('Локальная карта больше исходного DEM')
+
+    def _configuration(self,landscape,config,index=None,*,origin=None,prepared=None,side_m=None):
         index=self.active_section if index is None else index
         side=self.side_m if side_m is None else side_m
         self.validate();origin=self.origin(landscape.raster,index) if origin is None else origin
@@ -253,6 +277,9 @@ class ChannelProject:
         if not c.plan.segments:
             c.plan=PlanConfig([]);c.validate();return c
         c.plan.channel.update(marine=marine_window(landscape.raster,origin,side),cell_size=c.terrain.cell_size)
+        if self.shore_reference=='crest':
+            from .shore import prepare
+            prepare(landscape,c,origin,side)
         c.georeference['marine']=c.plan.channel['marine']
         n,cell=c.terrain.n,c.terrain.cell_size
         axis=(np.arange(n)+.5)*cell;x,y=np.meshgrid(axis,axis,sparse=True)
@@ -268,16 +295,20 @@ class ChannelProject:
                 soil=SoilField(c.soil_profile,n,cell) if c.soil_profile else None)
             _,design_labels=target_surface(original,c.plan)
             work=design_labels>0
+        if self.shore_reference=='crest' and not np.any(work):
+            from .channel_site import SiteError
+            raise SiteError('В этом окне нет доступной выемки: трасса остаётся в защищённой береговой полосе. Выберите участок дальше от моря или измените маршрут')
         protected,_=channel_shore(terrain,c.plan)
         margin=max(3.,3*cell)
         from .workfront import bank_layout
+        from .channel_site import SiteError
         pad_extent=math.ceil((max(c.fleet.count,c.fleet.charge_slots)-1)/2)*c.fleet.pad_spacing
         service_width=2*(pad_extent+c.fleet.waiting_offset+c.fleet.separation+cell)
         c.plan.channel['operations']=dict(front_length_m=min(32.,side/3),sector_length_m=200.,
             setback_m=max(6.,min(24.,service_width,side*.23)),bank_width_m=max(4.,side*.22))
         dump,cap,chainage,signed=bank_layout(terrain,c.plan,work,protected,target)
         if not np.any(dump & (cap>terrain.reference)) and np.any(work&(current-target>1e-10)):
-            raise ValueError('Канал с откосами не оставляет места для боковых отвалов. Увеличьте локальную карту')
+            raise SiteError('Канал с откосами не оставляет места для боковых отвалов. Увеличьте локальную карту')
         iy,ix=np.nonzero(getattr(terrain,'dump_allowed_mask',dump))
         # Compatibility bounding box; physical capacity is the two bank masks.
         c.terrain.dump_rect=(float(ix.min()*cell),float(iy.min()*cell),
@@ -321,14 +352,36 @@ class ChannelProject:
             if safe:
                 along=float(chainage[int(by/cell),int(bx/cell)])
                 sites.append((along,float(bx),float(by)))
-        if not sites:raise ValueError('Не найдена сухая устойчивая площадка базы вне канала и отвала. Измените размер карты/маршрут')
+        if not sites:raise SiteError('Не найдена сухая устойчивая площадка базы вне канала и отвала. Измените размер карты/маршрут')
         first_cells=np.where(work & (np.abs(chainage-first)<=cell*2))
         start=np.array([float(np.mean(np.broadcast_to(x,current.shape)[first_cells])),
                         float(np.mean(np.broadcast_to(y,current.shape)[first_cells]))]) if np.any(work) else np.array([side/2]*2)
         length=c.plan.channel['operations']['sector_length_m']
         sector_end=min((math.floor((first+1e-9)/length)+1)*length,float(chainage[work].max())+cell/2,self.length)
         centre=(max(math.floor((first+1e-9)/length)*length,first-cell/2)+sector_end)/2
-        _,c.base.x,c.base.y=min(sites,key=lambda p:(abs(p[0]-centre),math.hypot(p[1]-start[0],p[2]-start[1])))
+        ordered=sorted(sites,key=lambda p:(abs(p[0]-centre),math.hypot(p[1]-start[0],p[2]-start[1])))
+        if self.shore_reference=='crest':
+            from .channel_site import cross_section,equipment_spec,equipment_fits
+            section=cross_section(self,landscape,c,origin,side,centre)
+            if not section['fits']:raise SiteError(f"Поперечник с откосами шириной около {section['width_m']:.1f} м выходит за окно в районе {centre:.1f} м маршрута")
+            info=getattr(terrain,'dump_reserve_info',None)
+            if info is None:
+                sector_start=math.floor((first+1e-9)/length)*length
+                active=work&(chainage>=sector_start)&(chainage<=sector_start+length)
+                required=float(np.maximum(current-target,0)[active].sum()*cell**2)*(1+c.terrain.spoil_reserve_margin)
+                available=float(np.maximum(cap-current,0)[dump].sum()*cell**2)
+                info=dict(required_free_m3=required,available_free_m3=available,margin=c.terrain.spoil_reserve_margin,
+                    sufficient=available+1e-9>=required)
+            if info is not None and not info['sufficient']:
+                raise SiteError(f"Не хватает вместимости отвала: нужно {info['required_free_m3']:.1f} м³, доступно {info['available_free_m3']:.1f} м³")
+            spec=equipment_spec(c)
+            terrain.design_work=work;terrain.dump_mask=dump;terrain.protected=protected
+            chosen=next((p for p in ordered if equipment_fits(c,spec,p[1:],terrain)),None)
+            if chosen is None:raise SiteError('Не помещаются полный ход раскрытия платформ, проходы и посадочные места базы')
+            c.plan.channel['window_fit']=dict(requested_side_m=self.side_m,actual_side_m=side,cell_m=cell,
+                cross_section=section,spoil=info,shore_reference='crest')
+        else:chosen=ordered[0]
+        _,c.base.x,c.base.y=chosen
         c.plan.channel['operations'].update(base_sites=[list(p) for p in sites],base_chainage_m=first)
         excess=current-target
         available=np.flatnonzero((excess>1e-10)&work)
@@ -339,6 +392,8 @@ class ChannelProject:
         c.georeference['channel']=dict(project_id=self.identity,section=index,sections=self.section_count,
             length_m=self.length,width_m=self.width_m,depth_m=self.depth_m,target_msl=-self.depth_m,shore_offset_m=self.shore_offset_m,
             custom_window=bool(side!=self.side_m or np.linalg.norm(np.asarray(origin)-self.origin(landscape.raster,index),ord=np.inf)>cell+1e-7))
+        if self.shore_reference=='crest':
+            c.georeference['channel'].update(shore_reference='crest',window_fit=c.plan.channel['window_fit'])
         c.base.latitude_deg=latitude_at(c.georeference,c.base.x,c.base.y,c.base.latitude_deg)
         c.validate();return c
 

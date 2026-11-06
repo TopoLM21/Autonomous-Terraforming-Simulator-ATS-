@@ -75,6 +75,9 @@ def target_configuration(project,origin,section=None,landscape=None,prepared=Non
             from .channel import marine_window
             c.plan.channel.update(cell_size=cell,marine=marine_window(land.raster,origin,n*cell))
             c.georeference['marine']=c.plan.channel['marine']
+            if c.plan.channel.get('shore_reference')=='crest':
+                from .shore import prepare
+                prepare(land,c,origin,n*cell)
     c.validate();return c
 
 

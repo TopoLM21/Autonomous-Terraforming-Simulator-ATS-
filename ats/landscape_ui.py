@@ -42,6 +42,7 @@ class LandscapeDialog(QtWidgets.QDialog):
         channel=QtWidgets.QGridLayout()
         self.depth=QtWidgets.QDoubleSpinBox();self.depth.setRange(.01,500);self.depth.setValue(5);self.depth.setSuffix(' м ниже моря')
         self.offset=QtWidgets.QDoubleSpinBox();self.offset.setRange(.01,10000);self.offset.setValue(10);self.offset.setSuffix(' м')
+        self.offset.setToolTip('В новых проектах: минимальная сухая полоса между морем и всей выемкой, включая верхнюю бровку откоса. Есть запас по расчётной ячейке. Старые проекты сохраняют прежний отсчёт по оси.')
         self.angle=QtWidgets.QDoubleSpinBox();self.angle.setRange(0,75);self.angle.setValue(0);self.angle.setSuffix('°')
         self.angle.setSpecialValueText('Авто · минимальная ширина')
         self.angle.setToolTip('Авто: минимальная устойчивая выемка по слоям. Число задаёт проектный угол; параметры грунта от него не меняются.')
@@ -52,6 +53,7 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.project_side=QtWidgets.QComboBox()
         for size in (32,64,128,256,512,1024):self.project_side.addItem(f'{size} м',size)
         self.project_side.setCurrentIndex(self.project_side.findData(512))
+        self.project_side.setToolTip('Предпочтительный размер нового рабочего окна. Если откосы, отвал или полный комплекс не помещаются, начальное окно автоматически увеличивается до 1024 м. При переезде размер и разрешение сохраняются.')
         self.spoil=QtWidgets.QDoubleSpinBox();self.spoil.setRange(.1,200);self.spoil.setValue(20);self.spoil.setSuffix(' м')
         self.section=QtWidgets.QSpinBox();self.section.setRange(1,1)
         for i,(label,widget) in enumerate([('Ширина дна',self.width),('Глубина дна',self.depth),('Отступ от берега',self.offset),('Проектный откос',self.angle),('Карта рабочего участка',self.project_side),('Высота отвала',self.spoil),('Участок проекта',self.section),('Разработка',self.cut_policy),('Полётные эшелоны',self.airspace)]):
@@ -316,7 +318,10 @@ class LandscapeDialog(QtWidgets.QDialog):
     def prepare_channel(self):
         if not self._new_run_allowed():return False
         try:
-            candidate=ChannelProject.create(self.region.raster,self.points,**self.parameters())
+            parameters=self.parameters()
+            unchanged=(self.project is not None and np.array_equal(np.asarray(self.points),np.asarray(self.project.raw_points)) and
+                all(getattr(self.project,key)==value for key,value in parameters.items()))
+            candidate=self.project if unchanged else ChannelProject.create(self.region.raster,self.points,**parameters)
             if self.project and self.project.identity==candidate.identity:
                 candidate=self.project
             self.project=candidate;self.region.channel_project=candidate.to_data();self.show_project()
@@ -337,7 +342,9 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.design.setData(profile['distance_m'],[-p.depth_m]*len(profile['distance_m']))
         start=r.to_source(*p.points[0]);end=r.to_source(*p.points[-1])
         start_z=float(r.sample(*p.points[0]));end_z=float(r.sample(*p.points[-1]))
-        self.project_info.setText(f'Канал: {p.length/1000:.2f} км · дно шириной {p.width_m:g} м, отметка −{p.depth_m:g} м MSL · участков {p.section_count}, завершено {len(p.completed)}.\nНачало: {start[0]:.6f}, {start[1]:.6f}, {start_z:+.3f} м MSL, отступ по линии {p.shore_offset_m:g} м от берега DEM. Конец: {end[0]:.6f}, {end[1]:.6f}, {end_z:+.3f} м MSL — первый вход в выбранную сухую впадину.\n«Переехать» сохраняет всю группу, заряды и общие часы. «Новая расстановка» создаёт отдельный локальный запуск оборудования.')
+        shore=(f'сухая полоса до всей бровки не менее {p.shore_offset_m:g} м с ячеечным запасом' if p.shore_reference=='crest' else f'прежний отступ по оси {p.shore_offset_m:g} м')
+        frame=(f'Новое окно: от {p.side_m:g} до 1024 м с проверкой поперечника, вместимости отвала и раскрытых платформ.' if p.shore_reference=='crest' else f'Прежний проект: окно {p.side_m:g} м и целевой профиль сохранены.')
+        self.project_info.setText(f'Канал: {p.length/1000:.2f} км · дно шириной {p.width_m:g} м, отметка −{p.depth_m:g} м MSL · участков {p.section_count}, завершено {len(p.completed)}.\nНачало: {start[0]:.6f}, {start[1]:.6f}, {start_z:+.3f} м MSL; {shore}. Конец: {end[0]:.6f}, {end[1]:.6f}, {end_z:+.3f} м MSL — первый вход в выбранную сухую впадину.\n{frame} «Переехать» сохраняет всю группу, заряды и общие часы; сетка в пути не меняется.')
         self.result.setText(f"Готовый проект: ориентировочная выемка {profile['estimated_cut_m3']/1e6:.2f} млн м³. Точность берега определяется DEM ({r.resolution_m[0]:.0f}×{r.resolution_m[1]:.0f} м).")
         self.select_section()
 

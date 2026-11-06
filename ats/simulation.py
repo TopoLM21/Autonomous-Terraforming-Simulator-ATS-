@@ -294,6 +294,7 @@ class Simulation:
                 'WAITING_GROUP_LIFT':'ждёт завершения совместного переноса',
                 'WAITING_BASE_ENERGY':'накапливает энергию для переезда и развёртывания панелей',
                 'WAITING_FOLLOWER_ENERGY':'заряжает наземных дронов для перелёта к следующей площадке',
+                'WAITING_GROUNDED_AIRCRAFT_CLEARANCE':'ждёт освобождения пути от дронов на земле',
                 'WAITING_BASE_DRIVE_POWER':'недостаточная мощность привода от батарей или инвертора',
                 'FOLDING_SOLAR_FIELD':'складывает солнечные панели',
                 'UNFOLDING_SOLAR_FIELD':'завершает развёртывание солнечных панелей',
@@ -934,6 +935,8 @@ class Simulation:
         return True
 
     def _sector_site_safe(self,target,offsets):
+        from .traffic import ground_path_clear
+        if not ground_path_clear(self,target):return False
         t=self.terrain;xy=self.base.position[:2]
         if self.base.config.layout is not None:
             from .self_solar import deployment_safe,deployment_polygons
@@ -1058,6 +1061,8 @@ class Simulation:
         for along,x,y in sites:
             target=np.array([x,y])
             if along<self._base_front_anchor+2 or np.linalg.norm(target-self.base.position[:2])<3:continue
+            from .traffic import ground_path_clear
+            if not ground_path_clear(self,target):continue
             if self.base.config.layout is not None:
                 from .self_solar import deployment_safe
                 if not deployment_safe(self.base.layout_spec,target,t):continue
@@ -1072,6 +1077,13 @@ class Simulation:
         if self.relocation_pending is None or self.landing_requested or not all(d.grounded for d in self.drones):return False
         if any(d.trip is not None or d.cargo>1e-8 for d in self.drones):return False
         point=self.relocation_pending
+        from .traffic import ground_path_clear
+        if not ground_path_clear(self,point):
+            # A returning aircraft may have landed after route selection.
+            # Release the pending move so it can leave and the route can be
+            # selected again; do not move either actor instantaneously.
+            self.relocation_pending=None;self.base_move_wait='WAITING_GROUNDED_AIRCRAFT_CLEARANCE'
+            return False
         cost=self.base.route_energy(point,self.terrain,self.drones)
         if self.base.battery<cost*1.3:
             self.base_move_wait='WAITING_BASE_ENERGY';return False

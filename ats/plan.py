@@ -40,6 +40,15 @@ class PlanConfig:
         for segment in self.segments:
             segment.validate(config,allow_outside=self.channel is not None)
         if self.channel is not None:
+            if self.channel.get('shore_reference','axis') not in ('axis','crest'):
+                raise ValueError('Неверный отсчёт берегового отступа')
+            if self.channel.get('shore_reference')=='crest' and (not isinstance(self.channel.get('shore_offset_m'),(int,float)) or
+                    not math.isfinite(self.channel['shore_offset_m']) or self.channel['shore_offset_m']<.01):
+                raise ValueError('Неверный отступ верхней бровки от моря')
+            data=self.channel.get('shore_data')
+            if data is not None and (not isinstance(data,dict) or data.get('shape')!=[config.terrain.n]*2 or
+                    any(not isinstance(data.get(k),str) or len(data[k])>12_000_000 for k in ('protected','cap'))):
+                raise ValueError('Повреждены данные береговой защиты')
             if any(s.mode!='dig' or s.height>=0 for s in self.segments):
                 raise ValueError('Проект канала задаёт выемку ниже моря. Для отдельной засыпки сначала очистите план канала')
             for key in ('start','tangent'):
@@ -128,6 +137,9 @@ def target_surface(terrain, plan):
 
 def channel_shore(terrain,plan):
     """Preserve marine ground and a stable dry bank, including diagonal routes."""
+    if plan.channel and plan.channel.get('shore_reference')=='crest' and 'shore_data' in plan.channel:
+        from .shore import decode
+        return decode(terrain,plan.channel['shore_data'])
     marine=plan.channel.get('marine') if plan.channel else None
     if marine is None:return None,None
     rows,cols=marine['shape']
@@ -143,6 +155,9 @@ def channel_shore(terrain,plan):
     protected=(original<0)&(nodes[iy,ix]|nodes[iy+1,ix]|nodes[iy,ix+1]|nodes[iy+1,ix+1])
     if not np.any(protected):return protected,None
     depth=max(-s.height for s in plan.segments) if plan.segments else 0.
+    if plan.channel.get('shore_reference')=='crest':
+        from .shore import crest_bank
+        return crest_bank(terrain,protected,depth,plan.channel['shore_offset_m'],plan.channel['cell_size'])
     cap=np.full(terrain.height.shape,-float(depth),dtype=np.float64)
     cell=plan.channel['cell_size'];slope=terrain.slope*.8
     reached=protected.copy()

@@ -91,7 +91,9 @@ def test_two_platform_base_advances_along_the_canal_and_finishes():
         if s.state.value!='RUNNING':break
     r=s.report()
     assert r['state']=='COMPLETED',r['reason']
-    assert s.base.relocations>=2 and s.base.position[0]>start[0]+25
+    # The new crest setback changes the initial cut and can reduce the number
+    # of required moves. Verify real forward travel, not a minimum move count.
+    assert s.base.relocations>=1 and s.base.position[0]>start[0]+25
     assert abs(r['mass_error_kg'])<1e-7 and abs(r['energy_error_j'])<.002
 
 

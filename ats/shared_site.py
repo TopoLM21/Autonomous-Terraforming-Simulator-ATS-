@@ -243,6 +243,9 @@ class SharedSite:
             if landscape is not None:
                 from .channel import marine_window
                 c.plan.channel['marine']=marine_window(landscape.raster,origin,side)
+                if c.plan.channel.get('shore_reference')=='crest':
+                    from .shore import prepare
+                    prepare(landscape,c,origin,side)
         c.terrain.floor=min(c.terrain.floor,float(current.min())-1.)
         replacement=Terrain(c);replacement._initial_surface=baseline;replacement.initial_excavation=old.initial_excavation
         if replacement.soil is not None:
