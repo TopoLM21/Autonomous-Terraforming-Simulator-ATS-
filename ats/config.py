@@ -153,6 +153,8 @@ class Config:
     soil_profile: object = None  # SoilProfile; None preserves pre-layer scenarios/saves
     initial_soil: dict | None = None  # sparse fine columns for a regional window
     energy_design: dict | None = None  # reviewed hardware/climate design; no live SOC is stored here
+    operating_schedule: dict | None = None  # None retains unrestricted operation in older saves
+    cost_catalog: dict | None = None  # explicit editable capital-cost assumptions, not market quotes
     slope_model: str = 'materials'
 
     def drone_models(self):
@@ -160,6 +162,12 @@ class Config:
         return deepcopy(self.fleet.models) if self.fleet.models else [deepcopy(self.drone) for _ in range(self.fleet.count)]
 
     def validate(self):
+        if self.operating_schedule is not None:
+            from .work_schedule import WorkSchedule
+            WorkSchedule.from_data(self.operating_schedule)
+        if self.cost_catalog is not None:
+            from .costs import validate_catalog
+            validate_catalog(self.cost_catalog)
         if self.base.layout is not None:
             from .base_layout import parameters
             parameters(self.base.layout)
@@ -186,7 +194,8 @@ class Config:
         require(finite_values(self), "Все параметры должны быть конечными")
         t, q, d, b, dust = self.terrain, self.trench, self.drone, self.base, self.dust
         f = self.fleet
-        require(isinstance(f.count, int) and 1 <= f.count <= 6 and isinstance(f.charge_slots, int) and 1 <= f.charge_slots <= 6, "Число дронов и зарядных слотов: от 1 до 6")
+        from .equipment import MAX_DRONES
+        require(isinstance(f.count, int) and 1 <= f.count <= MAX_DRONES and isinstance(f.charge_slots, int) and 1 <= f.charge_slots <= MAX_DRONES, f"Число дронов и зарядных слотов: от 1 до {MAX_DRONES}")
         require(not f.models or len(f.models) == f.count, "Число моделей не совпадает с числом дронов")
         require(f.wait_mode in ("ground", "air"), "Неизвестный режим очереди")
         require(f.separation > 0 and f.pad_spacing > f.separation and f.altitude_spacing > f.separation and f.waiting_offset > f.separation and f.ground_clearance > 0 and f.detour_distance > f.separation and f.emergency_landing_seconds > 0 and f.comparison_step_limit > 0, "Неверные расстояния безопасности или предел сравнения")
@@ -254,11 +263,17 @@ class Config:
         require(dust.downsample >= 1 and isinstance(dust.downsample, int) and dust.lifetime > 0 and dust.diffusion >= 0 and dust.strength >= 0 and dust.height_scale > 0 and dust.concentration_scale > 0, "Неверная модель пыли")
         if self.energy_design is not None:
             info=self.energy_design
-            require(isinstance(info,dict) and (info.get('version')==1 or info.get('version')==2 and info.get('kind')=='season') and
+            require(isinstance(info,dict) and (info.get('version')==1 or info.get('version')==2 and info.get('kind')=='season'
+                    or info.get('version')==3 and info.get('kind')=='calendar') and
                     info.get('mode') in ('renewable','one_day_storage'), 'Неверный расчёт энергетической комплектации')
             if info.get('kind')=='season':
                 require(info.get('season_start_day')==60 and info.get('season_end_day')==273 and info.get('checked_days')==214 and
                     60<=info.get('limiting_day_of_year',0)<=273, 'Повреждены границы проверенного сезона')
+            if info.get('kind')=='calendar':
+                from .work_schedule import WorkSchedule
+                schedule=WorkSchedule.from_data(info['schedule'])
+                require(info.get('checked_days')==len(schedule.days()) and
+                    info.get('limiting_day_of_year') in schedule.days(), 'Повреждены границы рабочего календаря')
             require(isinstance(info.get('signature'),str) and len(info['signature'])==64, 'Потерян паспорт энергетической комплектации')
             from .power_design import PowerRequest
             PowerRequest(**info['request']).validate()

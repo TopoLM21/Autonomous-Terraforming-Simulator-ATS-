@@ -182,7 +182,8 @@ def test_new_gui_default_and_manual_configuration_preservation(monkeypatch,tmp_p
     monkeypatch.setattr(gui,'launch',launch);monkeypatch.setattr(sys,'argv',['ats'])
     assert cli.main()==0
     c=captured['config'];assert c.base.latitude_deg==QATTARA_LATITUDE and c.base.start_day_of_year==172
-    assert c.energy_design['kind']=='season' and captured['kwargs']['session'].simulation.base.layout_spec['formation']=='compact_grid_v1'
+    assert c.energy_design is None and 'session' not in captured['kwargs']
+    assert c.fleet.count==4  # a recipe offered by the empty workspace, not spawned machines
     manual=source();manual.base.latitude_deg=23.;manual.base.start_day_of_year=300
     path=tmp_path/'manual.json';save_configuration(path,manual)
     monkeypatch.setattr(sys,'argv',['ats','--configuration',str(path)])

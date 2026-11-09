@@ -85,6 +85,10 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.cancel_move_button=QtWidgets.QPushButton('Отменить переезд на текущих позициях')
         self.cancel_move_button.clicked.connect(self.cancel_move)
         for button in (self.move_button,self.move_next_button,self.cancel_move_button):travel.addWidget(button)
+        if getattr(window,'planning_only',False):
+            self.start_button.setText('Подготовить участок для комплекса')
+            for button in (self.move_button,self.move_next_button,self.cancel_move_button):
+                button.setEnabled(False);button.setToolTip('На площадке ещё нет комплекса для переезда')
         layout.addLayout(travel)
         streaming=QtWidgets.QHBoxLayout()
         self.prefetch_auto=QtWidgets.QCheckBox('Автоподгрузка областей')
@@ -108,8 +112,9 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.side.currentIndexChanged.connect(self.update_selection)
         self.show_region()
         group=getattr(window,'complex_project',None);moving=group is not None and group.transition is not None
-        self.cancel_move_button.setEnabled(moving)
-        self.move_button.setEnabled(not moving);self.move_next_button.setEnabled(not moving)
+        active=not getattr(window,'planning_only',False)
+        self.cancel_move_button.setEnabled(active and moving)
+        self.move_button.setEnabled(active and not moving);self.move_next_button.setEnabled(active and not moving)
         if moving:self.result.setText(group.transition.reason)
         self.prefetch_timer=QtCore.QTimer(self);self.prefetch_timer.timeout.connect(self.refresh_prefetch);self.prefetch_timer.start(250)
         self.selection_timer=QtCore.QTimer(self);self.selection_timer.setSingleShot(True)
@@ -377,6 +382,9 @@ class LandscapeDialog(QtWidgets.QDialog):
             from copy import deepcopy
             base=deepcopy(self.window.config);base.terrain.cut_policy=self.cut_policy.currentData();base.fleet.airspace_mode=self.airspace.currentData()
             c=self.project.configuration(self.region,base)
+            if getattr(self.window,'planning_only',False):
+                self.window.landscape=self.region;self.region.channel_project=self.project.to_data()
+                self.window.replace_simulation(c);self.accept();return
             self.window.replace_simulation(c)
             self.window.landscape=self.region;self.region.channel_project=self.project.to_data()
             self.window.plan_editor.height.setValue(-self.project.depth_m)
@@ -440,6 +448,8 @@ class LandscapeDialog(QtWidgets.QDialog):
             self.window.commit_landscape()
             # The same region may have received edits from the field just closed.
             c=workspace_config(self.region,c,origin,self.side.currentData())
+            if getattr(self.window,'planning_only',False):
+                self.window.landscape=self.region;self.window.replace_simulation(c);self.accept();return
             self.window.replace_simulation(c)
             self.window.landscape=self.region;self.window.plan_editor.height.setValue(self.target.value())
             self.window.brush_button.setChecked(True);self.accept()

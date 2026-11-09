@@ -38,18 +38,29 @@ def signature(config,latitude=None):
     data.update(latitude=float(config.base.latitude_deg if latitude is None else latitude),
                 peak=float(config.base.peak_irradiance),idle=float(config.base.idle_power),
                 logistics=log)
+    if getattr(config,'operating_schedule',None) is not None:data['operating_schedule']=config.operating_schedule
     return hashlib.sha256(json.dumps(data,sort_keys=True,allow_nan=False).encode()).hexdigest()
 
 
-def audit_day(config,request,day,*,reference=None,layout=None):
+def day_profile(config,request,day,reference):
+    """Installed PV and actual hourly work window; no change to solar physics."""
+    hours=config.start_hour+(np.arange(1440)+.5)/60
+    watts_per_irradiance=sum(p.quantity*p.area_m2*p.efficiency for p in config.base.equipment.panels)
+    generation=np.array([sunlight(config.base.latitude_deg,day,float(h),config.base.peak_irradiance).irradiance
+                         for h in hours])*watts_per_irradiance*request.solar_factor/1000
+    if request.work_hours==24:load=np.full(1440,reference['mean_power_kw'])
+    else:
+        start=config.start_hour if request.start_hour is None else request.start_hour
+        working=(hours-start)%24<request.work_hours
+        load=reference['idle_power_kw']+working*(reference['work_power_kw']-reference['idle_power_kw'])
+    return generation,load
+
+
+def audit_day(config,request,day,*,reference=None,layout=None,profile=None):
     """Actual installed PV/storage, two worst-day cycles from the start hour."""
     c=equipment_copy(config);c.base.start_day_of_year=day
     reference=calculate_power(c,request) if reference is None else reference
-    hours=c.start_hour+(np.arange(1440)+.5)/60
-    watts_per_irradiance=sum(p.quantity*p.area_m2*p.efficiency for p in c.base.equipment.panels)
-    generation=np.array([sunlight(c.base.latitude_deg,day,float(h),c.base.peak_irradiance).irradiance
-                         for h in hours])*watts_per_irradiance*request.solar_factor/1000
-    load=np.full(1440,reference['mean_power_kw'])
+    generation,load=day_profile(c,request,day,reference) if profile is None else profile
     capacity=c.base.battery/KWH
     layout=(configure_layout(c) if c.base.layout is not None else None) if layout is None else layout
     converter=layout.get('converter_power_w',float('inf'))/1000 if layout else float('inf')
@@ -132,6 +143,9 @@ def design_winter(config,request=None):
 def design_status(config,latitude=None,day_of_year=None):
     design=getattr(config,'energy_design',None)
     if not design:return 'manual','Энергетика: ручная комплектация · проверить сутки и зиму'
+    if design.get('kind')=='calendar':
+        from .scheduled_power import design_status as calendar_status
+        return calendar_status(config,latitude,day_of_year)
     if signature(config,latitude)!=design['signature']:
         return 'stale','Энергетика: условия или оборудование изменились · требуется перепроверка'
     if design.get('kind')=='season':
@@ -151,7 +165,12 @@ def design_report(config,design):
     day=design.get('limiting_day_of_year',design.get('winter_day_of_year'))
     audit=design.get('limiting',design.get('winter'))
     c=equipment_copy(config);c.base.start_day_of_year=day
-    r=calculate_power(c,PowerRequest(**design['request']))
+    request=PowerRequest(**design['request'])
+    if design.get('kind')=='calendar':
+        from .scheduled_power import day_request
+        from .work_schedule import WorkSchedule
+        request=day_request(request,WorkSchedule.from_data(design['schedule']),c.base.latitude_deg,day)
+    r=calculate_power(c,request)
     recommended=r['panel_area_m2'];ratio=c.base.panel_area/recommended if recommended else 0.
     r['hourly_solar_kw']=[power*ratio for power in r['hourly_solar_kw']]
     mobile=sum(d.battery/KWH*(1+c.logistics.drone_spare_sets) for d in c.fleet.models)
@@ -163,7 +182,8 @@ def design_report(config,design):
         empty_to_full_input_kwh=c.base.battery/KWH+(mobile+buffer/.9)/c.base.charge_efficiency,
         solar_daily_kwh=audit['solar_kwh'],solar_peak_kw=max(r['hourly_solar_kw']),
         storage_check=audit['storage_check'],base_layout=configure_layout(c))
-    r['season_design' if design.get('kind')=='season' else 'winter_design']=design
+    key={'season':'season_design','calendar':'calendar_design'}.get(design.get('kind'),'winter_design')
+    r[key]=design
     if design['mode']!='renewable':r['warnings'].append(design_status(config)[1])
     return r
 

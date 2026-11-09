@@ -99,6 +99,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.reset_button = QtWidgets.QPushButton("Reset")
         self.reset_button.clicked.connect(self.reset)
         header.addWidget(self.reset_button)
+        self.setup_button=QtWidgets.QPushButton('＋ Комплекс')
+        self.setup_button.clicked.connect(self.show_composer);header.addWidget(self.setup_button)
         from .ui_windows import menu_button,hidden_action
         actions_menu=menu_button(header,self,'Управление ▾')
         actions_menu.addAction('Батарейные платформы…',self.show_battery_platforms)
@@ -236,6 +238,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.fleet_table.setMaximumHeight(170);self.fleet_table.setMinimumHeight(85)
         left_layout.addWidget(self.fleet_table)
         self.palette=["#82f5db","#ffd166","#68b6ff","#ff89c1","#b0f083","#c4a6ff"]
+        self.palette.extend(pg.intColor(i,hues=16).name() for i in range(6,16))
         self.drone_labels=[self.drone_label]
         self.slot_markers=pg.ScatterPlotItem(size=10,symbol="s",pen="#f4b651")
         self.map.addItem(self.slot_markers)
@@ -344,7 +347,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.apply_panels_button=QtWidgets.QPushButton('Применить площадь панелей сейчас')
         self.apply_panels_button.clicked.connect(self.apply_panel_area);solar_form.addRow(self.apply_panels_button)
         self.site_button=QtWidgets.QPushButton('Солнечные платформы и отвал…');self.site_button.clicked.connect(self.show_site);solar_form.addRow(self.site_button)
-        self.base_batteries=QtWidgets.QSpinBox();self.base_batteries.setRange(0,1000)
+        from .equipment import BASE_BATTERY_LIMIT
+        self.base_batteries=QtWidgets.QSpinBox();self.base_batteries.setRange(0,BASE_BATTERY_LIMIT)
         self.base_batteries.setValue(sum(b.quantity for b in config.base.equipment.batteries))
         solar_form.addRow('Аккумуляторов базы, шт.',self.base_batteries)
         self.battery_type_info=QtWidgets.QLabel();self.battery_type_info.setWordWrap(True)
@@ -396,6 +400,8 @@ class MainWindow(QtWidgets.QMainWindow):
         from .ui_windows import compact_workspace
         compact_workspace(self,split,right,right_layout,telemetry_scroll,scroll,
             [('Новый сценарий',project),('База и солнце',solar_group),('Пыль и ветер',dust_group)],self.profile_controls_widget)
+        self.procurement_status=QtWidgets.QLabel();self.procurement_status.setWordWrap(True)
+        right_layout.insertWidget(3,self.procurement_status)
         self.statusBar().showMessage("Колесо мыши — масштаб; перетаскивание — панорама. Размеры сценария применяются кнопкой создания.")
         self.render_mode=QtWidgets.QComboBox()
         for label,value in [('Карта: авто','auto'),('Карта: подробно','detail'),('Без карты','off')]:self.render_mode.addItem(label,value)
@@ -624,6 +630,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if hasattr(self,'power_window'):self.power_window.close()
         if hasattr(self,'complex_window'):self.complex_window.close()
         if hasattr(self,'base_layout_window'):self.base_layout_window.close()
+        if hasattr(self,'setup_window'):self.setup_window.close()
         for window in getattr(self,'detail_windows',[]):window.close()
         super().closeEvent(event)
 
@@ -793,7 +800,16 @@ class MainWindow(QtWidgets.QMainWindow):
     def show_power_design(self):
         from .power_ui import PowerDesignDialog
         if hasattr(self,'power_window'):self.power_window.close()
-        self.power_window=PowerDesignDialog(self);self.power_window.show()
+        if (self.config.energy_design or {}).get('kind')=='calendar':
+            from .complex_setup_ui import CalendarReviewDialog
+            self.power_window=CalendarReviewDialog(self)
+        else:self.power_window=PowerDesignDialog(self)
+        self.power_window.show()
+
+    def show_composer(self):
+        from .complex_setup_ui import ComplexSetupDialog
+        if hasattr(self,'setup_window'):self.setup_window.close()
+        self.setup_window=ComplexSetupDialog(self);self.setup_window.show();self.setup_window.raise_()
 
     def show_base_layout(self):
         from .base_layout_ui import BaseLayoutDialog
@@ -860,9 +876,9 @@ class MainWindow(QtWidgets.QMainWindow):
         state,message=design_status(self.config,self.latitude.value(),day_of_year=day)
         if abs(self.panels.value()-self.config.base.panel_area)>1e-6:
             state='stale';message='Площадь в предпросмотре изменена · требуется перепроверка энергетики'
-        self.energy_status.setText(f'<a href="power">{message}</a>')
+        self.energy_status.setText(f'<a style="color:#8bdded" href="power">{message}</a>')
         self.energy_status.setProperty('designState',state)
-        self.energy_status.setToolTip('Открыть расчёт сезона или зимнего минимума. Широта, дата и ручные настройки не заменяют оборудование автоматически. Статус относится к принятой нагрузке и солнечной модели; погода не гарантируется.')
+        self.energy_status.setToolTip('Открыть принятый календарь или расчёт энергокомплекта. Широта, дата и ручные настройки не заменяют оборудование автоматически. Статус относится к принятой нагрузке и солнечной модели; погода не гарантируется.')
 
     def replace_simulation(self, config):
         sim = Simulation(config)  # validate before discarding the current state
@@ -1186,6 +1202,17 @@ class MainWindow(QtWidgets.QMainWindow):
     def refresh_telemetry(self, report):
         self.update_energy_status()
         s,t,d,b=self.sim,self.sim.terrain,self.sim.drone,self.sim.base
+        from .costs import quote,project_quote
+        estimate=quote(s.config,layout=getattr(b,'layout_spec',None),world=s.logistics)
+        lines=['Смета оборудования: '+(f"{estimate['total']:,.0f} {estimate['currency']}" if estimate else 'цены не заданы')]
+        if self.complex_project is not None:
+            total=project_quote(u.simulation for u in self.complex_project.units)
+            if total['totals']:
+                lines.append('На карте: '+' / '.join(f'{value:,.0f} {currency}' for currency,value in total['totals'].items()))
+                if total['priced_complexes']<total['complexes']:lines.append('Часть прежних комплексов без сметы')
+        if getattr(s.config,'operating_schedule',None):
+            lines.append('Рабочая смена открыта' if s.work_allowed else s.work_wait_reason)
+        self.procurement_status.setText('\n'.join(lines))
         spec=report['base_specification']
         body=' × '.join(f'{value:.2f}' for value in spec['body_dimensions_m'])
         landing=' × '.join(f'{value:.2f}' for value in spec['landing_zone_dimensions_m'])
@@ -1285,7 +1312,11 @@ class MainWindow(QtWidgets.QMainWindow):
 def launch(config,landscape=None,session=None):
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     app.setApplicationName("ATS")
-    window = MainWindow(config,session=session)
-    if session is None:window.landscape=landscape
+    if session is not None or config.logistics is None:
+        window=MainWindow(config,session=session)
+        if session is None:window.landscape=landscape
+    else:
+        from .complex_setup_ui import WorkspaceWindow
+        window=WorkspaceWindow(config,landscape)
     window.show()
     return app.exec()

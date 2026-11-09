@@ -292,12 +292,12 @@ class Excavator:
                 if container.location==L.WORKSITE_RACK and container.soil_kg>0 and not container.reserved_by:
                     container.location=L.FILLED_QUEUE;container.state='FULL_READY'
             self.state=ExcavatorState.IDLE;self.reason='WORK_COMPLETE';return
-        if s.landing_requested or t.front is not None and t.front.axis and not t.front.cut_enabled:
+        if not s.work_allowed or s.landing_requested or t.front is not None and t.front.axis and not t.front.cut_enabled:
             inv.release('excavator_cycle');self.active_container=None;self.elapsed=0.
             for container in logistics.containers:
                 if container.location==L.WORKSITE_RACK and container.soil_kg>0 and not container.reserved_by:
                     container.location=L.FILLED_QUEUE;container.state='FULL_READY'
-            self.state=ExcavatorState.IDLE;self.reason='PAUSED_FOR_PLAN_OR_MAINTENANCE';return
+            self.state=ExcavatorState.IDLE;self.reason='WAITING_WORK_WINDOW' if not s.work_allowed else 'PAUSED_FOR_PLAN_OR_MAINTENANCE';return
         cycle_budget=c.digging_power_w*c.cycle_seconds*(max(t.soil.profile.factors) if t.soil is not None else 1.)
         stop_energy=(max(self.capacity(inv)*c.courier_low_soc,cycle_budget) if logistics.batch_enabled else
                      self.capacity(inv)*c.excavator_reserve+cycle_budget)

@@ -113,6 +113,14 @@ def _buffer_test(generation,load,capacity,reserve,step_hours,charge_limit_kw=mat
                 energy_error_kwh=float(capacity+solar-stored-(demand-unserved)-curtailed))
 
 
+def storage_requirement(generation,load,reserve,step_hours=1/60):
+    """Cyclic energy debt; the subsequent buffer test enforces power limits."""
+    debt=0.;maximum=0.
+    for value in np.tile((load-generation)*step_hours,2):
+        debt=max(0.,debt+float(value));maximum=max(maximum,debt)
+    return maximum/(1-reserve)
+
+
 def calculate_power(config,request=None,observation=None):
     request=request or PowerRequest();request.validate();c=equipment_copy(config)
     b=c.base;log=c.logistics;eff=b.charge_efficiency
@@ -192,9 +200,7 @@ def calculate_power(config,request=None,observation=None):
         generation=np.zeros_like(load);storage=None;storage_count=None;test=None
     else:
         generation=per_area*(count*panel.area_m2)
-        deficit=(load-generation)*step;debt=0.;maximum=0.
-        for value in np.tile(deficit,2):debt=max(0.,debt+float(value));maximum=max(maximum,debt)
-        storage=maximum/(1-request.reserve_soc)
+        storage=storage_requirement(generation,load,request.reserve_soc,step)
         if log is not None and count*panel.area_m2>20:
             storage=max(storage,200*2*log.field_deployment_seconds/KWH/(1-request.reserve_soc))
         storage_count=max(0,math.ceil(storage/battery.capacity_kwh-1e-12)) if demand>0 else 0
@@ -203,7 +209,7 @@ def calculate_power(config,request=None,observation=None):
         converter=converter_rating(c,storage_count,battery)
         test=_buffer_test(generation,load,storage_count*battery.capacity_kwh,request.reserve_soc,step,
                           min(converter,storage_count*battery.capacity_kwh*2),min(converter,storage_count*battery.capacity_kwh*10))
-        while (test['unserved_kwh']>1e-7 or test['daily_storage_drift_kwh']< -1e-7) and storage_count<=1000:
+        while (test['unserved_kwh']>1e-7 or test['daily_storage_drift_kwh']< -1e-7) and storage_count<=BASE_BATTERY_LIMIT:
             storage_count+=1
             converter=converter_rating(c,storage_count,battery)
             test=_buffer_test(generation,load,storage_count*battery.capacity_kwh,request.reserve_soc,step,
@@ -221,7 +227,7 @@ def calculate_power(config,request=None,observation=None):
     if not log:warnings.append('В прежнем режиме нет сменных модулей: оценка запасов относится к комплексу ATS 2.0')
     elif not log.individual_chargers:warnings.append('Подбор нового комплекса выполняется для индивидуальных зарядных слотов')
     if count is not None and count>PANEL_QUANTITY_LIMIT:warnings.append(f'Требуется больше {PANEL_QUANTITY_LIMIT} стандартных панелей; уменьшите нагрузку или измените тип панели')
-    if storage_count is not None and storage_count>1000:warnings.append('Требуется больше 1000 аккумуляторов базы')
+    if storage_count is not None and storage_count>BASE_BATTERY_LIMIT:warnings.append(f'Требуется больше {BASE_BATTERY_LIMIT} аккумуляторов базы')
     if max_spare>64 or robot_spares>128:warnings.append('Запас сменных батарей превышает предел одного комплекса')
     mobile_capacity=sum(d.battery/KWH*(1+max_spare) for d in models)
     buffer_capacity=0.

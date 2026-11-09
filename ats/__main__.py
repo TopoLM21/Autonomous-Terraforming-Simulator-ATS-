@@ -150,8 +150,8 @@ def main():
     parser.add_argument("--day-of-year", type=int, default=172, help="Start day, 1..365; day 172 = 21 June")
     parser.add_argument("--panel-area", type=float, help="Horizontal solar panel area in m²; default 20, or equipment profile")
     parser.add_argument("--base-mass", type=float, default=1000, help="Base mass including panels/battery, kg")
-    parser.add_argument("--drones", type=int, help="Fleet size, 1..6; default 1 legacy / 4 logistics")
-    parser.add_argument("--charge-slots", type=int, help="Landing/charging sockets, 1..6; share total charging power")
+    parser.add_argument("--drones", type=int, help="Fleet size, 1..16; default 1 legacy / 4 logistics")
+    parser.add_argument("--charge-slots", type=int, help="Landing/charging sockets, 1..16; share total charging power")
     parser.add_argument("--wait-mode", choices=("ground","air"), default="ground")
     parser.add_argument('--airspace',choices=('per_drone','shared_lanes'),help='Cruise allocation; new GUI defaults to four shared levels')
     parser.add_argument('--cut-policy',choices=('profile','natural'),help='Exact profile or bottom-only excavation with natural slopes; new GUI defaults to natural')
@@ -399,8 +399,11 @@ def main():
             args.drone_spare_sets is not None,args.excavator_spare_batteries is not None,
             args.continuous_design,args.batch_experiments,args.compare_fleet,args.complexes>1,args.shared_site,
             args.dem,args.qattara,args.landscape))
-        winter_default=(args.energy_preset in ('winter24h','qattara-season') or args.energy_preset is None and
-                        not args.headless and mode!='legacy' and not manual_hardware)
+        winter_default=args.energy_preset in ('winter24h','qattara-season')
+        if (not args.headless and args.energy_preset is None and mode!='legacy' and not manual_hardware
+                and args.latitude is None and config.georeference is None):
+            from .season_power import QATTARA_LATITUDE
+            config.base.latitude_deg=QATTARA_LATITUDE
         if winter_default:
             if mode=='legacy':raise ValueError('Зимний суточный комплекс требует ATS 2.0')
             if initial_stock:raise ValueError('Шаблон содержит дополнительный запас: сохраните его комплектацию или выполните новый подбор через интерфейс')

@@ -487,6 +487,27 @@ class Simulation:
     def day_of_year(self):
         return self.day_at(self.time)
 
+    def _work_window(self):
+        raw=getattr(self.config,'operating_schedule',None)
+        if raw is None:return True,''
+        from .work_schedule import WorkSchedule
+        day=self.day_at(self.time+self.config.dt/2);latitude=self.base.config.latitude_deg
+        key=(tuple(sorted(raw.items())),day,latitude)
+        cached=getattr(self,'_work_window_cache',None)
+        if cached is None or cached[0]!=key:
+            schedule=WorkSchedule.from_data(raw);interval=schedule.interval(latitude,day)
+            reason=schedule.reason(latitude,day,0.)
+            cached=(key,interval,reason);self._work_window_cache=cached
+        hour=(self.hour+self.config.dt/7200)%24;interval=cached[1]
+        allowed=interval is not None and interval[0]<=hour<interval[1]
+        return allowed,'' if allowed else cached[2]
+
+    @property
+    def work_allowed(self):return self._work_window()[0]
+
+    @property
+    def work_wait_reason(self):return self._work_window()[1]
+
     @property
     def clock_text(self):
         seconds = int(round((self.config.start_hour*3600+self.time) % 86400)) % 86400
@@ -770,6 +791,7 @@ class Simulation:
             d.state = DS.CHARGING
             self.drone_event(d,"заряжается до 100% после запроса зарядки","charge")
             return
+        if not self.work_allowed:return
         d.state = DS.DOCKED
         if d.trip is None:
             d.trip = self._choose_trip(d)
@@ -789,6 +811,7 @@ class Simulation:
         if self._charging_needed(d):
             self._enqueue(d)
             return
+        if not self.work_allowed:return
         trip=self._choose_trip(d)
         if trip is not None:
             d.trip=trip
@@ -802,7 +825,7 @@ class Simulation:
     def _continue_or_return(self, d):
         d.trip = None
         d.dump_released = False
-        if (not self.landing_requested and self.relocation_pending is None and self.terrain.remaining > self.config.terrain.completion_volume
+        if (self.work_allowed and not self.landing_requested and self.relocation_pending is None and self.terrain.remaining > self.config.terrain.completion_volume
                 and (self.logistics is None or not self.logistics.direct_should_return(d))):
             if not self._charging_needed(d):
                 trip = self._choose_trip(d, airborne=True)
@@ -1224,6 +1247,7 @@ class Simulation:
             return
         if self.landing_requested:
             return
+        if not self.work_allowed:return
         if self.terrain.remaining > self.config.terrain.completion_volume:
             key = (self.terrain.revision,tuple(self.base.position))
             if getattr(self,"_capability_key",None) != key:
@@ -1394,4 +1418,10 @@ class Simulation:
             result['energy_design']=self.config.energy_design
             state,message=design_status(self.config,day_of_year=self.day_at(self.time))
             result['energy_design_status']=dict(state=state,message=message)
+        if getattr(self.config,'operating_schedule',None):
+            result['operating_schedule']=dict(self.config.operating_schedule)
+            result['work_window']=dict(open=self.work_allowed,reason=self.work_wait_reason)
+        if getattr(self.config,'cost_catalog',None) is not None:
+            from .costs import quote
+            result['equipment_cost_estimate']=quote(self.config,layout=getattr(self.base,'layout_spec',None),world=self.logistics)
         return result

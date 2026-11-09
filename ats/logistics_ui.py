@@ -203,7 +203,7 @@ class ExperimentDialog(QtWidgets.QDialog):
         self.mode.setCurrentIndex(1 if parent.config.logistics is not None and parent.config.logistics.direct_allowed else 0)
         self.laser=QtWidgets.QComboBox();self.laser.addItems(['laser_off','existing_legacy','realistic_reference'])
         if logistics:self.laser.setCurrentText(logistics.laser_profile)
-        self.drones=QtWidgets.QSpinBox();self.drones.setRange(1,6);self.drones.setValue(config.fleet.count if logistics else 4)
+        self.drones=QtWidgets.QSpinBox();self.drones.setRange(1,16);self.drones.setValue(config.fleet.count if logistics else 4)
         self.containers=QtWidgets.QSpinBox();self.containers.setRange(0,64);self.containers.setValue(logistics.container_count if logistics else 8)
         self.ports=QtWidgets.QSpinBox();self.ports.setRange(1,64);self.ports.setValue(logistics.charger_ports if logistics else 4)
         self.charge_mode=QtWidgets.QComboBox()

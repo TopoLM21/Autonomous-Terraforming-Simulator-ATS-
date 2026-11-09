@@ -595,6 +595,7 @@ class Logistics:
     def dispatch(self):
         s=self.sim
         if self._base_moving_step or s.base.destination is not None or s.relocation_pending is not None:return
+        if not s.work_allowed:return
         pending=sorted((j for j in self.jobs if j.status=='QUEUED'),
                        key=lambda j:(j.priority-(s.time-j.created_at)/600,j.created_at,j.id))
         for d in s.drones:
@@ -634,6 +635,7 @@ class Logistics:
 
     def try_lift(self):
         if getattr(self.sim,'regional_stage',None):return
+        if not self.sim.work_allowed:return
         from .cooperative_lift import CollectiveLift,lift_check
         from copy import copy
         e=self.excavator;s=self.sim
@@ -661,7 +663,7 @@ class Logistics:
         s.event('Команда зарезервирована: снятие батарей и перенос сухого Крота')
 
     def direct_should_return(self, d):
-        return (self.sim.relocation_pending is not None or d.identifier in self.tool_targets or d.identifier in self.recall_ids or
+        return (not self.sim.work_allowed or self.sim.relocation_pending is not None or d.identifier in self.tool_targets or d.identifier in self.recall_ids or
                 self.excavator is not None and self.excavator.state.value=='WAITING_RELOCATION')
 
     def request_tool(self, d, target):
@@ -894,6 +896,7 @@ class Logistics:
     def direct_dispatch(self):
         if not (self.config.direct_allowed or self.config.idle_digging) or self.group is not None:return
         s=self.sim
+        if not s.work_allowed:return
         if s.terrain.remaining<=s.config.terrain.completion_volume:return
         if self._base_moving_step or s.base.destination is not None or s.relocation_pending is not None:return
         if self.excavator is not None and self.excavator.state.value=='WAITING_RELOCATION':return
@@ -952,6 +955,7 @@ class Logistics:
             if d.state==DS.CHANGING_TOOL:return 'Смена инструмента: '+self.wait_reasons.get(d.identifier,'работает станция')
             detail=self.wait_reasons.get(d.identifier,'')
             return ('Ожидание станции смены инструмента'+(': '+detail if detail else '')) if d.docked else 'Очередь к станции смены инструмента'
+        if not self.sim.work_allowed:return self.sim.work_wait_reason
         if self.group is not None:return 'Подготовка совместного переноса'
         if self.excavator is not None and self.excavator.state.value=='WAITING_RELOCATION':
             return 'Сбор команды для переноса Крота'
@@ -1395,6 +1399,10 @@ class Logistics:
 
     def detect_stall(self):
         if getattr(self.sim,'regional_stage',None):return
+        if not self.sim.work_allowed:
+            self.wait_reason='WAITING_WORK_WINDOW: '+self.sim.work_wait_reason
+            self.progress_at=self.sim.time
+            return
         if self.sim.base_move_wait=='WAITING_SECTOR_TEAMS':
             self.wait_reason='WAITING_SECTOR_TEAMS: группа завершает сектор или занимает новые стоянки';self.progress_at=self.sim.time;return
         if self.sim.base_move_wait=='NEEDS_NEXT_WINDOW':

@@ -65,11 +65,11 @@ def test_storage_can_be_removed_and_reinstalled_and_saved_as_large_configuration
     assert s.base.battery==0 and s.base.config.battery==0 and not w.base_battery_ids
     balanced(s);s.step();balanced(s)
     w.configure_base_batteries([BatteryModule(quantity=BASE_BATTERY_LIMIT)])
-    assert s.base.battery==0 and s.base.config.battery==5000*KWH
+    assert s.base.battery==0 and s.base.config.battery==BASE_BATTERY_LIMIT*5*KWH
     s.step();balanced(s)
     path=tmp_path/'large-base.json';save_configuration(path,s.config)
     loaded=load_configuration(path)
-    assert loaded.base.battery==5000*KWH and loaded.base.equipment.batteries[0].quantity==1000
+    assert loaded.base.battery==BASE_BATTERY_LIMIT*5*KWH and loaded.base.equipment.batteries[0].quantity==BASE_BATTERY_LIMIT
 
 
 @pytest.mark.parametrize('case',['quantity','total','moving','reserved','panel_site'])
@@ -77,8 +77,8 @@ def test_invalid_base_storage_edit_is_atomic(case):
     from ats.equipment import PanelModule
     s=world();w=s.logistics;proposed=deepcopy(s.config)
     proposed.base.equipment.batteries[0].quantity=8
-    if case=='quantity':proposed.base.equipment.batteries[0].quantity=1001
-    elif case=='total':proposed.base.equipment.batteries=[BatteryModule(quantity=600),BatteryModule(quantity=600)]
+    if case=='quantity':proposed.base.equipment.batteries[0].quantity=BASE_BATTERY_LIMIT+1
+    elif case=='total':proposed.base.equipment.batteries=[BatteryModule(quantity=BASE_BATTERY_LIMIT//2+1),BatteryModule(quantity=BASE_BATTERY_LIMIT//2+1)]
     elif case=='moving':s.base.destination=s.base.position[:2]+[1,0]
     elif case=='reserved':
         w.inventory.reserve([w.base_battery_ids[-1]],'existing_owner')
@@ -96,7 +96,7 @@ def test_base_count_ui_allows_thousand_without_changing_drone_limits():
     from ats.equipment_ui import EquipmentDialog
     app=QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     s=world();dialog=EquipmentDialog(s.config)
-    assert dialog.base.battery_quantities.controls[0].maximum()==1000
+    assert dialog.base.battery_quantities.controls[0].maximum()==BASE_BATTERY_LIMIT
     assert dialog.editors[0].battery_quantities.controls[0].maximum()==64
     dialog.base.battery_quantities.controls[0].setValue(1000)
     assert s.request_equipment(dialog.value())=='applied'

@@ -19,7 +19,7 @@ import numpy as np
 
 
 FORMAT='ATS_SIMULATION'
-VERSION=19
+VERSION=20
 MAX_BYTES=1_500_000_000
 MAX_NODES=2_000_000
 
@@ -90,7 +90,7 @@ class _Encoder:
             if name not in self.classes:raise ValueError(f'Нельзя сохранить объект {name}')
             node.update(kind='object',type=name,attrs={k:self.encode(v,matrix=name=='ats.config.Config' and
                 k in ('initial_height','reference_height') and v is not None) for k,v in vars(value).items()
-                if k not in ('_sector_progress_cache','_prefetch_runtime','_prefetch_auto_key','_prefetch_world_stamp','_flooding_basis','_flight_ceiling_cache','_shore_cache','_axis_station_cache')})
+                if k not in ('_sector_progress_cache','_prefetch_runtime','_prefetch_auto_key','_prefetch_world_stamp','_flooding_basis','_flight_ceiling_cache','_shore_cache','_axis_station_cache','_work_window_cache')})
         return {'ref':index}
 
 

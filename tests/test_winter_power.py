@@ -98,17 +98,16 @@ def test_cli_winter_preset_reports_actual_equipment_and_does_not_change_manual_m
     assert json.loads(result.stdout)['panel_area_m2']==20
 
 
-def test_default_gui_entrypoint_prepares_winter_hardware_and_manual_entrypoint_keeps_it(monkeypatch):
+def test_default_gui_entrypoint_opens_setup_and_manual_entrypoint_preserves_recipe(monkeypatch):
     from ats import __main__,gui
     launches=[]
     monkeypatch.setattr(gui,'launch',lambda config,**kwargs:launches.append((config,kwargs)) or 0)
     monkeypatch.setattr(sys,'argv',['ats','--latitude','31'])
     assert __main__.main()==0
     config,options=launches[-1]
-    assert config.energy_design['mode']=='renewable'
+    assert config.energy_design is None
     assert config.base.start_day_of_year==172
-    assert options['session'].simulation.config is config
-    assert options['session'].simulation.state.value=='RUNNING'
+    assert 'session' not in options
     monkeypatch.setattr(sys,'argv',['ats','--latitude','31','--panel-area','100'])
     assert __main__.main()==0
     config,options=launches[-1]

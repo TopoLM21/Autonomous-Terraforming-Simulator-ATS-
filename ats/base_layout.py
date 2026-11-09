@@ -308,8 +308,15 @@ def preview_live_layout(world,**changes):
 
 
 def design_continuous(config,request=None):
+    from .power_design import PowerRequest
+    request=deepcopy(request or PowerRequest());request.work_hours=24.
+    return design_layout(config,request)
+
+
+def design_layout(config,request,*,min_panels=0,min_batteries=0):
+    """Size the same physical carrier/bus model for a reviewed daily schedule."""
     from .power_design import PowerRequest,calculate_power,sized_configuration,equipment_copy
-    c=equipment_copy(config);request=deepcopy(request or PowerRequest());request.work_hours=24.;request.source='equipment'
+    c=equipment_copy(config);request=deepcopy(request);request.source='equipment'
     site={key:getattr(c,key) for key in ('initial_height','reference_height','initial_soil','plan','georeference','local_reference')}
     c.initial_height=c.reference_height=c.initial_soil=c.georeference=None;c.local_reference=False
     automatic=c.base.layout is None or 'heading_deg' not in c.base.layout
@@ -317,12 +324,16 @@ def design_continuous(config,request=None):
     if automatic:c.base.layout['heading_deg']=plan_heading(config)
     previous=None
     for _ in range(16):
-        r=calculate_power(c,request);c=sized_configuration(c,r);spec=configure_layout(c)
+        r=calculate_power(c,request)
+        recipe=dict(r)
+        if recipe['panel_count'] is not None:recipe['panel_count']=max(recipe['panel_count'],min_panels)
+        if recipe['base_battery_count'] is not None:recipe['base_battery_count']=max(recipe['base_battery_count'],min_batteries)
+        c=sized_configuration(c,recipe);spec=configure_layout(c)
         if spec.get('battery_platforms'):
             c.logistics.inverter_power_w=max(c.logistics.inverter_power_w,spec['drive_power_kw']*1000)
-        key=(r['panel_count'],r['base_battery_count'],spec['platform_count'],c.base.idle_power)
+        key=(recipe['panel_count'],recipe['base_battery_count'],spec['platform_count'],c.base.idle_power)
         if key==previous:
             for name,value in site.items():setattr(c,name,value)
-            r['base_layout']=spec;r['design_mode']='continuous';return c,r
+            r['base_layout']=spec;r['design_mode']='continuous' if request.work_hours==24 else 'scheduled';return c,r
         previous=key
     raise ValueError('Подбор круглосуточной комплектации не сошёлся')

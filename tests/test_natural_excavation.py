@@ -159,7 +159,9 @@ def test_new_gui_defaults_are_natural_and_shared_but_configuration_files_keep_th
     monkeypatch.setattr(gui,'launch',lambda config,**kwargs:captured.update(config=config,kwargs=kwargs) or 0)
     monkeypatch.setattr(sys,'argv',['ats']);assert cli.main()==0
     c=captured['config'];assert c.terrain.cut_policy=='natural' and c.fleet.airspace_mode=='shared_lanes'
-    assert captured['kwargs']['session'].simulation.terrain.natural_excavation
+    assert 'session' not in captured['kwargs']  # the new GUI starts with an empty site
+    from ats.terrain import Terrain
+    assert Terrain(c).natural_excavation
     path=tmp_path/'profile.json';save_configuration(path,experiment_config(with_map_size(Config(),64)))
     monkeypatch.setattr(sys,'argv',['ats','--configuration',str(path)]);assert cli.main()==0
     assert captured['config'].terrain.cut_policy=='profile' and captured['config'].fleet.airspace_mode=='per_drone'

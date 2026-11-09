@@ -18,7 +18,8 @@ def station_offset(index,spacing):
     return (0 if index==0 else (index+1)//2*(1 if index%2 else -1))*spacing
 
 KWH=3_600_000.0
-BASE_BATTERY_LIMIT=1000
+MAX_DRONES=16
+BASE_BATTERY_LIMIT=10000
 PANEL_QUANTITY_LIMIT=100000
 
 
@@ -97,7 +98,7 @@ class LaserEmitter:
     shared_limit_kw: float=0.0
 
     def validate(self):
-        if not isinstance(self.drone_number,int) or not 1<=self.drone_number<=6:raise ValueError("Номер позиции дрона для передатчика: 1–6")
+        if not isinstance(self.drone_number,int) or not 1<=self.drone_number<=MAX_DRONES:raise ValueError(f"Номер позиции дрона для передатчика: 1–{MAX_DRONES}")
         positive(self.mass_kg,"Масса передатчика");positive(self.input_power_kw,"Мощность передатчика",True);positive(self.range_m,"Дальность передатчика")
         positive(self.beam_radius_m,"Радиус луча");positive(self.divergence_mrad,"Расходимость луча",True)
         if not isinstance(self.enabled,bool):raise ValueError("Состояние передатчика должно быть логическим")
@@ -170,9 +171,9 @@ class BaseEquipment:
     def validate(self):
         positive(self.chassis_mass_kg,"Масса шасси");positive(self.slot_mass_kg,"Масса посадочного места");positive(self.charger_mass_kg,"Масса зарядного устройства")
         positive(self.charge_power_kw,"Общая мощность зарядки",True)
-        if not isinstance(self.landing_slots,int) or not 1<=self.landing_slots<=6:raise ValueError("Посадочных мест: 1–6")
+        if not isinstance(self.landing_slots,int) or not 1<=self.landing_slots<=MAX_DRONES:raise ValueError(f"Посадочных мест: 1–{MAX_DRONES}")
         if not 0<self.charge_efficiency<=1:raise ValueError("КПД зарядки: 0–100%")
-        if len(self.batteries)>12 or len(self.panels)>12 or len(self.emitters)>6:raise ValueError("Слишком много типов оборудования базы")
+        if len(self.batteries)>12 or len(self.panels)>12 or len(self.emitters)>MAX_DRONES:raise ValueError("Слишком много типов оборудования базы")
         for module in self.batteries:module.validate(BASE_BATTERY_LIMIT)
         if sum(b.quantity for b in self.batteries)>BASE_BATTERY_LIMIT:raise ValueError(f'На базе допускается до {BASE_BATTERY_LIMIT} аккумуляторов')
         for module in [*self.panels,*self.emitters]:module.validate()

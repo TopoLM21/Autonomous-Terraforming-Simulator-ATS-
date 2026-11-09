@@ -1,0 +1,408 @@
+{
+  "date": "2026-11-09",
+  "baseline_commit": "222d3ee7a555f5f92cb6d196985358615e1be420",
+  "code_and_test_tree_sha256": "2db89ec0c55bc7f50524bfa6ea6c3e3e49c085ffe3199cdf37ad08eefcf135e7",
+  "environment": {
+    "os": "Linux",
+    "python": "3.12.14",
+    "numpy": "2.5.4",
+    "qt": "6.12.0",
+    "qt_platform": "offscreen"
+  },
+  "tests": {
+    "final_unique_total": 867,
+    "passed": 867,
+    "failed": 0,
+    "full_collection_batches": [
+      {
+        "file": "suite-0.xml",
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "60",
+        "time": "233.424",
+        "timestamp": "2026-11-09T14:28:55.184436+00:00",
+        "hostname": "da8047f474b5"
+      },
+      {
+        "file": "suite-1.xml",
+        "name": "pytest",
+        "errors": "0",
+        "failures": "1",
+        "skipped": "0",
+        "tests": "442",
+        "time": "451.592",
+        "timestamp": "2026-11-09T14:28:55.106919+00:00",
+        "hostname": "da8047f474b5"
+      },
+      {
+        "file": "suite-2.xml",
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "365",
+        "time": "342.136",
+        "timestamp": "2026-11-09T14:28:55.185281+00:00",
+        "hostname": "da8047f474b5"
+      }
+    ],
+    "initial_expected_contract_failure": [
+      {
+        "classname": "tests.test_natural_excavation",
+        "name": "test_new_gui_defaults_are_natural_and_shared_but_configuration_files_keep_their_choices",
+        "reason": "Obsolete expectation that normal GUI startup creates a ready Simulation; updated to the empty workspace contract."
+      }
+    ],
+    "retests": [
+      {
+        "file": "natural-retest.xml",
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "13",
+        "time": "11.056",
+        "timestamp": "2026-11-09T14:37:45.828868+00:00",
+        "hostname": "da8047f474b5"
+      },
+      {
+        "file": "setup-retest.xml",
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "15",
+        "time": "9.469",
+        "timestamp": "2026-11-09T14:47:40.129466+00:00",
+        "hostname": "da8047f474b5"
+      }
+    ],
+    "cli": {
+      "checks": 36,
+      "passed": 36,
+      "wall_seconds": 75.25027080800282,
+      "groups": [
+        "ATS 2.0 logistics smoke test",
+        "Continuous design includes real platform hardware",
+        "Energy sizing and executable equipment template",
+        "Install Qt runtime libraries on Ubuntu",
+        "Layered soil and complete snapshot continuation",
+        "Offline real DEM smoke test",
+        "Prepared Qattara channel smoke test",
+        "Save and resume airborne simulation",
+        "Twenty complexes on one physical map and exact snapshot continuation",
+        "Two complexes on common regional project and exact resume",
+        "axis"
+      ]
+    },
+    "coverage": [
+      "empty Qt entrypoint creates no Simulation/Inventory",
+      "background calculation and cancellation; stale result invalidation",
+      "calendar year wrap, all-year winter, hemispheres and polar night rejection",
+      "out-of-shift charging, safe cargo completion and next-shift dispatch",
+      "16 independent aircraft/slots with real simultaneous soil loads and exact save continuation",
+      "costs count physical packs once and include hot stock",
+      "template/site separation and explicit rejection of unsupported extra stock in builder",
+      "old saves and exact continuation",
+      "multi-complex common terrain and calendar A→B→A"
+    ]
+  },
+  "representative_designs": {
+    "latitude_deg": 31.078,
+    "period": "01.03–30.09, 214 days",
+    "drones": 4,
+    "krot": 0,
+    "assumptions": "Default flight utilization 80%, full payload, solar factor 80%, energy margin 30%, BESS reserve 20%; per-day two-cycle electrical audits, not full physical seasonal missions.",
+    "cases": [
+      {
+        "mode": "continuous",
+        "panel_m2": 4775,
+        "bess_kwh": 2330,
+        "carriers": 45,
+        "capital_usd": 5773500,
+        "limiting_date": "01.03"
+      },
+      {
+        "mode": "hours",
+        "work_hours": 6,
+        "panel_m2": 1203,
+        "bess_kwh": 30,
+        "carriers": 15,
+        "capital_usd": 1997979.9,
+        "limiting_date": "01.03"
+      },
+      {
+        "mode": "daylight",
+        "panel_m2": 2261,
+        "bess_kwh": 340,
+        "carriers": 22,
+        "capital_usd": 2848760,
+        "limiting_date": "01.03"
+      }
+    ]
+  },
+  "gui_setup": {
+    "calculation_wall_seconds": 1.644495476000884,
+    "max_gui_event_gap_seconds": 0.3795417830006045,
+    "heartbeats": 97,
+    "placement_wall_seconds": 0.33744417700290796
+  },
+  "regional_calendar": {
+    "complexes": 2,
+    "time_seconds": 798.0,
+    "windows": 2,
+    "mass_error_kg": 0.0,
+    "energy_error_j": 4.3888576328754425e-07,
+    "ground_exact": true,
+    "ids_exact": true,
+    "calendar_preserved": true,
+    "costs_preserved": true
+  },
+  "sixteen_wide_front": {
+    "model_seconds": 40.0,
+    "wall_seconds": 1.2746362469988526,
+    "assigned_drones": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16
+    ],
+    "states": [
+      "TO_DUMP",
+      "LIFT_GRABBER",
+      "LIFT_GRABBER",
+      "LIFT_GRABBER",
+      "TO_DUMP",
+      "TO_DUMP",
+      "TO_DUMP",
+      "LIFT_GRABBER",
+      "TO_DUMP",
+      "TO_DUMP",
+      "TO_DUMP",
+      "TO_DUMP",
+      "TO_DUMP",
+      "TO_DUMP",
+      "TO_DUMP",
+      "TO_DUMP"
+    ],
+    "wait_reasons": [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "mass_error_kg": -1.1368683772161603e-13,
+    "energy_error_j": -1.1335941962897778e-08,
+    "state": "RUNNING"
+  },
+  "benchmarks": [
+    {
+      "fixture": "axis-natural-240",
+      "description": "One coastal Qattara complex, 45 carriers, 4866 m² PV, 4 drones, 1024×1024 cells at 0.5 m; model time 240→360 s.",
+      "steps": 120,
+      "trials_per_mode": 3,
+      "physical_results_equal": {
+        "physical_sha256": true,
+        "terrain_sha256": true,
+        "material_sha256": true
+      },
+      "variants": {
+        "before": {
+          "headless": {
+            "median": {
+              "wall_seconds": 1.28746663900165,
+              "model_seconds": 120.0,
+              "actual_speed": 93.20629860596038
+            },
+            "factor_range": [
+              90.66918450579043,
+              94.68530970019339
+            ],
+            "maximum_step_seconds": 0.05947238499720697,
+            "maximum_gui_event_gap_seconds": 0,
+            "viewport_px": null,
+            "maximum_mass_error_kg": 8.526512829121202e-14,
+            "maximum_energy_error_j": 4.857778549194336e-06
+          },
+          "gui": {
+            "median": {
+              "wall_seconds": 1.9772389250028937,
+              "model_seconds": 120.0,
+              "actual_speed": 60.690692704132545
+            },
+            "factor_range": [
+              60.38870321117691,
+              63.84746048279175
+            ],
+            "maximum_step_seconds": 0.06619074400077807,
+            "maximum_gui_event_gap_seconds": 0.15867437600172707,
+            "viewport_px": [
+              1002,
+              619
+            ],
+            "maximum_mass_error_kg": 8.526512829121202e-14,
+            "maximum_energy_error_j": 4.857778549194336e-06
+          }
+        },
+        "after": {
+          "headless": {
+            "median": {
+              "wall_seconds": 1.3428951329988195,
+              "model_seconds": 120.0,
+              "actual_speed": 89.35917410917111
+            },
+            "factor_range": [
+              82.12549525352138,
+              90.52732203545607
+            ],
+            "maximum_step_seconds": 0.08463588900121977,
+            "maximum_gui_event_gap_seconds": 0,
+            "viewport_px": null,
+            "maximum_mass_error_kg": 8.526512829121202e-14,
+            "maximum_energy_error_j": 4.857778549194336e-06
+          },
+          "gui": {
+            "median": {
+              "wall_seconds": 2.1139646520023234,
+              "model_seconds": 120.0,
+              "actual_speed": 56.76537679394845
+            },
+            "factor_range": [
+              56.170933933891135,
+              58.265741387220984
+            ],
+            "maximum_step_seconds": 0.07164614499924937,
+            "maximum_gui_event_gap_seconds": 0.18616394199852948,
+            "viewport_px": [
+              1002,
+              616
+            ],
+            "maximum_mass_error_kg": 8.526512829121202e-14,
+            "maximum_energy_error_j": 4.857778549194336e-06
+          }
+        }
+      }
+    },
+    {
+      "fixture": "14x4-bank",
+      "description": "14 complexes × 4 drones on one layered shared 512 m site, 1 m cells, 20 m² PV per complex. This is not fourteen large seasonal arrays.",
+      "steps": 120,
+      "trials_per_mode": 3,
+      "physical_results_equal": {
+        "physical_sha256": true,
+        "terrain_sha256": true,
+        "material_sha256": true
+      },
+      "variants": {
+        "before": {
+          "headless": {
+            "median": {
+              "wall_seconds": 2.6536003180008265,
+              "model_seconds": 120.0,
+              "actual_speed": 45.221580351032586
+            },
+            "factor_range": [
+              44.161690958213086,
+              47.458986724783166
+            ],
+            "maximum_step_seconds": 0.04861231800168753,
+            "maximum_gui_event_gap_seconds": 0,
+            "viewport_px": null,
+            "maximum_mass_error_kg": 4.661160346586257e-12,
+            "maximum_energy_error_j": 5.010224413126707e-08
+          },
+          "gui": {
+            "median": {
+              "wall_seconds": 3.1333875980017183,
+              "model_seconds": 120.0,
+              "actual_speed": 38.29720908978149
+            },
+            "factor_range": [
+              36.04864874376406,
+              38.390413403957076
+            ],
+            "maximum_step_seconds": 0.06531416999860085,
+            "maximum_gui_event_gap_seconds": 0.18221769999945536,
+            "viewport_px": [
+              1002,
+              619
+            ],
+            "maximum_mass_error_kg": 4.661160346586257e-12,
+            "maximum_energy_error_j": 5.010224413126707e-08
+          }
+        },
+        "after": {
+          "headless": {
+            "median": {
+              "wall_seconds": 2.6587855359975947,
+              "model_seconds": 120.0,
+              "actual_speed": 45.13338829902096
+            },
+            "factor_range": [
+              29.23753737506443,
+              46.36706558641591
+            ],
+            "maximum_step_seconds": 0.18551417100024992,
+            "maximum_gui_event_gap_seconds": 0,
+            "viewport_px": null,
+            "maximum_mass_error_kg": 4.661160346586257e-12,
+            "maximum_energy_error_j": 5.010224413126707e-08
+          },
+          "gui": {
+            "median": {
+              "wall_seconds": 3.3170930160013086,
+              "model_seconds": 120.0,
+              "actual_speed": 36.17625415420448
+            },
+            "factor_range": [
+              35.999542413401585,
+              38.103578230659835
+            ],
+            "maximum_step_seconds": 0.10896013399906224,
+            "maximum_gui_event_gap_seconds": 0.21598761600034777,
+            "viewport_px": [
+              1002,
+              616
+            ],
+            "maximum_mass_error_kg": 4.661160346586257e-12,
+            "maximum_energy_error_j": 5.010224413126707e-08
+          }
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "Local Linux/Python 3.12 checks only; Windows and CI not run without publishing.",
+    "Offscreen timings are not desktop FPS; short trials have host scheduling variation.",
+    "New GUI control area changes viewport height from 619 to 616 px in these measurements.",
+    "No claim of a performance improvement: headless is similar; GUI medians are about 6% slower.",
+    "No reproduction or resolution claim for a freeze after 23 model hours.",
+    "No multi-Krot shared-base dispatcher, human operators, fuel or operating expense ledger in this stage."
+  ]
+}
