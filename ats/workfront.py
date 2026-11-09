@@ -101,7 +101,9 @@ class Workfront:
         if self.sectors:
             excess=terrain.height.ravel()[self.indices]-terrain.target.ravel()[self.indices]
             useful=np.flatnonzero(excess>1e-10)
-            self._set_sector(float(self.along[useful[0]]) if len(useful) else self.start)
+            leader=getattr(getattr(terrain,'core',None),'front',None)
+            self._set_sector(leader.global_sector_start if self.axis and leader else float(self.along[useful[0]]) if len(useful) else self.start)
+            self.support_guard_end=self.global_sector_end
 
     def refresh_design(self):
         terrain=self.terrain
@@ -117,6 +119,14 @@ class Workfront:
     @property
     def sectors(self):return self.settings.get('sector_length_m',0)>0
 
+    @property
+    def axis(self):return self.settings.get('base_strategy')=='axis_ahead'
+
+    @property
+    def cut_enabled(self):
+        from .canal_station import ready
+        return self.stationed and (not self.axis or ready(self.terrain))
+
     def _set_sector(self,along):
         from .sector_progress import project_length
         length=self.settings['sector_length_m']
@@ -124,8 +134,10 @@ class Workfront:
         self.sector_id=max(0,math.floor(min(along,max(0.,self.project_end-1e-8))/length))
         self.global_sector_start=self.sector_id*length
         self.global_sector_end=min(self.project_end,(self.sector_id+1)*length)
-        self.sector_start=max(self.start-self.terrain.cell/2,self.sector_id*length)
-        self.sector_end=min(self.end+self.terrain.cell/2,self.global_sector_end)
+        leader=getattr(getattr(self.terrain,'core',None),'front',None) if self.axis else None
+        start,end=(leader.start,leader.end) if leader else (self.start,self.end)
+        self.sector_start=max(start-self.terrain.cell/2,self.sector_id*length)
+        self.sector_end=min(end+self.terrain.cell/2,self.global_sector_end)
         self.sector_centre=(self.sector_start+self.sector_end)/2
         count=max(1,math.ceil((self.end+self.terrain.cell/2)/length)-math.floor(max(0.,self.start-self.terrain.cell/2)/length))
         self.sector_tolerance=self.terrain.config.terrain.completion_volume*.1/count
@@ -133,7 +145,7 @@ class Workfront:
 
     def cut_mask(self,patch):
         along=self.chainage[patch]
-        return self.local_mask(along)&self.stationed
+        return self.local_mask(along)&self.cut_enabled
 
     def local_mask(self,along):
         upper=along<=self.sector_end+1e-9 if self.sector_end>=self.project_end-1e-8 else along<self.sector_end-1e-9
@@ -150,7 +162,9 @@ class Workfront:
         excess=self.terrain.height.ravel()[self.indices]-self.terrain.target.ravel()[self.indices]
         useful=(excess>1e-10)&~self.local_mask(self.along)&(self.along>=self.sector_end-1e-9)
         if not np.any(useful):return False
+        old_end=self.global_sector_end
         self._set_sector(float(self.along[np.flatnonzero(useful)[0]]))
+        if self.axis:self.support_guard_end=old_end
         self.legacy_pickups=[]
         self.stationed=False;self.moving=False;self.followers_launched=False
         self.update()
@@ -166,7 +180,7 @@ class Workfront:
             self.sector_remaining=float(np.maximum(excess[local],0).sum()*t.area)
             useful=remaining&local
             self.position=float(self.along[np.flatnonzero(useful)[0]]) if np.any(useful) else self.sector_end
-            self.active_indices=self.indices[useful] if self.stationed else self.indices[:0]
+            self.active_indices=self.indices[useful] if self.cut_enabled else self.indices[:0]
             self.revision=t.revision
             return
         # A fixed global fraction of the existing completion tolerance prevents
@@ -192,4 +206,5 @@ class Workfront:
         if self.sectors:
             from .sector_progress import status
             report.update(status(self));report['sector_complete']=report['global_sector_complete']
+            if self.axis:report['base_strategy']='axis_ahead'
         return report

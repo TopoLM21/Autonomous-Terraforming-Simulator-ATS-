@@ -49,9 +49,10 @@ def active_rectangles(simulation):
     return [polygon_bounds(p) for p in active_polygons(simulation)]
 
 
-def safe(spec,point,terrain):
+def safe(spec,point,terrain,*,future=False):
     from .site_ground import footprint_safe
-    blocked=terrain.design_work|terrain.dump_mask
+    from .canal_station import work_exclusion
+    blocked=work_exclusion(terrain,future=future)|terrain.dump_mask
     if terrain.protected is not None:blocked=blocked|terrain.protected
     site=getattr(terrain,'shared_site',None)
     return all(footprint_safe(terrain,r,blocked,grade_deg=8.,relief_m=float('inf')) and

@@ -83,9 +83,10 @@ def path_position(points,fraction):
     return path[-1].copy()
 
 
-def deployment_safe(spec,point,terrain,*,solar_rects=(),solar_polygons=None):
+def deployment_safe(spec,point,terrain,*,solar_rects=(),solar_polygons=None,future=False):
     from .site_ground import footprint_safe,rectangle_polygon,polygon_bounds,polygons_overlap
-    blocked=terrain.design_work|terrain.dump_mask
+    from .canal_station import work_exclusion
+    blocked=work_exclusion(terrain,future=future)|terrain.dump_mask
     if terrain.protected is not None:blocked=blocked|terrain.protected
     if solar_polygons is None:solar_polygons=[rectangle_polygon(r) for r in solar_rects]
     for polygon in deployment_polygons(spec,point):
@@ -479,13 +480,17 @@ class BatteryPlatforms:
         w=self.world;t=w.sim.terrain;b=w.sim.base
         site=w.sim.shared_site
         actors=tuple((u.id,tuple(u.simulation.base.position),tuple(u.simulation.logistics.excavator.position) if u.simulation.logistics.excavator else None) for u in site.project.units) if site else ()
-        stamp=(id(t.height),t.revision,tuple(b.position),id(t.config.georeference),w.field_rect,actors)
+        from .canal_station import work_exclusion
+        work=work_exclusion(t)
+        stamp=(id(t.height),t.revision,id(work),tuple(b.position),id(t.config.georeference),w.field_rect,actors)
         if getattr(self,'_audit_stamp',None)==stamp and 'site_issues' in vars(self):return
         self._audit_stamp=stamp;digest=sha256()
+        from .canal_station import work_exclusion
+        work=work_exclusion(t)
         for rect in self.rectangles(planned=True):
             patch=rectangle_patch(t,rect)
             if patch is None:digest.update(b'outside');continue
-            for values in (t.height[patch],t.design_work[patch],t.dump_mask[patch],marine_mask(t)[patch]):digest.update(values.tobytes())
+            for values in (t.height[patch],work[patch],t.dump_mask[patch],marine_mask(t)[patch]):digest.update(values.tobytes())
             if t.protected is not None:digest.update(t.protected[patch].tobytes())
         signature=(tuple(b.position),w.field_rect,actors,digest.hexdigest())
         if getattr(self,'_audit_signature',None)==signature and 'site_issues' in vars(self):return

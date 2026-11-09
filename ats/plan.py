@@ -69,6 +69,7 @@ class PlanConfig:
             operations=self.channel.get('operations')
             if operations is not None:
                 if not isinstance(operations,dict):raise ValueError('Неверные параметры фронта канала')
+                if operations.get('base_strategy','bank') not in ('bank','axis_ahead'):raise ValueError('Неверная стратегия стоянки базы')
                 positive=('front_length_m','setback_m','bank_width_m')
                 if any(not isinstance(operations.get(key),(int,float)) or not math.isfinite(operations[key]) or operations[key]<=0 for key in positive):
                     raise ValueError('Неверные параметры фронта канала')

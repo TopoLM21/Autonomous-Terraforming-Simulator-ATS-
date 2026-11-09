@@ -169,6 +169,8 @@ def rotate_offset(settings,offset):
 
 
 def safe_layout_route(base,target,terrain,offset=(0,0)):
+    from .canal_station import work_exclusion
+    work=work_exclusion(terrain)
     spec=base.layout_spec;p=spec['parameters'];side=terrain.height.shape[0]*terrain.cell
     offset=rotate_offset(p,offset);start=base.position[:2]+offset;end=np.asarray(target)+offset
     distance=float(np.linalg.norm(end-start));steps=max(2,math.ceil(distance/max(.25,terrain.cell))+1)
@@ -180,7 +182,7 @@ def safe_layout_route(base,target,terrain,offset=(0,0)):
             if min(x,y)<terrain.cell or max(x+w,y+h)>side-terrain.cell:return False
             patch=(slice(max(0,int(y/terrain.cell)),min(terrain.height.shape[0],math.ceil((y+h)/terrain.cell))),
                    slice(max(0,int(x/terrain.cell)),min(terrain.height.shape[1],math.ceil((x+w)/terrain.cell))))
-            blocked=terrain.design_work[patch]|terrain.dump_mask[patch]
+            blocked=work[patch]|terrain.dump_mask[patch]
             if terrain.protected is not None:blocked=blocked|terrain.protected[patch]
             if np.any(blocked):return False
             from .site_ground import footprint_safe

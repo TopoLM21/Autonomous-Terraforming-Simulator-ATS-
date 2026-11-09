@@ -63,14 +63,21 @@ def equipment_spec(config):
 
 
 def equipment_fits(config,spec,point,terrain):
-    if spec is None:return True
     from .site_ground import footprint_safe
     from .base_layout import layout_footprints,rotate_offset
     from .self_solar import deployment_rectangles as solar
     from .battery_platforms import deployment_rectangles as batteries
     from .compact_layout import rectangles
-    blocked=terrain.design_work|terrain.dump_mask
+    from .canal_station import work_exclusion
+    blocked=work_exclusion(terrain,future=True)|terrain.dump_mask
     if terrain.protected is not None:blocked=blocked|terrain.protected
+    if spec is None:
+        x,y=point;r=config.base.radius;f=config.fleet
+        boxes=[(x-r,y-r,2*r,2*r)]
+        for i in range(max(f.count,f.charge_slots)):
+            yy=y+((i+1)//2)*(1 if i%2 else -1)*f.pad_spacing
+            for shift in (0.,-f.waiting_offset):boxes.append((x+shift-f.separation,yy-f.separation,2*f.separation,2*f.separation))
+        return all(footprint_safe(terrain,rect,blocked,grade_deg=math.degrees(math.atan(config.base.max_slope)),relief_m=float('inf')) for rect in boxes)
     for rect in [*layout_footprints(spec,point),*rectangles(spec,point)]:
         if not footprint_safe(terrain,rect,blocked,grade_deg=math.degrees(math.atan(config.base.max_slope)),relief_m=float('inf')):return False
     for rect in [*solar(spec,point),*batteries(spec,point)]:

@@ -176,6 +176,11 @@ class RegionalTransition:
         if c.terrain.cell_size!=s.terrain.cell:raise ValueError('Переезд не меняет разрешение активной сетки')
         self=cls();self.project=project;self.old_origin=old.tolist();self.new_origin=new.tolist()
         self.section=section;self.target=c;self.preview=Terrain(c);self.started_at=project.time
+        from .canal_station import enabled,core
+        if enabled(s.terrain):
+            f=core(s.terrain).front
+            self.axis_guard_end=getattr(f,'support_guard_end',f.global_sector_end)
+            self.preview.front.support_guard_end=min(self.axis_guard_end,self.preview.front.global_sector_end)
         self.phase='DRAIN';self.reason='Завершение рейсов и выгрузка грунта';self.routes={};self.goals={}
         self.actor_index=0;self.actors=[];self.followers={};self.previous_landing={u.id:u.simulation.landing_requested for u in project.units}
         self.overlap=(lo-old).tolist()+(hi-old).tolist();self.retry_at=0.;self.route_revision=None
@@ -209,7 +214,17 @@ class RegionalTransition:
             if np.any(lower>upper):raise ValueError(f'{u.name}: техника и посадочные зоны не помещаются в перекрытии окон; увеличьте перекрытие')
             ideal=np.clip(b.position[:2]+(new-old)/2,lower,upper)
             candidates=[ideal,*[np.array([x,y]) for y in np.linspace(lower[1],upper[1],17) for x in np.linspace(lower[0],upper[0],17)]]
-            candidates.sort(key=lambda a:float(np.sum((a-ideal)**2)))
+            from .canal_station import enabled,candidates as axis_sites
+            if enabled(self.preview):
+                candidates=[np.asarray(a[1:])+new-old for a in axis_sites(self.preview,getattr(b,'layout_spec',None),self.preview.front.global_sector_end)]
+                # A boundary is a coordinate-frame handoff, not permission to
+                # undermine the staging point. The group may stop in the
+                # overlap ahead of the OLD face, then drive to its final
+                # station in the new window before enabling the next cut.
+                if getattr(self,'axis_guard_end',self.preview.front.global_sector_end)<self.preview.front.global_sector_end:
+                    candidates.extend(np.asarray(a[1:])+new-old for a in axis_sites(self.preview,getattr(b,'layout_spec',None),self.axis_guard_end))
+                candidates=[a for a in candidates if np.all(a>=lower)&np.all(a<=upper)]
+            else:candidates.sort(key=lambda a:float(np.sum((a-ideal)**2)))
             chosen=None
             for point in candidates:
                 rect=footprint(point)
@@ -240,7 +255,8 @@ class RegionalTransition:
                         if np.any(test<lo+2) or np.any(test>hi-2):continue
                         if any(xx-support-2<test[0]<xx+ww+support+2 and yy-support-2<test[1]<yy+hh+support+2 for xx,yy,ww,hh in placed):continue
                         patch=self.preview.patch(*(test+offset),support+self.preview.cell)
-                        blocked=self.preview.design_work[patch]|self.preview.dump_mask[patch]
+                        from .canal_station import work_exclusion
+                        blocked=work_exclusion(self.preview)[patch]|self.preview.dump_mask[patch]
                         if self.preview.protected is not None:blocked|=self.preview.protected[patch]
                         if np.any(blocked):continue
                         if e.stable(np.r_[test,s.terrain.sample(*test)],s.terrain) and e.stable(np.r_[test+offset,self.preview.sample(*(test+offset))],self.preview):eg=test.tolist();break
@@ -556,6 +572,9 @@ class RegionalTransition:
         if target.plan and target.plan.channel and source.plan and source.plan.channel:
             target.plan.channel['finished_spans']=list(source.plan.channel.get('finished_spans',[]))
         replacement=Terrain(target)
+        from .canal_station import enabled
+        axis=enabled(replacement)
+        if axis:replacement.front.support_guard_end=min(getattr(self,'axis_guard_end',replacement.front.global_sector_end),replacement.front.global_sector_end)
         shift=np.asarray(self.old_origin)-self.new_origin
         for u in p.units:
             s=u.simulation;probe=copy(s.base);point=s.base.position[:2]+shift
@@ -592,7 +611,14 @@ class RegionalTransition:
             w.rack=w.excavator.position.copy() if w.excavator else s.base.position.copy()
             u.section=p._section(s);u.committed=False;s._capability_key=None;s._latitude_position=None
             s._terrain_active=True;s._base_front_anchor=0.;s.relocation_pending=None
-        replacement.config=p.units[0].simulation.config;replacement._site_owner=p.units[0].simulation;site.core=replacement
+        replacement.config=p.units[0].simulation.config;replacement._site_owner=p.units[0].simulation
+        stationed=True
+        if axis:
+            from .channel_site import equipment_fits
+            stationed=all(equipment_fits(u.simulation.config,getattr(u.simulation.base,'layout_spec',None),u.simulation.base.position[:2],replacement) for u in p.units)
+            replacement.front.stationed=stationed
+            if stationed:replacement.front.support_guard_end=replacement.front.global_sector_end
+        site.core=replacement
         for u in p.units:u.simulation.terrain.core=replacement
         site.owners=np.ones(replacement.height.shape,dtype=np.int16);site.archived_mass_error=mass_offset
         site.archived_material_errors=materials;site._mass_revision=-1;site.invalidate_geometry();site.partition()
@@ -605,7 +631,7 @@ class RegionalTransition:
                     # A user-requested regional move has already paid for a
                     # safe arrival/deployment. Adopt that real position for
                     # its current sector, without another short fold/drive.
-                    f=s.terrain.front;f.stationed=True;f.moving=False;f.revision=-1
+                    f=s.terrain.front;f.stationed=stationed if axis else True;f.moving=False;f.revision=-1
             if s.logistics.battery_platforms:s.logistics.battery_platforms.request('DEPLOY')
         self._stage('DEPLOY','Развёртывание солнечных полей на новом участке');self.retry_at=0.
         self._deploy_fields()

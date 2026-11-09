@@ -525,7 +525,7 @@ class Logistics:
     def generate_jobs(self):
         s=self.sim
         front=s.terrain.front
-        if front is not None and front.sectors and not front.stationed and not getattr(s,'regional_stage',None):return
+        if front is not None and front.sectors and not front.cut_enabled and not getattr(s,'regional_stage',None):return
         regional=getattr(s,'regional_stage',None)
         if regional=='COLLECT':
             for item in self.inventory.mutable_items():
@@ -633,6 +633,7 @@ class Logistics:
         from copy import copy
         e=self.excavator;s=self.sim
         if e is None or e.state.value!='WAITING_RELOCATION' or self.group is not None or self._base_moving_step or s.base.destination is not None or s.relocation_pending is not None:return
+        if s.terrain.front is not None and s.terrain.front.axis and s.terrain.front.complete:return
         if (self.active or self.direct_ids or self.tool_targets or self.recall_ids or self.battery_service.drone_swaps
                 or any(not d.grounded for d in s.drones)):return
         rig=self.inventory.items['group_rig']
@@ -1353,7 +1354,9 @@ class Logistics:
         self.base_battery_power_w=s.base.battery-battery_before
         self.base_load_power_w=s.base.consumed+s.base.charging_input+s.base.laser_input-before_bus
         self.detect_stall()
-        if (not getattr(s,'regional_stage',None) and s.base_move_wait!='NEEDS_NEXT_WINDOW'
+        axis_wait=(s.terrain.front is not None and s.terrain.front.axis and s.shared_site is not None and
+                   s.shared_site.core.remaining>s.shared_site.completion_volume)
+        if (not axis_wait and not getattr(s,'regional_stage',None) and s.base_move_wait!='NEEDS_NEXT_WINDOW'
                 and s.terrain.remaining<=s.config.terrain.completion_volume and not s._terrain_active
                 and s.base.destination is None and self.base_move_job is None
                 and not self.battery_service.drone_swaps and not self.battery_service.robot_swap
@@ -1387,6 +1390,8 @@ class Logistics:
 
     def detect_stall(self):
         if getattr(self.sim,'regional_stage',None):return
+        if self.sim.base_move_wait=='WAITING_SECTOR_TEAMS':
+            self.wait_reason='WAITING_SECTOR_TEAMS: группа завершает сектор или занимает новые стоянки';self.progress_at=self.sim.time;return
         if self.sim.base_move_wait=='NEEDS_NEXT_WINDOW':
             self.wait_reason='NEEDS_NEXT_WINDOW: видимая часть готова; выберите соседнее окно региона';return
         if self.battery_platforms and not self.battery_platforms.settled:

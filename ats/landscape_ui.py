@@ -50,13 +50,16 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.cut_policy.setCurrentIndex(self.cut_policy.findData(window.config.terrain.cut_policy))
         self.airspace=QtWidgets.QComboBox();self.airspace.addItem('Общие 4 эшелона','shared_lanes');self.airspace.addItem('Прежние высоты','per_drone')
         self.airspace.setCurrentIndex(self.airspace.findData(window.config.fleet.airspace_mode))
+        self.base_strategy=QtWidgets.QComboBox()
+        self.base_strategy.addItem('На оси · впереди забоя','axis_ahead');self.base_strategy.addItem('Сбоку от канала','bank')
+        self.base_strategy.setToolTip('На нетронутом грунте по оси будущего канала, впереди текущего сектора с запасом на откос и весь раскрытый комплекс. После переезда прежняя стоянка раскапывается. Для старых миссий сохраняется боковая стоянка.')
         self.project_side=QtWidgets.QComboBox()
         for size in (32,64,128,256,512,1024):self.project_side.addItem(f'{size} м',size)
         self.project_side.setCurrentIndex(self.project_side.findData(512))
         self.project_side.setToolTip('Предпочтительный размер нового рабочего окна. Если откосы, отвал или полный комплекс не помещаются, начальное окно автоматически увеличивается до 1024 м. При переезде размер и разрешение сохраняются.')
         self.spoil=QtWidgets.QDoubleSpinBox();self.spoil.setRange(.1,200);self.spoil.setValue(20);self.spoil.setSuffix(' м')
         self.section=QtWidgets.QSpinBox();self.section.setRange(1,1)
-        for i,(label,widget) in enumerate([('Ширина дна',self.width),('Глубина дна',self.depth),('Отступ от берега',self.offset),('Проектный откос',self.angle),('Карта рабочего участка',self.project_side),('Высота отвала',self.spoil),('Участок проекта',self.section),('Разработка',self.cut_policy),('Полётные эшелоны',self.airspace)]):
+        for i,(label,widget) in enumerate([('Ширина дна',self.width),('Глубина дна',self.depth),('Отступ от берега',self.offset),('Проектный откос',self.angle),('Карта рабочего участка',self.project_side),('Высота отвала',self.spoil),('Участок проекта',self.section),('Разработка',self.cut_policy),('Полётные эшелоны',self.airspace),('Стоянка базы',self.base_strategy)]):
             channel.addWidget(QtWidgets.QLabel(label),i//4*2,i%4);channel.addWidget(widget,i//4*2+1,i%4)
         layout.addLayout(channel)
         self.depth.valueChanged.connect(lambda v:self.target.setValue(-v))
@@ -259,6 +262,7 @@ class LandscapeDialog(QtWidgets.QDialog):
                 p=self.project;self.points=p.raw_points
                 self.width.setValue(p.width_m);self.depth.setValue(p.depth_m);self.offset.setValue(p.shore_offset_m)
                 self.angle.setValue(p.angle_deg or 0);self.spoil.setValue(p.spoil_height_m)
+                self.base_strategy.setCurrentIndex(self.base_strategy.findData(p.base_strategy))
                 self.project_side.setCurrentIndex(self.project_side.findData(p.side_m))
                 self.show_project()
             except (ValueError,KeyError,TypeError) as error:self.result.setText(str(error))
@@ -313,7 +317,7 @@ class LandscapeDialog(QtWidgets.QDialog):
 
     def parameters(self):
         return dict(width_m=self.width.value(),depth_m=self.depth.value(),shore_offset_m=self.offset.value(),
-            angle_deg=self.angle.value() or None,side_m=self.project_side.currentData(),spoil_height_m=self.spoil.value())
+            angle_deg=self.angle.value() or None,side_m=self.project_side.currentData(),spoil_height_m=self.spoil.value(),base_strategy=self.base_strategy.currentData())
 
     def prepare_channel(self):
         if not self._new_run_allowed():return False
@@ -344,6 +348,7 @@ class LandscapeDialog(QtWidgets.QDialog):
         start_z=float(r.sample(*p.points[0]));end_z=float(r.sample(*p.points[-1]))
         shore=(f'сухая полоса до всей бровки не менее {p.shore_offset_m:g} м с ячеечным запасом' if p.shore_reference=='crest' else f'прежний отступ по оси {p.shore_offset_m:g} м')
         frame=(f'Новое окно: от {p.side_m:g} до 1024 м с проверкой поперечника, вместимости отвала и раскрытых платформ.' if p.shore_reference=='crest' else f'Прежний проект: окно {p.side_m:g} м и целевой профиль сохранены.')
+        frame+=' База на оси впереди забоя; группа продвигается после вывоза грунта всего сектора.' if p.base_strategy=='axis_ahead' else ' База на боковой стоянке.'
         self.project_info.setText(f'Канал: {p.length/1000:.2f} км · дно шириной {p.width_m:g} м, отметка −{p.depth_m:g} м MSL · участков {p.section_count}, завершено {len(p.completed)}.\nНачало: {start[0]:.6f}, {start[1]:.6f}, {start_z:+.3f} м MSL; {shore}. Конец: {end[0]:.6f}, {end[1]:.6f}, {end_z:+.3f} м MSL — первый вход в выбранную сухую впадину.\n{frame} «Переехать» сохраняет всю группу, заряды и общие часы; сетка в пути не меняется.')
         self.result.setText(f"Готовый проект: ориентировочная выемка {profile['estimated_cut_m3']/1e6:.2f} млн м³. Точность берега определяется DEM ({r.resolution_m[0]:.0f}×{r.resolution_m[1]:.0f} м).")
         self.select_section()

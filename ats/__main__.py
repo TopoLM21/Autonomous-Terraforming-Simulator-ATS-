@@ -222,6 +222,7 @@ def main():
     parser.add_argument('--channel-section',type=int,default=1,help='Prepared local channel section, starting at 1')
     parser.add_argument('--channel-width',type=float,help='Flat channel bottom width in metres')
     parser.add_argument('--channel-depth',type=float,help='Positive depth below MSL, e.g. 5 means bottom -5 m MSL')
+    parser.add_argument('--base-strategy',choices=('bank','axis_ahead'),help='Canal base station: side bank or intact ground ahead on the future axis')
     parser.add_argument('--shore-offset',type=float,help='Dry start offset along alignment from sea coastline, default 10 m')
     args = parser.parse_args()
     flooding=any((args.flood_days is not None,args.instant_channel,args.flood_report,args.new_flood,
@@ -236,7 +237,7 @@ def main():
         if args.exchange_factor is not None and (not math.isfinite(args.exchange_factor) or not 0<=args.exchange_factor<=1):parser.error('--exchange-factor: 0…1')
     if not 1<=args.complexes<=20:parser.error('--complexes: от 1 до 20')
     if args.complex_template and (args.configuration or args.equipment):parser.error('Шаблон комплекса уже задаёт оборудование')
-    if (args.channel_width is not None or args.channel_depth is not None or args.shore_offset is not None or args.channel_section!=1) and not (args.channel or args.channel_route):
+    if (args.channel_width is not None or args.channel_depth is not None or args.shore_offset is not None or args.base_strategy is not None or args.channel_section!=1) and not (args.channel or args.channel_route):
         parser.error('Параметры канала требуют --channel или --channel-route')
     mode=args.mode or 'logistics'
     if args.steps < 0:
@@ -351,12 +352,12 @@ def main():
                     if route.get('coordinates','source')=='source':
                         points=[[float(v) for v in region.raster.to_metres(*p)] for p in points]
                     elif route.get('coordinates')!='metres':raise ValueError('Channel coordinates: source or metres required')
-                    parameters={key:route[key] for key in ('width_m','depth_m','shore_offset_m','angle_deg','side_m','spoil_height_m') if key in route}
+                    parameters={key:route[key] for key in ('width_m','depth_m','shore_offset_m','angle_deg','side_m','spoil_height_m','base_strategy') if key in route}
                 elif region.channel_project:
                     old=ChannelProject.from_data(region.channel_project);points=old.raw_points
-                    parameters={key:getattr(old,key) for key in ('width_m','depth_m','shore_offset_m','angle_deg','side_m','spoil_height_m')}
+                    parameters={key:getattr(old,key) for key in ('width_m','depth_m','shore_offset_m','angle_deg','side_m','spoil_height_m','base_strategy')}
                 else:raise ValueError('Сначала сохраните размеченный канал или укажите --channel-route')
-                for key,value in [('width_m',args.channel_width),('depth_m',args.channel_depth),('shore_offset_m',args.shore_offset),('side_m',args.map_size)]:
+                for key,value in [('width_m',args.channel_width),('depth_m',args.channel_depth),('shore_offset_m',args.shore_offset),('side_m',args.map_size),('base_strategy',args.base_strategy)]:
                     if value is not None:parameters[key]=value
                 project=ChannelProject.create(region.raster,points,**parameters)
                 if region.channel_project:

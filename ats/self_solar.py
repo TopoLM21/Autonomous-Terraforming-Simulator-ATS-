@@ -86,12 +86,13 @@ def deployment_rectangles(spec,point):
     return [_rect(spec,a,point) for a in spec.get('platforms',()) if a.get('role')=='PV'] if 'self_solar' in spec else []
 
 
-def deployment_safe(spec,point,terrain):
+def deployment_safe(spec,point,terrain,*,future=False):
     from .site_ground import footprint_safe
     if 'self_solar' not in spec:return True
     from .compact_layout import safe
-    if not safe(spec,point,terrain):return False
-    p=spec['self_solar'];blocked=terrain.design_work|terrain.dump_mask
+    if not safe(spec,point,terrain,future=future):return False
+    from .canal_station import work_exclusion
+    p=spec['self_solar'];blocked=work_exclusion(terrain,future=future)|terrain.dump_mask
     if terrain.protected is not None:blocked=blocked|terrain.protected
     site=getattr(terrain,'shared_site',None)
     return all(footprint_safe(terrain,r,blocked,grade_deg=p['max_grade_deg'],relief_m=p['support_travel_m']) and support_safe(spec,a,point,terrain) and
@@ -180,7 +181,8 @@ def place(config,spec,point,terrain):
     from .battery_platforms import deployment_polygons as battery_polygons
     if 'self_solar' not in spec:return spec
     result={**spec,'platforms':[dict(a) for a in spec['platforms']]};p=spec['self_solar'];lp=spec['parameters']
-    blocked=terrain.design_work|terrain.dump_mask|marine_mask(terrain)
+    from .canal_station import work_exclusion
+    blocked=work_exclusion(terrain)|terrain.dump_mask|marine_mask(terrain)
     if terrain.protected is not None:blocked=blocked|terrain.protected
     blocked=blocked.copy();site=getattr(terrain,'shared_site',None)
     if site:
@@ -201,7 +203,7 @@ def place(config,spec,point,terrain):
         distance=max(f.waiting_offset,spec['hub_radius_m']+3+f.separation) if offsets else f.waiting_offset
         for dx in (0.,-distance):
             x,y=np.asarray(point[:2])+rotate_offset(lp,[across+dx,along]);rect=(x-f.separation,y-f.separation,2*f.separation,2*f.separation)
-            if not footprint_safe(terrain,rect,terrain.design_work|terrain.dump_mask,grade_deg=8.,relief_m=float('inf')):raise ValueError('Посадочные площадки не помещаются')
+            if not footprint_safe(terrain,rect,work_exclusion(terrain)|terrain.dump_mask,grade_deg=8.,relief_m=float('inf')):raise ValueError('Посадочные площадки не помещаются')
             own.append((rectangle_polygon(rect),0.))
     if config.logistics.excavator_enabled:
         q=config.trench;c=config.logistics;y=q.y-q.width/2-q.depth/terrain.slope-c.support_half_width_m-.1
@@ -341,7 +343,9 @@ class SelfSolarArray:
         actors=site.ground_token(getattr(t,'owner_id',None),bounds) if site and bounds else ()
         marine=marine_mask(t);soil=t.soil
         bearing=tuple(m.bearing_kpa for m in soil.profile.materials) if soil is not None else (b.layout_spec['parameters']['bearing_capacity_kpa'],)
-        stamp=(id(t.height),t.revision,id(soil),getattr(soil,'revision',None),bearing,geometry_key,actors,excavator,
+        from .canal_station import work_exclusion
+        work=work_exclusion(t)
+        stamp=(id(t.height),t.revision,id(work),id(soil),getattr(soil,'revision',None),bearing,geometry_key,actors,excavator,
             id(marine),id(t.design_work),id(t.dump_mask),id(t.protected))
         if getattr(self,'_audit_stamp',None)==stamp:return
         self._audit_stamp=stamp;self.invalid_sections=[]
@@ -362,7 +366,8 @@ class SelfSolarArray:
         from .site_ground import rectangle_patch,footprint_safe
         t=world.sim.terrain;rect=self._spaces[q.id];patch=rectangle_patch(t,rect)
         if patch is None:return False
-        blocked=t.design_work[patch]|t.dump_mask[patch]
+        from .canal_station import work_exclusion
+        blocked=work_exclusion(t)[patch]|t.dump_mask[patch]
         if t.protected is not None:blocked=blocked|t.protected[patch]
         inputs=(t.height[patch],blocked,marine[patch],bearings)
         old=self._support_ground.get(q.id)

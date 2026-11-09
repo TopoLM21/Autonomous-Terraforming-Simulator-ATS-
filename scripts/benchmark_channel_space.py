@@ -10,6 +10,7 @@ from pathlib import Path
 import platform
 import sys
 import time
+import numpy as np
 
 
 def main():
@@ -18,9 +19,13 @@ def main():
     parser.add_argument('--width',type=float,default=20.)
     parser.add_argument('--depth',type=float,default=5.)
     parser.add_argument('--side',type=float,default=512.)
+    parser.add_argument('--base-strategy',choices=('bank','axis_ahead'),default='bank')
     parser.add_argument('--procedural',action='store_true',help='Include default deterministic fine terrain detail')
+    parser.add_argument('--steps',type=int,default=0)
+    parser.add_argument('--save-state',type=Path)
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args();sys.path.insert(0,str(args.root.resolve()))
+    if args.steps<0:parser.error('--steps >= 0')
     from ats.config import Config
     from ats.experiments import experiment_config
     from ats.maps import with_map_size
@@ -35,9 +40,14 @@ def main():
     from ats.procedural import default_generation
     raster=qattara_dem();land=Landscape(raster,soil_profile=SoilProfile.qattara(),generation=default_generation() if args.procedural else None)
     route=[list(map(float,raster.to_metres(*p))) for p in [(28.3,31.2),(27.5,29.5)]]
-    project=ChannelProject.create(raster,route,width_m=args.width,depth_m=args.depth,side_m=args.side)
+    project=ChannelProject.create(raster,route,width_m=args.width,depth_m=args.depth,side_m=args.side,base_strategy=args.base_strategy)
     prepared=time.perf_counter();c=project.configuration(land,c);configured=time.perf_counter()
-    s=Simulation(c);initialized=time.perf_counter();r=s.report()
+    s=Simulation(c);initialized=time.perf_counter()
+    f=s.terrain.front;f.update();ids=f.indices[f.local_mask(f.along)][::max(1,len(f.indices)//1000)]
+    homes=np.array([s.slot_position(d.slot) if d.slot is not None else s.wait_position(d.identifier) for d in s.drones])[:,:2]
+    digs=np.c_[s.terrain.x.ravel()[ids],s.terrain.y.ravel()[ids]]
+    distances=np.linalg.norm(homes[:,None,:]-digs[None,:,:],axis=2)
+    s.run(args.steps);finished=time.perf_counter();r=s.report()
     assert r['state']=='RUNNING',r.get('reason')
     assert abs(r['mass_error_kg'])<1e-7 and abs(r['energy_error_j'])<.002
     peak=None
@@ -49,12 +59,18 @@ def main():
     result=dict(root=str(args.root.resolve()),python=platform.python_version(),os=platform.system(),procedural=args.procedural,
         preparation_seconds=prepared-start,configuration_seconds=configured-prepared,
         simulation_construction_seconds=initialized-configured,total_seconds=initialized-start,
+        model_steps=args.steps,run_wall_seconds=finished-initialized,
+        mean_horizontal_home_to_cut_m=float(distances.mean()),max_horizontal_home_to_cut_m=float(distances.max()),
         peak_process_rss_bytes=peak,project_version=project.version,shore_reference=getattr(project,'shore_reference','axis'),
         requested_side_m=args.side,actual_side_m=r['map_side_m'],cell_size_m=r['cell_size_m'],
         platforms=s.base.layout_spec['platform_count'],panels_m2=r['panel_area_m2'],state=r['state'],
+        base_strategy=args.base_strategy,base_position_m=s.base.position.tolist(),
         mass_error_kg=r['mass_error_kg'],energy_error_j=r['energy_error_j'],
         encoded_shore_bytes=sum(len(data.get(k,'')) for k in ('protected','cap')),
         window_fit=(c.plan.channel or {}).get('window_fit'),modified_tiles=land.report()['modified_tiles'])
+    if args.save_state:
+        from ats.checkpoint import save_state
+        land.channel_project=project.to_data();save_state(args.save_state,s,landscape=land)
     args.output.write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n');print(json.dumps(result,ensure_ascii=False),flush=True)
 
 

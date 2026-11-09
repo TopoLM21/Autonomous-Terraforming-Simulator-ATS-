@@ -1070,6 +1070,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     if front.sectors else f"Фронт {front.position/1000:.3f} км · рабочая зона {front.settings['front_length_m']:g} м")
                 if front.sectors:
                     progress=front.report()
+                    if front.axis:zone+=' · база на оси впереди забоя'
                     if progress['global_sector_complete']:zone+=' · весь сектор готов'
                     elif progress['visible_part_complete']:zone+=' · видимая часть готова'
                     if progress['window_limited']:zone+='\nПрофиль выходит за границу окна'

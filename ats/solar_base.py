@@ -198,6 +198,8 @@ class SolarBase:
         return None
 
     def safe_path(self, target, terrain, offset=(0, 0)):
+        from .canal_station import work_exclusion
+        work=work_exclusion(terrain)
         if self.config.layout is not None:
             from .base_layout import safe_layout_route
             return safe_layout_route(self,target,terrain,offset)
@@ -218,7 +220,7 @@ class SolarBase:
             if terrain.front is not None or getattr(terrain,'shared_site',None) is not None:
                 patch=terrain.patch(*p,b.radius+terrain.cell)
                 near=(terrain.x[patch]-p[0])**2+(terrain.y[patch]-p[1])**2<(b.radius+terrain.cell)**2
-                blocked=terrain.design_work[patch]|terrain.dump_mask[patch]
+                blocked=work[patch]|terrain.dump_mask[patch]
                 if terrain.protected is not None:blocked |= terrain.protected[patch]
                 if np.any(blocked&near):return False
                 site=getattr(terrain,'shared_site',None)

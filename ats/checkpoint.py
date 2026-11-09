@@ -19,7 +19,7 @@ import numpy as np
 
 
 FORMAT='ATS_SIMULATION'
-VERSION=18
+VERSION=19
 MAX_BYTES=1_500_000_000
 MAX_NODES=2_000_000
 
@@ -90,7 +90,7 @@ class _Encoder:
             if name not in self.classes:raise ValueError(f'Нельзя сохранить объект {name}')
             node.update(kind='object',type=name,attrs={k:self.encode(v,matrix=name=='ats.config.Config' and
                 k in ('initial_height','reference_height') and v is not None) for k,v in vars(value).items()
-                if k not in ('_sector_progress_cache','_prefetch_runtime','_prefetch_auto_key','_prefetch_world_stamp','_flooding_basis','_flight_ceiling_cache','_shore_cache')})
+                if k not in ('_sector_progress_cache','_prefetch_runtime','_prefetch_auto_key','_prefetch_world_stamp','_flooding_basis','_flight_ceiling_cache','_shore_cache','_axis_station_cache')})
         return {'ref':index}
 
 
@@ -222,6 +222,9 @@ def _validate(session):
                 not f.sector_start<=f.sector_centre<=f.sector_end or f.sector_tolerance<=0 or
                 not 0<=f.global_sector_start<f.global_sector_end<=f.project_end):
             raise ValueError('Повреждено состояние рабочего сектора')
+        if f.axis and (not isinstance(getattr(f,'support_guard_end',None),(int,float)) or
+                not math.isfinite(f.support_guard_end) or not 0<=f.support_guard_end<=f.global_sector_end):
+            raise ValueError('Повреждён безопасный фронт осевой стоянки')
     shape=(s.config.terrain.n,)*2
     for key in ('height','reference','target','_initial_surface','dump_cap'):
         array=getattr(t,key)

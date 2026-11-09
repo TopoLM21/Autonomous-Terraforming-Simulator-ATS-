@@ -242,6 +242,9 @@ class Excavator:
         if not self.consume(idle,inv,control=True):
             self.state=ExcavatorState.LOW_BATTERY;self.reason='CONTROL_OFF_WAITING_DOCK_POWER';return
         if self.state==ExcavatorState.WAITING_RELOCATION:
+            if t.front is not None and t.front.axis and t.front.complete and logistics.group is None and not self.bucket_kg:
+                self.state=ExcavatorState.IDLE;self.target=None;self.destination=None
+                self.reason='SECTOR_COMPLETE';logistics.progress_at=s.time;return
             self.waiting_seconds+=1.;return
         if self.state==ExcavatorState.MOVING_LOCAL:
             if not self._safe_drive_step(t):
@@ -289,7 +292,7 @@ class Excavator:
                 if container.location==L.WORKSITE_RACK and container.soil_kg>0 and not container.reserved_by:
                     container.location=L.FILLED_QUEUE;container.state='FULL_READY'
             self.state=ExcavatorState.IDLE;self.reason='WORK_COMPLETE';return
-        if s.landing_requested:
+        if s.landing_requested or t.front is not None and t.front.axis and not t.front.cut_enabled:
             inv.release('excavator_cycle');self.active_container=None;self.elapsed=0.
             for container in logistics.containers:
                 if container.location==L.WORKSITE_RACK and container.soil_kg>0 and not container.reserved_by:

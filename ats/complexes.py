@@ -238,6 +238,8 @@ class ComplexProject:
         if self.transition is not None:raise ValueError('Сначала завершите или отмените региональный переезд')
         if len(self.units)>=20:raise ValueError('Одновременно допускается до 20 рабочих комплексов')
         template.validate();site=self.enable_shared();source=self.units[0].simulation.config
+        from .canal_station import enabled
+        if enabled(site.core) and not site.core.front.stationed:raise ValueError('Дождитесь размещения всей группы на осевых стоянках перед добавлением комплекса')
         from .power_design import equipment_copy
         from .base_layout import configure_layout,rotate_offset,layout_footprints
         from .shared_site import WorkTerrain
@@ -260,6 +262,9 @@ class ComplexProject:
         candidates=[position] if position is not None else sorted(
             extra_sites+[(float(x),float(y)) for x in np.linspace(5,side-5,23) for y in np.linspace(5,side-5,23)],
             key=lambda p:float(np.sum((np.asarray(p)-goal)**2)))
+        from .canal_station import enabled,candidates as axis_sites
+        if position is None and enabled(view):
+            candidates=[p[1:] for p in axis_sites(view,spec,site.core.front.global_sector_end)]
         chosen=None
         pad=math.ceil((max(c.fleet.count,c.fleet.charge_slots)-1)/2)*c.fleet.pad_spacing+c.fleet.separation
         for point in candidates:

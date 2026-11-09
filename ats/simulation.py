@@ -197,7 +197,7 @@ class Simulation:
         surface = self.terrain.clearance_surface if self.config.reference_height is not None or self.shared_site is not None else max(float(self.terrain.reference.max()), self.config.terrain.dump_max_height)
         return surface+d.config.work_height+self.config.base.roof_height+d.identifier*self.config.fleet.altitude_spacing
 
-    def _safe_pad(self, p):
+    def _safe_pad(self, p, *, future=False):
         t = self.terrain
         side = t.config.terrain.n*t.cell
         if not (t.cell < p[0] < side-t.cell and t.cell < p[1] < side-t.cell):
@@ -206,11 +206,12 @@ class Simulation:
         margin = self.config.fleet.separation
         patch=t.patch(*p[:2],margin)
         near = (t.x[patch]-p[0])**2+(t.y[patch]-p[1])**2 < margin**2
-        blocked=t.design_work[patch]|t.dump_mask[patch]
+        from .canal_station import work_exclusion,enabled
+        blocked=work_exclusion(t,future=future)[patch]|t.dump_mask[patch]
         if t.protected is not None:blocked |= t.protected[patch]
         from .site_ground import marine_mask
         blocked=blocked|marine_mask(t)[patch]
-        return not np.any(blocked&near) and not (t.excavation[iy,ix] or t.fill_mask[iy,ix])
+        return not np.any(blocked&near) and not (not enabled(t) and (t.excavation[iy,ix] or t.fill_mask[iy,ix]))
 
     def apply_plan(self, plan):
         if self.shared_site is not None:return self.shared_site.apply_plan(plan)
@@ -301,6 +302,7 @@ class Simulation:
                 'MOVING_WITH_WORKFRONT':'переезжает вдоль канала',
                 'DRAINING_SECTOR':'завершает вывоз грунта из сектора',
                 'POSITIONING_SECTOR':'подготавливает рабочую позицию следующего сектора',
+                'WAITING_SECTOR_TEAMS':'ждёт остальные комплексы общего сектора',
                 'NEEDS_NEXT_WINDOW':'видимая часть готова; выберите соседнее окно региона',
                 'NO_SAFE_FORWARD_BASE_ROUTE':'ищет безопасный маршрут вперёд'}
         return labels.get(self.base_move_wait,'на рабочей позиции')
@@ -938,11 +940,14 @@ class Simulation:
         from .traffic import ground_path_clear
         if not ground_path_clear(self,target):return False
         t=self.terrain;xy=self.base.position[:2]
+        if t.front.axis:
+            from .channel_site import equipment_fits
+            if not equipment_fits(self.config,getattr(self.base,'layout_spec',None),target,t):return False
         if self.base.config.layout is not None:
             from .self_solar import deployment_safe,deployment_polygons
             from .battery_platforms import deployment_safe as battery_safe
             spec=self.base.layout_spec
-            if not deployment_safe(spec,target,t) or not battery_safe(spec,target,t,solar_polygons=deployment_polygons(spec,target)):return False
+            if not deployment_safe(spec,target,t,future=True) or not battery_safe(spec,target,t,solar_polygons=deployment_polygons(spec,target),future=True):return False
         if not self.base.safe_path(target,t):return False
         # Pad offsets are already in world coordinates. Check their swept
         # clearances, rather than rotating them again and shifting the entire
@@ -954,6 +959,7 @@ class Simulation:
                 pad=p+offset
                 if not self._safe_pad(pad):return False
                 if site and site.ground_occupied(getattr(t,'owner_id',None),(pad[0]-r,pad[1]-r,2*r,2*r)):return False
+        if any(not self._safe_pad(target+offset,future=True) for offset in offsets):return False
         return True
 
     def _sector_range_reason(self,target):
@@ -981,6 +987,15 @@ class Simulation:
         return ''
 
     def _update_sector(self,front):
+        if front.axis:
+            if front.cut_enabled and not front.complete:
+                key=(id(front),front.sector_id,tuple(self.base.position),
+                    tuple((id(d.config),d.config.battery,d.config.hover_power,d.config.empty_speed) for d in self.drones))
+                if getattr(self,'_sector_range_key',None)!=key:
+                    self._sector_range_key=key;reason=self._sector_range_reason(self.base.position[:2])
+                    if reason:self.block('BLOCKED_SECTOR_RANGE: '+reason+'; измените аппараты или длину сектора');return
+            from .canal_station import update
+            if not update(self,front):return
         if front.moving:
             if not getattr(front,'followers_launched',False):
                 for d in self.drones:
@@ -988,7 +1003,9 @@ class Simulation:
                         self._clear_slot(d);self._reserve_return(d);d.transition(DS.RETURN);d.regional_launch=True
                 front.followers_launched=True
             if not all(d.grounded for d in self.drones):return
-            front.moving=False;front.stationed=True;front.revision=-1;front.update()
+            front.moving=False;front.stationed=True;front.revision=-1
+            if front.axis and self.shared_site is None:front.support_guard_end=front.global_sector_end
+            front.update()
             self.base_move_wait='';self.event('База заняла рабочую позицию сектора')
         if front.stationed:
             from .sector_progress import context
@@ -1023,18 +1040,30 @@ class Simulation:
         # Explicit sites retain user constraints. The current position is also
         # admissible: there is no reason to fold a field if it is already best.
         xy=self.base.position[:2];iy,ix=(np.clip((xy[::-1]/self.terrain.cell).astype(int),0,self.terrain.height.shape[0]-1))
-        sites=[(float(front.chainage[iy,ix]),*xy),*sorted(front.settings['base_sites'],
-            key=lambda p:(abs(p[0]-front.sector_centre),float(np.linalg.norm(np.asarray(p[1:])-xy))))]
+        if front.axis:
+            from .canal_station import candidates,cohort,axis_point
+            sites=candidates(self.terrain,getattr(self.base,'layout_spec',None),front.global_sector_end)
+            teams=cohort(self)
+            if len(teams)>1 and sites:
+                _,direction,_=axis_point(self.config.plan,front.global_sector_end)
+                offset=float(xy@direction)-min(float(s.base.position[:2]@direction) for s in teams)
+                first=sites[0][0]+max(0.,offset)
+                sites=[p for p in sites if p[0]>=first-1e-8]
+        else:
+            sites=[(float(front.chainage[iy,ix]),*xy),*sorted(front.settings['base_sites'],
+                key=lambda p:(abs(p[0]-front.sector_centre),float(np.linalg.norm(np.asarray(p[1:])-xy))))]
         offsets=[p[:2]-xy for p in [*[self.slot_position(i) for i in range(len(self.slots))],*[self.wait_position(i) for i in range(len(self.drones))]]]
         range_reason=''
         for along,x,y in sites:
-            if abs(along-front.sector_centre)>max(10.,front.settings['sector_length_m']/4):continue
+            if not front.axis and abs(along-front.sector_centre)>max(10.,front.settings['sector_length_m']/4):continue
             target=np.array([x,y])
             reason=self._sector_range_reason(target)
             if reason:range_reason=reason;continue
             if not self._sector_site_safe(target,offsets):continue
             if np.linalg.norm(target-xy)<3:
-                front.stationed=True;front.revision=-1;front.update();self.base_move_wait=''
+                front.stationed=True;front.revision=-1
+                if front.axis and self.shared_site is None:front.support_guard_end=front.global_sector_end
+                front.update();self.base_move_wait=''
                 return
             self.relocation_pending=target;self._pending_front_anchor=front.sector_start
             self.base_move_wait='POSITIONING_SECTOR'

@@ -1,0 +1,773 @@
+{
+  "date": "2026-11-09",
+  "baseline_commit": "91b6adee291d47b515718c14da56d1881fba004c",
+  "recovery": {
+    "previous_unpublished_commit": "dd724fdbfd63cab3be0c449a2a9e4dfb0f090670",
+    "reason": "Previous execution workspace was replaced; local Git object and raw measurement files are absent.",
+    "method": "Restore source changes and tests from the same task history, then run the complete suite and CLI again.",
+    "matched_previous_blob_hashes": {
+      "regional": "824fa120c97cdb11f9c90627110ff22d21dcfbb8",
+      "shared_site": "5c2af45bc735e386ab7f8149f688548f401f7f68",
+      "simulation_before_final_footprint_check": "3c92af3345e1202bd15fddc2190cd7e380a2efc0"
+    },
+    "source_blobs": {
+      "ats/__main__.py": "5ed7c59c07c6c78309947467ba27b56bc11fc02f",
+      "ats/base_layout.py": "ab752c621fa1c3e8e3f2a05b1f99532769f4c84e",
+      "ats/battery_platforms.py": "3e810dc02ad8d255cc4855cae4dd8b46c511a8ac",
+      "ats/canal_station.py": "48327948dfe9cd954dcf76c637dba33363bd4bf8",
+      "ats/channel.py": "8a30f2a458c813693df02a2d7de370a414bc18a3",
+      "ats/channel_site.py": "df44cfd2fe20793e10f9abfa90fbceae92eb67e0",
+      "ats/checkpoint.py": "aaa091dcd9582a831f3ff8372bf2342783cb3a88",
+      "ats/compact_layout.py": "1b84aae808b87bb59d1f50896e4eb99eceff6bc0",
+      "ats/complexes.py": "6936bbaa195511bab1137a97703c89656005120d",
+      "ats/excavator.py": "de89d86999c8ede1d58c223546c820e50d8e9b1e",
+      "ats/gui.py": "4a82e1f69af0c6ba12b19ef2c8b8d25585397e03",
+      "ats/landscape.py": "ebbf21791283bf041359f57f8d5cf701e36b62df",
+      "ats/landscape_ui.py": "5557a860e63f4bead14a2af39620a2a8a5feccd1",
+      "ats/logistics.py": "5d8a92bfb45c68444da247064c064b24b2ea10c1",
+      "ats/plan.py": "172e23f606edcf755d02cce6ee32ece0bf1a3bab",
+      "ats/regional.py": "824fa120c97cdb11f9c90627110ff22d21dcfbb8",
+      "ats/self_solar.py": "5c2abffe4beac764bb38359a7d4c8c2fed4aabcf",
+      "ats/shared_site.py": "5c2af45bc735e386ab7f8149f688548f401f7f68",
+      "ats/simulation.py": "1ecb926a27636f6f30fbeb6cf01e30e599e1e336",
+      "ats/solar_base.py": "f5289d5727cf2e373c423e4ebe3d2c2ab465ad47",
+      "ats/workfront.py": "275279a22d5df006ee7bd60110c4ba30cd368086"
+    }
+  },
+  "environment": {
+    "os": "Linux",
+    "python": "3.12.14",
+    "numpy": "2.5.4",
+    "pytest": "9.2.0",
+    "qt": "6.12.0",
+    "qt_platform": "offscreen"
+  },
+  "tests": {
+    "unique_tests": 800,
+    "new_cases": 14,
+    "full_suite": {
+      "wall_seconds": 370.5424987829999,
+      "batches": [
+        {
+          "batch": 0,
+          "exit_code": 0,
+          "files": [
+            "tests/test_base_layout.py",
+            "tests/test_channel.py",
+            "tests/test_channel_space.py",
+            "tests/test_completion.py",
+            "tests/test_workfront.py"
+          ],
+          "finished_after_seconds": 177.569270662,
+          "tests": 60,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_seconds": 176.837
+        },
+        {
+          "batch": 2,
+          "exit_code": 0,
+          "files": [
+            "tests/test_airspace.py",
+            "tests/test_base_batteries.py",
+            "tests/test_batch_strategy.py",
+            "tests/test_battery_platforms.py",
+            "tests/test_checkpoint.py",
+            "tests/test_cli.py",
+            "tests/test_coastal_compact.py",
+            "tests/test_compact_season.py",
+            "tests/test_earthworks_performance.py",
+            "tests/test_energy.py",
+            "tests/test_equipment.py",
+            "tests/test_hydrology.py",
+            "tests/test_individual_chargers.py",
+            "tests/test_landscape.py",
+            "tests/test_landscape_ui.py",
+            "tests/test_laser.py",
+            "tests/test_laser_reference.py",
+            "tests/test_salinity.py",
+            "tests/test_scheduler_utilization.py",
+            "tests/test_sea_exchange.py",
+            "tests/test_sectors.py",
+            "tests/test_site_layout.py",
+            "tests/test_soil.py",
+            "tests/test_solar.py",
+            "tests/test_spare_controls.py",
+            "tests/test_terrain.py",
+            "tests/test_tool_station.py"
+          ],
+          "finished_after_seconds": 279.429547632,
+          "tests": 362,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_seconds": 278.312
+        },
+        {
+          "batch": 1,
+          "exit_code": 0,
+          "files": [
+            "tests/test_activity_stats.py",
+            "tests/test_compact_overviews.py",
+            "tests/test_complexes.py",
+            "tests/test_dig_rate.py",
+            "tests/test_display_modes.py",
+            "tests/test_drone.py",
+            "tests/test_dust.py",
+            "tests/test_equipment_caches.py",
+            "tests/test_fleet.py",
+            "tests/test_gui.py",
+            "tests/test_large_solar_base_specs.py",
+            "tests/test_live_inventory_solar.py",
+            "tests/test_logistics.py",
+            "tests/test_map_visuals.py",
+            "tests/test_maps_and_zoom.py",
+            "tests/test_material_slopes.py",
+            "tests/test_natural_excavation.py",
+            "tests/test_plan.py",
+            "tests/test_power_design.py",
+            "tests/test_procedural.py",
+            "tests/test_regional.py",
+            "tests/test_runtime_optimizations.py",
+            "tests/test_self_solar.py",
+            "tests/test_service_recovery.py",
+            "tests/test_shared_site.py",
+            "tests/test_streaming.py",
+            "tests/test_window_boundaries.py",
+            "tests/test_winter_power.py",
+            "tests/test_axis_station_ui.py",
+            "tests/test_axis_stations.py"
+          ],
+          "finished_after_seconds": 370.29131043000007,
+          "tests": 378,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_seconds": 368.203
+        }
+      ]
+    },
+    "cli": [
+      {
+        "index": 0,
+        "group": "Install Qt runtime libraries on Ubuntu",
+        "exit_code": 0,
+        "seconds": 2.6615151519999927,
+        "command": [
+          "-m",
+          "ats",
+          "--headless",
+          "--mode",
+          "legacy",
+          "--steps",
+          "10000",
+          "--seed",
+          "42"
+        ]
+      },
+      {
+        "index": 1,
+        "group": "ATS 2.0 logistics smoke test",
+        "exit_code": 0,
+        "seconds": 7.06117421700003,
+        "command": [
+          "-m",
+          "ats",
+          "--headless",
+          "--drones",
+          "4",
+          "--steps",
+          "20000",
+          "--json",
+          "ats2-ci.json"
+        ]
+      },
+      {
+        "index": 2,
+        "group": "ATS 2.0 logistics smoke test",
+        "exit_code": 0,
+        "seconds": 0.03872412499993061,
+        "command": [
+          "-c",
+          "import json; r=json.load(open('ats2-ci.json',encoding='utf-8')); assert r['state']=='COMPLETED'; assert len({j['executor'] for j in r['jobs'] if j['kind']=='EXCAVATE_DIRECT'})>=2; assert abs(r['mass_error_kg'])<1e-7; assert abs(r['energy_error_j'])<0.002"
+        ]
+      },
+      {
+        "index": 3,
+        "group": "ATS 2.0 logistics smoke test",
+        "exit_code": 0,
+        "seconds": 0.03892742300001828,
+        "command": [
+          "-c",
+          "import json; r=json.load(open('ats2-ci.json',encoding='utf-8')); s=r['battery_service']; assert r['map_side_m']==64; assert s['mode']=='individual'; assert s['capacity']==len(s['slots']); assert len({p['module_id'] for p in s['slots']})==s['capacity']; assert all(p['input_power_w']<=p['rated_w']+1e-7 for p in s['slots'])"
+        ]
+      },
+      {
+        "index": 4,
+        "group": "ATS 2.0 logistics smoke test",
+        "exit_code": 0,
+        "seconds": 0.03723541799990926,
+        "command": [
+          "-c",
+          "import json; r=json.load(open('ats2-ci.json',encoding='utf-8')); e=r['excavator']; assert all(d['activity']['total_seconds']==r['time_seconds'] for d in r['drones']); assert e['activity']['total_seconds']==r['time_seconds']; assert abs(sum(d['mass_kg'] for d in e['daily_excavation'])-e['excavated_kg'])<1e-7"
+        ]
+      },
+      {
+        "index": 5,
+        "group": "ATS 2.0 logistics smoke test",
+        "exit_code": 0,
+        "seconds": 7.424956097000063,
+        "command": [
+          "-m",
+          "ats",
+          "--headless",
+          "--mode",
+          "logistics",
+          "--no-idle-digging",
+          "--steps",
+          "20000",
+          "--json",
+          "ats2-strict-ci.json"
+        ]
+      },
+      {
+        "index": 6,
+        "group": "ATS 2.0 logistics smoke test",
+        "exit_code": 0,
+        "seconds": 0.046030018000010386,
+        "command": [
+          "-c",
+          "import json; r=json.load(open('ats2-strict-ci.json',encoding='utf-8')); assert r['state']=='COMPLETED'; assert r['excavator']['swaps']>=1; assert r['battery_service']['drone_swap_count']>=1; assert abs(r['mass_error_kg'])<1e-7; assert abs(r['energy_error_j'])<0.002"
+        ]
+      },
+      {
+        "index": 7,
+        "group": "Offline real DEM smoke test",
+        "exit_code": 0,
+        "seconds": 0.40870050599994556,
+        "command": [
+          "-m",
+          "ats",
+          "--headless",
+          "--qattara",
+          "--steps",
+          "0",
+          "--json",
+          "dem-ci.json"
+        ]
+      },
+      {
+        "index": 8,
+        "group": "Offline real DEM smoke test",
+        "exit_code": 0,
+        "seconds": 0.03778226999997969,
+        "command": [
+          "-c",
+          "import json; r=json.load(open('dem-ci.json',encoding='utf-8')); assert r['georeference']['vertical_datum']=='MSL'; assert r['landscape']['modified_tiles']==0; assert r['landscape']['fine_storage_bytes']==0; assert r['remaining_m3']==0; assert r['panel_area_m2']==20"
+        ]
+      },
+      {
+        "index": 9,
+        "group": "Save and resume airborne simulation",
+        "exit_code": 0,
+        "seconds": 0.7051759449999508,
+        "command": [
+          "-m",
+          "ats",
+          "--headless",
+          "--steps",
+          "75",
+          "--save-state",
+          "flight-ci.atsstate",
+          "--json",
+          "flight-ci.json"
+        ]
+      },
+      {
+        "index": 10,
+        "group": "Save and resume airborne simulation",
+        "exit_code": 0,
+        "seconds": 1.4176223360000222,
+        "command": [
+          "-m",
+          "ats",
+          "--headless",
+          "--load-state",
+          "flight-ci.atsstate",
+          "--steps",
+          "125",
+          "--json",
+          "resumed-ci.json"
+        ]
+      },
+      {
+        "index": 11,
+        "group": "Save and resume airborne simulation",
+        "exit_code": 0,
+        "seconds": 1.6095079020000185,
+        "command": [
+          "-m",
+          "ats",
+          "--headless",
+          "--steps",
+          "200",
+          "--json",
+          "straight-ci.json"
+        ]
+      },
+      {
+        "index": 12,
+        "group": "Save and resume airborne simulation",
+        "exit_code": 0,
+        "seconds": 0.03885267299995121,
+        "command": [
+          "-c",
+          "import json; a=json.load(open('resumed-ci.json',encoding='utf-8')); b=json.load(open('straight-ci.json',encoding='utf-8')); assert a==b; assert a['time_seconds']==200; assert abs(a['mass_error_kg'])<1e-7; assert abs(a['energy_error_j'])<0.002"
+        ]
+      },
+      {
+        "index": 13,
+        "group": "Prepared Qattara channel smoke test",
+        "exit_code": 0,
+        "seconds": 5.550254642000027,
+        "command": [
+          "-m",
+          "ats",
+          "--headless",
+          "--qattara",
+          "--channel-route",
+          "<repo>/docs/ats2/qattara-channel.json",
+          "--steps",
+          "0",
+          "--json",
+          "channel-ci.json"
+        ]
+      },
+      {
+        "index": 14,
+        "group": "Prepared Qattara channel smoke test",
+        "exit_code": 0,
+        "seconds": 0.036406991000035305,
+        "command": [
+          "-c",
+          "import json; r=json.load(open('channel-ci.json',encoding='utf-8')); assert r['state']=='RUNNING'; assert r['remaining_cut_m3']>0; assert r['plan_segments']>0; assert r['map_side_m']==512 and r['cell_size_m']==0.5; assert 31<r['latitude_deg']<32; assert r['landscape']['channel']['target_msl']==-5; assert r['landscape']['fine_storage_bytes']==0; assert abs(r['mass_error_kg'])<1e-7"
+        ]
+      },
+      {
+        "index": 15,
+        "group": "Layered soil and complete snapshot continuation",
+        "exit_code": 0,
+        "seconds": 0.8953271359999917,
+        "command": [
+          "-m",
+          "ats",
+          "--headless",
+          "--soil-profile",
+          "qattara",
+          "--steps",
+          "75",
+          "--save-state",
+          "soil-ci.atsstate",
+          "--json",
+          "soil-flight-ci.json"
+        ]
+      },
+      {
+        "index": 16,
+        "group": "Layered soil and complete snapshot continuation",
+        "exit_code": 0,
+        "seconds": 1.4499942349999628,
+        "command": [
+          "-m",
+          "ats",
+          "--headless",
+          "--load-state",
+          "soil-ci.atsstate",
+          "--steps",
+          "125",
+          "--json",
+          "soil-resumed-ci.json"
+        ]
+      },
+      {
+        "index": 17,
+        "group": "Layered soil and complete snapshot continuation",
+        "exit_code": 0,
+        "seconds": 1.8390039450000586,
+        "command": [
+          "-m",
+          "ats",
+          "--headless",
+          "--soil-profile",
+          "qattara",
+          "--steps",
+          "200",
+          "--json",
+          "soil-straight-ci.json"
+        ]
+      },
+      {
+        "index": 18,
+        "group": "Layered soil and complete snapshot continuation",
+        "exit_code": 0,
+        "seconds": 0.036752197000055276,
+        "command": [
+          "-c",
+          "import json; a=json.load(open('soil-resumed-ci.json',encoding='utf-8')); b=json.load(open('soil-straight-ci.json',encoding='utf-8')); assert a==b; assert a['soil']['max_material_mass_error_kg']<1e-7; assert abs(a['mass_error_kg'])<1e-7; assert abs(a['energy_error_j'])<0.002"
+        ]
+      },
+      {
+        "index": 19,
+        "group": "Energy sizing and executable equipment template",
+        "exit_code": 0,
+        "seconds": 0.3068918679999797,
+        "command": [
+          "-m",
+          "ats",
+          "--headless",
+          "--latitude",
+          "31",
+          "--steps",
+          "0",
+          "--work-hours",
+          "12",
+          "--work-start-hour",
+          "6",
+          "--power-report",
+          "power-ci.json",
+          "--save-complex-template",
+          "complex-ci.atstemplate"
+        ]
+      },
+      {
+        "index": 20,
+        "group": "Energy sizing and executable equipment template",
+        "exit_code": 0,
+        "seconds": 0.5673546140000099,
+        "command": [
+          "-m",
+          "ats",
+          "--headless",
+          "--complex-template",
+          "complex-ci.atstemplate",
+          "--steps",
+          "10",
+          "--json",
+          "template-ci.json"
+        ]
+      },
+      {
+        "index": 21,
+        "group": "Energy sizing and executable equipment template",
+        "exit_code": 0,
+        "seconds": 0.04601669800001673,
+        "command": [
+          "-c",
+          "import json; p=json.load(open('power-ci.json',encoding='utf-8')); r=json.load(open('template-ci.json',encoding='utf-8')); assert r['state']=='RUNNING'; assert r['panel_area_m2']==p['panel_area_m2']; assert r['base_capacity_kwh']==p['base_capacity_kwh']; assert p['storage_check']['unserved_kwh']<1e-7; assert abs(p['storage_check']['energy_error_kwh'])<1e-7; assert abs(r['energy_error_j'])<0.002"
+        ]
+      },
+      {
+        "index": 22,
+        "group": "Two complexes on common regional project and exact resume",
+        "exit_code": 0,
+        "seconds": 17.203182771,
+        "command": [
+          "-m",
+          "ats",
+          "--headless",
+          "--qattara",
+          "--channel-route",
+          "<repo>/docs/ats2/qattara-channel.json",
+          "--complexes",
+          "2",
+          "--steps",
+          "5",
+          "--save-state",
+          "complexes-ci.atsstate"
+        ]
+      },
+      {
+        "index": 23,
+        "group": "Two complexes on common regional project and exact resume",
+        "exit_code": 0,
+        "seconds": 3.6371388430000025,
+        "command": [
+          "-m",
+          "ats",
+          "--headless",
+          "--load-state",
+          "complexes-ci.atsstate",
+          "--steps",
+          "15",
+          "--json",
+          "complexes-resumed-ci.json"
+        ]
+      },
+      {
+        "index": 24,
+        "group": "Two complexes on common regional project and exact resume",
+        "exit_code": 0,
+        "seconds": 10.189970052000035,
+        "command": [
+          "-m",
+          "ats",
+          "--headless",
+          "--qattara",
+          "--channel-route",
+          "<repo>/docs/ats2/qattara-channel.json",
+          "--complexes",
+          "2",
+          "--steps",
+          "20",
+          "--json",
+          "complexes-straight-ci.json"
+        ]
+      },
+      {
+        "index": 25,
+        "group": "Two complexes on common regional project and exact resume",
+        "exit_code": 0,
+        "seconds": 0.04236050700001215,
+        "command": [
+          "-c",
+          "import json; a=json.load(open('complexes-resumed-ci.json',encoding='utf-8')); b=json.load(open('complexes-straight-ci.json',encoding='utf-8')); assert a==b; assert a['state']=='RUNNING' and a['complex_count']==2 and a['drone_count']==8 and a['time_seconds']==20; assert abs(a['mass_error_kg'])<1e-7; assert abs(a['equipment_mass_error_kg'])<1e-7; assert abs(a['energy_error_j'])<0.002; assert a['delivered_energy_kwh']>0"
+        ]
+      },
+      {
+        "index": 26,
+        "group": "Twenty complexes on one physical map and exact snapshot continuation",
+        "exit_code": 0,
+        "seconds": 3.6207488809999404,
+        "command": [
+          "-m",
+          "ats",
+          "--headless",
+          "--shared-site",
+          "--complexes",
+          "20",
+          "--soil-profile",
+          "qattara",
+          "--steps",
+          "30",
+          "--save-state",
+          "shared-ci.atsstate"
+        ]
+      },
+      {
+        "index": 27,
+        "group": "Twenty complexes on one physical map and exact snapshot continuation",
+        "exit_code": 0,
+        "seconds": 2.694446481,
+        "command": [
+          "-m",
+          "ats",
+          "--headless",
+          "--load-state",
+          "shared-ci.atsstate",
+          "--steps",
+          "30",
+          "--json",
+          "shared-resumed-ci.json"
+        ]
+      },
+      {
+        "index": 28,
+        "group": "Twenty complexes on one physical map and exact snapshot continuation",
+        "exit_code": 0,
+        "seconds": 3.9733831559999544,
+        "command": [
+          "-m",
+          "ats",
+          "--headless",
+          "--shared-site",
+          "--complexes",
+          "20",
+          "--soil-profile",
+          "qattara",
+          "--steps",
+          "60",
+          "--json",
+          "shared-straight-ci.json"
+        ]
+      },
+      {
+        "index": 29,
+        "group": "Twenty complexes on one physical map and exact snapshot continuation",
+        "exit_code": 0,
+        "seconds": 0.09842190100005155,
+        "command": [
+          "-c",
+          "import json; a=json.load(open('shared-resumed-ci.json',encoding='utf-8')); b=json.load(open('shared-straight-ci.json',encoding='utf-8')); assert a==b; assert a['complex_count']==20 and a['drone_count']==80 and a['time_seconds']==60; assert a['shared_worksite']['max_material_mass_error_kg']<1e-7; assert abs(a['mass_error_kg'])<1e-7; assert abs(a['equipment_mass_error_kg'])<1e-7; assert abs(a['energy_error_j'])<0.002"
+        ]
+      },
+      {
+        "index": 30,
+        "group": "Continuous design includes real platform hardware",
+        "exit_code": 0,
+        "seconds": 1.0760047799999484,
+        "command": [
+          "-m",
+          "ats",
+          "--headless",
+          "--latitude",
+          "31",
+          "--continuous-design",
+          "--drone-duty",
+          "85",
+          "--steps",
+          "0",
+          "--power-report",
+          "continuous-ci.json",
+          "--json",
+          "continuous-world-ci.json"
+        ]
+      },
+      {
+        "index": 31,
+        "group": "Continuous design includes real platform hardware",
+        "exit_code": 0,
+        "seconds": 0.0747065879999127,
+        "command": [
+          "-c",
+          "import json; d=json.load(open('continuous-ci.json',encoding='utf-8')); r=json.load(open('continuous-world-ci.json',encoding='utf-8')); assert r['state']=='RUNNING'; assert d['request']['work_hours']==24; assert d['base_layout']['platform_count']>1; assert r['base_specification']['layout']['platform_count']==d['base_layout']['platform_count']; assert d['storage_check']['daily_storage_drift_kwh']>=-1e-7; assert abs(r['energy_error_j'])<0.002"
+        ]
+      },
+      {
+        "index": 32,
+        "group": "axis",
+        "exit_code": 0,
+        "seconds": 8.30319237499998,
+        "command": [
+          "-m",
+          "ats",
+          "--headless",
+          "--qattara",
+          "--channel-route",
+          "<repo>/docs/ats2/qattara-channel.json",
+          "--base-strategy",
+          "axis_ahead",
+          "--cut-policy",
+          "natural",
+          "--airspace",
+          "shared_lanes",
+          "--shared-site",
+          "--complexes",
+          "2",
+          "--steps",
+          "10",
+          "--save-state",
+          "axis.atsstate"
+        ]
+      },
+      {
+        "index": 33,
+        "group": "axis",
+        "exit_code": 0,
+        "seconds": 2.4000455799999827,
+        "command": [
+          "-m",
+          "ats",
+          "--headless",
+          "--load-state",
+          "axis.atsstate",
+          "--steps",
+          "10",
+          "--json",
+          "axis-resumed.json"
+        ]
+      },
+      {
+        "index": 34,
+        "group": "axis",
+        "exit_code": 0,
+        "seconds": 5.298864077999951,
+        "command": [
+          "-m",
+          "ats",
+          "--headless",
+          "--qattara",
+          "--channel-route",
+          "<repo>/docs/ats2/qattara-channel.json",
+          "--base-strategy",
+          "axis_ahead",
+          "--cut-policy",
+          "natural",
+          "--airspace",
+          "shared_lanes",
+          "--shared-site",
+          "--complexes",
+          "2",
+          "--steps",
+          "20",
+          "--json",
+          "axis-straight.json"
+        ]
+      },
+      {
+        "index": 35,
+        "group": "axis",
+        "exit_code": 0,
+        "seconds": 0.0296272539999336,
+        "command": [
+          "-c",
+          "import json; a=json.load(open('axis-resumed.json')); b=json.load(open('axis-straight.json')); assert a==b; assert a['state']=='RUNNING'; assert a['complex_count']==2; assert abs(a['mass_error_kg'])<1e-7; assert abs(a['energy_error_j'])<.002; assert a['reports'][0]['report']['workfront']['base_strategy']=='axis_ahead'"
+        ]
+      }
+    ]
+  },
+  "historical_measurements": {
+    "date": "2026-11-07",
+    "provenance": "Values recorded in the preceding task execution; original raw files were lost with that workspace. Performance measurements were not rerun during recovery.",
+    "control_14x4": {
+      "physical_step_s": 1.0,
+      "steps_per_trial": 120,
+      "trials": 2,
+      "grid_n": 512,
+      "cell_m": 1.0,
+      "panel_area_m2_per_complex": 20.0,
+      "before_median": {
+        "headless_factor": 52.857235854804635,
+        "gui_offscreen_factor": 46.97547488630499
+      },
+      "after_median": {
+        "headless_factor": 55.94401794976556,
+        "gui_offscreen_factor": 46.78067271420848
+      },
+      "identical_report_sha256": "7b2e56e6f394185c5e1e3bfed431645b47238f822587ecb68ca10442ca82eada"
+    },
+    "coastal_geometry": [
+      {
+        "width_m": 20.0,
+        "depth_m": 5.0,
+        "side_m": 512.0,
+        "platforms": 45,
+        "mean_bank_m": 222.1050295363794,
+        "mean_axis_m": 156.2931014867496,
+        "max_bank_m": 247.60090438399703,
+        "max_axis_m": 267.4916177890177
+      },
+      {
+        "width_m": 250.0,
+        "depth_m": 10.0,
+        "side_m": 1024.0,
+        "platforms": 45,
+        "mean_bank_m": 460.21081553727373,
+        "mean_axis_m": 183.33303692051007,
+        "max_bank_m": 587.3107479033293,
+        "max_axis_m": 298.9060175630976
+      }
+    ],
+    "coastal_45": {
+      "headless_factor": 31.985356277421605,
+      "gui_offscreen_factor": 21.68809537787284,
+      "max_gui_event_gap_seconds": 0.898449711000012
+    }
+  },
+  "limits": [
+    "No new features were introduced during recovery.",
+    "Original dd724fd Git object cannot be recreated exactly; published recovery has a new SHA.",
+    "Short historical controls do not establish 23-model-hour stability or Windows FPS.",
+    "Ground route preparation remains synchronous."
+  ]
+}

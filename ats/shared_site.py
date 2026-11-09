@@ -46,6 +46,7 @@ class WorkTerrain(Terrain):
                 self.front.moving=previous.moving if same else False
                 self.front.followers_launched=getattr(previous,'followers_launched',False) if same else False
                 self.front.legacy_pickups=getattr(previous,'legacy_pickups',[])
+                if self.front.axis:self.front.support_guard_end=getattr(self.core.front,'support_guard_end',self.front.global_sector_end)
         self.initial_excavation=self.remaining
 
     def relax(self):return self.core.relax()
@@ -109,8 +110,12 @@ class SharedSite:
         volume=np.abs(t.height.ravel()[free]-t.target.ravel()[free])*t.area
         cumulative=np.cumsum(volume);total=float(cumulative[-1]) if len(cumulative) else 0.
         if total>0:
-            bins=np.minimum(len(units)-1,np.floor((cumulative-volume/2)/total*len(units)).astype(int))
-            for i,unit in enumerate(ordered):self.owners.ravel()[free[bins==i]]=int(unit.id[8:])
+            from .canal_station import enabled
+            sectors=np.floor(t.front.chainage.ravel()[free]/t.front.settings['sector_length_m']).astype(int) if enabled(t) else np.zeros(len(free),dtype=int)
+            for sector in np.unique(sectors):
+                ids=np.flatnonzero(sectors==sector);weights=volume[ids];subtotal=float(weights.sum())
+                bins=np.minimum(len(units)-1,np.floor((np.cumsum(weights)-weights/2)/subtotal*len(units)).astype(int)) if subtotal else np.arange(len(ids))%len(units)
+                for i,unit in enumerate(ordered):self.owners.ravel()[free[ids[bins==i]]]=int(unit.id[8:])
         self.assignments+=1;self._refresh()
 
     def _refresh(self):
@@ -129,14 +134,17 @@ class SharedSite:
         """Give a finished team the next unreserved part of the same map."""
         t=self.core
         if t.remaining<=self.completion_volume:return
-        idle=[u for u in self.project.units if u.simulation.state.value=='COMPLETED']
+        from .canal_station import enabled
+        axis=enabled(t)
+        idle=[u for u in self.project.units if u.simulation.state.value=='COMPLETED' or axis and t.front.stationed and u.simulation.terrain.front.complete and u.simulation._sector_drained()]
         if not idle:return
         fixed=self.reserved_mask();available=(t.dig_mask|t.fill_mask)&~fixed&(np.abs(t.height-t.target)>1e-10)
+        if axis:available&=t.front.local_mask(t.front.chainage)
         changed=False
         for unit in idle:
             candidates=np.flatnonzero(available)
             if not len(candidates):break
-            donor=max(self.project.units,key=lambda u:u.simulation.terrain.remaining)
+            donor=max(self.project.units,key=lambda u:u.simulation.terrain.front.sector_remaining if axis else u.simulation.terrain.remaining)
             candidates=candidates[self.owners.ravel()[candidates]==int(donor.id[8:])]
             if not len(candidates):continue
             p=unit.simulation.base.position
@@ -493,10 +501,12 @@ class SharedSite:
         points=np.asarray(points)
         return dict(entries=entries,top=top,ground_points=points,ground_heights=s.terrain.sample_many(points).copy())
 
-    def pads_clear(self,config,point,spec=None):
+    def pads_clear(self,config,point,spec=None,*,future=False):
         from .equipment import station_offset
         from .base_layout import rotate_offset
         t=self.core;f=config.fleet;n=t.height.shape[0];side=n*t.cell
+        from .canal_station import work_exclusion
+        work=work_exclusion(t,future=future)
         offsets=(spec or {}).get('dock_offsets',[])
         distance=max(f.waiting_offset,config.base.radius+3.+f.separation) if offsets else f.waiting_offset
         for i in range(max(f.count,f.charge_slots)):
@@ -505,7 +515,7 @@ class SharedSite:
                 if not t.cell<x<side-t.cell or not t.cell<y<side-t.cell:return False
                 patch=t.patch(x,y,f.separation)
                 mask=(t.x[patch]-x)**2+(t.y[patch]-y)**2<f.separation**2
-                blocked=t.design_work[patch]|t.dump_mask[patch]
+                blocked=work[patch]|t.dump_mask[patch]
                 if t.protected is not None:blocked=blocked|t.protected[patch]
                 from .site_ground import marine_mask
                 blocked=blocked|marine_mask(t)[patch]
