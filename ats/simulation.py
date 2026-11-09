@@ -207,7 +207,7 @@ class Simulation:
         patch=t.patch(*p[:2],margin)
         near = (t.x[patch]-p[0])**2+(t.y[patch]-p[1])**2 < margin**2
         from .canal_station import work_exclusion,enabled
-        blocked=work_exclusion(t,future=future)[patch]|t.dump_mask[patch]
+        blocked=work_exclusion(t,future=future,patch=patch)|t.dump_mask[patch]
         if t.protected is not None:blocked |= t.protected[patch]
         from .site_ground import marine_mask
         blocked=blocked|marine_mask(t)[patch]

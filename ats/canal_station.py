@@ -25,8 +25,8 @@ def slope_run(terrain):
     return max(0.,height)/max(slope,1e-8)+2*t.cell
 
 
-def work_exclusion(terrain,*,future=False):
-    """Keep old forecasts in bank mode; allow only unworked ground in axis mode.
+def forecast_exclusion(terrain,*,future=False):
+    """Cache the sector forecast independently of excavation revisions.
 
     While moving, the old face remains authoritative for route/folding checks.
     The destination additionally passes the next face's full deployment check.
@@ -39,11 +39,16 @@ def work_exclusion(terrain,*,future=False):
     cache=t.__dict__.setdefault('_axis_station_cache',{})
     profile=t.config.soil_profile
     angles=tuple((m.native_angle_deg,m.loose_angle_deg) for m in profile.materials) if profile else ()
-    key=(id(t.height),id(t.reference),id(t.target),t.revision,t.config.slope_model,
+    key=(id(t.height),id(t.reference),id(t.target),id(t.config.plan),f.project_end,t.config.slope_model,
          t.config.terrain.repose_deg,t.config.trench.angle_deg,angles)
     if cache.get('key')!=key:cache.clear();cache.update(key=key,masks={})
+    # Retain only the old support face and the current destination face. Even a
+    # project with one-metre sectors must not accumulate one full grid per stop.
+    keep={float(f.global_sector_end),float(getattr(f,'support_guard_end',f.global_sector_end))}
+    for saved in list(cache['masks']):
+        if saved not in keep:cache['masks'].pop(saved)
     if float(guard) in cache['masks']:return cache['masks'][float(guard)]
-    run=slope_run(t);blocked=t.height<t.reference-1e-8
+    run=slope_run(t);blocked=np.zeros(t.height.shape,dtype=bool)
     starts=t.config.plan.channel.get('chainage_starts',[]);cursor=0.
     for i,segment in enumerate(t.config.plan.segments):
         cursor=starts[i] if starts else cursor
@@ -65,8 +70,31 @@ def work_exclusion(terrain,*,future=False):
                 if cursor+length<guard+1e-9 and (cursor+length<guard-1e-9 or guard>=f.project_end-1e-8):
                     blocked|=np.hypot(t.x-b[0],t.y-b[1])<segment.width/2+run
             cursor+=length
+    blocked.flags.writeable=False
     cache['masks'][float(guard)]=blocked
     return blocked
+
+
+def work_exclusion(terrain,*,future=False,patch=None):
+    """Exact forecast plus current cuts, with local reads for stationary gear.
+
+    Height changes still take effect immediately, including direct edits that
+    only increment revision. Audit callers supply their actual support patch;
+    only placement/path requests need the entire dynamic map. All arrays remain
+    derived from the one Terrain and no soil/material state is copied here.
+    """
+    forecast=forecast_exclusion(terrain,future=future)
+    if not enabled(terrain):return forecast if patch is None else forecast[patch]
+    t=core(terrain)
+    if t.front is None:return forecast if patch is None else forecast[patch]
+    if patch is not None:return forecast[patch]|(t.height[patch]<t.reference[patch]-1e-8)
+    cache=t._axis_station_cache
+    guard=t.front.global_sector_end if future else getattr(t.front,'support_guard_end',t.front.global_sector_end)
+    key=(t.revision,float(guard))
+    if cache.get('dynamic_key')!=key:
+        cache['dynamic']=forecast|(t.height<t.reference-1e-8)
+        cache['dynamic_key']=key
+    return cache['dynamic']
 
 
 def axis_point(plan,station):

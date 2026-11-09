@@ -480,17 +480,16 @@ class BatteryPlatforms:
         w=self.world;t=w.sim.terrain;b=w.sim.base
         site=w.sim.shared_site
         actors=tuple((u.id,tuple(u.simulation.base.position),tuple(u.simulation.logistics.excavator.position) if u.simulation.logistics.excavator else None) for u in site.project.units) if site else ()
-        from .canal_station import work_exclusion
-        work=work_exclusion(t)
+        from .canal_station import forecast_exclusion
+        work=forecast_exclusion(t)
         stamp=(id(t.height),t.revision,id(work),tuple(b.position),id(t.config.georeference),w.field_rect,actors)
         if getattr(self,'_audit_stamp',None)==stamp and 'site_issues' in vars(self):return
         self._audit_stamp=stamp;digest=sha256()
         from .canal_station import work_exclusion
-        work=work_exclusion(t)
         for rect in self.rectangles(planned=True):
             patch=rectangle_patch(t,rect)
             if patch is None:digest.update(b'outside');continue
-            for values in (t.height[patch],work[patch],t.dump_mask[patch],marine_mask(t)[patch]):digest.update(values.tobytes())
+            for values in (t.height[patch],work_exclusion(t,patch=patch),t.dump_mask[patch],marine_mask(t)[patch]):digest.update(values.tobytes())
             if t.protected is not None:digest.update(t.protected[patch].tobytes())
         signature=(tuple(b.position),w.field_rect,actors,digest.hexdigest())
         if getattr(self,'_audit_signature',None)==signature and 'site_issues' in vars(self):return

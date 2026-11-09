@@ -41,6 +41,23 @@ def profile_rows(profile):
                 cumulative_top=sorted(rows,key=lambda r:r['cumulative_seconds'],reverse=True)[:25])
 
 
+def ground_digests(sim,project):
+    """Hash exact heights/material tiles after timing, without changing physics."""
+    from dataclasses import asdict
+    heights=hashlib.sha256();materials=hashlib.sha256();seen=set()
+    for actor in [u.simulation for u in project.units] if project else [sim]:
+        t=getattr(actor.terrain,'core',actor.terrain)
+        if id(t) in seen:continue
+        seen.add(id(t));heights.update(t.height.tobytes())
+        soil=t.soil
+        if soil is None:materials.update(b'no_layers');continue
+        materials.update(json.dumps(dict(profile=asdict(soil.profile),fine_cell=soil.fine_cell,
+            tile_cells=soil.tile_cells,origin=soil.origin.tolist()),sort_keys=True).encode())
+        for key,array in sorted(soil.tiles.items()):
+            materials.update(json.dumps(list(key)).encode());materials.update(array.tobytes())
+    return dict(terrain_sha256=heights.hexdigest(),material_sha256=materials.hexdigest())
+
+
 def trial(args, mode, number):
     gc.collect();begin=time.perf_counter();session=session_factory(args.state);sim=session.simulation
     if getattr(args,'world_prefetch',False):
@@ -149,6 +166,7 @@ def trial(args, mode, number):
         robot_moving_seconds=sum(e.moving_seconds for e in robots)-robot_before['moving'],
         robot_working_seconds=sum(e.working_seconds for e in robots)-robot_before['working'],
         robot_relocations=sum(e.relocations for e in robots)-robot_before['relocations'])
+    row.update(ground_digests(sim,project))
     if profile:
         prefix=Path(args.profile);prefix.parent.mkdir(parents=True,exist_ok=True)
         profile.dump_stats(str(prefix)+f'-{mode}.prof');row.update(profile_rows(profile))

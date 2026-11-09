@@ -343,8 +343,8 @@ class SelfSolarArray:
         actors=site.ground_token(getattr(t,'owner_id',None),bounds) if site and bounds else ()
         marine=marine_mask(t);soil=t.soil
         bearing=tuple(m.bearing_kpa for m in soil.profile.materials) if soil is not None else (b.layout_spec['parameters']['bearing_capacity_kpa'],)
-        from .canal_station import work_exclusion
-        work=work_exclusion(t)
+        from .canal_station import forecast_exclusion
+        work=forecast_exclusion(t)
         stamp=(id(t.height),t.revision,id(work),id(soil),getattr(soil,'revision',None),bearing,geometry_key,actors,excavator,
             id(marine),id(t.design_work),id(t.dump_mask),id(t.protected))
         if getattr(self,'_audit_stamp',None)==stamp:return
@@ -367,7 +367,7 @@ class SelfSolarArray:
         t=world.sim.terrain;rect=self._spaces[q.id];patch=rectangle_patch(t,rect)
         if patch is None:return False
         from .canal_station import work_exclusion
-        blocked=work_exclusion(t)[patch]|t.dump_mask[patch]
+        blocked=work_exclusion(t,patch=patch)|t.dump_mask[patch]
         if t.protected is not None:blocked=blocked|t.protected[patch]
         inputs=(t.height[patch],blocked,marine[patch],bearings)
         old=self._support_ground.get(q.id)
