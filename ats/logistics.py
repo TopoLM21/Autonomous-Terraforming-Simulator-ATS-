@@ -572,12 +572,14 @@ class Logistics:
         if d.power(winching=True,cargo=load,lift_height=max(0.,altitude-job.origin[2]))>d.max_battery_output_w:
             return math.inf,math.inf
         home=d.position
+        waiting=self.sim.wait_position(d.identifier)
         empty=d.power(moving=True,cargo=0)
         loaded=d.power(moving=True,cargo=load)
         out=math.ceil(np.linalg.norm(home[:2]-job.origin[:2])/d.config.empty_speed)
         haul=math.ceil(np.linalg.norm(np.array(job.origin[:2])-job.destination[:2])/d.config.loaded_speed)
-        back=math.ceil(np.linalg.norm(np.array(job.destination[:2])-home[:2])/d.config.empty_speed)
-        vertical=2*math.ceil(max(0.,altitude-home[2])/d.config.vertical_speed)
+        back=math.ceil(np.linalg.norm(np.array(job.destination[:2])-waiting[:2])/d.config.empty_speed)
+        vertical=(math.ceil(max(0.,altitude-home[2])/d.config.vertical_speed)+
+                  math.ceil(max(0.,altitude-waiting[2])/d.config.vertical_speed))
         # Includes return of a reusable empty container and traffic allowance.
         if job.kind=='PICKUP_FULL_CONTAINER':
             back += math.ceil(np.linalg.norm(np.array(job.destination[:2])-job.origin[:2])/d.config.loaded_speed)
@@ -585,7 +587,10 @@ class Logistics:
         seconds=out+haul+back+vertical+handling+self.sim.config.fleet.emergency_landing_seconds
         energy=(empty*(out+back+vertical+self.sim.config.fleet.emergency_landing_seconds)
                 +loaded*(haul+handling)+load*d.config.gravity*max(0.,altitude-job.origin[2])/d.config.winch_efficiency)
-        return energy*d.config.budget_margin,seconds
+        # Couriers finish on the ground beside the base. Contact charging still
+        # requires a separate, powered hop, even when the cargo route is done.
+        recovery=self.sim._waiting_charge_reserve(d)
+        return energy*d.config.budget_margin+recovery,seconds
 
     def dispatch(self):
         s=self.sim
@@ -942,7 +947,7 @@ class Logistics:
             return 'Подготовка переезда базы: '+self.sim.base_move_status
         if d.serial in self.battery_service.drone_swaps:return 'Замена батарей'
         if d.charge_requested:
-            return 'Зарядка до 100%' if d.docked else 'Очередь к зарядному доку'
+            return 'Зарядка до 100%' if d.docked else self.sim.landing_wait_reason(d)
         if d.identifier in self.tool_targets:
             if d.state==DS.CHANGING_TOOL:return 'Смена инструмента: '+self.wait_reasons.get(d.identifier,'работает станция')
             detail=self.wait_reasons.get(d.identifier,'')

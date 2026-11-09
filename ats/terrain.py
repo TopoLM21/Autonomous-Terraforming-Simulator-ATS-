@@ -568,6 +568,9 @@ class Terrain:
         volume = min(available, float(capacity.sum()*self.area))
         fraction=volume/available if available>0 else 0.
         self._deposit_capacity(x, y, volume, capacity, radius,load.scaled(fraction) if load is not None else None)
+        # A whole requested load was deposited. Converting its volume back to
+        # kilograms can lose one ULP and leave fictitious cargo on the drone.
+        if volume==available:return mass
         return mass*fraction if load is not None else volume*self.config.terrain.density
 
     def _deposit_capacity(self, x, y, volume, capacity, radius=None,load=None,bounds=None):

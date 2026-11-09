@@ -1,0 +1,288 @@
+{
+  "date": "2026-11-09",
+  "parent_commit": "1381873b907bee1ed5b0412dfc49b8213d2a2806",
+  "python": "3.12.14",
+  "platform": "Linux",
+  "tests": {
+    "unique_passed": 833,
+    "checks": [
+      {
+        "artifact": "suite-0.xml",
+        "passed": 60
+      },
+      {
+        "artifact": "suite-1.xml",
+        "passed": 407
+      },
+      {
+        "artifact": "suite-2.xml",
+        "passed": 365
+      },
+      {
+        "artifact": "landing-latest.xml",
+        "passed": 20
+      },
+      {
+        "artifact": "service-final.xml",
+        "passed": 109
+      }
+    ],
+    "full_suite_at_start": 832,
+    "note": "Full suite 60+407+365 passed; latest 20 landing tests include one added reproduction. 109 affected tests rerun after common-height arithmetic factoring.",
+    "cli_checks": 36,
+    "cli_exit_codes": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "old_version_regressions": {
+    "expected_failures": 4,
+    "artifact": "baseline-regressions.log"
+  },
+  "synthetic_three_charging_one_waiting": {
+    "before": {
+      "root": "/tmp/ats-dock-2026-11-09/before",
+      "reserved_before_descent": null,
+      "time": 60.0,
+      "state": "RUNNING",
+      "slots": [
+        0,
+        1,
+        2,
+        null
+      ],
+      "queue": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "waiting_drone_state": "WAIT_GROUND",
+      "waiting_drone_soc": 0.21525651697072912,
+      "above_safety_reserve": true,
+      "mass_error_kg": 0.0,
+      "energy_error_j": -5.966285243630409e-09
+    },
+    "after": {
+      "root": "/workspace/ats-project",
+      "reserved_before_descent": 3,
+      "time": 60.0,
+      "state": "RUNNING",
+      "slots": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "queue": [],
+      "waiting_drone_state": "CHARGING",
+      "waiting_drone_soc": 0.22114228815520828,
+      "above_safety_reserve": true,
+      "mass_error_kg": 0.0,
+      "energy_error_j": -5.966285243630409e-09
+    }
+  },
+  "runtime_controls": [
+    {
+      "case": "qattara45",
+      "model_seconds": 120,
+      "trials_per_mode_per_version": 2,
+      "medians": {
+        "headless": {
+          "before": 91.49245250294925,
+          "after": 90.88804911129932,
+          "ratio_after_before": 0.9933939535435402,
+          "trial_ranges": {
+            "before": [
+              89.70236320833254,
+              93.28254179756595
+            ],
+            "after": [
+              89.42120091154783,
+              92.35489731105082
+            ]
+          }
+        },
+        "gui": {
+          "before": 52.50541827077352,
+          "after": 48.30776471525158,
+          "ratio_after_before": 0.9200529451289314,
+          "trial_ranges": {
+            "before": [
+              45.4590433169391,
+              59.55179322460794
+            ],
+            "after": [
+              39.03429897693393,
+              57.58123045356923
+            ]
+          }
+        }
+      },
+      "all_height_bytes_equal": true,
+      "all_material_tiles_equal": true,
+      "reports_equal": true,
+      "common_height_factoring_preserves_full_reports_and_exact_ground": true,
+      "max_mass_error_kg": 8.526512829121202e-14,
+      "max_energy_error_j": 4.857778549194336e-06
+    },
+    {
+      "case": "14x4",
+      "model_seconds": 120,
+      "trials_per_mode_per_version": 2,
+      "medians": {
+        "headless": {
+          "before": 49.39681433517332,
+          "after": 46.75804855840805,
+          "ratio_after_before": 0.9465802438420342,
+          "trial_ranges": {
+            "before": [
+              47.27014897541921,
+              51.52347969492742
+            ],
+            "after": [
+              44.84049338570612,
+              48.67560373110999
+            ]
+          }
+        },
+        "gui": {
+          "before": 37.304378111089136,
+          "after": 37.957951615960795,
+          "ratio_after_before": 1.0175200214549984,
+          "trial_ranges": {
+            "before": [
+              33.65982174856061,
+              40.948934473617655
+            ],
+            "after": [
+              36.943257103363884,
+              38.972646128557706
+            ]
+          }
+        }
+      },
+      "all_height_bytes_equal": true,
+      "all_material_tiles_equal": true,
+      "reports_equal": false,
+      "common_height_factoring_preserves_full_reports_and_exact_ground": true,
+      "max_mass_error_kg": 4.661160346586257e-12,
+      "max_energy_error_j": 5.010224413126707e-08
+    }
+  ],
+  "profiles": {
+    "before_factoring": {
+      "_transfer_energy_from_ground": {
+        "calls": 4032,
+        "self_seconds": 0.027169743000000003,
+        "inclusive_seconds": 0.672235653
+      },
+      "_waiting_charge_reserve": {
+        "calls": 1008,
+        "self_seconds": 0.001993219,
+        "inclusive_seconds": 0.6817844670000001
+      },
+      "simulation_cruise": {
+        "cruise": {
+          "calls": 5368,
+          "inclusive_seconds": 0.8680265380000001
+        }
+      }
+    },
+    "final": {
+      "_transfer_energy_from_ground": {
+        "calls": 4032,
+        "self_seconds": 0.018304755000000002,
+        "inclusive_seconds": 0.051950509000000006
+      },
+      "_waiting_charge_reserve": {
+        "calls": 1008,
+        "self_seconds": 0.0033248540000000004,
+        "inclusive_seconds": 0.183390733
+      },
+      "simulation_cruise": {
+        "cruise": {
+          "calls": 2344,
+          "inclusive_seconds": 0.405557734
+        }
+      }
+    }
+  },
+  "compatibility": {
+    "snapshot_format_changed": false,
+    "ground_ledger_changed": false,
+    "charge_to_full_preserved": true,
+    "old_orphaned_reservations_recover_only_after_physical_clearance": true
+  },
+  "limits": [
+    "User save and exact original configuration unavailable.",
+    "The 14x4 control uses bank stations and 20 square metres PV per complex, not fourteen 45-carrier complexes.",
+    "GUI results use Qt offscreen on Linux and two short trials, not Windows FPS.",
+    "No claim about stability beyond 23 model hours.",
+    "An already landed drone with insufficient energy cannot be recharged without physically reaching a dock; no off-dock rescue mechanism added."
+  ],
+  "control_report_differences_14x4": {
+    "count": 24,
+    "changed_fields": [
+      "estimated_energy_j",
+      "eta_seconds"
+    ],
+    "all_other_report_fields_equal": true,
+    "examples": [
+      [
+        "/reports/1/jobs/4/estimated_energy_j",
+        1343983.3925858315,
+        1607057.434376147
+      ],
+      [
+        "/reports/1/jobs/4/eta_seconds",
+        60.0,
+        62.0
+      ],
+      [
+        "/reports/2/jobs/4/estimated_energy_j",
+        1288523.7070183388,
+        1551597.7488086545
+      ],
+      [
+        "/reports/2/jobs/4/eta_seconds",
+        61.0,
+        63.0
+      ]
+    ]
+  }
+}

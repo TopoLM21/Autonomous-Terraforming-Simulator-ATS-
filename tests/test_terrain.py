@@ -53,3 +53,24 @@ def test_dump_failure_does_not_destroy_cargo_or_edit_terrain():
     with pytest.raises(ValueError, match="Отвал заполнен"):
         t.deposit(26, 24, (t.dump_space+1)*1600)
     np.testing.assert_array_equal(t.height, before)
+
+
+@pytest.mark.parametrize('mass',[15.3,13.7])
+def test_complete_fill_returns_the_entire_load_without_phantom_cargo(mass):
+    from ats.plan import PlanConfig,PlanSegment
+    c=Config();c.plan=PlanConfig([PlanSegment([[12.,12.],[14.,12.]],'fill',1.,.2)])
+    t=Terrain(c);before=t.mass
+    delivered=t.deposit_fill(12.,12.,mass)
+    assert delivered==mass
+    assert t.mass-before==pytest.approx(mass,abs=1e-8)
+
+
+def test_partial_fill_keeps_real_residual_cargo_and_respects_target_capacity():
+    from ats.plan import PlanConfig,PlanSegment
+    c=Config();c.plan=PlanConfig([PlanSegment([[12.,12.],[14.,12.]],'fill',1.,.2)])
+    t=Terrain(c);capacity=t.remaining_fill*c.terrain.density;before=t.mass
+    delivered=t.deposit_fill(12.,12.,capacity*2.)
+    assert 0<delivered<capacity*2.
+    assert delivered==pytest.approx(capacity,abs=1e-8)
+    assert t.mass-before==pytest.approx(delivered,abs=1e-8)
+    assert np.all(t.height[t.fill_mask]<=t.target[t.fill_mask]+1e-12)

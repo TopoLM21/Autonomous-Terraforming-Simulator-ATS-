@@ -577,32 +577,63 @@ class Simulation:
         if d.charge_requested and d.identifier not in self.queue:
             self.queue.append(d.identifier)
 
+    def _prune_charge_queue(self):
+        # A completed/withdrawn request or an already reserved socket cannot
+        # prevent another aircraft from returning to a physically empty pad.
+        # Older duplicate-return reservations could leave a stale reverse index
+        # after takeoff. Release only an unowned pad actually clear of its former
+        # holder; a still nearby aircraft retains its physical clearance.
+        for slot,owner in enumerate(self.slots):
+            if owner is not None and self.drones[owner].slot!=slot:
+                d=self.drones[owner]
+                if np.linalg.norm(d.position-self.slot_position(slot))>self.config.fleet.separation:
+                    self.slots[slot]=None
+                    self.drone_event(d,f'снята устаревшая бронь слота {slot+1}: аппарат покинул площадку')
+        self.queue[:]=[i for i in dict.fromkeys(self.queue)
+                       if self.drones[i].charge_requested and self.drones[i].slot is None
+                       and self.drones[i].battery<self.drones[i].config.battery-1e-7]
+
     def _reserve_return(self, d):
-        limit=self.pending_equipment.fleet.charge_slots if self.pending_equipment is not None else len(self.slots)
+        limit=min(len(self.slots),self.pending_equipment.fleet.charge_slots) if self.pending_equipment is not None else len(self.slots)
+        self._prune_charge_queue()
+        if d.slot is not None:
+            if d.slot<limit and self.slots[d.slot]==d.identifier:
+                d.destination=self.slot_position(d.slot);d.detour=None
+                return
+            self._clear_slot(d)
         available = next((i for i,v in enumerate(self.slots[:limit]) if v is None), None)
-        if available is not None and not self.queue:
+        if available is not None and (not self.queue or self.queue[0]==d.identifier):
             d.slot = available
             self.slots[available] = d.identifier
             d.destination = self.slot_position(available)
+            if d.identifier in self.queue:self.queue.remove(d.identifier)
         else:
             d.destination = self.wait_position(d.identifier)
+            self._enqueue(d)
         d.detour = None
 
     def _assign_slots(self):
+        self._prune_charge_queue()
         if not self.queue or self.base.destination is not None or (self.logistics is None and (self.landing_requested or self.terrain.remaining <= self.config.terrain.completion_volume)):
             return
-        for slot in range(len(self.slots)):
+        limit=min(len(self.slots),self.pending_equipment.fleet.charge_slots) if self.pending_equipment is not None else len(self.slots)
+        returning=(DS.WAIT_GROUND,DS.WAIT_HOVER,DS.RETURN,DS.LANDING,DS.WAIT_LANDING)
+        for slot in range(limit):
             if self.slots[slot] is not None:
                 continue
-            eligible = next((i for i in self.queue if self.drones[i].charge_requested and self.drones[i].state in (DS.WAIT_GROUND,DS.WAIT_HOVER) and self.drones[i].battery < self.drones[i].config.battery-1e-7 and self.drones[i].battery >= self.drones[i].config.battery*self.drones[i].config.reserve+self._transfer_energy(self.drones[i],slot)), None)
+            eligible = next((i for i in self.queue if self.drones[i].state in returning
+                             and self.drones[i].cargo<=1e-8
+                             and (self.logistics is None or i not in self.logistics.active)
+                             and self.drones[i].battery >= self.drones[i].config.battery*self.drones[i].config.reserve+self._transfer_energy(self.drones[i],slot)), None)
             if eligible is None:
-                break
+                continue  # another free pad may be closer and reachable
             d = self.drones[eligible]
             self.queue.remove(eligible)
             self.slots[slot] = eligible
             d.slot = slot
             d.destination = self.slot_position(slot)
-            if d.state == DS.WAIT_GROUND:
+            d.detour=None
+            if d.position[2]<self.cruise(d)-1e-8:
                 d.transition(DS.TRANSFER_TAKEOFF)
             else:
                 d.transition(DS.TO_SLOT)
@@ -613,9 +644,29 @@ class Simulation:
         altitude=self.cruise(d)
         target=self.slot_position(slot)
         seconds=math.ceil(max(0,altitude-target[2])/c.vertical_speed)+math.ceil(np.linalg.norm(target[:2]-d.position[:2])/c.empty_speed)+3
-        if d.grounded:
-            seconds+=math.ceil(max(0,altitude-d.position[2])/c.vertical_speed)
+        seconds+=math.ceil(abs(altitude-d.position[2])/c.vertical_speed)
         return d.power(True)*seconds
+
+    def _waiting_charge_reserve(self,d,home=None):
+        """Budget a real empty hop after landing outside a busy contact dock."""
+        wait=self.wait_position(d.identifier);altitude=self.cruise(d)
+        energy=max(self._transfer_energy_from_ground(d,i,point=wait,altitude=altitude)
+                   for i in range(len(self.slots)))
+        if home is not None:
+            seconds=(math.ceil(max(0.,home[2]-wait[2])/d.config.vertical_speed)+
+                     math.ceil(np.linalg.norm(np.asarray(home)[:2]-wait[:2])/d.config.empty_speed))
+            energy+=d.power(True,cargo=0.)*seconds
+        return energy
+
+    def landing_wait_reason(self,d):
+        free=[i for i,value in enumerate(self.slots) if value is None]
+        if free:
+            required=min(self._transfer_energy(d,i) for i in free)
+            available=max(0.,d.battery-d.config.battery*d.config.reserve)
+            if required>available+1e-7:
+                return (f'Недостаточно энергии на перелёт к свободному доку: нужно {required/3600:.1f} Вт·ч, '
+                        f'доступно сверх резерва {available/3600:.1f} Вт·ч')
+        return 'Очередь к зарядному доку'
 
     def _move(self, d, destination, next_state, dt):
         previous = d.position.copy()
@@ -688,7 +739,12 @@ class Simulation:
                 incoming+=sum(self.logistics.inventory.items[j.resource_ids[0]].soil_volume(self.config.terrain.density)
                     for j in self.logistics.jobs if j.kind=='PICKUP_FULL_CONTAINER' and j.soil_destination=='fill' and j.status in ('ACTIVE','QUEUED'))
         home = self.slot_position(d.slot) if d.slot is not None else self.wait_position(d.identifier)
-        return self.planner.choose(self.terrain,self.base,d,() if unreserved else self._reserved_dig(d),home,() if unreserved else self._reserved_dump(d),0 if unreserved else incoming,battery,d.position if airborne or self.terrain.front is not None else None)
+        recovery=(self._waiting_charge_reserve(d,home) if len(self.drones)>len(self.slots)
+                  or len(self.drones)>1 and d.slot is None else 0.)
+        charge=(d.battery if battery is None else battery)-recovery
+        trip=self.planner.choose(self.terrain,self.base,d,() if unreserved else self._reserved_dig(d),home,() if unreserved else self._reserved_dump(d),0 if unreserved else incoming,charge,d.position if airborne or self.terrain.front is not None else None)
+        if trip is not None:trip.energy+=recovery
+        return trip
 
     def _request_charge(self, d, reason):
         if not d.charge_requested:
@@ -1151,12 +1207,12 @@ class Simulation:
         if trip and self.base.maybe_relocate(self.time,self.trips,trip.dig,trip.dump,self.terrain,self.drones):
             self.event("База перемещается со всеми пристыкованными дронами")
 
-    def _transfer_energy_from_ground(self,d,slot):
-        point=self.wait_position(d.identifier)
-        altitude=self.cruise(d)
+    def _transfer_energy_from_ground(self,d,slot,*,point=None,altitude=None):
+        if point is None:point=self.wait_position(d.identifier)
+        if altitude is None:altitude=self.cruise(d)
         target=self.slot_position(slot)
         seconds=math.ceil((altitude-point[2])/d.config.vertical_speed)+math.ceil((altitude-target[2])/d.config.vertical_speed)+math.ceil(np.linalg.norm(target[:2]-point[:2])/d.config.empty_speed)+3
-        return d.power(True)*seconds
+        return d.power(True,cargo=0.)*seconds
 
     def _finish_or_block(self):
         if self.pending_equipment is not None:return
