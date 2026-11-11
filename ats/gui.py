@@ -99,8 +99,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.reset_button = QtWidgets.QPushButton("Reset")
         self.reset_button.clicked.connect(self.reset)
         header.addWidget(self.reset_button)
-        self.setup_button=QtWidgets.QPushButton('＋ Комплекс')
-        self.setup_button.clicked.connect(self.show_composer);header.addWidget(self.setup_button)
+        self.setup_button=QtWidgets.QPushButton('＋ Комплекс',central)
+        self.setup_button.clicked.connect(self.show_composer)
         from .ui_windows import menu_button,hidden_action
         actions_menu=menu_button(header,self,'Управление ▾')
         actions_menu.addAction('Батарейные платформы…',self.show_battery_platforms)

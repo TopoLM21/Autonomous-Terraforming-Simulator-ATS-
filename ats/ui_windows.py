@@ -48,6 +48,9 @@ def compact_workspace(host,split,right,right_layout,telemetry_scroll,settings_sc
     host.compact_telemetry=QtWidgets.QLabel();host.compact_telemetry.setWordWrap(True)
     host.compact_telemetry.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
     right_layout.addWidget(host.compact_telemetry)
+    # Keep the composer directly accessible without enlarging the fixed header.
+    # Native Windows button/font metrics otherwise push it beyond a 1024px screen.
+    right_layout.addWidget(host.setup_button)
     grid=QtWidgets.QGridLayout()
     def settings(index):
         host.settings_tabs.setCurrentIndex(index);show_window(host.settings_window)

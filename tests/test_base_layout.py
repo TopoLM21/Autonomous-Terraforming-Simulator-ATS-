@@ -108,7 +108,15 @@ def test_compact_main_window_fits_small_desktop_and_details_open_separately(poin
         if point_size is not None:
             font=app.font();font.setPointSizeF(point_size);app.setFont(font)
         w=MainWindow(config());w.timer.stop();w.resize(1024,700);w.show();app.processEvents()
-        assert w.minimumSizeHint().width()<=1024 and w.minimumSizeHint().height()<=700
+        hints=dict(main=w.minimumSizeHint().toTuple(),central=w.centralWidget().minimumSizeHint().toTuple(),
+                   header=w.centralWidget().layout().itemAt(0).minimumSize().toTuple(),status=w.statusBar().minimumSizeHint().toTuple())
+        assert w.minimumSizeHint().width()<=1024 and w.minimumSizeHint().height()<=700,hints
+        assert w.setup_button.isVisible()
+        corner=w.setup_button.mapTo(w,w.setup_button.rect().topLeft())
+        assert 0<=corner.x() and corner.x()+w.setup_button.width()<=w.size().width()
+        w.setup_button.click();app.processEvents()
+        assert w.setup_window.isVisible()
+        w.setup_window.close()
         assert not w.settings_window.isVisible() and not w.fleet_window.isVisible()
         w.settings_window.show();w.fleet_window.show();app.processEvents()
         assert w.settings_tabs.count()==3 and w.fleet_table.isVisible()
