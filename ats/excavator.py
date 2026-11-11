@@ -55,6 +55,17 @@ class Excavator:
     relocations: int = 0
     activity: ActivityStats = field(default_factory=ActivityStats)
     productivity: Productivity = field(default_factory=Productivity)
+    serial: int = 1
+
+    @property
+    def id(self):return 'excavator' if self.serial==1 else f'excavator_{self.serial}'
+
+    @property
+    def cycle_owner(self):return 'excavator_cycle' if self.serial==1 else f'excavator_cycle_{self.serial}'
+
+    def peers(self):
+        world=getattr(self,'_world',None)
+        return [e for e in world.excavators if e.serial!=self.serial and e.state!=ExcavatorState.AIR_TRANSPORT] if world is not None else []
 
     def batteries(self, inventory):
         return [inventory.items[id] for id in self.battery_ids]
@@ -85,6 +96,26 @@ class Excavator:
     def stable(self, point, terrain):
         c=self.config;z=terrain.sample(*point[:2]);side=terrain.height.shape[0]*terrain.cell
         radius=c.support_half_width_m
+        world=getattr(self,'_world',None)
+        if world is not None and c.robot_count>1:
+            from .site_ground import rectangle_polygon,polygons_overlap,marine_mask,rectangle_patch
+            rect=(point[0]-radius,point[1]-radius,2*radius,2*radius)
+            patch=rectangle_patch(terrain,rect)
+            if patch is None or np.any(marine_mask(terrain)[patch]):return False
+            polygons=world.robot_static_polygons();key=(id(polygons),tuple(point[:2]),radius)
+            cached=getattr(self,'_static_robot_site_cache',None)
+            if cached is None or cached[0]!=key:
+                polygon=rectangle_polygon(rect)
+                cached=(key,not any(polygons_overlap(polygon,p,.3) for p in polygons),polygons);self._static_robot_site_cache=cached
+            if not cached[1]:return False
+            for d in world.sim.drones:
+                grab=d.config.grab_radius or terrain.config.terrain.grab_radius
+                if d.trip is not None and np.linalg.norm(np.asarray(point[:2])-d.trip.dig)<radius+grab+terrain.cell/2:
+                    return False
+        for other in self.peers():
+            minimum=radius+other.config.support_half_width_m+.5
+            if np.linalg.norm(np.asarray(point[:2])-other.position[:2])<minimum-1e-8:return False
+            if other.destination is not None and np.linalg.norm(np.asarray(point[:2])-other.destination[:2])<minimum-1e-8:return False
         site=getattr(terrain,'shared_site',None)
         if site is not None and site.ground_occupied(terrain.owner_id,(point[0]-radius,point[1]-radius,2*radius,2*radius)):return False
         if np.any(np.asarray(point[:2])<radius+terrain.cell) or np.any(np.asarray(point[:2])>side-radius-terrain.cell):
@@ -103,7 +134,22 @@ class Excavator:
         moment=(c.digging_force_n+c.bucket_volume_m3*c.bucket_fill_factor*density*9.80665)*distance
         restoring=(self.mass(inventory)-self.bucket_kg)*9.80665*c.support_half_width_m/c.tipping_margin
         sector=(terrain.front.cut_mask(patch) if terrain.front is not None and terrain.front.sectors else True)
-        return (sector & (distance<=c.reach_m) & (distance>=c.support_half_width_m+terrain.cell/math.sqrt(2))
+        own=np.ones(distance.shape,dtype=bool)
+        world=getattr(self,'_world',None)
+        if world is not None and c.robot_count>1:
+            for drone in world.sim.drones:
+                if drone.trip is None:continue
+                grab=drone.config.grab_radius or terrain.config.terrain.grab_radius
+                own &= np.hypot(terrain.x[patch]-drone.trip.dig[0],terrain.y[patch]-drone.trip.dig[1])>=grab+terrain.cell/2
+        for other in self.peers():
+            clearance=other.config.support_half_width_m+terrain.cell/math.sqrt(2)
+            own &= np.hypot(terrain.x[patch]-other.position[0],terrain.y[patch]-other.position[1])>=clearance
+            if other.destination is not None:
+                own &= np.hypot(terrain.x[patch]-other.destination[0],terrain.y[patch]-other.destination[1])>=clearance
+            if other.state==ExcavatorState.MOVING_LOCAL:continue
+            separation=np.hypot(terrain.x[patch]-other.position[0],terrain.y[patch]-other.position[1])
+            own &= (distance<separation-1e-9) if self.serial>other.serial else (distance<=separation+1e-9)
+        return (sector & own & (distance<=c.reach_m) & (distance>=c.support_half_width_m+terrain.cell/math.sqrt(2))
                 & (terrain.height[patch]>p[2]-c.local_depth_m+1e-9)
                 & (terrain.height[patch]<=p[2]+.5) & (moment<=restoring))
 
@@ -125,6 +171,13 @@ class Excavator:
             p=np.array([terrain.x[patch].ravel()[index],terrain.y[patch].ravel()[index],terrain.height[patch].ravel()[index]+.02])
             if visible(self.position+[0,0,.8],p,terrain):return tuple(p[:2])
         return None
+
+    def dig_allowed(self,terrain,inventory):
+        # Scoop APIs take a full mask; evaluate boom/peer geometry only locally.
+        patch=terrain.patch(*self.position[:2],self.config.reach_m)
+        allowed=np.zeros(terrain.height.shape,dtype=bool)
+        allowed[patch]=self.reachable_mask(terrain,inventory,patch=patch)
+        return allowed
 
     def find_site(self, terrain, inventory):
         indices=terrain.source_indices('cut')
@@ -176,6 +229,8 @@ class Excavator:
         samples=max(2,int(math.ceil(length/(terrain.cell/2)))+1)
         points=np.linspace(self.position,destination,samples)[:,:2]
         c=self.config;radius=c.support_half_width_m;cell=terrain.cell;side=terrain.height.shape[0]*cell
+        for other in self.peers():
+            if np.any(np.linalg.norm(points-other.position[:2],axis=1)<radius+other.config.support_half_width_m+.3-1e-9):return False
         if np.any(points<radius+cell) or np.any(points>side-radius-cell):return False
         heights=terrain.sample_many(points);limit=math.tan(math.radians(c.max_slope_deg))
         for dx,dy in ((radius,0),(-radius,0),(0,radius),(0,-radius),(radius,radius),(-radius,-radius)):
@@ -260,7 +315,7 @@ class Excavator:
             if length<=c.excavator_speed:
                 self.state=ExcavatorState.DEPLOYING_SUPPORTS;self.elapsed=0.;self.relocations+=1
             return
-        if (self.reason=='DRONES_FINISH_LOCAL_REMAINDER' and
+        if (self.reason in ('DRONES_FINISH_LOCAL_REMAINDER','WAITING_FREE_EXCAVATION_SITE') and
                 s.time<getattr(self,'_site_retry_at',0)):
             self.waiting_seconds+=1.;return
         if self.state==ExcavatorState.DEPLOYING_SUPPORTS:
@@ -281,23 +336,27 @@ class Excavator:
                 container.soil.add(self.soil);self.soil=None
             self.bucket_kg=0.
             container.state='PARTIALLY_FILLED';self.cycles+=1
-            inv.release('excavator_cycle');self.active_container=None
+            inv.release(self.cycle_owner);self.active_container=None
             if container.full(s.config.terrain.density) or t.remaining_cut<=s.config.terrain.completion_volume:
                 container.location=L.FILLED_QUEUE;container.state='FULL_READY'
             self.state=ExcavatorState.IDLE;self.elapsed=0.;logistics.progress_at=s.time
             return
         if t.remaining_cut<=s.config.terrain.completion_volume or t.front is not None and t.front.complete:
-            inv.release('excavator_cycle');self.active_container=None
+            inv.release(self.cycle_owner);self.active_container=None
             for container in logistics.containers:
-                if container.location==L.WORKSITE_RACK and container.soil_kg>0 and not container.reserved_by:
+                if logistics.owns_rack(container,self) and container.location==L.WORKSITE_RACK and container.soil_kg>0 and not container.reserved_by:
                     container.location=L.FILLED_QUEUE;container.state='FULL_READY'
             self.state=ExcavatorState.IDLE;self.reason='WORK_COMPLETE';return
-        if not s.work_allowed or s.landing_requested or t.front is not None and t.front.axis and not t.front.cut_enabled:
-            inv.release('excavator_cycle');self.active_container=None;self.elapsed=0.
+        if (len(logistics.excavators)>1 and logistics.relocation_robot is not None) or not s.work_allowed or s.landing_requested or t.front is not None and t.front.axis and not t.front.cut_enabled:
+            inv.release(self.cycle_owner);self.active_container=None;self.elapsed=0.
             for container in logistics.containers:
-                if container.location==L.WORKSITE_RACK and container.soil_kg>0 and not container.reserved_by:
+                if logistics.owns_rack(container,self) and container.location==L.WORKSITE_RACK and container.soil_kg>0 and not container.reserved_by:
                     container.location=L.FILLED_QUEUE;container.state='FULL_READY'
-            self.state=ExcavatorState.IDLE;self.reason='WAITING_WORK_WINDOW' if not s.work_allowed else 'PAUSED_FOR_PLAN_OR_MAINTENANCE';return
+            self.state=ExcavatorState.IDLE
+            self.reason=('WAITING_WORK_WINDOW' if not s.work_allowed else
+                'WAITING_TEAM_RELOCATION: '+logistics.relocation_robot.id if len(logistics.excavators)>1 and logistics.relocation_robot is not None else
+                'PAUSED_FOR_PLAN_OR_MAINTENANCE')
+            return
         cycle_budget=c.digging_power_w*c.cycle_seconds*(max(t.soil.profile.factors) if t.soil is not None else 1.)
         stop_energy=(max(self.capacity(inv)*c.courier_low_soc,cycle_budget) if logistics.batch_enabled else
                      self.capacity(inv)*c.excavator_reserve+cycle_budget)
@@ -305,17 +364,22 @@ class Excavator:
             self.state=ExcavatorState.LOW_BATTERY;self.reason='WAITING_CHARGED_BATTERY_PAIR';self.waiting_seconds+=1.;return
         point=self.work_point(t,inv)
         if point is None:
-            inv.release('excavator_cycle');self.active_container=None;self.target=None;self.elapsed=0.
+            inv.release(self.cycle_owner);self.active_container=None;self.target=None;self.elapsed=0.
             for container in logistics.containers:
-                if container.location==L.WORKSITE_RACK and container.soil_kg>0 and not container.reserved_by:
+                if logistics.owns_rack(container,self) and container.location==L.WORKSITE_RACK and container.soil_kg>0 and not container.reserved_by:
                     container.location=L.FILLED_QUEUE;container.state='FULL_READY'
             if t.remaining_cut<=s.config.terrain.completion_volume:
                 self.state=ExcavatorState.IDLE;self.reason='LOCAL_WORK_COMPLETE';return
-            if any(j.status in ('ACTIVE','QUEUED') and (j.kind!='EXCAVATE_DIRECT' or not logistics.batch_enabled)
+            if any(getattr(j,'excavator_serial',1)==self.serial and j.status in ('ACTIVE','QUEUED') and (j.kind!='EXCAVATE_DIRECT' or not logistics.batch_enabled)
                    for j in logistics.jobs):
                 self.state=ExcavatorState.WAITING_TRANSPORT;self.reason='CLEAR_WORKSITE_BEFORE_MOVE';self.waiting_seconds+=1.;return
             site=self.find_site(t,inv)
             if site is None:
+                if len(logistics.excavators)>1 and self.stable(self.position,t):
+                    patch=t.patch(*self.position[:2],c.support_half_width_m+t.cell)
+                    if not np.any((t.excavation|t.dump_mask)[patch]):
+                        self.state=ExcavatorState.IDLE;self.reason='WAITING_FREE_EXCAVATION_SITE'
+                        self._site_retry_at=s.time+30;self.waiting_seconds+=1.;return
                 if self.config.direct_allowed or self.config.idle_digging:
                     parked=self.park_clear_of_cut(t)
                     self._site_retry_at=s.time+30
@@ -332,7 +396,7 @@ class Excavator:
             if self.can_drive(site,t):self.state=ExcavatorState.MOVING_LOCAL
             else:self.state=ExcavatorState.WAITING_RELOCATION;self.reason='LOCAL_PATH_BLOCKED'
             return
-        containers=[o for o in logistics.containers if o.location==L.WORKSITE_RACK and not o.reserved_by
+        containers=[o for o in logistics.containers if logistics.owns_rack(o,self) and o.location==L.WORKSITE_RACK and not o.reserved_by
                     and np.linalg.norm(np.array(o.position[:2])-self.position[:2])<=c.reach_m
                     and not o.full(s.config.terrain.density)]
         if self.active_container is not None:
@@ -342,12 +406,12 @@ class Excavator:
         else:
             container=min(containers,key=lambda o:(-o.soil_kg,o.id))
         if self.active_container is None:
-            if not inv.reserve([container.id],'excavator_cycle'):return
+            if not inv.reserve([container.id],self.cycle_owner):return
             self.active_container=container.id;self.elapsed=0.;self.target=point
             if t.soil is not None:
                 volume=min(c.bucket_volume_m3*c.bucket_fill_factor,max(0.,container.volume_m3-container.soil_volume(s.config.terrain.density)))
                 preview=t.preview_load(*self.target,max(0.,container.assigned_limit_kg-container.soil_kg),radius=.5,
-                    max_volume=volume,allowed_mask=self.reachable_mask(t,inv),minimum_height=self.position[2]-c.local_depth_m)
+                    max_volume=volume,allowed_mask=self.dig_allowed(t,inv),minimum_height=self.position[2]-c.local_depth_m)
                 self.cycle_factor=preview.factor
         self.state=ExcavatorState.DIGGING;self.reason='';self.working_seconds+=1.
         if not self.supports or sum(b.max_discharge_w for b in self.batteries(inv))<c.peak_power_w:
@@ -357,20 +421,20 @@ class Excavator:
             if t.soil is not None:
                 volume=min(c.bucket_volume_m3*c.bucket_fill_factor,max(0.,container.volume_m3-container.soil_volume(s.config.terrain.density)))
                 self.soil=t.scoop_load(*self.target,max(0.,container.assigned_limit_kg-container.soil_kg),radius=.5,
-                    max_volume=volume,allowed_mask=self.reachable_mask(t,inv),minimum_height=self.position[2]-c.local_depth_m)
+                    max_volume=volume,allowed_mask=self.dig_allowed(t,inv),minimum_height=self.position[2]-c.local_depth_m)
                 self.bucket_kg=self.soil.mass;s.excavated_volume+=self.soil.volume
             else:
                 max_mass=min(c.bucket_volume_m3*c.bucket_fill_factor*s.config.terrain.density,
                              container.assigned_limit_kg-container.soil_kg)
                 self.bucket_kg=t.scoop(*self.target,max_mass,radius=.5,
-                    allowed_mask=self.reachable_mask(t,inv),minimum_height=self.position[2]-c.local_depth_m)
+                    allowed_mask=self.dig_allowed(t,inv),minimum_height=self.position[2]-c.local_depth_m)
             self.excavated_kg+=self.bucket_kg;s.excavated_mass+=self.bucket_kg
             self.productivity.record(s.time,int((s.config.start_hour*3600+s.time)//86400),
                                      self.bucket_kg,s.config.terrain.density,'excavated',volume=self.soil.volume if self.soil is not None else None)
             s._terrain_active=True
             s.dust.emit(1.,self.position,0.,.15)
             if self.bucket_kg<=1e-8:
-                inv.release('excavator_cycle');self.active_container=None;self.elapsed=0.
+                inv.release(self.cycle_owner);self.active_container=None;self.elapsed=0.
 
     def report(self, inv, time=0.,day=0,density=1600.):
         production=self.productivity.report(time,day)

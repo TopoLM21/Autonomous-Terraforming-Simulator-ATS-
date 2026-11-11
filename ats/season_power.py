@@ -40,7 +40,7 @@ def service_capacity(config,layout,reference):
         ids=[(key,min(c.port_power_w,c.drone_pack_charge_w)/1000) for key,e in layout['bindings'].items() if e['kind']=='BATTERY' and key.startswith(f'drone_{i+1}_spare_')]
         groups.append((ids,reference['drones'][i]['mean_charging_kw']))
     if c.excavator_enabled:
-        ids=[(key,min(c.port_power_w,c.pack_charge_kw*1000)/1000) for key,e in layout['bindings'].items() if e['kind']=='BATTERY' and key.startswith('excavator_battery_') and int(key.rsplit('_',1)[1])>c.excavator_battery_slots]
+        ids=[(key,min(c.port_power_w,c.pack_charge_kw*1000)/1000) for key,e in layout['bindings'].items() if e['kind']=='BATTERY' and key.startswith('excavator_battery_') and (int(key.rsplit('_',1)[1])-1)%c.excavator_battery_count>=c.excavator_battery_slots]
         groups.append((ids,reference['robot_charging_kw']))
     for ids,required in groups:
         total=sum(power for key,power in ids)

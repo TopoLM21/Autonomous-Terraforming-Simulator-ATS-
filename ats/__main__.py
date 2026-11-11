@@ -21,7 +21,7 @@ def _finish_region(sim, region, report, save_path=None):
         w=sim.logistics;e=w.excavator if w else None
         if (any(not d.grounded or d.cargo>0 for d in sim.drones) or w and
                 (w.active or w.group is not None or any(c.soil_kg>0 for c in w.containers) or
-                 e and (e.bucket_kg>0 or e.active_container is not None))):
+                 any(e.bucket_kg>0 or e.active_container is not None for e in w.excavators))):
             raise ValueError('Ландшафт не сохранён: завершите рейсы/выгрузку; для сохранения работающей техники используйте --save-state')
     region.commit_window(sim.config.georeference['origin_m'],sim.terrain.height,cell_size=sim.terrain.cell,soil=sim.terrain.soil)
     if region.channel_project:
@@ -150,6 +150,7 @@ def main():
     parser.add_argument("--day-of-year", type=int, default=172, help="Start day, 1..365; day 172 = 21 June")
     parser.add_argument("--panel-area", type=float, help="Horizontal solar panel area in m²; default 20, or equipment profile")
     parser.add_argument("--base-mass", type=float, default=1000, help="Base mass including panels/battery, kg")
+    parser.add_argument("--excavators",type=int,help="Number of Krot excavators per complex, 0..10")
     parser.add_argument("--drones", type=int, help="Fleet size, 1..16; default 1 legacy / 4 logistics")
     parser.add_argument("--charge-slots", type=int, help="Landing/charging sockets, 1..16; share total charging power")
     parser.add_argument("--wait-mode", choices=("ground","air"), default="ground")
@@ -165,7 +166,7 @@ def main():
     parser.add_argument('--mode',choices=('legacy','logistics','hybrid'),metavar='{logistics,hybrid}',
                         help='ATS 2.0 mode; default logistics')
     parser.add_argument('--courier-strategy',choices=('batch','responsive'),help='Batch at 75%% full / Krot below 10%% SOC (default) or immediate transport')
-    parser.add_argument('--containers',type=int,default=8)
+    parser.add_argument('--containers',type=int,help='Total reusable containers; default 8 or the saved recipe')
     parser.add_argument('--battery-modules',type=int,choices=(1,2),help='Explicit drone battery variant; otherwise preserve equipment')
     parser.add_argument('--drone-spare-sets',type=int,
                         help='Initial spare battery sets per drone, 0..64; one set matches its installed modules')
@@ -289,7 +290,8 @@ def main():
             from .experiments import experiment_config
             profile=args.laser_profile or ('existing_legacy' if config.base.equipment and any(e.enabled for e in config.base.equipment.emitters) else 'laser_off')
             landing=args.charge_slots if args.charge_slots is not None else (config.base.equipment.landing_slots if args.equipment else None)
-            config=experiment_config(config,mode=mode,drones=config.fleet.count,containers=args.containers,
+            containers=args.containers if args.containers is not None else config.logistics.container_count if config.logistics else 8
+            config=experiment_config(config,mode=mode,drones=config.fleet.count,containers=containers,
                 ports=args.module_charge_ports,laser=profile,
                 battery_modules=args.battery_modules,landing_slots=landing)
         elif mode=='legacy':
@@ -315,6 +317,11 @@ def main():
         if args.drone_spare_sets is not None:config.logistics.drone_spare_sets=args.drone_spare_sets
         if args.excavator_spare_batteries is not None:
             config.logistics.excavator_battery_count=config.logistics.excavator_battery_slots+args.excavator_spare_batteries
+        if args.excavators is not None:
+            if config.logistics is None:raise ValueError('--excavators requires ATS 2.0')
+            if not 0<=args.excavators<=10:raise ValueError('--excavators: 0..10 required')
+            config.logistics.excavator_enabled=args.excavators>0;config.logistics.excavator_count=max(1,args.excavators)
+        if args.containers is not None and config.logistics is not None:config.logistics.container_count=args.containers
         if args.no_idle_digging and config.logistics is not None:config.logistics.idle_digging=False
         if args.courier_strategy is not None:
             if config.logistics is None:raise ValueError('Courier strategy requires ATS 2.0')

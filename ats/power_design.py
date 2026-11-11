@@ -45,6 +45,9 @@ def equipment_copy(config):
     """Copy hardware without duplicating DEM arrays merely to size a power bus."""
     c=copy(config)
     for key in ('base','drone','fleet','logistics'):setattr(c,key,deepcopy(getattr(config,key)))
+    for key in ('operating_schedule','cost_catalog'):
+        value=getattr(config,key,None)
+        if value is not None:setattr(c,key,deepcopy(value))
     resolve_config(c);return c
 
 
@@ -165,6 +168,8 @@ def calculate_power(config,request=None,observation=None):
         robot['modules_per_set']=log.excavator_battery_slots
         robot['recommended_modules']=log.excavator_battery_slots*(robot['total_sets'] or 1)
         if robot['spare_sets'] is None:warnings.append('Крот: зарядная мощность равна нулю')
+    if log and log.robot_count>1:
+        robot_idle*=log.robot_count;robot_input*=log.robot_count
     idle=b.idle_power/1000+request.auxiliary_kw+robot_idle
     work=drone_input+laser_input+robot_input
     source='equipment'
@@ -219,7 +224,7 @@ def calculate_power(config,request=None,observation=None):
     for row in rows:row['allocated_spare_sets']=max_spare
     robot_spares=(robot['spare_sets'] or 0)*robot['modules_per_set'] if robot else 0
     slot_kw=(log.port_power_w/1000 if log else 0.)
-    connected=(spare_modules*slot_kw+robot_spares*slot_kw+b.charge_power/1000+
+    connected=(spare_modules*slot_kw+robot_spares*(log.robot_count if log else 0)*slot_kw+b.charge_power/1000+
                sum(p for _,p,_ in channels)+b.idle_power/1000+request.auxiliary_kw)
     continuous=(drone_input+robot_input+robot_idle)*(1+request.energy_margin)
     inverter=max(connected,idle+work)*(1+request.energy_margin)
@@ -232,8 +237,8 @@ def calculate_power(config,request=None,observation=None):
     mobile_capacity=sum(d.battery/KWH*(1+max_spare) for d in models)
     buffer_capacity=0.
     if log and log.excavator_enabled:
-        mobile_capacity+=(log.excavator_battery_slots+robot_spares)*log.pack_capacity_kwh
-        buffer_capacity=log.buffer_kwh
+        mobile_capacity+=(log.excavator_battery_slots+robot_spares)*log.pack_capacity_kwh*log.robot_count
+        buffer_capacity=log.buffer_kwh*log.robot_count
     base_capacity=storage_count*battery.capacity_kwh if storage_count is not None else None
     return dict(request=asdict(request),source=source,start_hour=start_hour,latitude_deg=b.latitude_deg,day_of_year=b.start_day_of_year,
         daily_energy_kwh=demand,mean_power_kw=demand/24,work_power_kw=idle+work,idle_power_kw=idle,
@@ -247,8 +252,8 @@ def calculate_power(config,request=None,observation=None):
         empty_to_full_input_kwh=base_capacity+(mobile_capacity+buffer_capacity/.9)/eff if base_capacity is not None else None,
         charging_continuous_kw=continuous,connected_peak_kw=connected,inverter_required_kw=inverter,
         drone_spare_sets=max_spare,drone_spare_modules=spare_modules,excavator_spare_modules=robot_spares,
-        module_charging_slots=spare_modules+robot_spares+sum(r['modules_per_set'] for r in rows)+(robot['modules_per_set'] if robot else 0),
-        drones=rows,excavator=robot,storage_check=test,warnings=warnings,
+        module_charging_slots=spare_modules+(robot_spares+(robot['modules_per_set'] if robot else 0))*(log.robot_count if log else 0)+sum(r['modules_per_set'] for r in rows),
+        excavator_count=log.robot_count if log else 0,excavator_spare_modules_total=robot_spares*(log.robot_count if log else 0),drones=rows,excavator=robot,storage_check=test,warnings=warnings,
         hourly_load_kw=[float(load[i:i+60].mean()) for i in range(0,1440,60)],
         hourly_solar_kw=[float(generation[i:i+60].mean()) for i in range(0,1440,60)])
 

@@ -120,8 +120,8 @@ class SolarArray:
         blocked=equipment_mask(t,others)|t.design_work|t.dump_mask|marine_mask(t)
         # The existing own layout is stowed when replanning. Its old field
         # reserve is removed only after all equipment has physically returned.
-        if world.excavator:
-            e=world.excavator;r=world.config.support_half_width_m+1.
+        for e in world.excavators:
+            r=world.config.support_half_width_m+1.
             paint_rect(t,blocked,(e.position[0]-r,e.position[1]-r,2*r,2*r))
         scale=max(1.,max((q.area_m2 for q in self.sections),default=24.)/p['section_area_m2'])
         width=p['section_width_m']*math.sqrt(scale);height=p['section_area_m2']/p['section_width_m']*math.sqrt(scale)

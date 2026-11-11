@@ -124,3 +124,31 @@ def test_escape_cancels_a_pending_delivery_and_restores_previous_commands(app,de
     QtTest.QTest.keyClick(d,QtCore.Qt.Key.Key_Escape);app.processEvents()
     assert not d._pending and not d.delivery_timer.isActive()
     assert live.sim.landing_requested==original and not live.running
+
+
+def test_builder_ten_real_krots_and_per_m3_statistic_are_visible(app):
+    from tests.test_excavator_fleet import config
+    from ats.equipment_ui import DailyStatsWindow
+    c=config(10);c.base.latitude_deg=31.078
+    w=WorkspaceWindow(c);w.show_composer();d=w.builder
+    assert d.krot.maximum()==10 and d.krot.value()==0
+    d.krot.setValue(10);assert d.containers.value()==80
+    d.mode.setCurrentIndex(d.mode.findData('hours'));d.hours.setValue(6)
+    d.period.setCurrentIndex(d.period.findData('custom'))
+    d.first.setDate(QtCore.QDate(2025,6,21));d.last.setDate(d.first.date());d.start_after.setChecked(False)
+    d.calculate();wait_until(app,lambda:d.job is None)
+    assert d.result is not None,d.status.text()
+    assert d.result.config.logistics.robot_count==10
+    assert next(row for row in d.result.estimate['rows'] if row['key']=='excavator')['quantity']==10
+    assert w.sim is None
+    d.place();app.processEvents();live=w.work_window;live.timer.stop()
+    assert len(live.sim.logistics.excavators)==10
+    for _ in range(55):live.complex_project.step()
+    live.refresh(True);app.processEvents()
+    assert len(live.excavator_marker.points())==10
+    stats=DailyStatsWindow(live);stats.timer.stop();stats.refresh()
+    assert stats.robots.rowCount()==10
+    assert len({stats.robots.item(row,0).text() for row in range(10)})==10
+    assert 'USD/м³' in stats.economics.text() and 'Капитальная оценка' in stats.economics.text()
+    assert 'USD/м³' in live.procurement_status.text()
+    assert stats.robots.item(9,0).text()=='excavator_10'

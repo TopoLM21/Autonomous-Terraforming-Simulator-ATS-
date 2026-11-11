@@ -134,7 +134,7 @@ def battery_records(config,world,batteries,extra,base_records=None):
                     for j in range(c.drone_spare_sets):
                         records.append(dict(id=f'drone_{i+1}_spare_{j+1}_{slot}',mass_kg=recipe.mass_kg,kwh=recipe.capacity_kwh,role='SERVICE',kind='BATTERY'))
         if c.excavator_enabled:
-            records.extend(dict(id=f'excavator_battery_{i+1:02}',mass_kg=c.pack_mass_kg,kwh=c.pack_capacity_kwh,role='SERVICE',kind='BATTERY') for i in range(c.excavator_battery_count))
+            records.extend(dict(id=f'excavator_battery_{i+1:02}',mass_kg=c.pack_mass_kg,kwh=c.pack_capacity_kwh,role='SERVICE',kind='BATTERY') for i in range(c.excavator_battery_count*c.robot_count))
     # Initial-stock deliveries are resolved to real IDs in the live layout.
     for i,entry in enumerate(extra):
         mass,kwh=entry[:2];id=entry[2] if len(entry)>2 else f'initial_stock_reserved_{i}'
@@ -479,10 +479,10 @@ class BatteryPlatforms:
         from hashlib import sha256
         w=self.world;t=w.sim.terrain;b=w.sim.base
         site=w.sim.shared_site
-        actors=tuple((u.id,tuple(u.simulation.base.position),tuple(u.simulation.logistics.excavator.position) if u.simulation.logistics.excavator else None) for u in site.project.units) if site else ()
+        actors=tuple((u.id,tuple(u.simulation.base.position),tuple(tuple(e.position) for e in u.simulation.logistics.excavators)) for u in site.project.units) if site else ()
         from .canal_station import forecast_exclusion
         work=forecast_exclusion(t)
-        stamp=(id(t.height),t.revision,id(work),tuple(b.position),id(t.config.georeference),w.field_rect,actors)
+        stamp=('robot_fleet_v1',id(t.height),t.revision,id(work),tuple(b.position),id(t.config.georeference),w.field_rect,actors)
         if getattr(self,'_audit_stamp',None)==stamp and 'site_issues' in vars(self):return
         self._audit_stamp=stamp;digest=sha256()
         from .canal_station import work_exclusion
@@ -491,7 +491,10 @@ class BatteryPlatforms:
             if patch is None:digest.update(b'outside');continue
             for values in (t.height[patch],work_exclusion(t,patch=patch),t.dump_mask[patch],marine_mask(t)[patch]):digest.update(values.tobytes())
             if t.protected is not None:digest.update(t.protected[patch].tobytes())
-        signature=(tuple(b.position),w.field_rect,actors,digest.hexdigest())
+        # Older snapshots stored a flat primary-robot pose here. Comparing it
+        # to nested fleet coordinates can invoke ndarray/scalar equality.
+        # A versioned key discards only that derived cache, never site state.
+        signature=('robot_fleet_v1',tuple(b.position),w.field_rect,actors,digest.hexdigest())
         if getattr(self,'_audit_signature',None)==signature and 'site_issues' in vars(self):return
         self._audit_signature=signature
         self.site_issues={}

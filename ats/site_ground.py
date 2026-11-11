@@ -117,8 +117,8 @@ def equipment_mask(terrain,simulations=()):
             if array is not None:
                 for rect in w.solar_ground_rects():paint_rect(terrain,mask,rect)
             elif w.field_rect:paint_rect(terrain,mask,w.field_rect)
-            if w.excavator:
-                p=w.excavator.position;r=w.config.support_half_width_m+1.
+            for e in w.excavators:
+                p=e.position;r=w.config.support_half_width_m+1.
                 paint_rect(terrain,mask,(p[0]-r,p[1]-r,2*r,2*r))
         destination=b.destination if b.destination is not None else s.relocation_pending
         if destination is not None:

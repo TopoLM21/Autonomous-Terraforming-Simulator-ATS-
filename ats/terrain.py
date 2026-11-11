@@ -395,7 +395,7 @@ class Terrain:
             carried+=sum(cargo_volume(d.cargo,d.soil,self.config.terrain.density) for d in s.drones if not w or d.identifier in w.direct_ids)
             if w:
                 carried+=sum(cargo_volume(c.soil_kg,c.soil,self.config.terrain.density) for c in w.containers)
-                if w.excavator:carried+=cargo_volume(w.excavator.bucket_kg,w.excavator.soil,self.config.terrain.density)
+                carried+=sum(cargo_volume(e.bucket_kg,e.soil,self.config.terrain.density) for e in w.excavators)
         old_mask=np.zeros_like(self.dump_mask) if repack else self.dump_mask
         old_cap=self.reference if repack else self.dump_cap
         mask,cap,info=reserve(self,**geometry,old_mask=old_mask,old_cap=old_cap,

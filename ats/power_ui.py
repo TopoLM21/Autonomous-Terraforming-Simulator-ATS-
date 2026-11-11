@@ -131,7 +131,7 @@ class PowerDesignDialog(QtWidgets.QDialog):
                 ('Запас энергии во всех полных батареях',_number(result['initial_stored_kwh'])+' кВт·ч'),
                 ('Для зарядки всего комплекса с 0 до 100%',_number(result['empty_to_full_input_kwh'])+' кВт·ч на входе'),
                 ('Сменные батареи дронов',f"{result['drone_spare_modules']} шт. / {result['drone_spare_sets']} запасных комплектов на дрон"),
-                ('Сменные батареи Крота',str(result['excavator_spare_modules'])+' шт.'),
+                ('Сменные батареи Крота',str(result.get('excavator_spare_modules_total',result['excavator_spare_modules']))+' шт.'),
                 ('Индивидуальные зарядные слоты',str(result['module_charging_slots'])),
                 ('Средняя требуемая мощность зарядки с запасом',_number(result['charging_continuous_kw'])+' кВт'),
                 ('Расчётная мощность преобразователя',_number(result['inverter_required_kw'])+' кВт')]

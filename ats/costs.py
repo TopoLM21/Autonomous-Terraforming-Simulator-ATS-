@@ -72,10 +72,10 @@ def equipment_quantities(config,layout=None,world=None,stock=()):
         laser_input_kw=sum(e.input_power_kw for e in c.base.equipment.emitters),
         laser_receiver_kw=sum(d.equipment.receiver.max_power_kw for d in models if d.equipment.receiver.installed))
     if log:
-        qty.update(excavator=int(log.excavator_enabled),container=log.container_count,hook=len(models),hoist=len(models),rig=1)
-        if log.excavator_enabled:qty['mobile_battery_kwh']+=log.excavator_battery_count*log.pack_capacity_kwh
+        qty.update(excavator=log.robot_count,container=log.container_count,hook=len(models),hoist=len(models),rig=1)
+        if log.excavator_enabled:qty['mobile_battery_kwh']+=log.excavator_battery_count*log.pack_capacity_kwh*log.robot_count
         modules=sum(sum(b.quantity for b in d.equipment.batteries) for d in models)*(1+log.drone_spare_sets)
-        if log.excavator_enabled:modules+=log.excavator_battery_count
+        if log.excavator_enabled:modules+=log.excavator_battery_count*log.robot_count
         qty['charger']=modules if log.individual_chargers else log.charger_ports
     for row in stock:
         qty['mobile_battery_kwh']+=row['capacity_kwh']*row['count']
@@ -114,3 +114,27 @@ def project_quote(simulations):
         if r is None:continue
         known+=1;totals[r['currency']]=totals.get(r['currency'],0.)+r['total']
     return dict(totals=totals,priced_complexes=known,complexes=count)
+
+
+def excavation_cost(simulation,estimate=None):
+    """Capital equipment value per gross excavated m³, never haul volume.
+
+    The quote is an editable model estimate, not a cash or operating ledger.
+    Missing historical prices and zero production remain unknown, not zero.
+    """
+    s=simulation
+    estimate=quote(s.config,layout=getattr(s.base,'layout_spec',None),world=s.logistics) if estimate is None else estimate
+    volume=s.excavated_volume if s.terrain.soil is not None else s.excavated_mass/s.config.terrain.density
+    return dict(currency=estimate['currency'] if estimate else None,capital_cost=estimate['total'] if estimate else None,
+        excavated_m3=volume,capital_per_m3=estimate['total']/volume if estimate and volume>1e-10 else None,
+        basis='Стоимость имеющегося оборудования / валовая выемка; без топлива, персонала, ремонта и амортизации')
+
+
+def project_excavation_cost(simulations):
+    sims=list(simulations);estimates=[quote(s.config,layout=getattr(s.base,'layout_spec',None),world=s.logistics) for s in sims]
+    currencies={e['currency'] for e in estimates if e};known=bool(sims) and all(estimates) and len(currencies)==1
+    volume=sum(s.excavated_volume if s.terrain.soil is not None else s.excavated_mass/s.config.terrain.density for s in sims)
+    capital=sum(e['total'] for e in estimates) if known else None
+    return dict(currency=next(iter(currencies)) if known else None,capital_cost=capital,excavated_m3=volume,
+        capital_per_m3=capital/volume if known and volume>1e-10 else None,
+        reason='' if known else 'Не у всех комплексов заданы цены в одной валюте')

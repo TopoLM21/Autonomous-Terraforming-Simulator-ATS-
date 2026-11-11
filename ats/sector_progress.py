@@ -47,7 +47,7 @@ def cargo_clear(terrain):
         if s._terrain_active or any(not d.grounded or d.trip is not None or d.cargo>1e-8 for d in s.drones):return False
         w=s.logistics
         if w and (w.active or w.direct_ids or w.group or any(c.soil_kg>1e-8 for c in w.containers)
-                or w.excavator and (w.excavator.bucket_kg>1e-8 or w.excavator.active_container)):
+                or any(e.bucket_kg>1e-8 or e.active_container for e in w.excavators)):
             return False
     return True
 

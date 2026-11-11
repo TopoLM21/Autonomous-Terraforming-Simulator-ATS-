@@ -122,6 +122,13 @@ def ground_route(actor,terrain,destination,*,base=False):
     return None
 
 
+def ground_robots(sim):return [(e.id,e) for e in sim.logistics.excavators]
+
+
+def ground_actor(sim,kind):
+    return sim.base if kind=='base' else next(e for e in sim.logistics.excavators if e.id==kind)
+
+
 def own_ground_clear(actor,terrain,a,b,*,base=False):
     """The shared dispatcher excludes the owner; its own base/robot still collide."""
     site=getattr(terrain,'shared_site',None)
@@ -130,14 +137,18 @@ def own_ground_clear(actor,terrain,a,b,*,base=False):
     s=next(u.simulation for u in site.project.units if u.id==terrain.owner_id)
     points=np.linspace(a,b,max(2,math.ceil(float(np.linalg.norm(np.asarray(a)-b))/max(.25,terrain.cell))+1))
     if base:
-        e=s.logistics.excavator
-        if e is None:return True
-        r=actor.config.radius;margin=e.config.support_half_width_m+2
+        r=actor.config.radius
         boxes=list(layout_footprints(actor.layout_spec,[0.,0.])) if actor.config.layout is not None else [(-r,-r,2*r,2*r)]
-        for x,y,w,h in boxes:
-            if np.any((points[:,0]+x<e.position[0]+margin)&(points[:,0]+x+w>e.position[0]-margin)&
-                      (points[:,1]+y<e.position[1]+margin)&(points[:,1]+y+h>e.position[1]-margin)):return False
+        for e in s.logistics.excavators:
+            margin=e.config.support_half_width_m+2
+            for x,y,w,h in boxes:
+                if np.any((points[:,0]+x<e.position[0]+margin)&(points[:,0]+x+w>e.position[0]-margin)&
+                          (points[:,1]+y<e.position[1]+margin)&(points[:,1]+y+h>e.position[1]-margin)):return False
         return True
+    for e in s.logistics.excavators:
+        if e.serial==getattr(actor,'serial',None):continue
+        margin=actor.config.support_half_width_m+e.config.support_half_width_m+.3
+        if np.any(np.linalg.norm(points-e.position[:2],axis=1)<margin):return False
     own=s.base;r=own.config.radius;margin=actor.config.support_half_width_m+.2
     boxes=list(layout_footprints(own.layout_spec,own.position)) if own.config.layout is not None else [(own.position[0]-r,own.position[1]-r,2*r,2*r)]
     if s.logistics.battery_platforms:boxes.extend(s.logistics.battery_platforms.rectangles())
@@ -244,26 +255,31 @@ class RegionalTransition:
                 if b.config.layout is not None:
                     from .self_solar import deployment_safe as solar_safe
                     if not solar_safe(b.layout_spec,point,s.terrain) or not solar_safe(b.layout_spec,point+offset,self.preview):continue
-                e=s.logistics.excavator;eg=None
-                if e:
-                    support=e.config.support_half_width_m
+                robot_goals={};reserved=[]
+                for kind,e in ground_robots(s):
+                    support=e.config.support_half_width_m;eg=None
                     offsets=[(rect[0]+rect[2]-point[0]+support+3,0),(rect[0]-point[0]-support-3,0),
                              (0,rect[1]+rect[3]-point[1]+support+3),(0,rect[1]-point[1]-support-3)]
+                    if len(s.logistics.excavators)>1:
+                        pitch=2*support+3
+                        offsets += [(dx+k*pitch,dy) if dx==0 else (dx,dy+k*pitch)
+                                    for dx,dy in offsets[:] for k in range(-len(s.logistics.excavators),len(s.logistics.excavators)+1) if k]
                     offsets.sort(key=lambda delta:-float(np.sum((point+delta-b.position[:2])**2)))
                     for dx,dy in offsets:
                         test=point+[dx,dy]
                         if np.any(test<lo+2) or np.any(test>hi-2):continue
-                        if any(xx-support-2<test[0]<xx+ww+support+2 and yy-support-2<test[1]<yy+hh+support+2 for xx,yy,ww,hh in placed):continue
+                        if any(xx-support-2<test[0]<xx+ww+support+2 and yy-support-2<test[1]<yy+hh+support+2 for xx,yy,ww,hh in placed+reserved):continue
                         patch=self.preview.patch(*(test+offset),support+self.preview.cell)
                         from .canal_station import work_exclusion
                         blocked=work_exclusion(self.preview)[patch]|self.preview.dump_mask[patch]
                         if self.preview.protected is not None:blocked|=self.preview.protected[patch]
                         if np.any(blocked):continue
                         if e.stable(np.r_[test,s.terrain.sample(*test)],s.terrain) and e.stable(np.r_[test+offset,self.preview.sample(*(test+offset))],self.preview):eg=test.tolist();break
-                    if eg is None:continue
-                chosen=point.tolist();placed.append(rect)
-                if eg:placed.append((eg[0]-support,eg[1]-support,2*support,2*support))
-                self.goals[u.id]=dict(base=chosen,excavator=eg);break
+                    if eg is None:break
+                    robot_goals[kind]=eg;reserved.append((eg[0]-support,eg[1]-support,2*support,2*support))
+                if len(robot_goals)!=len(s.logistics.excavators):continue
+                chosen=point.tolist();placed.extend([rect,*reserved])
+                self.goals[u.id]=dict(base=chosen,excavator=robot_goals.get('excavator'),**{k:v for k,v in robot_goals.items() if k!='excavator'});break
             if chosen is None:raise ValueError(f'{u.name}: нет безопасного места в перекрытии для всей группы')
 
     def start(self):
@@ -288,7 +304,7 @@ class RegionalTransition:
             if (s.pending_equipment is not None or w.active or w.group or w.direct_ids or w.tool_changes or w.tool_targets or w.battery_service.robot_swap or
                     w.battery_service.drone_swaps or w.battery_platforms and w.battery_platforms.returns or s.base.destination is not None or
                     any(not d.grounded or abs(d.cargo)>1e-8 for d in s.drones) or
-                    any(c.soil_kg>1e-8 for c in w.containers) or e and (e.bucket_kg>1e-8 or e.active_container)):
+                    any(c.soil_kg>1e-8 for c in w.containers) or any(e.bucket_kg>1e-8 or e.active_container or e.state==ES.MOVING_LOCAL for e in w.excavators)):
                 return False
         return True
 
@@ -314,14 +330,14 @@ class RegionalTransition:
         self.route_generation=getattr(self,'route_generation',0)+1
         self.routes={};self.actors=[]
         poses=[(actor,actor.position.copy()) for u in self.project.units
-               for actor in (u.simulation.base,u.simulation.logistics.excavator) if actor is not None]
+               for actor in (u.simulation.base,*u.simulation.logistics.excavators)]
         try:
             # Preview the actual sequence: each robot clears its old base, then
             # that base departs. No physical tick or power integration occurs
             # inside this preview; every pose is restored before returning.
             for u in self.project.units:
                 s=u.simulation;w=s.logistics
-                for kind,actor in (('excavator',w.excavator),('base',s.base)):
+                for kind,actor in [*ground_robots(s),('base',s.base)]:
                     if actor is None:continue
                     goal=self.goals[u.id][kind];path=ground_route(actor,s.terrain,goal,base=kind=='base')
                     if path is None:
@@ -335,19 +351,17 @@ class RegionalTransition:
             self.project.shared_site.invalidate_geometry()
 
     def _route_environment(self):
-        return (self.project.shared_site.core.revision,tuple((u.id,tuple(u.simulation.base.position),
-            tuple(u.simulation.logistics.excavator.position) if u.simulation.logistics.excavator else None,
+        return ('robot_fleet_v1',self.project.shared_site.core.revision,tuple((u.id,tuple(u.simulation.base.position),
+            tuple(tuple(e.position) for e in u.simulation.logistics.excavators),
             u.simulation.base.config.mass,repr(u.simulation.base.config.layout)) for u in self.project.units))
 
     def _movement_budget(self):
         p=self.project
-        key=(id(self.routes),getattr(self,'route_generation',0),p.shared_site.core.revision,tuple(
+        key=('robot_fleet_v1',id(self.routes),getattr(self,'route_generation',0),p.shared_site.core.revision,tuple(
             (u.id,u.simulation.base.config.mass,u.simulation.base.config.battery,u.simulation.base.config.speed,
              u.simulation.base.config.move_power,u.simulation.base.config.idle_power,repr(u.simulation.base.config.layout),
              tuple(u.simulation.base.position),
-             (tuple(u.simulation.logistics.excavator.position),u.simulation.logistics.excavator.capacity(u.simulation.logistics.inventory),
-              u.simulation.logistics.config.moving_power_w,u.simulation.logistics.config.excavator_speed,
-              u.simulation.logistics.config.sleep_power_w,u.simulation.logistics.config.idle_power_w) if u.simulation.logistics.excavator else None,
+             tuple((tuple(e.position),e.capacity(u.simulation.logistics.inventory),e.config.moving_power_w,e.config.excavator_speed,e.config.sleep_power_w,e.config.idle_power_w) for e in u.simulation.logistics.excavators),
              tuple((d.config.empty_mass,d.cargo,d.docked) for d in u.simulation.drones),
              tuple((id,u.simulation.logistics.inventory.items[id].max_discharge_w) for id in u.simulation.logistics.base_battery_ids),
              u.simulation.logistics.config.inverter_power_w,u.simulation.logistics.field_setup_seconds())
@@ -356,7 +370,7 @@ class RegionalTransition:
         duration=0.
         for (owner,kind),path in self.routes.items():
             s=next(u.simulation for u in self.project.units if u.id==owner)
-            actor=s.base if kind=='base' else s.logistics.excavator;previous=actor.position[:2]
+            actor=ground_actor(s,kind);previous=actor.position[:2]
             length=sum(float(np.linalg.norm(np.array(point)-(previous if i==0 else np.array(path[i-1])))) for i,point in enumerate(path))
             duration+=length/(actor.config.speed if kind=='base' else actor.config.excavator_speed)
         budget={}
@@ -370,13 +384,15 @@ class RegionalTransition:
             if w.battery_platforms:
                 required+=2*w.battery_platforms.energy_budget()+2*b.config.idle_power*sum(w.battery_platforms.settings[k] for k in ('support_seconds','apron_seconds','connect_seconds'))
             budget[u.id]=[required,0.,b.motion_power(s.drones,s.terrain)]
-            e=w.excavator
-            if e:
+            robot_budget={}
+            for kind,e in ground_robots(s):
                 prev=e.position[:2];cost=0.
-                for point in self.routes[u.id,'excavator']:
+                for point in self.routes[u.id,kind]:
                     delta=float(np.linalg.norm(np.array(point)-prev));grade=abs(s.terrain.sample(*point)-s.terrain.sample(*prev))/max(delta,s.terrain.cell)
                     cost+=(e.config.moving_power_w*(1.2+5*grade)+e.config.idle_power_w)*math.ceil(delta/e.config.excavator_speed);prev=np.array(point)
-                budget[u.id][1]=cost*1.3+e.config.sleep_power_w*duration+e.config.idle_power_w*900
+                robot_budget[kind]=cost*1.3+e.config.sleep_power_w*duration+e.config.idle_power_w*900
+            if len(robot_budget)==1:budget[u.id][1]=next(iter(robot_budget.values()))
+            elif robot_budget:budget[u.id][1]=robot_budget
         self._budget_key=key;self._budget=budget
         return budget
 
@@ -393,9 +409,8 @@ class RegionalTransition:
             if blocked and blocked[0]==u.id and blocked[2]==self.project.shared_site.core.revision:
                 if min(w.config.inverter_power_w,w.storage_power('discharge'))<blocked[1]:
                     self.reason=f'{u.name}: недостаточная мощность для подъёма; требуется {blocked[1]/1000:.1f} кВт';ready=False
-            e=w.excavator
-            if e:
-                required=robot_required
+            for kind,e in ground_robots(s):
+                required=robot_required[kind] if isinstance(robot_required,dict) else robot_required
                 e.regional_energy_required=min(required,e.capacity(w.inventory)*.99)
                 if required>e.capacity(w.inventory):self.reason=f'{u.name}: батарей Крота недостаточно для пути';ready=False
                 elif e.energy(w.inventory)<required:self.reason=f'{u.name}: ждём доставки заряженных батарей Кроту';ready=False
@@ -424,7 +439,7 @@ class RegionalTransition:
             return
         if self.phase=='DRIVE' and self.actor_index<len(self.actors):
             id,kind=self.actors[self.actor_index];s=next(u.simulation for u in p.units if u.id==id)
-            actor=s.base if kind=='base' else s.logistics.excavator;path=self.routes[id,kind]
+            actor=ground_actor(s,kind);path=self.routes[id,kind]
             if not path:return
             goal=np.asarray(path[0]);distance=float(np.linalg.norm(actor.position[:2]-goal))
             if distance<1e-7:
@@ -445,7 +460,7 @@ class RegionalTransition:
                     self.routes={};self._unfold_for_wait(f'{id}: путь перекрыт; ожидание, можно отменить переезд');return
                 self.routes[id,kind]=replacement;return
             actor.destination=goal.copy() if kind=='base' else np.r_[goal,s.terrain.sample(*goal)]
-            if kind=='excavator':actor.state=ES.MOVING_LOCAL;actor.supports=False
+            if kind!='base':actor.state=ES.MOVING_LOCAL;actor.supports=False
             self.reason=f'{id}: '+('база движется' if kind=='base' else 'Крот движется')
             if kind=='base':self._check_base_step(id,s,goal,distance)
 
@@ -477,7 +492,7 @@ class RegionalTransition:
             if not self._plan_routes():self.retry_at=p.time+30;self._stage('ENERGY',self.reason);return
             self._stage('ENERGY','Проверка энергетического резерва');return
         if self.phase=='ENERGY':
-            if not self.routes or len(self.routes)<sum(1+(u.simulation.logistics.excavator is not None) for u in p.units):
+            if not self.routes or len(self.routes)<sum(1+len(u.simulation.logistics.excavators) for u in p.units):
                 if p.time<self.retry_at:return
                 if getattr(self,'last_failed_route',None)==self._route_environment():return
                 self.retry_at=p.time+30
@@ -524,9 +539,9 @@ class RegionalTransition:
             self._stage('ARRIVE','Перелёт оставшихся дронов к базам');return
         if self.phase=='DRIVE' and self.actor_index<len(self.actors):
             id,kind=self.actors[self.actor_index];s=next(u.simulation for u in p.units if u.id==id)
-            actor=s.base if kind=='base' else s.logistics.excavator
+            actor=ground_actor(s,kind)
             if ((kind=='base' and actor.destination is None and actor.battery<actor.motion_power(s.drones,s.terrain)*2)
-                    or (kind=='excavator' and actor.state==ES.LOW_BATTERY)):
+                    or (kind!='base' and actor.state==ES.LOW_BATTERY)):
                 self.routes={};self._unfold_for_wait(f'{id}: остановка для пополнения энергии')
         if self.phase=='ARRIVE' and self._settled():self._finish()
 
@@ -535,9 +550,9 @@ class RegionalTransition:
         for u in self.project.units:
             s=u.simulation;w=s.logistics;s.base.destination=None
             if w.battery_platforms:w.battery_platforms.request('DEPLOY')
-            if w.excavator:
-                w.excavator.destination=None
-                if w.excavator.state==ES.MOVING_LOCAL:w.excavator.state=ES.IDLE
+            for e in w.excavators:
+                e.destination=None
+                if e.state==ES.MOVING_LOCAL:e.state=ES.IDLE
             if getattr(w,'regional_folded',False):
                 w.regional_folded=False;w.field_ready=False;w.field_elapsed=0.;w.base_pack_elapsed=0.
                 if s.base.config.panel_area>20:
@@ -605,8 +620,9 @@ class RegionalTransition:
             for d in s.drones:
                 d.position[:2]+=shift;d.destination=None;d.detour=None;d.trip=None
             for item in w.inventory.items.values():item.position=(item.position[0]+shift[0],item.position[1]+shift[1],item.position[2])
-            if w.excavator:
-                e=w.excavator;e.position[:2]+=shift;e.destination=None;e.target=None;e._drive_cache=None
+            for e in w.excavators:
+                e.position[:2]+=shift;e.destination=None;e.target=None;e._drive_cache=None
+                if getattr(e,'rack_position',None) is not None:e.rack_position[:2]+=shift
                 e.state=ES.DEPLOYING_SUPPORTS;e.elapsed=0.;e.regional_energy_required=0.
             w.rack=w.excavator.position.copy() if w.excavator else s.base.position.copy()
             u.section=p._section(s);u.committed=False;s._capability_key=None;s._latitude_position=None
@@ -656,8 +672,8 @@ class RegionalTransition:
             if w.battery_platforms:w.battery_platforms.request('DEPLOY')
             for job in w.jobs:
                 if job.kind=='PACK_FOR_RELOCATION' and job.status=='QUEUED':w.cancel_job(job.id)
-            if w.excavator:
-                e=w.excavator;e.destination=None;e._drive_cache=None;e.regional_energy_required=0.
+            for e in w.excavators:
+                e.destination=None;e._drive_cache=None;e.regional_energy_required=0.
                 if e.state==ES.MOVING_LOCAL:e.state=ES.IDLE
             for d in s.drones:
                 if d.grounded and hasattr(d,'regional_mass'):

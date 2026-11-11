@@ -130,6 +130,8 @@ class LogisticsWindow(QtWidgets.QDialog):
                f"Ковш: {e['bucket_kg']:.2f} кг · контейнер: {e['container']}\n"
                f"Добыто Кротом: {e['excavated_kg']:.2f} кг / {e['excavated_m3']:.4f} м³ · сегодня {e['today_excavated_kg']:.2f} кг\n"
                f"Циклы: {e['cycles']} · смены батарей: {e['swaps']} · ожидание {e['waiting_seconds']/60:.1f} мин\n") if e else 'Крот отключён\n'
+        if r.get('excavators'):
+            robot='Кроты: '+str(len(r['excavators']))+' · общий склад\n'+'\n'.join(f"{item['id']}: {item['state']} · {item['excavated_m3']:.4f} м³ · {item['energy_kwh']:.2f}/{item['capacity_kwh']:.2f} кВт·ч" for item in r['excavators'])+'\n'
         self.status.setText(robot+f"\nКонтейнерные рейсы: {r['container_cycles']} · групповые переносы: {r['collective_lift_count']}\n"
             f"Стратегия: {r['courier_strategy']} · курьер {courier} · {r['courier']['reason']}\n"
             f"Готовых ёмкостей {r['courier']['filled_containers']} · порог партии {r['courier']['threshold']}\n"
@@ -204,7 +206,8 @@ class ExperimentDialog(QtWidgets.QDialog):
         self.laser=QtWidgets.QComboBox();self.laser.addItems(['laser_off','existing_legacy','realistic_reference'])
         if logistics:self.laser.setCurrentText(logistics.laser_profile)
         self.drones=QtWidgets.QSpinBox();self.drones.setRange(1,16);self.drones.setValue(config.fleet.count if logistics else 4)
-        self.containers=QtWidgets.QSpinBox();self.containers.setRange(0,64);self.containers.setValue(logistics.container_count if logistics else 8)
+        self.containers=QtWidgets.QSpinBox();self.containers.setRange(0,128);self.containers.setValue(logistics.container_count if logistics else 8)
+        self.robot_count=QtWidgets.QSpinBox();self.robot_count.setRange(0,10);self.robot_count.setValue(logistics.robot_count if logistics else 1)
         self.ports=QtWidgets.QSpinBox();self.ports.setRange(1,64);self.ports.setValue(logistics.charger_ports if logistics else 4)
         self.charge_mode=QtWidgets.QComboBox()
         self.charge_mode.addItem('Индивидуальный слот каждого модуля',True)
@@ -224,7 +227,7 @@ class ExperimentDialog(QtWidgets.QDialog):
         if logistics and logistics.excavator_battery_slots==4:self.robot_slots.setCurrentIndex(1)
         self.robot_spares=QtWidgets.QSpinBox();self.robot_spares.setRange(0,128)
         self.robot_spares.setValue(logistics.excavator_battery_count-logistics.excavator_battery_slots if logistics else 2)
-        self.robot_spares.setToolTip('Только запасные модули на складе; установленные батареи Крота считаются отдельно.')
+        self.robot_spares.setToolTip('Запасные модули на одного Крота; общий физический склад и установленные батареи считаются отдельно.')
         self.idle_digging=QtWidgets.QCheckBox('Свободные транспортные дроны копают')
         self.idle_digging.setChecked(parent.config.logistics.idle_digging if parent.config.logistics else True)
         layout.addRow(self.idle_digging)
@@ -232,7 +235,7 @@ class ExperimentDialog(QtWidgets.QDialog):
         self.batch_courier.setChecked(logistics.batch_courier if logistics else True);layout.addRow(self.batch_courier)
         self.solar=QtWidgets.QDoubleSpinBox();self.solar.setRange(0,10000000);self.solar.setDecimals(2)
         self.solar.setSingleStep(10);self.solar.setSuffix(' м²');self.solar.setValue(config.base.panel_area)
-        for label,widget in [('Режим',self.mode),('Лазер',self.laser),('Дроны',self.drones),('Контейнеры',self.containers),
+        for label,widget in [('Режим',self.mode),('Лазер',self.laser),('Дроны',self.drones),('Кроты',self.robot_count),('Контейнеры',self.containers),
                              ('Сторона карты',self.map_size),('Зарядка модулей',self.charge_mode),
                              ('Портов общей очереди',self.ports),('Батареи на дроне',self.packs),
                              ('Запасных комплектов на дрона',self.drone_spares),('Слоты Крота',self.robot_slots),
@@ -248,12 +251,14 @@ class ExperimentDialog(QtWidgets.QDialog):
         from .experiments import experiment_config
         from .maps import with_map_size
         config=with_map_size(self.host.config,self.map_size.value())
-        return experiment_config(config,mode=('logistics','hybrid')[self.mode.currentIndex()],
+        candidate=experiment_config(config,mode=('logistics','hybrid')[self.mode.currentIndex()],
             drones=self.drones.value(),containers=self.containers.value(),ports=self.ports.value(),
             battery_modules=2-self.packs.currentIndex(),robot_slots=2 if self.robot_slots.currentIndex()==0 else 4,
             panel_area=self.solar.value(),laser=self.laser.currentText(),batch_courier=self.batch_courier.isChecked(),
             idle_digging=self.idle_digging.isChecked(),drone_spare_sets=self.drone_spares.value(),
             excavator_spare_batteries=self.robot_spares.value(),individual_chargers=self.charge_mode.currentData())
+        candidate.logistics.excavator_count=max(1,self.robot_count.value());candidate.logistics.excavator_enabled=self.robot_count.value()>0
+        candidate.validate();return candidate
 
     def apply(self):
         try:self.host.replace_simulation(self.candidate());self.accept()

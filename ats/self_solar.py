@@ -312,7 +312,7 @@ class SelfSolarArray:
     def audit(self,world):
         from .site_ground import rectangle_polygon,polygons_overlap,marine_mask
         t=world.sim.terrain;b=world.sim.base;site=world.sim.shared_site
-        excavator=tuple(world.excavator.position) if world.excavator else ()
+        excavator=tuple(tuple(e.position) for e in world.excavators)
         batteries=world.battery_platforms
         deployed_batteries=tuple(id for id,c in batteries.carriers.items() if c.state!='STOWED' or c.mode!='PACK') if batteries and not batteries.route_preview else ()
         p=self.settings
@@ -345,19 +345,19 @@ class SelfSolarArray:
         bearing=tuple(m.bearing_kpa for m in soil.profile.materials) if soil is not None else (b.layout_spec['parameters']['bearing_capacity_kpa'],)
         from .canal_station import forecast_exclusion
         work=forecast_exclusion(t)
-        stamp=(id(t.height),t.revision,id(work),id(soil),getattr(soil,'revision',None),bearing,geometry_key,actors,excavator,
+        stamp=('robot_fleet_v1',id(t.height),t.revision,id(work),id(soil),getattr(soil,'revision',None),bearing,geometry_key,actors,excavator,
             id(marine),id(t.design_work),id(t.dump_mask),id(t.protected))
         if getattr(self,'_audit_stamp',None)==stamp:return
         self._audit_stamp=stamp;self.invalid_sections=[]
         values=np.array(bearing)[soil.surface_ids(self._support_indices.ravel())].reshape(self._support_indices.shape) if soil is not None else np.full(self._support_indices.shape,bearing[0])
-        excavator_polygon=None
-        if world.excavator:
-            e=world.excavator;r=world.config.support_half_width_m+.3;excavator_polygon=rectangle_polygon((e.position[0]-r,e.position[1]-r,2*r,2*r))
+        excavator_polygons=[]
+        for e in world.excavators:
+            r=world.config.support_half_width_m+.3;excavator_polygons.append(rectangle_polygon((e.position[0]-r,e.position[1]-r,2*r,2*r)))
         for q,bearings in zip(self.sections,values):
             rect=spaces[q.id];q.rect=rect
             safe=self._ground_safe(world,q,marine,bearings)
             if safe and site:safe=not site.ground_occupied(getattr(t,'owner_id',None),rect)
-            if safe:safe=self._own_clear[q.id] and (excavator_polygon is None or not polygons_overlap(contours[q.id],excavator_polygon))
+            if safe:safe=self._own_clear[q.id] and not any(polygons_overlap(contours[q.id],polygon) for polygon in excavator_polygons)
             if not safe:self.invalid_sections.append(q.id)
         self.issue=('SELF_SOLAR_BLOCKED: '+', '.join(self.invalid_sections)+'; панели закреплены, перемещение остановлено') if self.invalid_sections else ''
         world.solar_site_issue=self.issue

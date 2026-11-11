@@ -70,10 +70,16 @@ class LogisticsConfig:
     solar: dict | None = field(default_factory=dict)  # None preserves aggregate historical arrays
     battery_platforms: dict | None = field(default_factory=dict)  # None retains historical rack/service model
     self_solar: dict | None = field(default_factory=dict)  # attached self-deploying PV; None reads legacy arrays
+    excavator_count: int = 1  # installed/spare battery recipe remains per machine
+
+    @property
+    def robot_count(self):return self.excavator_count if self.excavator_enabled else 0
 
     def validate(self):
         from dataclasses import asdict
         values = asdict(self)
+        if type(self.excavator_count) is not int or not 0<=self.excavator_count<=10 or self.excavator_enabled and self.excavator_count==0:
+            raise ValueError('Кротов на комплекс: 0–10; включённому комплексу нужен хотя бы один')
         if self.self_solar is not None:
             from .self_solar import parameters
             self.self_solar=parameters(self.self_solar)

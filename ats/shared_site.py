@@ -83,18 +83,20 @@ class SharedSite:
                 if d.trip is not None:
                     x,y=d.trip.dig;r=max(s.config.fleet.separation,d.config.grab_radius)
                     patch=t.patch(x,y,r);mask[patch]|=(t.x[patch]-x)**2+(t.y[patch]-y)**2<=r*r
-            if s.logistics and s.logistics.excavator:
-                e=s.logistics.excavator;r=e.config.reach_m
+            for e in (s.logistics.excavators if s.logistics else ()):
+                r=e.config.reach_m
                 if e.bucket_kg or e.state.value in ('DIGGING','FILLING_CONTAINER'):
                     x,y=e.position[:2];patch=t.patch(x,y,r)
                     mask[patch]|=(t.x[patch]-x)**2+(t.y[patch]-y)**2<=r*r
         return mask
 
-    def partition(self):
+    def allocation(self,units):
+        """Detached dispatcher masks for a proposed roster; no ground mutation."""
+        owners=self.owners.copy()
         t=self.core;indices=np.flatnonzero(t.dig_mask|t.fill_mask)
-        if not len(indices):self._refresh();return
+        if not len(indices):return owners
         fixed=self.reserved_mask().ravel()[indices]
-        free=indices[~fixed];units=self.project.units
+        free=indices[~fixed]
         if t.front is not None:
             along=t.front.chainage.ravel()[free]
             ordered=sorted(units,key=lambda u:float(t.front.chainage[min(t.height.shape[0]-1,max(0,int(u.simulation.base.position[1]/t.cell))),
@@ -115,7 +117,13 @@ class SharedSite:
             for sector in np.unique(sectors):
                 ids=np.flatnonzero(sectors==sector);weights=volume[ids];subtotal=float(weights.sum())
                 bins=np.minimum(len(units)-1,np.floor((np.cumsum(weights)-weights/2)/subtotal*len(units)).astype(int)) if subtotal else np.arange(len(ids))%len(units)
-                for i,unit in enumerate(ordered):self.owners.ravel()[free[ids[bins==i]]]=int(unit.id[8:])
+                for i,unit in enumerate(ordered):owners.ravel()[free[ids[bins==i]]]=int(unit.id[8:])
+        return owners
+
+    def partition(self):
+        if not len(self.core._cut_indices) and not len(self.core._fill_indices):
+            self._refresh();return
+        self.owners=self.allocation(self.project.units)
         self.assignments+=1;self._refresh()
 
     def _refresh(self):
@@ -161,7 +169,7 @@ class SharedSite:
             s=u.simulation;w=s.logistics
             if s.base.destination is not None or not all(d.grounded and abs(d.cargo)<=1e-8 for d in s.drones):
                 raise ValueError('Перед изменением общего плана посадите все комплексы')
-            if w and (w.active or w.group or any(c.soil_kg for c in w.containers) or w.excavator and w.excavator.bucket_kg):
+            if w and (w.active or w.group or any(c.soil_kg for c in w.containers) or any(e.bucket_kg for e in w.excavators)):
                 raise ValueError('Завершите перевозки и выгрузку всего общего участка')
         t=self.core;candidate=copy(t);candidate.set_plan(plan)
         for u in self.project.units:
@@ -264,7 +272,8 @@ class SharedSite:
         self.core=replacement;self.owners=ownership;self._mass_revision=-1
         for u in self.project.units:
             s=u.simulation;s.terrain.core=replacement
-            if s.logistics is not None and s.logistics.excavator is not None:s.logistics.excavator._drive_cache=None
+            if s.logistics is not None:
+                for e in s.logistics.excavators:e._drive_cache=None
             s.config.terrain=deepcopy(c.terrain);s.config.plan=deepcopy(c.plan)
             s.config.initial_height=c.initial_height;s.config.reference_height=c.reference_height;s.config.initial_soil=c.initial_soil
             s.config.local_reference=c.local_reference
@@ -330,7 +339,9 @@ class SharedSite:
             if s is simulation:continue
             for d in s.drones:
                 if d.trip is not None:points.append(d.trip.dig if kind=='dig' else d.trip.dump)
-            if kind=='dig' and s.logistics and s.logistics.excavator:points.append(s.logistics.excavator.position[:2])
+            if kind=='dig' and s.logistics:
+                points.extend(e.position[:2] for e in s.logistics.excavators)
+                if len(s.logistics.excavators)>1:points.extend(e.destination[:2] for e in s.logistics.excavators if e.destination is not None)
             if kind=='dump' and s.logistics:
                 points.extend(j.destination[:2] for j in s.logistics.jobs if j.kind=='PICKUP_FULL_CONTAINER' and j.status in ('ACTIVE','QUEUED'))
         return points
@@ -412,7 +423,7 @@ class SharedSite:
         e=getattr(w,'excavator',None)
         spec=getattr(b,'layout_spec',None)
         key=(id(spec),tuple(b.position),b.destination is not None,b.config.speed,b.config.radius,b.config.roof_height,
-            tuple(e.position) if e else (),bool(e and e.state.value=='AIR_TRANSPORT'),e.config.support_half_width_m if e else 0.,
+            tuple((tuple(robot.position),robot.state.value=='AIR_TRANSPORT',tuple(robot.destination) if robot.destination is not None and len(w.excavators)>1 else None,robot.config.support_half_width_m) for robot in w.excavators) if w else (),
             id(a),getattr(a,'mode',None),bool(w and w.solar_ground_rects()),
             p.route_preview if p else False,tuple(id for id,c in p.carriers.items() if c.state!='STOWED' or c.mode!='PACK') if p else ())
         if not static:return key
@@ -477,10 +488,13 @@ class SharedSite:
         top=max(r[4] for r in boxes)
         boxes.append((*self.pads_bounds(s.config,b.position[:2],getattr(b,'layout_spec',None)),float(b.position[2])))
         polygons.append(rectangle_polygon(boxes[-1][:4]))
-        if s.logistics and s.logistics.excavator and s.logistics.excavator.state.value!='AIR_TRANSPORT':
-            e=s.logistics.excavator;q=e.config.support_half_width_m
-            boxes.append((e.position[0]-q,e.position[1]-q,2*q,2*q,float(e.position[2]+1.)))
-            polygons.append(rectangle_polygon(boxes[-1][:4]))
+        for e in (s.logistics.excavators if s.logistics else ()):
+            q=e.config.support_half_width_m
+            positions=[] if e.state.value=='AIR_TRANSPORT' else [e.position]
+            if len(s.logistics.excavators)>1 and e.destination is not None:positions.append(e.destination)
+            for point in positions:
+                boxes.append((point[0]-q,point[1]-q,2*q,2*q,float(point[2]+1.)))
+                polygons.append(rectangle_polygon(boxes[-1][:4]))
         if s.logistics:
             a=getattr(s.logistics,'solar_array',None)
             if getattr(a,'mechanism',None)=='self_deploying':
@@ -530,8 +544,8 @@ class SharedSite:
             if s.logistics:
                 for c in s.logistics.containers:
                     if c.soil is not None:yield c.soil
-                e=s.logistics.excavator
-                if e and e.soil is not None:yield e.soil
+                for e in s.logistics.excavators:
+                    if e.soil is not None:yield e.soil
 
     def mass_error(self):
         soil=0.
@@ -540,7 +554,7 @@ class SharedSite:
             soil+=sum(d.cargo for d in s.drones if not w or d.identifier in w.direct_ids)
             if w:
                 soil+=sum(c.soil_kg for c in w.containers)
-                if w.excavator:soil+=w.excavator.bucket_kg
+                soil+=sum(e.bucket_kg for e in w.excavators)
         if getattr(self,'_mass_revision',None)!=self.core.revision:
             self._ground_mass=self.core.mass_change;self._mass_revision=self.core.revision
         return self._ground_mass+soil+getattr(self,'archived_mass_error',0.)

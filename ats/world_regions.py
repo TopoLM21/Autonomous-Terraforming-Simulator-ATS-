@@ -20,9 +20,10 @@ def interest_windows(region,simulation,limit=4):
             if d.destination is not None:points.append(origin+d.destination[:2])
             if d.trip:
                 points.extend([origin+np.asarray(d.trip.dig),origin+np.asarray(d.trip.dump)])
-        if s.logistics and s.logistics.excavator:
-            e=s.logistics.excavator;points.append(origin+e.position[:2])
-            if e.destination is not None:points.append(origin+e.destination[:2])
+        if s.logistics:
+            for e in s.logistics.excavators:
+                points.append(origin+e.position[:2])
+                if e.destination is not None:points.append(origin+e.destination[:2])
     points=np.asarray(points);centre=points.mean(axis=0)
     # Vectorise the nine neighbours for all actors. Keep the original scores
     # (including repeated positions); avoid thousands of tiny NumPy calls.

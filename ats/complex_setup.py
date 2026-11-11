@@ -15,14 +15,19 @@ class SetupRequest:
     excavator: bool = False
     containers: int = 8
     name: str = 'Рабочий комплекс'
+    excavators: int | None = None
+
+    @property
+    def robot_count(self):return int(self.excavator) if self.excavators is None else self.excavators
 
     def validate(self):
         if type(self.drones) is not int or not 1<=self.drones<=MAX_DRONES:
             raise ValueError(f'Выберите от 1 до {MAX_DRONES} дронов')
         if type(self.excavator) is not bool:raise ValueError('Неверный выбор Крота')
-        if self.excavator and self.drones<2:raise ValueError('Кроту нужен курьер: выберите минимум два дрона')
+        if type(self.robot_count) is not int or not 0<=self.robot_count<=10:raise ValueError('Выберите от 0 до 10 Кротов')
+        if self.robot_count and self.drones<2:raise ValueError('Кроту нужен курьер: выберите минимум два дрона')
         if type(self.containers) is not int or not 0<=self.containers<=128:raise ValueError('Количество грунтовых ёмкостей: 0–128')
-        if self.excavator and self.containers==0:raise ValueError('Для Крота нужны грунтовые ёмкости')
+        if self.robot_count and self.containers<self.robot_count:raise ValueError('Нужна минимум одна грунтовая ёмкость на каждого Крота')
         if not isinstance(self.name,str) or not self.name.strip():raise ValueError('Укажите название комплекса')
 
 
@@ -37,9 +42,10 @@ def recipe_config(source,request,catalog=None):
     c.fleet.models=[deepcopy(models[i%len(models)]) for i in range(request.drones)]
     c.base.equipment.landing_slots=request.drones
     if c.logistics is None:c.logistics=LogisticsConfig()
-    c.logistics.container_count=request.containers if request.excavator else 0
+    c.logistics.container_count=request.containers if request.robot_count else 0
     for key,value in site.items():setattr(c,key,deepcopy(value) if key in ('georeference','plan') else value)
-    c.logistics.excavator_enabled=request.excavator
+    c.logistics.excavator_enabled=bool(request.robot_count)
+    c.logistics.excavator_count=max(1,request.robot_count)
     c.logistics.direct_allowed=True;c.logistics.idle_digging=True
     if catalog is None:catalog=getattr(source,'cost_catalog',None)
     c.cost_catalog=deepcopy(default_catalog() if catalog is None else catalog)

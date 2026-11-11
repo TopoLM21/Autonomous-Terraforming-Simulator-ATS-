@@ -33,6 +33,7 @@ def signature(config,latitude=None):
     # this detached copy must never reset the mounted tool mass in a live run.
     data=equipment_data(equipment_copy(config))
     log=asdict(config.logistics) if config.logistics else None
+    if log is not None and (not log.get('excavator_enabled') or log.get('excavator_count',1)==1):log.pop('excavator_count',None)
     if log is not None and log.get('battery_platforms') is None:log.pop('battery_platforms',None)
     if log is not None and log.get('self_solar') is None:log.pop('self_solar',None)
     data.update(latitude=float(config.base.latitude_deg if latitude is None else latitude),
@@ -174,8 +175,8 @@ def design_report(config,design):
     recommended=r['panel_area_m2'];ratio=c.base.panel_area/recommended if recommended else 0.
     r['hourly_solar_kw']=[power*ratio for power in r['hourly_solar_kw']]
     mobile=sum(d.battery/KWH*(1+c.logistics.drone_spare_sets) for d in c.fleet.models)
-    mobile+=c.logistics.excavator_battery_count*c.logistics.pack_capacity_kwh if c.logistics.excavator_enabled else 0.
-    buffer=c.logistics.buffer_kwh if c.logistics.excavator_enabled else 0.
+    mobile+=c.logistics.excavator_battery_count*c.logistics.pack_capacity_kwh*c.logistics.robot_count
+    buffer=c.logistics.buffer_kwh*c.logistics.robot_count
     r.update(panel_count=design['panels'],panel_area_m2=c.base.panel_area,
         base_battery_count=design['base_battery_count'],base_capacity_kwh=c.base.battery/KWH,
         initial_stored_kwh=c.base.battery/KWH+mobile+buffer,

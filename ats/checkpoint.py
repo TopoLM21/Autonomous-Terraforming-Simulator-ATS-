@@ -19,7 +19,7 @@ import numpy as np
 
 
 FORMAT='ATS_SIMULATION'
-VERSION=20
+VERSION=21
 MAX_BYTES=1_500_000_000
 MAX_NODES=2_000_000
 
@@ -90,7 +90,7 @@ class _Encoder:
             if name not in self.classes:raise ValueError(f'Нельзя сохранить объект {name}')
             node.update(kind='object',type=name,attrs={k:self.encode(v,matrix=name=='ats.config.Config' and
                 k in ('initial_height','reference_height') and v is not None) for k,v in vars(value).items()
-                if k not in ('_sector_progress_cache','_prefetch_runtime','_prefetch_auto_key','_prefetch_world_stamp','_flooding_basis','_flight_ceiling_cache','_shore_cache','_axis_station_cache','_work_window_cache')})
+                if k not in ('_sector_progress_cache','_prefetch_runtime','_prefetch_auto_key','_prefetch_world_stamp','_flooding_basis','_flight_ceiling_cache','_shore_cache','_axis_station_cache','_work_window_cache','_robot_static_cache','_static_robot_site_cache')})
         return {'ref':index}
 
 
@@ -288,9 +288,18 @@ def _validate(session):
         for container in w.containers:
             if container.soil is not None and container.soil.profile!=s.config.soil_profile:
                 raise ValueError('Неверный материал контейнера')
-        if w.excavator is not None and w.excavator.soil is not None:
-            w.excavator.soil.validate(w.excavator.bucket_kg)
-            if w.excavator.soil.profile!=s.config.soil_profile:raise ValueError('Неверный материал ковша')
+        if len(w.excavators)!=w.config.robot_count:raise ValueError('Потерян Крот из состава комплекса')
+        if (len({e.serial for e in w.excavators})!=len(w.excavators) or
+                any(type(e.serial) is not int or not 1<=e.serial<=10 for e in w.excavators)):
+            raise ValueError('Неверный ID Крота')
+        if w.excavators and w.excavator is not w.excavators[0]:raise ValueError('Потерян основной Крот комплекса')
+        if w.excavators and any(c.excavator_serial not in {e.serial for e in w.excavators} for c in w.containers):
+            raise ValueError('Потерян получатель контейнера')
+        for e in w.excavators:
+            e._world=w
+            if e.soil is not None:
+                e.soil.validate(e.bucket_kg)
+                if e.soil.profile!=s.config.soil_profile:raise ValueError('Неверный материал ковша')
         jobs={id(job) for job in w.jobs}
         for job in w.jobs:
             assigned=getattr(job,'flight_altitude_m',None)

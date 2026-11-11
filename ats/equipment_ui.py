@@ -365,7 +365,11 @@ class DailyStatsWindow(QtWidgets.QDialog):
         info.setWordWrap(True);layout.addWidget(info)
         self.day=QtWidgets.QComboBox();self.day.addItem("Все сутки",None);layout.addWidget(self.day)
         self.summary=QtWidgets.QLabel();self.summary.setWordWrap(True);layout.addWidget(self.summary)
+        self.economics=QtWidgets.QLabel();self.economics.setWordWrap(True);layout.addWidget(self.economics)
         self.tabs=QtWidgets.QTabWidget();layout.addWidget(self.tabs,1)
+        self.robots=QtWidgets.QTableWidget(0,7);self.robots.setHorizontalHeaderLabels(['Крот','Состояние','Причина ожидания','Заряд, %','Выемка, м³','Циклов','Смен батарей'])
+        self.robots.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
+        self.robots.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table=QtWidgets.QTableWidget(0,8);self.table.setHorizontalHeaderLabels(["Дрон","Сутки / дата","Грунт, кг","Грунт, м³","Засыпка, кг","Отвал, кг","Выгрузок","В составе"])
         self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
         self.table.setHorizontalHeaderLabels(['Машина / операция','Сутки / дата','Грунт, кг','Грунт, м³','Засыпка, кг','Отвал, кг','Операций','В составе'])
@@ -373,7 +377,7 @@ class DailyStatsWindow(QtWidgets.QDialog):
         self.activity=QtWidgets.QTableWidget(0,4);self.activity.setHorizontalHeaderLabels(['Машина','Занятие','Время','Доля времени'])
         self.activity.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.activity.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
-        self.tabs.addTab(self.activity,'Время работы')
+        self.tabs.addTab(self.activity,'Время работы');self.tabs.addTab(self.robots,'Кроты')
         self.day.currentIndexChanged.connect(self.refresh)
         self.timer=QtCore.QTimer(self);self.timer.timeout.connect(self.refresh);self.timer.start(1000);self.refresh()
 
@@ -398,18 +402,32 @@ class DailyStatsWindow(QtWidgets.QDialog):
                 if selected is not None and number!=selected:continue
                 r=daily.get(number,{"mass_kg":0,"volume_m3":0,"fill_mass_kg":0,"dump_mass_kg":0,"deliveries":0})
                 rows.append([f"{d.serial} · {d.config.name}",self.day_text(number),f"{r['mass_kg']:.2f}",f"{r['volume_m3']:.4f}",f"{r['fill_mass_kg']:.2f}",f"{r['dump_mass_kg']:.2f}",str(r['deliveries']),"Снят" if d.retired_at is not None else "Работает"])
-        robot=s.logistics.excavator if s.logistics is not None else None
-        if robot is not None:
+        robots=s.logistics.excavators if s.logistics else []
+        totals=[0.,0.,0.,0.];self.robots.setRowCount(len(robots))
+        for index,robot in enumerate(robots):
             production=robot.productivity.report(s.time,current)
-            self.summary.setText(f'Крот выкопал: {robot.excavated_kg:.2f} кг / {robot.excavated_kg/s.config.terrain.density:.4f} м³ · '
-                f"за последние 24 ч: {production['last24_mass_kg']:.2f} кг / {production['last24_volume_m3']:.4f} м³")
+            totals[0]+=robot.excavated_kg;totals[1]+=production['transported_volume_m3']
+            totals[2]+=production['last24_mass_kg'];totals[3]+=production['last24_volume_m3']
             daily={r['mission_day']:r for r in production['daily']}
+            name='Крот' if len(robots)==1 else f'Крот {robot.serial}'
             for number in range(current+1):
                 if selected is not None and number!=selected:continue
                 r=daily.get(number,dict(mass_kg=0.,volume_m3=0.,deliveries=0))
-                rows.append(['Крот · выемка',self.day_text(number),f"{r['mass_kg']:.2f}",f"{r['volume_m3']:.4f}",'—','—',r['deliveries'],'Работает'])
-            machines.append(('Крот',robot.activity))
+                rows.append([name+' · выемка',self.day_text(number),f"{r['mass_kg']:.2f}",f"{r['volume_m3']:.4f}",'—','—',r['deliveries'],'Работает'])
+            machines.append((name,robot.activity))
+            values=[robot.id,robot.state.value,robot.reason,f'{100*robot.energy(s.logistics.inventory)/max(1.,robot.capacity(s.logistics.inventory)):.1f}',f"{production['transported_volume_m3']:.4f}",robot.cycles,robot.swaps]
+            for col,value in enumerate(values):self.robots.setItem(index,col,QtWidgets.QTableWidgetItem(str(value)))
+        if robots:self.summary.setText(('Крот выкопал' if len(robots)==1 else f'Кроты ({len(robots)}) выкопали')+f': {totals[0]:.2f} кг / {totals[1]:.4f} м³ · за последние 24 ч: {totals[2]:.2f} кг / {totals[3]:.4f} м³')
         else:self.summary.setText('Статистика выполненных операций; незавершённый груз не добавляется к выработке дронов.')
+        from .costs import excavation_cost,project_excavation_cost
+        metric=excavation_cost(s)
+        def metric_text(value):
+            if value['capital_cost'] is None:return 'цены оборудования не заданы в одной валюте'
+            if value['capital_per_m3'] is None:return 'до начала добычи не определено'
+            return f"{value['capital_per_m3']:,.2f} {value['currency']}/м³ ({value['capital_cost']:,.0f} / {value['excavated_m3']:.4f} м³)"
+        text='Оборудование / валовая выемка с начала миссии: '+metric_text(metric)
+        if self.window.complex_project:text+='\nВся группа: '+metric_text(project_excavation_cost(u.simulation for u in self.window.complex_project.units))
+        self.economics.setText(text+'\nКапитальная оценка; топливо, зарплаты, ремонт и амортизация не включены. Перевозка одного груза повторно не увеличивает объём выемки.')
         self.table.setRowCount(len(rows))
         for row,values in enumerate(rows):
             for col,value in enumerate(values):self.table.setItem(row,col,QtWidgets.QTableWidgetItem(str(value)))

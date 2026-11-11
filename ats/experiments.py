@@ -36,6 +36,7 @@ def experiment_config(config, mode='logistics',drones=4,containers=8,ports=4,
         container_count=containers,charger_ports=ports,excavator_battery_slots=robot_slots,
         excavator_battery_count=robot_slots+excavator_spare_batteries,
         drone_spare_sets=drone_spare_sets,laser_profile=laser,individual_chargers=individual_chargers,batch_courier=batch_courier)
+    if c.logistics and previous:c.logistics.excavator_count=previous.excavator_count
     c=with_laser_profile(c,laser);c.validate();return c
 
 

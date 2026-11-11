@@ -73,8 +73,9 @@ def trial(args, mode, number):
         if not running():break
         actor.step()
     start=clock();target=start+args.steps
-    robots=[u.simulation.logistics.excavator for u in project.units] if project is not None else [sim.logistics.excavator] if sim.logistics else []
-    robots=[e for e in robots if e is not None]
+    worlds=[u.simulation.logistics for u in project.units] if project is not None else [sim.logistics]
+    # The fallback keeps --root comparisons with pre-fleet checkouts usable.
+    robots=[e for w in worlds if w is not None for e in getattr(w,'excavators',[w.excavator]) if e is not None]
     robot_before=dict(moving=sum(e.moving_seconds for e in robots),working=sum(e.working_seconds for e in robots),
         relocations=sum(e.relocations for e in robots))
     robot_states={state:sum(e.state.value==state for e in robots) for state in sorted({e.state.value for e in robots})}
@@ -149,7 +150,7 @@ def trial(args, mode, number):
     if advanced<=0:raise ValueError('Замер не продвинул модельное время')
     row=dict(mode=mode,render=args.render if mode=='gui' else None,profiled=profile is not None,
         initialization_seconds=ready-begin,wall_seconds=elapsed,model_seconds=advanced,actual_speed=advanced/elapsed,
-        grid_cells=sim.config.terrain.n,drones=len(sim.drones) if project is None else report['drone_count'],
+        grid_cells=sim.config.terrain.n,drones=len(sim.drones) if project is None else report['drone_count'],excavators=len(robots),
         inventory_items=(len(sim.logistics.inventory.items) if sim.logistics else 0) if project is None else sum(len(u.simulation.logistics.inventory.items) if u.simulation.logistics else 0 for u in project.units),
         state=report['state'],trips=report['trips'],mass_error_kg=report['mass_error_kg'],energy_error_j=report['energy_error_j'],
         physical_sha256=hashlib.sha256(json.dumps(report,sort_keys=True).encode()).hexdigest(),

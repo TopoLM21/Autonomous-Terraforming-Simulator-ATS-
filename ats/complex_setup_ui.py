@@ -126,8 +126,8 @@ class ComplexSetupDialog(QtWidgets.QDialog):
         equipment=QtWidgets.QWidget();form=QtWidgets.QFormLayout(equipment);self.scroll_tab(equipment,'1 · Техника')
         self.name=QtWidgets.QLineEdit('Рабочий комплекс');form.addRow('Название',self.name)
         self.drones=QtWidgets.QSpinBox();self.drones.setRange(0,16);self.drones.setValue(4);form.addRow('Дроны-копатели',self.drones)
-        self.krot=QtWidgets.QCheckBox('Добавить Крота');self.krot.setToolTip('Текущий тип комплекса: 0 или 1 Крот, общий склад и универсальные дроны-курьеры');form.addRow(self.krot)
-        self.containers=QtWidgets.QSpinBox();self.containers.setRange(0,128);self.containers.setValue(8);self.containers.setEnabled(False);form.addRow('Ёмкости для Крота',self.containers)
+        self.krot=QtWidgets.QSpinBox();self.krot.setRange(0,10);self.krot.setToolTip('Независимые машины с общим инвентарём, зарядкой и курьером');form.addRow('Кроты',self.krot)
+        self.containers=QtWidgets.QSpinBox();self.containers.setRange(0,128);self.containers.setValue(8);self.containers.setEnabled(False);form.addRow('Ёмкости для Кротов, всего',self.containers)
         self.model_info=QtWidgets.QLabel();self.model_info.setWordWrap(True);form.addRow(self.model_info)
         details=QtWidgets.QPushButton('Подробные параметры дронов и модулей…');details.clicked.connect(self.edit_equipment);form.addRow(details)
         note=QtWidgets.QLabel('Панели, накопители, сменные батареи, зарядные места и носители подбираются по графику. При работе с Кротом дроны смогут временно становиться курьерами.');note.setWordWrap(True);form.addRow(note)
@@ -187,7 +187,7 @@ class ComplexSetupDialog(QtWidgets.QDialog):
         self.first.dateChanged.connect(self.first_changed)
         for widget in (self.last,self.date):widget.dateChanged.connect(self.dirty)
         self.mode.currentIndexChanged.connect(self.mode_changed);self.period.currentIndexChanged.connect(self.period_changed)
-        self.krot.toggled.connect(lambda v:(self.containers.setEnabled(v),self.dirty()))
+        self.krot.valueChanged.connect(self.robot_count_changed)
         self.auto_place.toggled.connect(lambda v:(self.x.setEnabled(not v),self.y.setEnabled(not v),self.dirty()))
         self.delivery_timer=QtCore.QTimer(self);self.delivery_timer.setInterval(250);self.delivery_timer.timeout.connect(self.finish_delivery)
         self.refresh_preview()
@@ -208,11 +208,16 @@ class ComplexSetupDialog(QtWidgets.QDialog):
         self.status.setText('Параметры изменены — требуется расчёт.');self.refresh_preview()
 
     def refresh_preview(self):
-        self.model_info.setText(f'В проекте: {self.drones.value()} дронов, {int(self.krot.isChecked())} Крот. Техника ещё не размещена.')
+        self.model_info.setText(f'В проекте: дроны — {self.drones.value()}, Кроты — {self.krot.value()}. Техника ещё не размещена.')
         try:
             info=self.schedule().summary(self.latitude.value())
             self.daylight_info.setText(f"Период {info['label']}: {info['days']} дней. Самый короткий световой день — {info['min_daylight_hours']:.2f} ч ({info['shortest_date']}).\nРабота: {info['min_work_hours']:.2f}–{info['max_work_hours']:.2f} ч/сут; {info['annual_work_hours']:.0f} ч за период.")
         except ValueError as error:self.daylight_info.setText(str(error))
+
+    def robot_count_changed(self,value):
+        self.containers.setEnabled(value>0)
+        if value:self.containers.setValue(max(self.containers.value(),8*value))
+        self.dirty()
 
     def mode_changed(self):self.hours.setEnabled(self.mode.currentData()=='hours');self.dirty()
 
@@ -232,7 +237,7 @@ class ComplexSetupDialog(QtWidgets.QDialog):
     def edit_equipment(self):
         from .equipment_ui import EquipmentDialog
         try:
-            c=recipe_config(self.source,SetupRequest(max(1,self.drones.value()),self.krot.isChecked(),self.containers.value()),self.catalog)
+            c=recipe_config(self.source,SetupRequest(max(1,self.drones.value()),bool(self.krot.value()),self.containers.value(),excavators=self.krot.value()),self.catalog)
             dialog=EquipmentDialog(c,self)
             if dialog.exec()==QtWidgets.QDialog.DialogCode.Accepted:
                 c=dialog.value();self.source=equipment_copy(c);self.drones.setValue(c.fleet.count);self.dirty()
@@ -248,7 +253,7 @@ class ComplexSetupDialog(QtWidgets.QDialog):
     def calculate(self):
         if self.job:return
         try:
-            request=SetupRequest(self.drones.value(),self.krot.isChecked(),self.containers.value(),self.name.text());request.validate()
+            request=SetupRequest(self.drones.value(),bool(self.krot.value()),self.containers.value(),self.name.text(),self.krot.value());request.validate()
             schedule=self.schedule();schedule.validate();source=equipment_copy(self.source)
             source.base.latitude_deg=self.latitude.value();source.base.start_day_of_year=self.date.date().dayOfYear();source.start_hour=self.start_hour.value()
             power=default_request()
@@ -281,7 +286,7 @@ class ComplexSetupDialog(QtWidgets.QDialog):
         from .winter_power import day_profile
         r=self.result;c=r.config;d=r.design;cost=r.estimate;spec=configure_layout(c)
         dimensions=spec.get('grid',{}).get('deployed_dimensions_local_m',spec['dimensions_m'])
-        rows=[('Техника',f'{c.fleet.count} дронов · {int(c.logistics.excavator_enabled)} Крот'),
+        rows=[('Техника',f'Дроны: {c.fleet.count} · Кроты: {c.logistics.robot_count}'),
               ('Рабочий период',f"{d['calendar']['label']} · {d['checked_days']} дней · {c.base.latitude_deg:+.4f}°"),
               ('Часы работы',f"{d['calendar']['min_work_hours']:.2f}–{d['calendar']['max_work_hours']:.2f} ч/сут"),
               ('Ограничивающий день',d['limiting_date']),('Солнечные панели',f'{c.base.panel_area:,.0f} м²'),
@@ -438,7 +443,7 @@ class WorkspaceWindow(QtWidgets.QMainWindow):
             b.source=equipment_copy(self.config)
             for key in ('base','drone','fleet','logistics'):setattr(b.source,key,deepcopy(getattr(template.config,key)))
             b.name.setText(template.name);b.drones.setValue(template.config.fleet.count)
-            b.krot.setChecked(bool(template.config.logistics and template.config.logistics.excavator_enabled))
+            b.krot.setValue(template.config.logistics.robot_count if template.config.logistics else 0)
             if template.config.logistics:b.containers.setValue(template.config.logistics.container_count)
             if template.config.cost_catalog:b.catalog=deepcopy(template.config.cost_catalog)
             schedule=getattr(template.config,'operating_schedule',None)

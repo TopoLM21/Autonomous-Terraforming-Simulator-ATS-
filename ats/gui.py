@@ -657,7 +657,7 @@ class MainWindow(QtWidgets.QMainWindow):
             raise ValueError('Сначала посадите флот и выгрузите грунт через «Кисть / план → Посадить флот»')
         if s.logistics is not None:
             w=s.logistics;e=w.excavator
-            if w.group is not None or w.active or any(c.soil_kg>0 for c in w.containers) or e is not None and (e.bucket_kg>0 or e.active_container is not None):
+            if w.group is not None or w.active or any(c.soil_kg>0 for c in w.containers) or any(e.bucket_kg>0 or e.active_container is not None for e in w.excavators):
                 raise ValueError('Завершите переносы и выгрузите контейнеры командой «Посадить флот»')
         if self.landscape is not None and self.config.georeference:
             self.landscape.commit_window(self.config.georeference['origin_m'],s.terrain.height,cell_size=s.terrain.cell,soil=s.terrain.soil)
@@ -1012,13 +1012,13 @@ class MainWindow(QtWidgets.QMainWindow):
                     if not self.running:self.credit=0;break
                 logistics=self.sim.logistics
                 robot=logistics.excavator if logistics is not None else None
-                robot_ready=(robot is None or robot.bucket_kg==0 and robot.active_container is None)
+                robot_ready=(logistics is None or all(e.bucket_kg==0 and e.active_container is None for e in logistics.excavators))
                 if self.sim.landing_requested and logistics is not None:robot_ready=robot_ready and all(c.soil_kg==0 for c in logistics.containers)
                 shared=self.complex_project is not None and self.complex_project.shared_site is not None
                 grounded=(all(d.grounded and abs(d.cargo)<=1e-8 for u in self.complex_project.units for d in u.simulation.drones) if shared else all(d.grounded and abs(d.cargo)<=1e-8 for d in self.sim.drones))
                 if shared:
                     robot_ready=all(u.simulation.logistics is None or (not u.simulation.logistics.active and not u.simulation.logistics.group and
-                        all(c.soil_kg==0 for c in u.simulation.logistics.containers) and (u.simulation.logistics.excavator is None or u.simulation.logistics.excavator.bucket_kg==0)) for u in self.complex_project.units)
+                        all(c.soil_kg==0 for c in u.simulation.logistics.containers) and all(e.bucket_kg==0 for e in u.simulation.logistics.excavators)) for u in self.complex_project.units)
                 requested=any(u.simulation.landing_requested for u in self.complex_project.units) if shared else self.sim.landing_requested
                 if requested and robot_ready and grounded and not (self.complex_project is not None and self.complex_project.transition is not None):
                     self.running=False;self.credit=0;self.play.setText("▶ Start")
@@ -1155,12 +1155,12 @@ class MainWindow(QtWidgets.QMainWindow):
             else:self.solar_field_outline.clear()
             self.container_markers.setData([dict(pos=o.position[:2],brush='#a8e3ae' if o.soil_kg==0 else '#e9a560') for o in l.containers])
             if e is not None:
-                self.excavator_marker.setData([e.position[0]],[e.position[1]])
+                self.excavator_marker.setData([robot.position[0] for robot in l.excavators],[robot.position[1] for robot in l.excavators])
                 empty=sum(c.soil_kg==0 for c in l.containers);filled=len(l.containers)-empty
-                self.excavator_label.setText(f'Крот · {e.state.value}\nТара: пустых {empty}, с грунтом {filled}')
+                self.excavator_label.setText((f'Крот · {e.state.value}' if len(l.excavators)==1 else f'Кроты: {len(l.excavators)}')+f'\nТара: пустых {empty}, с грунтом {filled}')
                 self.excavator_label.setPos(e.position[0]+1.,e.position[1]-1.)
                 phi=np.linspace(0,2*np.pi,80)
-                self.excavator_reach.setData(e.position[0]+l.config.reach_m*np.cos(phi),e.position[1]+l.config.reach_m*np.sin(phi))
+                self.excavator_reach.setData(np.concatenate([np.r_[robot.position[0]+l.config.reach_m*np.cos(phi),np.nan] for robot in l.excavators]),np.concatenate([np.r_[robot.position[1]+l.config.reach_m*np.sin(phi),np.nan] for robot in l.excavators]),connect='finite')
             else:self.excavator_marker.clear();self.excavator_reach.clear();self.excavator_label.setText('')
         else:
             self.excavator_marker.clear();self.container_markers.clear();self.excavator_reach.clear();self.solar_field_outline.clear();self.excavator_label.setText('')
@@ -1210,6 +1210,10 @@ class MainWindow(QtWidgets.QMainWindow):
             if total['totals']:
                 lines.append('На карте: '+' / '.join(f'{value:,.0f} {currency}' for currency,value in total['totals'].items()))
                 if total['priced_complexes']<total['complexes']:lines.append('Часть прежних комплексов без сметы')
+        metric=report.get('excavation_cost')
+        if metric:
+            value=metric['capital_per_m3']
+            lines.append(f"Оборудование / выемка: {value:,.2f} {metric['currency']}/м³" if value is not None else 'Оборудование / выемка: пока нет добычи')
         if getattr(s.config,'operating_schedule',None):
             lines.append('Рабочая смена открыта' if s.work_allowed else s.work_wait_reason)
         self.procurement_status.setText('\n'.join(lines))

@@ -39,7 +39,8 @@ def refresh(host):
         if s is host.sim:continue
         bases.append(dict(pos=b.position[:2],brush=brush,data=u.id))
         drones.extend(dict(pos=d.position[:2],pen=pen,brush=brush,symbol=host.drone_symbol,size=size) for d in s.drones)
-        if s.logistics and s.logistics.excavator:robots.append(dict(pos=s.logistics.excavator.position[:2],pen=pen,brush=brush,symbol=host.crawler_symbol,size=18))
+        if s.logistics:
+            robots.extend(dict(pos=e.position[:2],pen=pen,brush=brush,symbol=host.crawler_symbol,size=18) for e in s.logistics.excavators)
         field=tuple(s.logistics.solar_ground_rects()) if s.logistics and getattr(s.logistics,'solar_array',None) is None else ()
         key=(layout_key(s),field);keys.append((u.id,key))
         if u.id not in cache or cache[u.id][0]!=key:

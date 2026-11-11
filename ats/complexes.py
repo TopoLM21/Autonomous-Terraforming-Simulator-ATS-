@@ -55,7 +55,7 @@ class ComplexTemplate:
         for d in simulation.drones:
             for recipe in d.config.equipment.batteries:
                 expected[f'drone:{recipe.capacity_kwh:g}:{recipe.mass_kg:g}']+=recipe.quantity*(1+w.config.drone_spare_sets)
-        expected['excavator']=w.config.excavator_battery_count if w.excavator else 0
+        expected['excavator']=w.config.excavator_battery_count*len(w.excavators)
         groups={}
         for pack in w.inventory.select(BatteryModule):
             if pack.compatibility=='base':continue
@@ -85,8 +85,8 @@ class ComplexTemplate:
             drone_modules=sum(sum(m.quantity for m in d.equipment.batteries) for d in c.fleet.models)
             mass+=drone_packs*log.drone_spare_sets+log.container_count*log.container_tare_kg
             mass+=len(c.fleet.models)*(2.+log.hoist_mass_kg)+log.rigging_mass_kg
-            robot_modules=log.excavator_battery_count if log.excavator_enabled else 0
-            if log.excavator_enabled:mass+=log.excavator_dry_mass_kg+robot_modules*log.pack_mass_kg
+            robot_modules=log.excavator_battery_count*log.robot_count
+            if log.excavator_enabled:mass+=log.excavator_dry_mass_kg*log.robot_count+robot_modules*log.pack_mass_kg
             if log.individual_chargers:mass+=(drone_modules*(1+log.drone_spare_sets)+robot_modules)*log.charger_slot_mass_kg
             mass+=sum(r['count']*(r['mass_kg']+(log.charger_slot_mass_kg if log.individual_chargers else 0.)) for r in self.stock or [])
             if getattr(log,'self_solar',None) is not None and c.base.panel_area>20:
@@ -160,7 +160,7 @@ class ComplexProject:
         if w is None:return simulation.base.config.mass+sum(d.config.empty_mass for d in simulation.drones)
         return (sum(item.mass_kg for item in w.inventory.items.values())+
                 sum(d.config.equipment.frame_mass_kg for d in simulation.drones)+
-                (w.config.excavator_dry_mass_kg if w.excavator is not None else 0.))
+                w.config.excavator_dry_mass_kg*len(w.excavators))
 
     def inventory_ids(self):
         return [f'{u.id}/{id}' for u in self.units if u.simulation.logistics is not None
@@ -284,12 +284,18 @@ class ComplexProject:
             if base.safe_path(point,view):chosen=point;break
         if chosen is None:raise ValueError('Нет безопасного места для комплекса на общей карте. Увеличьте карту или уменьшите комплектацию')
         c.base.x,c.base.y=map(float,chosen)
+        if c.logistics and c.logistics.robot_count>1:
+            # Only the new, unregistered view is used for siting. No physics
+            # runs before partition() replaces it with exclusive assignments.
+            from types import SimpleNamespace
+            proposed=SimpleNamespace(id=id,simulation=SimpleNamespace(base=SimpleNamespace(position=np.r_[chosen,view.sample(*chosen)])))
+            owners=site.allocation([*self.units,proposed]);view.assign(owners==int(id[8:]))
         sim=Simulation(c,terrain=view,initial_stock=template.stock)
         if sim.state.value=='BLOCKED':raise ValueError(sim.reason)
         # The newly delivered excavator and racks start beside their own base.
         # No old equipment or battery history is moved by cloning.
         w=sim.logistics
-        if w and w.excavator:
+        if w and w.excavator and len(w.excavators)==1:
             e=w.excavator;old=e.position.copy();radius=c.base.radius+w.config.support_half_width_m+2
             for delta in ((radius,0),(-radius,0),(0,radius),(0,-radius)):
                 point=sim.base.position.copy();point[:2]+=rotate_offset(c.base.layout,delta);point[2]=view.sample(*point[:2])
@@ -366,7 +372,7 @@ class ComplexProject:
         for u in self.units:
             s=u.simulation;w=s.logistics;e=w.excavator if w else None
             if (s.base.destination is not None or not all(d.grounded and abs(d.cargo)<1e-8 for d in s.drones)
-                    or w and (w.active or w.group or any(c.soil_kg for c in w.containers) or e and (e.bucket_kg or e.active_container))):
+                    or w and (w.active or w.group or any(c.soil_kg for c in w.containers) or any(e.bucket_kg or e.active_container for e in w.excavators))):
                 raise ValueError('Сначала посадите все комплексы и завершите перевозки всей группы')
         t=self.shared_site.core;s=self.units[0].simulation
         from .sector_progress import record_window
@@ -386,7 +392,7 @@ class ComplexProject:
         s=unit.simulation
         if not all(d.grounded and abs(d.cargo)<=1e-8 for d in s.drones):raise ValueError('Завершите перевозки до фиксации рабочего участка')
         w=s.logistics;e=w.excavator if w else None
-        if w and (w.active or w.group or any(c.soil_kg for c in w.containers) or e and (e.bucket_kg or e.active_container)):
+        if w and (w.active or w.group or any(c.soil_kg for c in w.containers) or any(e.bucket_kg or e.active_container for e in w.excavators)):
             raise ValueError('Завершите обслуживание и выгрузку контейнеров')
         self.landscape.commit_window(s.config.georeference['origin_m'],s.terrain.height,cell_size=s.terrain.cell,soil=s.terrain.soil)
         if unit.section is not None and self.landscape.channel_project is not None:
@@ -422,6 +428,9 @@ class ComplexProject:
                     excavated_m3=sum(r['excavated_m3'] for r in rows),consumed_kwh=sum(r['consumed_kwh'] for r in rows),
                     drone_count=sum(r['drones'] for r in rows),complex_count=len(rows),
                     trips=sum(u.simulation.trips for u in self.units))
+        if any(u.simulation.config.cost_catalog is not None for u in self.units):
+            from .costs import project_excavation_cost
+            result['excavation_cost']=project_excavation_cost(u.simulation for u in self.units)
         if self.transition is not None:result['regional_transition']=self.transition.report()
         if hasattr(self,'window_history'):result['window_history']=self.window_history
         if self.shared_site is not None:
@@ -437,13 +446,16 @@ class ComplexProject:
         if any(not isinstance(u.id,str) or not u.id.startswith('complex_') or not u.id[8:].isdigit() for u in self.units):
             raise ValueError('Повреждены идентификаторы комплексов')
         if type(self.next_id) is not int or self.next_id<=max(int(u.id[8:]) for u in self.units):raise ValueError('Повреждён счётчик комплексов')
-        simulations=set();items=set()
+        simulations=set();items=set();robots=set()
         for u in self.units:
             if not math.isfinite(u.born_at) or not 0<=u.born_at<=self.time:raise ValueError('Повреждено время поставки комплекса')
             if abs(u.born_at+u.simulation.time-self.time)>1e-7:raise ValueError('Нарушены часы комплексов')
             if id(u.simulation) in simulations:raise ValueError('Два комплекса ссылаются на одну симуляцию')
             simulations.add(id(u.simulation))
             if u.simulation.logistics:
+                for e in u.simulation.logistics.excavators:
+                    if id(e) in robots:raise ValueError('Один Крот принадлежит двум комплексам')
+                    robots.add(id(e))
                 for item in u.simulation.logistics.inventory.items.values():
                     if id(item) in items:raise ValueError('Один предмет принадлежит двум комплексам')
                     items.add(id(item))

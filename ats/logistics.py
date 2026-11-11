@@ -1,5 +1,6 @@
 """Finite logistics layered on the original terrain, drone and solar physics."""
 from dataclasses import dataclass, field, asdict
+from contextlib import contextmanager
 import math
 import numpy as np
 from .inventory import Inventory, Item, BatteryModule, SoilContainer, Rigging, ChargingSlot, Location as L
@@ -12,6 +13,7 @@ from .soil import cargo_volume
 
 @dataclass
 class TransportJob:
+    excavator_serial=1  # absent on old jobs; set only for multi-machine missions
     id: str
     kind: str
     resource_ids: list
@@ -42,6 +44,7 @@ class Logistics:
         self.delivered_mass = 0.
         self.progress_at = 0.
         self.excavator = None
+        self._excavators=[]
         self.rack = np.array([sim.config.trench.x,sim.config.trench.y,0.])
         self.dock_owner = None
         self.initial_extra_energy = 0.
@@ -148,25 +151,43 @@ class Logistics:
             c=self.config;q=sim.config.trench
             point=np.array([q.x,q.y-q.width/2-q.depth/sim.terrain.slope-c.support_half_width_m-.1,0.])
             point[2]=sim.terrain.sample(*point[:2])
-            self.excavator=Excavator(c,point,buffer_j=c.buffer_kwh*KWH)
-            self.rack=point.copy()
-            for i in range(c.excavator_battery_count):
-                installed=i<c.excavator_battery_slots
-                b=BatteryModule(f'excavator_battery_{i+1:02}',c.pack_mass_kg,
-                    L.EXCAVATOR_SLOT if installed else L.BASE_STORAGE,
-                    'INSTALLED' if installed else 'STORED_READY','excavator' if installed else 'base',
-                    position=tuple(point if installed else sim.base.position),
-                    capacity_j=c.pack_capacity_kwh*KWH,
-                    energy_j=c.pack_capacity_kwh*KWH*(c.excavator_initial_soc if installed else 1.),
-                    max_charge_w=c.pack_charge_kw*1000.)
-                self.inventory.add(b);self.initial_extra_energy+=b.energy_j
-                if installed:self.excavator.battery_ids.append(b.id)
-            self.initial_extra_energy+=self.excavator.buffer_j
-            for container in self.containers:
+            for number in range(c.robot_count):
+                position=point.copy();position[0]+=number*(2*c.reach_m+1.)
+                position[2]=sim.terrain.sample(*position[:2])
+                e=Excavator(c,position,buffer_j=c.buffer_kwh*KWH,serial=number+1)
+                e._world=self
+                if c.robot_count>1:
+                    indices=sim.terrain.source_indices('cut')
+                    candidate=None
+                    if len(indices):
+                        order=np.argsort(sim.terrain.x.ravel()[indices],kind='stable')
+                        index=indices[order[min(len(order)-1,int((number+.5)*len(order)/c.robot_count))]]
+                        e.position=np.array([sim.terrain.x.ravel()[index],sim.terrain.y.ravel()[index],sim.terrain.height.ravel()[index]])
+                        candidate=e.find_site(sim.terrain,self.inventory)
+                    if candidate is None:
+                        candidate=self.staging_robot_site(e)
+                        e.reason='WAITING_FREE_EXCAVATION_SITE';e._site_retry_at=sim.time+30
+                    if candidate is not None:e.position=candidate
+                    else:sim.block(f'BLOCKED_EXCAVATOR_SITE: нет безопасного места для Крота {number+1}')
+                self._excavators.append(e);position=e.position
+                for i in range(c.excavator_battery_count):
+                    installed=i<c.excavator_battery_slots
+                    b=BatteryModule(f'excavator_battery_{number*c.excavator_battery_count+i+1:02}',c.pack_mass_kg,
+                        L.EXCAVATOR_SLOT if installed else L.BASE_STORAGE,
+                        'INSTALLED' if installed else 'STORED_READY',e.id if installed else 'base',
+                        position=tuple(position if installed else sim.base.position),capacity_j=c.pack_capacity_kwh*KWH,
+                        energy_j=c.pack_capacity_kwh*KWH*(c.excavator_initial_soc if installed else 1.),
+                        max_charge_w=c.pack_charge_kw*1000.)
+                    self.inventory.add(b);self.initial_extra_energy+=b.energy_j
+                    if installed:e.battery_ids.append(b.id)
+                self.initial_extra_energy+=e.buffer_j
+            self.excavator=self._excavators[0];self.rack=self.excavator.position.copy()
+            for index,container in enumerate(self.containers):
+                e=self._excavators[index%len(self._excavators)];container.excavator_serial=e.serial
                 container.assigned_limit_kg=max(container.capacity_for(self.payload_limit(d),c.hoist_mass_kg,
                     max(sim.config.soil_profile.densities) if sim.config.soil_profile is not None else sim.config.terrain.density) for d in sim.drones)
                 if self.batch_enabled:
-                    self.inventory.move(container.id,L.WORKSITE_RACK,'worksite',self.rack,'EMPTY_AT_EXCAVATOR')
+                    self.inventory.move(container.id,L.WORKSITE_RACK,'worksite' if e.serial==1 else e.id,e.position,'EMPTY_AT_EXCAVATOR')
         for d in sim.drones:
             for set_index in range(self.config.drone_spare_sets):
                 for slot,id in enumerate(d.battery_ids):
@@ -280,13 +301,77 @@ class Logistics:
     def batch_enabled(self):
         return self.config.batch_courier and self.config.idle_digging and self.config.excavator_enabled
 
+    @property
+    def excavators(self):
+        stored=getattr(self,'_excavators',None)
+        return stored if stored is not None else ([self.excavator] if self.excavator is not None else [])
+
+    def robot(self,serial=1):return next((e for e in self.excavators if e.serial==serial),None)
+
+    @contextmanager
+    def robot_context(self,robot):
+        # One inventory/bus/dispatcher. Temporarily bind the existing finite
+        # service operation to its owner, restoring the public primary alias.
+        if robot is None or robot is self.excavator:
+            yield;return
+        previous,rack=self.excavator,self.rack
+        self.excavator=robot;self.rack=getattr(robot,'rack_position',None)
+        if self.rack is None:self.rack=robot.position.copy()
+        try:yield
+        finally:
+            robot.rack_position=self.rack;self.excavator=previous;self.rack=rack
+
+    @property
+    def relocation_robot(self):
+        if self.group is not None:return self.robot(getattr(self.group,'excavator_serial',1))
+        return next((e for e in self.excavators if e.state.value=='WAITING_RELOCATION'),None)
+
+    def owns_rack(self,item,robot=None):
+        e=robot or self.excavator
+        if e is None:return False
+        return (getattr(item,'excavator_serial',1)==e.serial if isinstance(item,SoilContainer)
+                else item.holder_id==e.id or e.serial==1 and item.holder_id=='worksite')
+
+    def robot_static_polygons(self):
+        from .site_ground import rectangle_polygon
+        from .base_layout import platform_polygons
+        b=self.sim.base;key=(id(getattr(b,'layout_spec',None)),tuple(b.position))
+        cached=getattr(self,'_robot_static_cache',None)
+        if cached is None or cached[0]!=key:
+            if b.config.layout is None:
+                r=b.config.radius;shapes=[rectangle_polygon((b.position[0]-r,b.position[1]-r,2*r,2*r))]
+            else:
+                shapes=list(platform_polygons(b.layout_spec,b.position))
+                if 'self_solar' in b.layout_spec:
+                    from .self_solar import deployment_polygons
+                    shapes.extend(deployment_polygons(b.layout_spec,b.position))
+            clearance=self.sim.config.fleet.separation
+            pads=[self.sim.slot_position(i) for i in range(len(self.sim.slots))]
+            pads.extend(self.sim.wait_position(i) for i in range(len(self.sim.drones)))
+            shapes.extend(rectangle_polygon((p[0]-clearance,p[1]-clearance,2*clearance,2*clearance)) for p in pads)
+            cached=(key,shapes,getattr(b,'layout_spec',None));self._robot_static_cache=cached
+        return cached[1]
+
+    def staging_robot_site(self,robot):
+        """Park an excess delivered machine safely, rather than inventing work."""
+        from .site_ground import footprint_safe
+        t=self.sim.terrain;r=robot.config.support_half_width_m;side=t.height.shape[0]*t.cell
+        candidates=[np.array([x,y,t.sample(x,y)]) for x in np.linspace(r+t.cell,side-r-t.cell,23)
+                    for y in np.linspace(r+t.cell,side-r-t.cell,23)]
+        candidates.sort(key=lambda p:(float(np.sum((p[:2]-self.sim.base.position[:2])**2)),p[0],p[1]))
+        for p in candidates:
+            if not footprint_safe(t,(p[0]-r,p[1]-r,2*r,2*r),t.design_work|t.dump_mask,
+                    grade_deg=robot.config.max_slope_deg,relief_m=float('inf')):continue
+            if robot.stable(p,t):return p
+        return None
+
     def solar_field_site(self, area):
         if area<=20:return None
         s=self.sim;margin=s.terrain.cell;side=margin*s.terrain.height.shape[0]
         width=min(max(20.,math.sqrt(area)),side-2*margin);height=area/width
         pads=[s.slot_position(i) for i in range(len(s.slots))]+[s.wait_position(i) for i in range(len(s.drones))]
         pads += [d.position for d in s.drones if d.grounded]
-        if self.excavator is not None:pads.append(self.excavator.position)
+        pads.extend(e.position for e in self.excavators)
         sites=[]
         shared=getattr(s.terrain,'shared_site',None);grid=11 if shared is not None else 5
         for x in np.linspace(margin,max(margin,side-margin-width),grid):
@@ -511,6 +596,8 @@ class Logistics:
         self._serial+=1
         job=TransportJob(f'job_{self._serial:05}',kind,[item.id],tuple(origin),tuple(destination),
                          priority,self.sim.time)
+        if len(self.excavators)>1:
+            job.excavator_serial=(item.excavator_serial if isinstance(item,SoilContainer) else self.excavator.serial if self.excavator else 1)
         if not self.inventory.reserve(job.resource_ids,job.id):
             return None
         self.jobs.append(job)
@@ -558,10 +645,10 @@ class Logistics:
                 else:
                     s.block('BLOCKED_DUMP_FULL: нет места для контейнерного груза')
             elif regional is None and not (front is not None and front.complete) and c.location==L.BASE_STORAGE and c.soil_kg==0 and self.excavator is not None:
-                self.new_job('DELIVER_EMPTY_CONTAINER',c,c.position,self.rack,4)
+                self.new_job('DELIVER_EMPTY_CONTAINER',c,c.position,self.robot(c.excavator_serial).position,4)
             elif (regional is None and c.location==L.WORKSITE_RACK and c.soil_kg==0 and self.excavator is not None
-                  and np.linalg.norm(np.array(c.position[:2])-self.rack[:2])>self.config.reach_m):
-                self.new_job('RETURN_EMPTY_CONTAINER',c,c.position,self.rack,4)
+                  and np.linalg.norm(np.array(c.position[:2])-self.robot(c.excavator_serial).position[:2])>self.config.reach_m):
+                self.new_job('RETURN_EMPTY_CONTAINER',c,c.position,self.robot(c.excavator_serial).position,4)
 
     def estimate(self, d, job):
         altitude=self.sim.cruise(d)
@@ -634,12 +721,21 @@ class Logistics:
                 break
 
     def try_lift(self):
+        target=self.relocation_robot
+        with self.robot_context(target):self._try_lift()
+
+    def _try_lift(self):
         if getattr(self.sim,'regional_stage',None):return
         if not self.sim.work_allowed:return
         from .cooperative_lift import CollectiveLift,lift_check
         from copy import copy
         e=self.excavator;s=self.sim
         if e is None or e.state.value!='WAITING_RELOCATION' or self.group is not None or self._base_moving_step or s.base.destination is not None or s.relocation_pending is not None:return
+        if len(self.excavators)>1 and (e.destination is None or not e.stable(e.destination,s.terrain)):
+            replacement=e.find_site(s.terrain,self.inventory)
+            if replacement is None:
+                e.reason='WAITING_SAFE_RELOCATION_SITE';return
+            e.destination=replacement
         if s.terrain.front is not None and s.terrain.front.axis and s.terrain.front.complete:return
         if (self.active or self.direct_ids or self.tool_targets or self.recall_ids or self.battery_service.drone_swaps
                 or any(not d.grounded for d in s.drones)):return
@@ -664,7 +760,7 @@ class Logistics:
 
     def direct_should_return(self, d):
         return (not self.sim.work_allowed or self.sim.relocation_pending is not None or d.identifier in self.tool_targets or d.identifier in self.recall_ids or
-                self.excavator is not None and self.excavator.state.value=='WAITING_RELOCATION')
+                self.relocation_robot is not None)
 
     def request_tool(self, d, target):
         if d.attachment==target:
@@ -726,9 +822,9 @@ class Logistics:
         filled=sum(c.location==L.FILLED_QUEUE and c.soil_kg>1e-8 for c in self.containers)
         threshold=max(1,math.ceil(len(self.containers)*self.config.courier_fill_fraction))
         capacity=e.capacity(self.inventory)
-        low=(not e.battery_ids or e.energy(self.inventory)<capacity*self.config.courier_low_soc)
+        low=any(not robot.battery_ids or robot.energy(self.inventory)<robot.capacity(self.inventory)*self.config.courier_low_soc for robot in self.excavators)
         finishing=s.terrain.remaining_cut<=s.config.terrain.completion_volume or s.landing_requested or s.terrain.front is not None and s.terrain.front.complete
-        stranded=e.state.value in ('WAITING_TRANSPORT','WAITING_EMPTY_CONTAINER','LOW_BATTERY')
+        stranded=any(robot.state.value in ('WAITING_TRANSPORT','WAITING_EMPTY_CONTAINER','LOW_BATTERY') for robot in self.excavators)
         reason=('REGIONAL_MOVE' if getattr(s,'regional_stage',None) and pending else 'LOW_SOC' if low else 'FILLED_THRESHOLD' if filled>=threshold else
                 'FINISH_BATCH' if finishing and filled else 'RELOCATION' if relocating and pending else
                 'CLEAR_WORKSITE' if stranded and pending else '')
@@ -768,7 +864,7 @@ class Logistics:
         s=self.sim
         pending=sorted((j for j in self.jobs if j.status=='QUEUED'),
                        key=lambda j:(j.priority-(s.time-j.created_at)/600,j.created_at,j.id))
-        relocating=self.excavator is not None and self.excavator.state.value=='WAITING_RELOCATION'
+        relocating=self.relocation_robot is not None
         if self.batch_enabled:
             self.batch_tool_requests(pending,relocating)
         elif relocating:
@@ -899,7 +995,7 @@ class Logistics:
         if not s.work_allowed:return
         if s.terrain.remaining<=s.config.terrain.completion_volume:return
         if self._base_moving_step or s.base.destination is not None or s.relocation_pending is not None:return
-        if self.excavator is not None and self.excavator.state.value=='WAITING_RELOCATION':return
+        if self.relocation_robot is not None:return
         # Transport assignments and necessary tool changes have already been
         # selected; unrelated queued cargo must not serialize the whole fleet.
         for d in s.drones:
@@ -957,7 +1053,7 @@ class Logistics:
             return ('Ожидание станции смены инструмента'+(': '+detail if detail else '')) if d.docked else 'Очередь к станции смены инструмента'
         if not self.sim.work_allowed:return self.sim.work_wait_reason
         if self.group is not None:return 'Подготовка совместного переноса'
-        if self.excavator is not None and self.excavator.state.value=='WAITING_RELOCATION':
+        if self.relocation_robot is not None:
             return 'Сбор команды для переноса Крота'
         if self.sim.landing_requested:return 'Посадка флота запрошена'
         if self.sim.terrain.remaining<=self.sim.config.terrain.completion_volume:return 'Завершение миссии'
@@ -1092,7 +1188,7 @@ class Logistics:
         item=self.inventory.items[job.resource_ids[0]]
         at_base=job.kind in ('RECOVER_EMPTY_EXCAVATOR_BATTERY','PACK_FOR_RELOCATION')
         location=L.BASE_STORAGE if at_base else L.WORKSITE_RACK
-        holder='base' if at_base else 'excavator'
+        holder='base' if at_base else (self.robot(getattr(job,'excavator_serial',1)).id if self.excavators else 'excavator')
         state='QUEUED_FOR_CHARGE' if isinstance(item,BatteryModule) and at_base else (
             'EMPTY_AT_EXCAVATOR' if isinstance(item,SoilContainer) else 'STORED_READY')
         self.inventory.move(item.id,location,holder,job.destination,state,job.id)
@@ -1224,10 +1320,11 @@ class Logistics:
                 if id in mounted or self.inventory.items[id].location!=L.DRONE_MOUNT or self.inventory.items[id].holder_id!=f'drone_{d.serial}':
                     raise ValueError('Physical drone battery appears in two holders')
                 mounted.add(id)
-        if self.excavator is not None:
-            for id in self.excavator.battery_ids:
-                if self.inventory.items[id].location!=L.EXCAVATOR_SLOT:
+        for robot in self.excavators:
+            for id in robot.battery_ids:
+                if id in mounted or self.inventory.items[id].location!=L.EXCAVATOR_SLOT or self.inventory.items[id].holder_id!=robot.id:
                     raise ValueError('Excavator slot refers to a transported battery')
+                mounted.add(id)
 
     def step(self):
         s=self.sim
@@ -1262,7 +1359,7 @@ class Logistics:
             d.max_charge_input_w=sum(self.inventory.items[id].max_charge_w for id in d.battery_ids
                                      if self.inventory.items[id].soc<1-1e-12)
         s.laser_links=prepare_links(s.base,s.drones,s.terrain,1.,s.flight_power,s.config.fleet.separation/4,
-            dust=s.dust,obstacles=[self.excavator] if self.excavator is not None else ())
+            dust=s.dust,obstacles=self.excavators)
         area=s.base.config.panel_area
         array=getattr(self,'solar_array',None)
         if array and not getattr(self,'regional_folded',False) and s.base.destination is None:
@@ -1325,11 +1422,13 @@ class Logistics:
         self.direct_dispatch()
         self.yield_service_pads()
         if self.group is None:self.battery_service.tick_robot_swap()
-        if self.excavator is not None and self.group is None:
-            self.excavator.tick(self)
-            for id in self.excavator.battery_ids:self.inventory.items[id].position=tuple(self.excavator.position)
+        for robot in self.excavators:
+            if self.group is not None and getattr(self.group,'excavator_serial',1)==robot.serial:continue
+            with self.robot_context(robot):robot.tick(self)
+            for id in robot.battery_ids:self.inventory.items[id].position=tuple(robot.position)
         participants={d.identifier for d in self.group.participants} if self.group else set()
-        if self.group is not None:self.group.tick()
+        if self.group is not None:
+            with self.robot_context(self.robot(getattr(self.group,'excavator_serial',1))):self.group.tick()
         for d in s.drones:
             if s.state!=MissionState.RUNNING:break
             if d.identifier in participants:continue
@@ -1373,7 +1472,7 @@ class Logistics:
                 and not self.active and all(c.soil_kg==0 for c in self.containers)
                 and self.group is None and not self.direct_ids
                 and (getattr(self,'solar_array',None) is None or (self.solar_array.stowed if self.solar_array.mode=='FOLD' else self.solar_array.ready))
-                and (self.excavator is None or self.excavator.bucket_kg==0)
+                and all(e.bucket_kg==0 for e in self.excavators)
                 and all(d.grounded for d in s.drones)):
             s.state=MissionState.COMPLETED;s.event('Логистическая миссия завершена')
             for job in self.jobs:
@@ -1417,13 +1516,13 @@ class Logistics:
         if s.base.destination is not None or s.relocation_pending is not None:return
         if s.state!=MissionState.RUNNING or self.active or s.landing_requested:return
         if s.terrain.remaining<=s.config.terrain.completion_volume:return
-        if self.excavator is not None:
-            e=self.excavator
-            if e.state.value=='BLOCKED':s.block('BLOCKED_EXCAVATOR: '+e.reason)
+        for e in self.excavators:
+            if e.state.value=='BLOCKED' and (len(self.excavators)==1 or all(robot.state.value=='BLOCKED' for robot in self.excavators)):
+                s.block('BLOCKED_EXCAVATOR: '+e.reason)
             elif not self.containers and not (self.config.direct_allowed or self.config.idle_digging):
                 s.block('BLOCKED_NO_CONTAINERS: запас тары равен нулю')
             elif e.state.value=='LOW_BATTERY' and len([b for b in self.inventory.select(BatteryModule)
-                    if b.compatibility=='excavator'])<=self.config.excavator_battery_slots and not (
+                    if b.compatibility=='excavator'])<=self.config.excavator_battery_slots*len(self.excavators) and not (
                     self.config.direct_allowed or self.config.idle_digging):
                 s.block('BLOCKED_NO_SPARE_BATTERIES: физическая смена невозможна')
         no_source=(s.base.battery<=1e-8 and s.config.base.panel_area*s.config.base.panel_efficiency*s.config.base.peak_irradiance==0)
@@ -1443,7 +1542,7 @@ class Logistics:
                 self.wait_reason='WAITING_STATION_POWER'
             elif not self.field_ready:
                 self.wait_reason='WAITING_SOLAR_DEPLOYMENT_POWER'
-            elif self.excavator is not None and self.excavator.state.value=='WAITING_RELOCATION':
+            elif self.relocation_robot is not None:
                 self.wait_reason='WAITING_GROUP_SOC'
             elif s.terrain.front is not None and s.terrain.front.sectors and not self.direct_ids and self.group is None:
                 detail=s._sector_range_reason(s.base.position[:2]) or (self.excavator.reason if self.excavator else 'нет доступного рейса с грунтом')
@@ -1455,7 +1554,7 @@ class Logistics:
         s=self.sim
         soil=sum(c.soil_kg for c in self.containers)
         soil+=sum(d.cargo for d in s.drones if d.identifier in self.direct_ids)
-        if self.excavator is not None:soil+=self.excavator.bucket_kg
+        soil+=sum(e.bucket_kg for e in self.excavators)
         report['mass_error_kg']=s.terrain.mass_change+soil
         if full:report['inventory']=self.inventory.snapshot()
         report['logistics_version']=2
@@ -1506,18 +1605,27 @@ class Logistics:
         report['logistics_wait_reason']=self.wait_reason
         report['solar_field_deployment_seconds']=self.field_elapsed
         report['energy_drone_kwh']=sum(d.consumed for d in s.drones)/KWH
-        report['energy_excavator_kwh']=self.excavator.consumed_j/KWH if self.excavator else 0.
+        report['energy_excavator_kwh']=sum(e.consumed_j for e in self.excavators)/KWH
         report['energy_laser_station_kwh']=s.base.laser_input/KWH
         report['energy_station_mechanics_kwh']=self.station_consumed/KWH
         report['drone_flight_time_seconds']=sum(d.airborne_seconds for d in s.drones)
         extra_energy=sum(b.energy_j for b in self.inventory.select(BatteryModule)
                          if b.location not in (L.DRONE_MOUNT,L.BASE_MOUNT))
-        if self.excavator is not None:
-            extra_energy+=self.excavator.buffer_j+self.excavator.consumed_j
-            report['excavator']=self.excavator.report(self.inventory,s.time,
-                int((s.config.start_hour*3600+s.time)//86400),s.config.terrain.density)
-            if s.terrain.soil is not None:report['excavator']['excavated_m3']=self.excavator.productivity.total_volume
-            report['consumed_kwh']+=self.excavator.consumed_j/KWH
+        robot_rows=[]
+        for robot in self.excavators:
+            extra_energy+=robot.buffer_j+robot.consumed_j
+            row=robot.report(self.inventory,s.time,int((s.config.start_hour*3600+s.time)//86400),s.config.terrain.density)
+            if s.terrain.soil is not None:row['excavated_m3']=robot.productivity.total_volume
+            robot_rows.append(row);report['consumed_kwh']+=robot.consumed_j/KWH
+        if robot_rows:report['excavator']=robot_rows[0]
+        if len(robot_rows)>1:
+            report['excavators']=[dict(id=e.id,serial=e.serial,**row) for e,row in zip(self.excavators,robot_rows)]
+            report['excavator_count']=len(robot_rows)
+            if full:
+                for row,job in zip(report['jobs'],jobs):row['excavator_serial']=getattr(job,'excavator_serial',1)
+                for row in report['inventory']:
+                    item=self.inventory.items[row['id']]
+                    if isinstance(item,SoilContainer):row['excavator_serial']=item.excavator_serial
         report['energy_error_j']+=extra_energy-self.initial_extra_energy
         report['initial_energy_kwh']+=self.initial_extra_energy/KWH
         for row,d in zip(report['drones'],s.drones):

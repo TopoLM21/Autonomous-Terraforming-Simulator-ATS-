@@ -220,8 +220,8 @@ class Simulation:
         if self.base.destination is not None or not all(d.grounded and abs(d.cargo) <= 1e-8 for d in self.drones):
             raise ValueError("Применяйте план после посадки всех дронов и выгрузки груза; при полёте можно подготовить рисунок")
         if self.logistics is not None:
-            w=self.logistics;e=w.excavator
-            if w.group is not None or w.active or e is not None and (e.bucket_kg>0 or e.active_container is not None):
+            w=self.logistics
+            if w.group is not None or w.active or any(e.bucket_kg>0 or e.active_container is not None for e in w.excavators):
                 raise ValueError('Дождитесь завершения цикла ковша и посадки логистического флота')
             if any(c.soil_kg>0 for c in w.containers):
                 raise ValueError('Перед изменением плана завершите выгрузку контейнеров командой посадки флота')
@@ -357,6 +357,8 @@ class Simulation:
         if proposed.soil_profile!=self.config.soil_profile:
             raise ValueError('Свойства грунта задаются до земляных работ; загрузка сохраняет прежний состав')
         if self.logistics is not None:
+            if proposed.logistics is None or proposed.logistics.robot_count!=len(self.logistics.excavators):
+                raise ValueError('Количество Кротов задаётся при размещении нового комплекса или в новом эксперименте')
             # Old live equipment imports remain available in the legacy engine.
             # ATS 2.0 cannot fabricate physical inventory through recipe editing.
             old,new=asdict(self.config.base.equipment),asdict(proposed.base.equipment)
@@ -739,8 +741,10 @@ class Simulation:
     def _reserved_dig(self,d):
         working = (DS.TAKEOFF,DS.TO_DIG,DS.LOWER_GRABBER,DS.SCOOP,DS.LIFT_GRABBER)
         points=[o.trip.dig for o in self.drones if o is not d and o.trip is not None and o.state in working]
-        if self.logistics is not None and self.logistics.excavator is not None:
-            points.append(tuple(self.logistics.excavator.position[:2]))
+        if self.logistics is not None:
+            points.extend(tuple(e.position[:2]) for e in self.logistics.excavators)
+            if len(self.logistics.excavators)>1:
+                points.extend(tuple(e.destination[:2]) for e in self.logistics.excavators if e.destination is not None)
         if self.shared_site is not None:points+=self.shared_site.reservations(self,'dig')
         return points
 
@@ -996,10 +1000,9 @@ class Simulation:
         if self._terrain_active or any(not d.grounded or d.trip is not None or d.cargo>1e-8 for d in self.drones):return False
         w=self.logistics
         if w is None:return True
-        e=w.excavator
         return (not w.active and not w.direct_ids and w.group is None
             and not any(c.soil_kg>1e-8 for c in w.containers)
-            and (e is None or not e.bucket_kg and e.active_container is None and e.state.value not in ('MOVING_LOCAL','WAITING_RELOCATION')))
+            and all(not e.bucket_kg and e.active_container is None and e.state.value not in ('MOVING_LOCAL','WAITING_RELOCATION') for e in w.excavators))
 
     def _sector_followers_ready(self):
         """Grounded aircraft without a berth fly after the parked base arrives."""
@@ -1356,9 +1359,8 @@ class Simulation:
         start=self.config.start_hour*3600+self.time-dt
         for drone in self.drones:
             drone.activity.record(drone_activity(drone,self.logistics),start,dt)
-        if self.logistics is not None and self.logistics.excavator is not None:
-            robot=self.logistics.excavator
-            robot.activity.record(excavator_activity(robot),start,dt)
+        if self.logistics is not None:
+            for robot in self.logistics.excavators:robot.activity.record(excavator_activity(robot),start,dt)
 
     def report(self, *, full=True):
         t,b = self.terrain,self.base
@@ -1402,8 +1404,7 @@ class Simulation:
             loads=[d.soil for d in self.drones if d.soil is not None]
             if self.logistics is not None:
                 loads.extend(c.soil for c in self.logistics.containers if c.soil is not None)
-                e=self.logistics.excavator
-                if e is not None and e.soil is not None:loads.append(e.soil)
+                loads.extend(e.soil for e in self.logistics.excavators if e.soil is not None)
             error=(t.soil.volume_delta_by_material-t._initial_soil_volume)*t.soil.profile.densities
             for load in loads:error+=load.masses
             if self.shared_site is not None:error=self.shared_site.material_errors()
@@ -1422,6 +1423,7 @@ class Simulation:
             result['operating_schedule']=dict(self.config.operating_schedule)
             result['work_window']=dict(open=self.work_allowed,reason=self.work_wait_reason)
         if getattr(self.config,'cost_catalog',None) is not None:
-            from .costs import quote
+            from .costs import quote,excavation_cost
             result['equipment_cost_estimate']=quote(self.config,layout=getattr(self.base,'layout_spec',None),world=self.logistics)
+            result['excavation_cost']=excavation_cost(self,result['equipment_cost_estimate'])
         return result

@@ -42,6 +42,7 @@ class CollectiveLift:
 
     def __post_init__(self):
         w=self.world;e=w.excavator
+        if len(w.excavators)>1:self.excavator_serial=e.serial
         self.cargo_position=e.position.copy()
         self.altitude=float(w.sim.terrain.height.max())+w.sim.config.terrain.dump_max_height+6.
         for i,d in enumerate(self.participants):
@@ -64,7 +65,7 @@ class CollectiveLift:
             if self.elapsed>=c.battery_swap_seconds:
                 if e.battery_ids:
                     id=e.battery_ids.pop(0);self.removed_ids.append(id)
-                    inv.move(id,L.WORKSITE_RACK,'excavator',e.position,'STORED_READY','collective_lift')
+                    inv.move(id,L.WORKSITE_RACK,e.id,e.position,'STORED_READY','collective_lift')
                     self.elapsed=0.
                 else:
                     for id in self.removed_ids:inv.items[id].reserved_by=None
@@ -85,7 +86,7 @@ class CollectiveLift:
                 s._move(d,target,DS.TAKEOFF,1.)
                 arrived &= np.linalg.norm(d.position-(e.position+self.offsets[d.identifier]))<1e-7
             if arrived:
-                self.transition('RIG');inv.move('group_rig',L.WORKSITE_RACK,'excavator',e.position,'RIGGED','collective_lift')
+                self.transition('RIG');inv.move('group_rig',L.WORKSITE_RACK,e.id,e.position,'RIGGED','collective_lift')
         elif self.phase=='RIG':
             for d in self.participants:
                 if not s.consume_drone(d.power(winching=True),d):return
@@ -148,7 +149,7 @@ class CollectiveLift:
                 if not s.consume_drone(d.power(),d):return
                 d.airborne_seconds+=1.;d.flight_seconds+=1.
             if self.elapsed>=20.:
-                inv.move('group_rig',L.WORKSITE_RACK,'excavator',e.position,'STORED_READY','collective_lift')
+                inv.move('group_rig',L.WORKSITE_RACK,e.id,e.position,'STORED_READY','collective_lift')
                 inv.release('collective_lift')
                 w.rack=e.position.copy();e.relocations+=1;e.state=ES.SWAP_PREPARATION
                 e.reason='WAITING_POWER_BATTERY_DELIVERY';e.elapsed=0.;w.progress_at=s.time
@@ -163,6 +164,6 @@ class CollectiveLift:
                 w.lift_count+=1;w.group=None
 
     def report(self):
-        return dict(phase=self.phase,participants=[d.serial for d in self.participants],
+        return dict(**({'excavator_serial':self.excavator_serial} if hasattr(self,'excavator_serial') else {}),phase=self.phase,participants=[d.serial for d in self.participants],
                     cargo_position=self.cargo_position.tolist(),destination=self.destination.tolist(),
                     batteries_removed=list(self.removed_ids))

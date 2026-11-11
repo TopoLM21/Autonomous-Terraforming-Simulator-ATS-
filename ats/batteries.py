@@ -67,6 +67,10 @@ class BatteryService:
         return self._modules
 
     def generate_jobs(self):
+        for e in self.world.excavators:
+            with self.world.robot_context(e):self._generate_robot_jobs()
+
+    def _generate_robot_jobs(self):
         w=self.world;e=w.excavator;c=w.config
         if e is None:return
         capacity=e.capacity(w.inventory)
@@ -80,13 +84,13 @@ class BatteryService:
             due=(len(e.battery_ids)<c.excavator_battery_slots or
                  e.energy(w.inventory)<max(capacity*c.courier_low_soc,required) or e.state.value=='LOW_BATTERY')
         if due:
-            rack=self.ready('excavator',L.WORKSITE_RACK)
-            incoming=[j for j in w.jobs if j.kind=='DELIVER_EXCAVATOR_BATTERY' and j.status in ('QUEUED','ACTIVE')]
+            rack=[b for b in self.ready('excavator',L.WORKSITE_RACK) if w.owns_rack(b,e)]
+            incoming=[j for j in w.jobs if j.kind=='DELIVER_EXCAVATOR_BATTERY' and j.status in ('QUEUED','ACTIVE') and getattr(j,'excavator_serial',1)==e.serial]
             needed=c.excavator_battery_slots-len(rack)-len(incoming)
             for b in self.ready('excavator')[:max(0,needed)]:
                 w.new_job('DELIVER_EXCAVATOR_BATTERY',b,b.position,w.rack,1)
         for b in w.inventory.select(BatteryModule,L.WORKSITE_RACK):
-            if b.compatibility=='excavator' and (b.state=='AWAITING_PICKUP' or
+            if w.owns_rack(b,e) and b.compatibility=='excavator' and (b.state=='AWAITING_PICKUP' or
                     b.state=='STORED_READY' and b.soc<.999999):
                 if w.battery_platforms and not w.battery_platforms.service_ready(module_id=b.id):continue
                 destination=w.battery_platforms.receiving_position(b.id) if w.battery_platforms else w.sim.base.position
@@ -157,16 +161,26 @@ class BatteryService:
                         'CHARGING' if slot.input_power_w>0 else 'WAITING_POWER')
 
     def tick_robot_swap(self):
+        w=self.world
+        if self.robot_swap is not None:
+            targets=[w.robot(self.robot_swap.get('excavator_serial',1))]
+        else:targets=sorted(w.excavators,key=lambda e:(e.energy(w.inventory)/max(e.capacity(w.inventory),1.),e.serial))
+        for e in targets:
+            with w.robot_context(e):self._tick_robot_swap()
+            if self.robot_swap is not None:break
+
+    def _tick_robot_swap(self):
         from .excavator import ExcavatorState as ES
         w=self.world;e=w.excavator;c=w.config;inv=w.inventory
         if e is None:return
         if self.robot_swap is None:
-            ready=self.ready('excavator',L.WORKSITE_RACK,minimum_soc=.5 if not e.battery_ids else .999999)
+            ready=[b for b in self.ready('excavator',L.WORKSITE_RACK,minimum_soc=.5 if not e.battery_ids else .999999) if w.owns_rack(b,e)]
             if (len(ready)>=c.excavator_battery_slots and e.bucket_kg==0 and e.active_container is None
                     and (e.energy(inv)<max(e.capacity(inv)*.5,getattr(e,'regional_energy_required',0.)) or len(e.battery_ids)<c.excavator_battery_slots)):
                 ids=[b.id for b in ready[:c.excavator_battery_slots]]
                 if inv.reserve(ids+e.battery_ids,'excavator_swap'):
                     self.robot_swap={'ids':ids,'index':0,'elapsed':0.}
+                    if len(w.excavators)>1:self.robot_swap['excavator_serial']=e.serial
                     e.state=ES.SWAPPING_BATTERIES;e.reason='SIDE_DOCK_SEQUENTIAL_SWAP'
                     e.supports=True
         if self.robot_swap is None:return
@@ -182,10 +196,10 @@ class BatteryService:
         index=swap['index'];new=inv.items[swap['ids'][index]]
         if index<len(e.battery_ids):
             old=inv.items[e.battery_ids[index]]
-            inv.move(old.id,L.WORKSITE_RACK,'excavator',e.position,'AWAITING_PICKUP','excavator_swap')
+            inv.move(old.id,L.WORKSITE_RACK,e.id,e.position,'AWAITING_PICKUP','excavator_swap')
             e.battery_ids[index]=new.id
         else:e.battery_ids.append(new.id)
-        inv.move(new.id,L.EXCAVATOR_SLOT,'excavator',e.position,'INSTALLED','excavator_swap')
+        inv.move(new.id,L.EXCAVATOR_SLOT,e.id,e.position,'INSTALLED','excavator_swap')
         new.swaps+=1;swap['index']+=1;swap['elapsed']=0.
         w.sim.event(f'Боковой док: установлен {new.id}')
         if swap['index']>=len(swap['ids']):

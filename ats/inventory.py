@@ -59,6 +59,7 @@ class SoilContainer(Item):
     wear: float = 0.
     assigned_limit_kg: float = 0.
     soil: object = None
+    excavator_serial: int = 1
 
     def soil_volume(self,density):
         return self.soil.volume if self.soil is not None else self.soil_kg/density
@@ -197,6 +198,7 @@ class Inventory:
             row=dict(asdict(o),type=type(o).__name__,gross_mass_kg=o.gross_mass)
             if isinstance(o,SoilContainer):
                 row.pop('soil',None)
+                if o.excavator_serial==1:row.pop('excavator_serial',None)
                 if o.soil is not None:
                     row.update(soil_volume_m3=o.soil.volume,soil_materials_kg=o.soil.masses.tolist())
             rows.append(row)

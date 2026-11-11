@@ -52,10 +52,10 @@ def equipment_totals(config,world=None,panels=None,batteries=None,extra=()):
             capacity+=sum(d.battery/KWH for d in c.fleet.models)*log.drone_spare_sets
             modules=sum(sum(p.quantity for p in d.equipment.batteries) for d in c.fleet.models)*(1+log.drone_spare_sets)
             if log.excavator_enabled:
-                mass+=log.excavator_dry_mass_kg+log.excavator_battery_count*log.pack_mass_kg
-                capacity+=log.excavator_battery_count*log.pack_capacity_kwh+log.buffer_kwh
-                battery_mass+=log.excavator_battery_count*log.pack_mass_kg
-                modules+=log.excavator_battery_count
+                mass+=(log.excavator_dry_mass_kg+log.excavator_battery_count*log.pack_mass_kg)*log.robot_count
+                capacity+=(log.excavator_battery_count*log.pack_capacity_kwh+log.buffer_kwh)*log.robot_count
+                battery_mass+=log.excavator_battery_count*log.pack_mass_kg*log.robot_count
+                modules+=log.excavator_battery_count*log.robot_count
             mass+=log.container_count*log.container_tare_kg+len(c.fleet.models)*(2+log.hoist_mass_kg)+log.rigging_mass_kg
             if log.individual_chargers:mass+=modules*log.charger_slot_mass_kg
     else:
@@ -65,10 +65,10 @@ def equipment_totals(config,world=None,panels=None,batteries=None,extra=()):
         mass=sum(o.mass_kg for o in items if o.kind not in ('CHASSIS','PLATFORM_CHASSIS','SOLAR_PANEL','SOLAR_FRAME','SOLAR_INSTALLER','BATTERY_PLATFORM_HARDWARE') and
                  o.id not in world.base_battery_ids)
         mass+=panel_mass+battery_mass+sum(d.config.equipment.frame_mass_kg for d in world.sim.drones)
-        if world.excavator:mass+=log.excavator_dry_mass_kg
+        mass+=len(world.excavators)*log.excavator_dry_mass_kg
         capacity+=sum(o.capacity_j/KWH for o in items if isinstance(o,BatteryModule) and o.id not in world.base_battery_ids)
         battery_mass+=sum(o.mass_kg for o in items if isinstance(o,BatteryModule) and o.id not in world.base_battery_ids)
-        if world.excavator:capacity+=log.buffer_kwh
+        capacity+=len(world.excavators)*log.buffer_kwh
     solar_volume=None;solar_frame_mass=0.
     retained_pv=bool(world and world.sim.base.config.layout is not None and any(a.get('role')=='PV' for a in world.sim.base.layout_spec['platforms']))
     if log and getattr(log,'self_solar',None) is not None and (area>20 or retained_pv):
