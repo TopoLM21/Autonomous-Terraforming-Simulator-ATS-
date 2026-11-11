@@ -52,8 +52,12 @@ class SaltDialog(QtWidgets.QDialog):
 class FloodingDialog(QtWidgets.QDialog):
     def __init__(self,owner):
         super().__init__(owner);self.owner=owner;self.region=owner.region;self.project=owner.project
-        self.host=owner.window;self._resume=self.host.running
+        self.host=owner.window;self._resume=self.host.running;self._paused_sim=None;self._ready=False
         self.running=False;self.credit=0.;self.last_wall=time.perf_counter();self.last_draw=0.;self._draw_key=None
+        # A failed construction must still be safe to close. Empty workspaces
+        # have no physical simulation or playback controls to pause/restore.
+        self.timer=QtCore.QTimer(self);self.timer.setInterval(30);self.timer.timeout.connect(self.tick)
+        self.finished.connect(self.finish)
         self.setWindowTitle('Наполнение впадины · готовый канал');self.resize(1120,830)
         layout=QtWidgets.QVBoxLayout(self)
         note=QtWidgets.QLabel('Отдельный гидросценарий: «Мгновенный прокоп» считает канал готовым и соединённым с морем. '
@@ -107,22 +111,31 @@ class FloodingDialog(QtWidgets.QDialog):
         elif getattr(self.region,'_flooding_basis',None)!=self.basis_key():self.rebuild_basin()
         self.load_inputs();self.make_map()
         for spin in self.inputs.values():spin.valueChanged.connect(self.apply_inputs)
-        self.host.running=False;self.host.credit=0.;self.host.play.setText('▶ Start')
-        self.timer=QtCore.QTimer(self);self.timer.setInterval(30);self.timer.timeout.connect(self.tick);self.timer.start()
-        self.finished.connect(self.finish);self.refresh()
+        sim=getattr(self.host,'sim',None)
+        if sim is not None:
+            self._paused_sim=sim
+            self.host.running=False;self.host.credit=0.;self.host.play.setText('▶ Start')
+        self._ready=True;self.timer.start();self.refresh()
+
+    def terrain_simulation(self):
+        sim=getattr(self.host,'sim',None)
+        return sim if (sim is not None and self.region is getattr(self.host,'landscape',None)
+                       and sim.config.georeference) else None
 
     def view(self):
         land=self.region
-        if land is getattr(self.host,'landscape',None) and self.host.config.georeference:
-            view=land.snapshot();s=self.host.sim
+        s=self.terrain_simulation()
+        if s is not None:
+            view=land.snapshot()
             view.commit_window(s.config.georeference['origin_m'],s.terrain.height,cell_size=s.terrain.cell,soil=s.terrain.soil)
             return view
         return land
 
     def basis_key(self):
         land=self.region;key=(id(land.raster),land._tile_cache.writes,len(land.tiles),self.project.identity)
-        if land is getattr(self.host,'landscape',None) and self.host.config.georeference:
-            t=self.host.sim.terrain;key+=(*self.host.config.georeference['origin_m'],t.cell,t.height.shape[0],t.revision)
+        s=self.terrain_simulation()
+        if s is not None:
+            t=s.terrain;key+=(*s.config.georeference['origin_m'],t.cell,t.height.shape[0],t.revision)
         return key
 
     def new_scenario(self):
@@ -133,7 +146,7 @@ class FloodingDialog(QtWidgets.QDialog):
             self.region._flooding_basis=self.basis_key()
             self.running=False;self.credit=0.;self._draw_key=None
             if hasattr(self,'inputs'):self.load_inputs()
-            if hasattr(self,'timer'):self.make_map();self.refresh()
+            if self._ready:self.make_map();self.refresh()
         except (ValueError,OSError) as error:
             self.running=False;self.credit=0.;self._topography_error=True
             if hasattr(self,'error'):self.error.setText(str(error))
@@ -145,7 +158,7 @@ class FloodingDialog(QtWidgets.QDialog):
             m.replace_curve(curve);self._draw_key=None
             self._topography_error=False
             self.region._flooding_basis=self.basis_key()
-            if hasattr(self,'timer'):self.make_map();self.refresh()
+            if self._ready:self.make_map();self.refresh()
         except (ValueError,OSError) as error:
             self.running=False;self.credit=0.;self._topography_error=True;self.error.setText(str(error))
 
@@ -153,7 +166,7 @@ class FloodingDialog(QtWidgets.QDialog):
         try:
             path,_=QtWidgets.QFileDialog.getSaveFileName(self,'Сохранить регион и гидросценарий','flooding.atsregion','ATS landscape (*.atsregion)')
             if not path:return
-            if self.region is self.host.landscape:self.host.commit_landscape()
+            if self.terrain_simulation() is not None:self.host.commit_landscape()
             self.region.save(path);self.error.setText('Регион, вода, настройки и история сохранены. Открытие: «Ландшафт / импорт DEM → Открыть ландшафт».')
         except (ValueError,OSError) as error:self.error.setText(str(error)+' Для сохранения работающей техники используйте .atsstate в меню «Файл».')
 
@@ -257,8 +270,9 @@ class FloodingDialog(QtWidgets.QDialog):
         if getattr(self,'_finished',False):return
         self._finished=True
         self.timer.stop();self.running=False;self.credit=0.
-        self.host.running=self._resume;self.host.credit=0.;self.host.last_wall=time.perf_counter()
-        self.host.play.setText('⏸ Pause' if self._resume else '▶ Start')
+        if self._paused_sim is not None and getattr(self.host,'sim',None) is self._paused_sim:
+            self.host.running=self._resume;self.host.credit=0.;self.host.last_wall=time.perf_counter()
+            self.host.play.setText('⏸ Pause' if self._resume else '▶ Start')
 
     def done(self,result):
         self.finish(result);super().done(result)
