@@ -13,13 +13,18 @@ class LandscapeDialog(QtWidgets.QDialog):
         super().__init__(window)
         self.window=window;self.region=(getattr(window,'landscape',None) or getattr(window,'_landscape_draft',None) or
             Landscape(qattara_dem(),soil_profile=SoilProfile.qattara(),generation=default_generation()))
-        self.points=[];self.project=None;self.setWindowTitle('Маршрут и проект канала · офлайн DEM');self.resize(1250,950)
-        layout=QtWidgets.QVBoxLayout(self)
-        buttons=QtWidgets.QHBoxLayout()
-        for text,handler in [('Каттара / NOAA',self.use_qattara),('Импорт DEM…',self.import_dem),('Открыть ландшафт…',self.load_region),('Сохранить ландшафт…',self.save_region),('Слои грунта…',self.edit_soil),('Рельеф / подгрузка…',self.edit_generation)]:
-            button=QtWidgets.QPushButton(text);button.clicked.connect(handler);buttons.addWidget(button)
+        self.points=[];self.project=None;self.setWindowTitle('Маршрут и проект канала · офлайн DEM')
+        root=QtWidgets.QVBoxLayout(self);split=QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal);root.addWidget(split)
+        view=QtWidgets.QWidget();view_layout=QtWidgets.QVBoxLayout(view);view_layout.setContentsMargins(0,0,0,0)
+        controls=QtWidgets.QWidget();layout=QtWidgets.QVBoxLayout(controls)
+        self.controls_scroll=QtWidgets.QScrollArea();self.controls_scroll.setWidgetResizable(True);self.controls_scroll.setWidget(controls)
+        self.controls_scroll.setMinimumWidth(355)
+        split.addWidget(view);split.addWidget(self.controls_scroll);split.setStretchFactor(0,1);split.setStretchFactor(1,0);split.setSizes([760,440])
+        buttons=QtWidgets.QGridLayout()
+        for i,(text,handler) in enumerate([('Каттара / NOAA',self.use_qattara),('Импорт DEM…',self.import_dem),('Открыть ландшафт…',self.load_region),('Сохранить ландшафт…',self.save_region),('Слои грунта…',self.edit_soil),('Рельеф / подгрузка…',self.edit_generation)]):
+            button=QtWidgets.QPushButton(text);button.clicked.connect(handler);buttons.addWidget(button,i//2,i%2)
         self.crs=QtWidgets.QComboBox();self.crs.addItem('ASC: WGS84 (градусы)','EPSG:4326');self.crs.addItem('ASC: локальные метры','LOCAL_METRES')
-        self.msl=QtWidgets.QCheckBox('Импорт: метры над MSL');buttons.addWidget(self.crs);buttons.addWidget(self.msl)
+        self.msl=QtWidgets.QCheckBox('Импорт: метры над MSL');buttons.addWidget(self.crs,3,0);buttons.addWidget(self.msl,3,1)
         layout.addLayout(buttons)
         self.info=QtWidgets.QLabel();self.info.setWordWrap(True);layout.addWidget(self.info)
         self.map=pg.PlotWidget();self.map.setAspectLocked(True);self.map.setLabel('bottom','X от западного края',units='m');self.map.setLabel('left','Y от южного края',units='m')
@@ -27,8 +32,8 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.marker=pg.PlotDataItem(pen=pg.mkPen('#ffca63',width=2),symbol='+',symbolSize=12);self.map.addItem(self.marker)
         self.route=pg.PlotDataItem(pen=pg.mkPen('#ff8ecb',width=2),symbol='o',symbolSize=5);self.map.addItem(self.route)
         self.endpoints=pg.ScatterPlotItem(size=14,symbol='o');self.map.addItem(self.endpoints)
-        layout.addWidget(self.map,4);self.map.scene().sigMouseClicked.connect(self.map_clicked)
-        form=QtWidgets.QHBoxLayout()
+        view_layout.addWidget(self.map,1);self.map.scene().sigMouseClicked.connect(self.map_clicked)
+        form=QtWidgets.QGridLayout()
         self.x=QtWidgets.QDoubleSpinBox();self.y=QtWidgets.QDoubleSpinBox()
         for s in (self.x,self.y):s.setRange(0,100_000_000);s.setDecimals(2);s.setSingleStep(64);s.setSuffix(' м')
         self.side=QtWidgets.QComboBox()
@@ -37,7 +42,9 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.route_mode=QtWidgets.QCheckBox('Рисовать маршрут (ЛКМ)');self.route_mode.setChecked(True)
         self.target=QtWidgets.QDoubleSpinBox();self.target.setRange(-11000,10000);self.target.setDecimals(2);self.target.setValue(-5);self.target.setSuffix(' м MSL')
         self.width=QtWidgets.QDoubleSpinBox();self.width.setRange(1,1000);self.width.setValue(20);self.width.setSuffix(' м')
-        for item in (QtWidgets.QLabel('Окно X/Y'),self.x,self.y,self.side,self.route_mode):form.addWidget(item)
+        for row,(label,widget) in enumerate([('Окно X',self.x),('Окно Y',self.y),('Размер окна',self.side)]):
+            form.addWidget(QtWidgets.QLabel(label),row,0);form.addWidget(widget,row,1)
+        form.addWidget(self.route_mode,3,0,1,2)
         layout.addLayout(form)
         channel=QtWidgets.QGridLayout()
         self.depth=QtWidgets.QDoubleSpinBox();self.depth.setRange(.01,500);self.depth.setValue(5);self.depth.setSuffix(' м ниже моря')
@@ -60,24 +67,24 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.spoil=QtWidgets.QDoubleSpinBox();self.spoil.setRange(.1,200);self.spoil.setValue(20);self.spoil.setSuffix(' м')
         self.section=QtWidgets.QSpinBox();self.section.setRange(1,1)
         for i,(label,widget) in enumerate([('Ширина дна',self.width),('Глубина дна',self.depth),('Отступ от берега',self.offset),('Проектный откос',self.angle),('Карта рабочего участка',self.project_side),('Высота отвала',self.spoil),('Участок проекта',self.section),('Разработка',self.cut_policy),('Полётные эшелоны',self.airspace),('Стоянка базы',self.base_strategy)]):
-            channel.addWidget(QtWidgets.QLabel(label),i//4*2,i%4);channel.addWidget(widget,i//4*2+1,i%4)
+            channel.addWidget(QtWidgets.QLabel(label),i*2,0);channel.addWidget(widget,i*2+1,0)
         layout.addLayout(channel)
         self.depth.valueChanged.connect(lambda v:self.target.setValue(-v))
         self.target.valueChanged.connect(lambda v:self.depth.setValue(-v) if v<0 else None)
         self.section.valueChanged.connect(self.select_section)
-        self.anchor=QtWidgets.QLabel();layout.addWidget(self.anchor)
-        actions=QtWidgets.QHBoxLayout()
+        self.anchor=QtWidgets.QLabel();self.anchor.setWordWrap(True);layout.addWidget(self.anchor)
+        actions=QtWidgets.QVBoxLayout()
         for text,handler in [('Профиль коридора',self.preview_corridor),('Пример: море → Каттара',self.example_corridor),('Очистить линию',self.clear_route),('Открыть участок · новый локальный запуск',self.open_workspace)]:
             button=QtWidgets.QPushButton(text);button.clicked.connect(handler);actions.addWidget(button)
         layout.addLayout(actions)
-        launch=QtWidgets.QHBoxLayout()
+        launch=QtWidgets.QVBoxLayout()
         self.prepare_button=QtWidgets.QPushButton('Разметить канал');self.prepare_button.clicked.connect(self.prepare_channel)
         self.start_button=QtWidgets.QPushButton('Начать копание выбранного участка');self.start_button.clicked.connect(self.start_channel)
         self.next_button=QtWidgets.QPushButton('Следующий участок · новая расстановка');self.next_button.clicked.connect(self.next_section)
         for b in (self.prepare_button,self.start_button,self.next_button):launch.addWidget(b)
         self.water_button=QtWidgets.QPushButton('Водоём / прокоп…');self.water_button.clicked.connect(self.open_flooding);launch.addWidget(self.water_button)
         layout.addLayout(launch)
-        travel=QtWidgets.QHBoxLayout()
+        travel=QtWidgets.QVBoxLayout()
         self.move_button=QtWidgets.QPushButton('Переехать всей группой в выбранное окно')
         self.move_button.clicked.connect(self.move_group)
         self.move_next_button=QtWidgets.QPushButton('Переехать на следующий участок канала')
@@ -90,7 +97,7 @@ class LandscapeDialog(QtWidgets.QDialog):
             for button in (self.move_button,self.move_next_button,self.cancel_move_button):
                 button.setEnabled(False);button.setToolTip('На площадке ещё нет комплекса для переезда')
         layout.addLayout(travel)
-        streaming=QtWidgets.QHBoxLayout()
+        streaming=QtWidgets.QVBoxLayout()
         self.prefetch_auto=QtWidgets.QCheckBox('Автоподгрузка областей')
         self.cache_limit=QtWidgets.QSpinBox();self.cache_limit.setRange(0,4096);self.cache_limit.setSuffix(' МиБ тайлов в RAM')
         self.prefetch_button=QtWidgets.QPushButton('Предзагрузить выбранное окно')
@@ -105,9 +112,15 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.prefetch_auto.toggled.connect(self.change_prefetch)
         self.cache_limit.valueChanged.connect(self.change_cache_limit)
         self.profile=pg.PlotWidget();self.profile.setLabel('left','Высота MSL',units='m');self.profile.setLabel('bottom','Вдоль коридора',units='m')
-        self.ground=self.profile.plot(pen='#efce8b');self.design=self.profile.plot(pen=pg.mkPen('#59cde4',style=QtCore.Qt.PenStyle.DashLine));layout.addWidget(self.profile,1)
+        self.profile.setMinimumHeight(160)
+        self.ground=self.profile.plot(pen='#efce8b');self.design=self.profile.plot(pen=pg.mkPen('#59cde4',style=QtCore.Qt.PenStyle.DashLine));layout.addWidget(self.profile)
         self.result=QtWidgets.QLabel('ЛКМ выбирает участок; в режиме коридора добавляет вершины линии. Оценка коридора не запускает земляные работы и не выбирает оптимальный маршрут.');self.result.setWordWrap(True);layout.addWidget(self.result)
         self.project_info=QtWidgets.QLabel('Нарисуйте линию от морского берега в сухую впадину. «Разметить канал» установит береговой отступ и конец по уровню моря.');self.project_info.setWordWrap(True);layout.addWidget(self.project_info)
+        from .landscape_display_ui import ElevationDisplay
+        self.elevation_display=ElevationDisplay(self);view_layout.insertWidget(0,self.elevation_display.toolbar)
+        from .ui_windows import fit_window
+        fit_window(self,1250,900)
+        self._fit_overview=True
         for s in (self.x,self.y):s.valueChanged.connect(self.update_selection)
         self.side.currentIndexChanged.connect(self.update_selection)
         self.show_region()
@@ -121,6 +134,12 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.selection_timer.timeout.connect(self.prefetch_selected)
         self.finished.connect(self.finish_reading)
         self.refresh_prefetch()
+
+    def showEvent(self,event):
+        super().showEvent(event)
+        if self._fit_overview:
+            self._fit_overview=False
+            QtCore.QTimer.singleShot(0,self.elevation_display.fit_view)
 
     def open_flooding(self):
         if not self._new_run_allowed():return
@@ -241,12 +260,8 @@ class LandscapeDialog(QtWidgets.QDialog):
 
     def show_region(self):
         r=self.region.raster;h=r.height
-        finite=h[np.isfinite(h)];lo,hi=min(-150.,float(finite.min())),max(150.,float(finite.max()))
-        colors=pg.ColorMap([0.,max(.001,min(.999,-lo/(hi-lo))),1.],['#103b63','#aaab79','#fff0c1'])
-        self.image.setImage(h,levels=(lo,hi),lut=colors.getLookupTable())
-        # Pixel centres correspond to the source nodes; extend half a DEM cell.
+        lo,hi=float(np.nanmin(h)),float(np.nanmax(h))
         rx,ry=r.resolution_m;w,t=r.extent_m
-        self.image.setRect(QtCore.QRectF(-rx/2,-ry/2,w+rx,t+ry))
         self.map.setRange(xRange=(0,w),yRange=(0,t),padding=.01)
         active=self.window.config.georeference
         if getattr(self.window,'landscape',None) is self.region and active:
@@ -272,11 +287,12 @@ class LandscapeDialog(QtWidgets.QDialog):
                 self.show_project()
             except (ValueError,KeyError,TypeError) as error:self.result.setText(str(error))
         s=self.region.report()
-        self.info.setText(f"{r.metadata.get('source','DEM')} · {h.shape[1]}×{h.shape[0]} · шаг {rx:.0f}×{ry:.0f} м · MSL: {finite.min():.0f}…{finite.max():.0f} м\nИзменённых блоков: {s['modified_tiles']} · подробные данные: {s['fine_storage_bytes']/1024:.1f} КиБ. Мелкая сетка интерполирует DEM, точность источника остаётся прежней. Жёлтый участок намного меньше региона; увеличьте масштаб колесом.")
+        self.info.setText(f"{r.metadata.get('source','DEM')} · {h.shape[1]}×{h.shape[0]} · шаг {rx:.0f}×{ry:.0f} м · MSL: {lo:.0f}…{hi:.0f} м\nИзменённых блоков: {s['modified_tiles']} · подробные данные: {s['fine_storage_bytes']/1024:.1f} КиБ. Мелкая сетка интерполирует DEM, точность источника остаётся прежней. Жёлтый участок намного меньше региона; увеличьте масштаб колесом.")
         profile=self.region.soil_profile
         self.info.setText(self.info.text()+('\nГрунт: '+profile.name+' · условная модель, без геологической съёмки' if profile is not None else '\nГрунт: однородный, прежняя модель'))
         if self.region.generation:
             g=self.region.generation;self.info.setText(self.info.text()+f" · Рельеф v{g['version']}, seed {g['seed']}, неровности ≤{g['amplitude_m']:g} м")
+        self.elevation_display.set_region(r)
 
     def update_selection(self):
         x,y=self.x.value(),self.y.value();side=self.side.currentData()
@@ -288,6 +304,7 @@ class LandscapeDialog(QtWidgets.QDialog):
     def map_clicked(self,event):
         if event.button()!=QtCore.Qt.MouseButton.LeftButton or not self.map.sceneBoundingRect().contains(event.scenePos()):return
         p=self.map.getViewBox().mapSceneToView(event.scenePos());point=[p.x(),p.y()]
+        if self.elevation_display.shift_click(point,event.modifiers()):return
         if self.route_mode.isChecked():
             if len(self.points)>=4096:return
             self.points.append(point);self.route.setData(np.array(self.points));return

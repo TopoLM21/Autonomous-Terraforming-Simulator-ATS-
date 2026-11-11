@@ -1,0 +1,88 @@
+{
+  "date": "2026-11-11",
+  "base_commit": "aabebdba7884b52cfb8bf2781bcaa4924575ae22",
+  "environment": {
+    "os": "Linux",
+    "python": "3.12.14",
+    "pyside": "6.12.0",
+    "numpy": "2.5.4",
+    "pyqtgraph": "0.14.0",
+    "qt_platform": "offscreen"
+  },
+  "full_suite": {
+    "tests": 918,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "wall_seconds": 557.3194283949997,
+    "batches": [
+      {
+        "batch": 0,
+        "files": 5,
+        "exit_code": 0,
+        "tests": 60,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "seconds": 273.022
+      },
+      {
+        "batch": 1,
+        "files": 40,
+        "exit_code": 0,
+        "tests": 491,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "seconds": 553.976
+      },
+      {
+        "batch": 2,
+        "files": 27,
+        "exit_code": 0,
+        "tests": 367,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "seconds": 306.279
+      }
+    ]
+  },
+  "final_targeted": {
+    "tests": 39,
+    "passed": 39,
+    "seconds": 23.8,
+    "includes_geographic_rounding_regression": true
+  },
+  "new_tests": {
+    "tests": 20,
+    "pure": 12,
+    "qt_ui": 8
+  },
+  "cli": {
+    "commands": 36,
+    "failures": 0,
+    "wall_seconds": 96.30797105800957,
+    "scope": "10 standard CI command groups plus shared axis-station resume; reports validated"
+  },
+  "qattara_frame_preparation_ms": {
+    "msl_median": 4.09,
+    "msl_max": 6.39,
+    "band_median": 11.56,
+    "band_max": 21.33,
+    "repetitions": 12,
+    "display_nodes": [
+      241,
+      301
+    ],
+    "cached_marine_mask": true,
+    "note": "Qt offscreen draw-data preparation only; excludes painting, initial sea mask and simulation. Not a measurement of user FPS or time factor."
+  },
+  "limits": [
+    "Original coarse DEM, not live earthworks or projected excavation",
+    "Height threshold is not a flooding calculation",
+    "Map grid at most 768x768; profile at most 2048 samples",
+    "Display choices survive reopening in the same host session, not restart or snapshot",
+    "No Windows run or CI for this local commit; no push requested"
+  ]
+}
