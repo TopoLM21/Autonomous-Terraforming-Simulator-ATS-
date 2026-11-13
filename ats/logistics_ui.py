@@ -133,6 +133,7 @@ class LogisticsWindow(QtWidgets.QDialog):
         if r.get('excavators'):
             robot='Кроты: '+str(len(r['excavators']))+' · общий склад\n'+'\n'.join(f"{item['id']}: {item['state']} · {item['excavated_m3']:.4f} м³ · {item['energy_kwh']:.2f}/{item['capacity_kwh']:.2f} кВт·ч" for item in r['excavators'])+'\n'
         self.status.setText(robot+f"\nКонтейнерные рейсы: {r['container_cycles']} · групповые переносы: {r['collective_lift_count']}\n"
+            +(f"Подготовка переноса: {r['lift_preparation']['reason']}\n" if r.get('lift_preparation') else '')+
             f"Стратегия: {r['courier_strategy']} · курьер {courier} · {r['courier']['reason']}\n"
             f"Готовых ёмкостей {r['courier']['filled_containers']} · порог партии {r['courier']['threshold']}\n"
             f"Поставок батарей: {r['battery_deliveries_count']} · ввоз оборудования {r['inventory_imported_mass_kg']:.1f} кг\n"

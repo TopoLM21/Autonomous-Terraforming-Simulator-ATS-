@@ -1296,6 +1296,8 @@ class MainWindow(QtWidgets.QMainWindow):
             rows.insert(4,('Партия / курьер',f"{courier['filled_containers']}/{courier['threshold']} · "+
                 ((f"Д{courier['drone_serial']} · {courier['reason']}" if courier['drone_serial'] is not None
                   else 'ожидание готового дрона') if courier['active'] else 'все копают')))
+            if report.get('lift_preparation'):
+                rows.insert(5,('Подготовка переноса',report['lift_preparation']['reason']))
             rows.extend([('Энергетика базы',report['base_energy_status']),
                 ('Генерация / нагрузка',f"{report['solar_power_w']/1000:.2f} / {report['base_load_power_w']/1000:.2f} кВт"),
                 ('Поток в батарею базы',f"{report['base_battery_power_w']/1000:+.2f} кВт · плюс: заряд, минус: разряд"),
@@ -1306,6 +1308,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if project is not None and project.shared_site is not None:
             volume=sum(u.simulation.excavated_volume if u.simulation.terrain.soil is not None else u.simulation.excavated_mass/u.simulation.config.terrain.density for u in project.units)
             self.compact_telemetry.setText(self.compact_telemetry.text()+f'\nОбщая выемка: {volume:.2f} м³')
+        if report.get('lift_preparation'):
+            self.compact_telemetry.setText(self.compact_telemetry.text()+'\n'+report['lift_preparation']['reason'])
         for serial, timestamp, message in s.events:
             if serial > self.last_event:
                 self.log.appendPlainText(f"[{timestamp/60:6.1f} мин] {message}")

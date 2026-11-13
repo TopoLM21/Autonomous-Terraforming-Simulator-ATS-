@@ -324,7 +324,60 @@ class Logistics:
     @property
     def relocation_robot(self):
         if self.group is not None:return self.robot(getattr(self.group,'excavator_serial',1))
-        return next((e for e in self.excavators if e.state.value=='WAITING_RELOCATION'),None)
+        waiting=[e for e in self.excavators if e.state.value=='WAITING_RELOCATION']
+        if not waiting:return None
+        # Keep the preparation assigned to the machine already receiving the
+        # single rig, even if a lower-numbered machine asks to move meanwhile.
+        rig=self.inventory.items['group_rig']
+        if rig.reserved_by:
+            job=next((j for j in self.jobs if j.id==rig.reserved_by and j.kind=='DELIVER_RIGGING'
+                      and j.status in ('QUEUED','ACTIVE')),None)
+            target=next((e for e in waiting if job and e.serial==getattr(job,'excavator_serial',1)),None)
+            if target is not None:return target
+        if rig.location==L.WORKSITE_RACK:
+            target=next((e for e in waiting if e.id==rig.holder_id or e.serial==1 and rig.holder_id=='worksite'),None)
+            if target is not None:return target
+        return waiting[0]
+
+    def lift_rig_ready(self,robot):
+        rig=self.inventory.items['group_rig']
+        return (rig.location==L.WORKSITE_RACK and not rig.reserved_by and
+                np.linalg.norm(np.asarray(rig.position[:2])-robot.position[:2])<=self.config.reach_m)
+
+    @property
+    def lift_muster_robot(self):
+        """A team is needed only after finite ground preparation has finished.
+
+        The delivered, unreserved rig latches this phase. Its existing physical
+        location and job reservations also preserve it in older snapshots.
+        """
+        s=self.sim
+        if (self.group is not None or s.landing_requested or s.base.destination is not None or s.relocation_pending is not None
+                or getattr(s,'regional_stage',None)):return None
+        e=self.relocation_robot
+        return e if (e is not None and e.destination is not None and self.lift_rig_ready(e)
+                     and s.terrain.remaining_cut>s.config.terrain.completion_volume) else None
+
+    def lift_preparation(self):
+        if self.sim.landing_requested and self.group is None:return None
+        e=self.relocation_robot
+        if e is None:return None
+        if self.group is not None:
+            phase=self.group.phase;detail='совместный перенос · '+phase
+        elif self.lift_muster_robot is None:
+            phase='PREPARATION'
+            detail=('ожидание безопасной площадки' if e.destination is None else
+                    'доставка и освобождение строп; свободная техника может работать')
+        else:
+            phase='RENDEZVOUS';reasons=[]
+            flying=[str(d.serial) for d in self.sim.drones if d.identifier in self.active or d.identifier in self.direct_ids or not d.grounded]
+            charging=[str(d.serial) for d in self.sim.drones if d.charge_requested]
+            tools=[str(d.serial) for d in self.sim.drones if d.identifier in self.tool_targets]
+            if flying:reasons.append('завершают рейсы Д'+', Д'.join(flying))
+            if charging:reasons.append('заряд / смена батарей Д'+', Д'.join(charging))
+            if tools:reasons.append('смена инструмента Д'+', Д'.join(tools))
+            detail='сбор команды: '+('; '.join(reasons) or 'проверка грузоподъёмности и запаса энергии')
+        return dict(excavator_serial=e.serial,phase=phase,reason=f'Крот {e.serial}: {detail}')
 
     def owns_rack(self,item,robot=None):
         e=robot or self.excavator
@@ -683,6 +736,7 @@ class Logistics:
         s=self.sim
         if self._base_moving_step or s.base.destination is not None or s.relocation_pending is not None:return
         if not s.work_allowed:return
+        if self.lift_muster_robot is not None:return
         pending=sorted((j for j in self.jobs if j.status=='QUEUED'),
                        key=lambda j:(j.priority-(s.time-j.created_at)/600,j.created_at,j.id))
         for d in s.drones:
@@ -726,23 +780,40 @@ class Logistics:
 
     def _try_lift(self):
         if getattr(self.sim,'regional_stage',None):return
-        if not self.sim.work_allowed:return
+        if not self.sim.work_allowed or self.sim.landing_requested:return
         from .cooperative_lift import CollectiveLift,lift_check
         from copy import copy
         e=self.excavator;s=self.sim
         if e is None or e.state.value!='WAITING_RELOCATION' or self.group is not None or self._base_moving_step or s.base.destination is not None or s.relocation_pending is not None:return
-        if len(self.excavators)>1 and (e.destination is None or not e.stable(e.destination,s.terrain)):
+        if s.terrain.remaining_cut<=s.config.terrain.completion_volume:
+            # Diggers may finish the last cut while the rig is being delivered.
+            # Cancel only an unstarted delivery; airborne cargo still lands.
+            from .excavator import ExcavatorState as ES
+            for job in self.jobs:
+                if job.kind=='DELIVER_RIGGING' and job.status=='QUEUED' and getattr(job,'excavator_serial',1)==e.serial:
+                    self.cancel_job(job.id)
+            e.state=ES.IDLE;e.destination=None
+            e.reason='SECTOR_COMPLETE' if s.terrain.front is not None and s.terrain.front.axis and s.terrain.front.complete else 'WORK_COMPLETE'
+            return
+        if e.destination is None or len(self.excavators)>1 and not e.stable(e.destination,s.terrain):
             replacement=e.find_site(s.terrain,self.inventory)
             if replacement is None:
-                e.reason='WAITING_SAFE_RELOCATION_SITE';return
+                e.destination=None;e.reason='WAITING_SAFE_RELOCATION_SITE';return
             e.destination=replacement
         if s.terrain.front is not None and s.terrain.front.axis and s.terrain.front.complete:return
+        rig=self.inventory.items['group_rig']
+        if not self.lift_rig_ready(e):
+            # Request preparation while other aircraft are still productive.
+            # Rigging precedes ordinary soil/empty-container hauls; critical
+            # power deliveries keep their existing higher priority.
+            job=self.new_job('DELIVER_RIGGING',rig,rig.position,e.position,2)
+            if job is None:
+                job=next((j for j in self.jobs if j.id==rig.reserved_by and j.kind=='DELIVER_RIGGING'
+                          and j.status=='QUEUED'),None)
+                if job is not None:job.priority=min(job.priority,2)
+            return
         if (self.active or self.direct_ids or self.tool_targets or self.recall_ids or self.battery_service.drone_swaps
                 or any(not d.grounded for d in s.drones)):return
-        rig=self.inventory.items['group_rig']
-        if np.linalg.norm(np.asarray(rig.position[:2])-e.position[:2])>self.config.reach_m:
-            self.new_job('DELIVER_RIGGING',rig,rig.position,e.position,6)
-            return
         if not self.config.air_relocation:
             s.block('BLOCKED_LOCAL_PATH: воздушный перенос отключён');return
         preview=copy(e);preview.battery_ids=[]
@@ -760,7 +831,7 @@ class Logistics:
 
     def direct_should_return(self, d):
         return (not self.sim.work_allowed or self.sim.relocation_pending is not None or d.identifier in self.tool_targets or d.identifier in self.recall_ids or
-                self.relocation_robot is not None)
+                self.lift_muster_robot is not None)
 
     def request_tool(self, d, target):
         if d.attachment==target:
@@ -862,6 +933,9 @@ class Logistics:
     def service_tools(self):
         """Return to an actual pad, then exchange two physical attachments."""
         s=self.sim
+        # Existing exchanges complete in tick_tool_changes. Do not start new
+        # courier rotations while the delivered rig is waiting for its team.
+        if self.lift_muster_robot is not None:return
         pending=sorted((j for j in self.jobs if j.status=='QUEUED'),
                        key=lambda j:(j.priority-(s.time-j.created_at)/600,j.created_at,j.id))
         relocating=self.relocation_robot is not None
@@ -995,7 +1069,7 @@ class Logistics:
         if not s.work_allowed:return
         if s.terrain.remaining<=s.config.terrain.completion_volume:return
         if self._base_moving_step or s.base.destination is not None or s.relocation_pending is not None:return
-        if self.relocation_robot is not None:return
+        if self.lift_muster_robot is not None:return
         # Transport assignments and necessary tool changes have already been
         # selected; unrelated queued cargo must not serialize the whole fleet.
         for d in s.drones:
@@ -1053,8 +1127,8 @@ class Logistics:
             return ('Ожидание станции смены инструмента'+(': '+detail if detail else '')) if d.docked else 'Очередь к станции смены инструмента'
         if not self.sim.work_allowed:return self.sim.work_wait_reason
         if self.group is not None:return 'Подготовка совместного переноса'
-        if self.relocation_robot is not None:
-            return 'Сбор команды для переноса Крота'
+        if self.lift_muster_robot is not None:
+            return self.lift_preparation()['reason']
         if self.sim.landing_requested:return 'Посадка флота запрошена'
         if self.sim.terrain.remaining<=self.sim.config.terrain.completion_volume:return 'Завершение миссии'
         if d.identifier in self.active:return ''
@@ -1574,6 +1648,8 @@ class Logistics:
         report['container_cycles']=sum(c.cycles for c in self.containers)
         report['battery_service']=self.battery_service.snapshot(include_slots=full)
         report['collective_lift']=self.group.report() if self.group else None
+        preparation=self.lift_preparation()
+        if preparation is not None:report['lift_preparation']=preparation
         report['collective_lift_count']=self.lift_count
         report['delivered_mass_kg']=self.delivered_mass
         report['solar_field_deployed']=self.field_ready

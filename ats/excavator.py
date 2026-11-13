@@ -297,9 +297,11 @@ class Excavator:
         if not self.consume(idle,inv,control=True):
             self.state=ExcavatorState.LOW_BATTERY;self.reason='CONTROL_OFF_WAITING_DOCK_POWER';return
         if self.state==ExcavatorState.WAITING_RELOCATION:
-            if t.front is not None and t.front.axis and t.front.complete and logistics.group is None and not self.bucket_kg:
+            complete=t.remaining_cut<=s.config.terrain.completion_volume
+            sector=t.front is not None and t.front.axis and t.front.complete
+            if (complete or sector) and logistics.group is None and not self.bucket_kg:
                 self.state=ExcavatorState.IDLE;self.target=None;self.destination=None
-                self.reason='SECTOR_COMPLETE';logistics.progress_at=s.time;return
+                self.reason='SECTOR_COMPLETE' if sector else 'WORK_COMPLETE';logistics.progress_at=s.time;return
             self.waiting_seconds+=1.;return
         if self.state==ExcavatorState.MOVING_LOCAL:
             if not self._safe_drive_step(t):
@@ -347,14 +349,15 @@ class Excavator:
                 if logistics.owns_rack(container,self) and container.location==L.WORKSITE_RACK and container.soil_kg>0 and not container.reserved_by:
                     container.location=L.FILLED_QUEUE;container.state='FULL_READY'
             self.state=ExcavatorState.IDLE;self.reason='WORK_COMPLETE';return
-        if (len(logistics.excavators)>1 and logistics.relocation_robot is not None) or not s.work_allowed or s.landing_requested or t.front is not None and t.front.axis and not t.front.cut_enabled:
+        team_pause=len(logistics.excavators)>1 and (logistics.group is not None or logistics.lift_muster_robot is not None)
+        if team_pause or not s.work_allowed or s.landing_requested or t.front is not None and t.front.axis and not t.front.cut_enabled:
             inv.release(self.cycle_owner);self.active_container=None;self.elapsed=0.
             for container in logistics.containers:
                 if logistics.owns_rack(container,self) and container.location==L.WORKSITE_RACK and container.soil_kg>0 and not container.reserved_by:
                     container.location=L.FILLED_QUEUE;container.state='FULL_READY'
             self.state=ExcavatorState.IDLE
             self.reason=('WAITING_WORK_WINDOW' if not s.work_allowed else
-                'WAITING_TEAM_RELOCATION: '+logistics.relocation_robot.id if len(logistics.excavators)>1 and logistics.relocation_robot is not None else
+                'WAITING_TEAM_RELOCATION: '+logistics.relocation_robot.id if team_pause else
                 'PAUSED_FOR_PLAN_OR_MAINTENANCE')
             return
         cycle_budget=c.digging_power_w*c.cycle_seconds*(max(t.soil.profile.factors) if t.soil is not None else 1.)

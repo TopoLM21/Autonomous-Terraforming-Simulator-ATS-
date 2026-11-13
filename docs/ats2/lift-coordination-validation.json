@@ -1,0 +1,300 @@
+{
+  "baseline_commit": "7c93d3555283dca2700bacfe05eba1845703634e",
+  "scope": "Krot relocation preparation and rendezvous coordination; local change, no publication in this stage",
+  "environment": {
+    "os": "Linux",
+    "python": "3.12.14",
+    "numpy": "2.5.4",
+    "pyside6": "6.12.0",
+    "qt": "6.12.0",
+    "qt_platform": "offscreen"
+  },
+  "tests": {
+    "full_suite": {
+      "wall_seconds": 496.1678376889995,
+      "batches": [
+        {
+          "batch": 0,
+          "exit_code": 0,
+          "files": [
+            "tests/test_base_layout.py",
+            "tests/test_channel.py",
+            "tests/test_channel_space.py",
+            "tests/test_completion.py",
+            "tests/test_workfront.py"
+          ],
+          "finished_after_seconds": 180.82730102099958,
+          "tests": 60,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0
+        },
+        {
+          "batch": 2,
+          "exit_code": 0,
+          "files": [
+            "tests/test_airspace.py",
+            "tests/test_base_batteries.py",
+            "tests/test_batch_strategy.py",
+            "tests/test_battery_platforms.py",
+            "tests/test_checkpoint.py",
+            "tests/test_cli.py",
+            "tests/test_coastal_compact.py",
+            "tests/test_compact_season.py",
+            "tests/test_earthworks_performance.py",
+            "tests/test_energy.py",
+            "tests/test_equipment.py",
+            "tests/test_hydrology.py",
+            "tests/test_individual_chargers.py",
+            "tests/test_landscape.py",
+            "tests/test_landscape_ui.py",
+            "tests/test_laser.py",
+            "tests/test_laser_reference.py",
+            "tests/test_salinity.py",
+            "tests/test_scheduler_utilization.py",
+            "tests/test_sea_exchange.py",
+            "tests/test_sectors.py",
+            "tests/test_site_layout.py",
+            "tests/test_soil.py",
+            "tests/test_solar.py",
+            "tests/test_spare_controls.py",
+            "tests/test_terrain.py",
+            "tests/test_tool_station.py"
+          ],
+          "finished_after_seconds": 303.72731938800007,
+          "tests": 367,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0
+        },
+        {
+          "batch": 1,
+          "exit_code": 0,
+          "files": [
+            "tests/test_activity_stats.py",
+            "tests/test_compact_overviews.py",
+            "tests/test_complexes.py",
+            "tests/test_dig_rate.py",
+            "tests/test_display_modes.py",
+            "tests/test_drone.py",
+            "tests/test_dust.py",
+            "tests/test_equipment_caches.py",
+            "tests/test_fleet.py",
+            "tests/test_gui.py",
+            "tests/test_large_solar_base_specs.py",
+            "tests/test_live_inventory_solar.py",
+            "tests/test_logistics.py",
+            "tests/test_map_visuals.py",
+            "tests/test_maps_and_zoom.py",
+            "tests/test_material_slopes.py",
+            "tests/test_natural_excavation.py",
+            "tests/test_plan.py",
+            "tests/test_power_design.py",
+            "tests/test_procedural.py",
+            "tests/test_regional.py",
+            "tests/test_runtime_optimizations.py",
+            "tests/test_self_solar.py",
+            "tests/test_service_recovery.py",
+            "tests/test_shared_site.py",
+            "tests/test_streaming.py",
+            "tests/test_window_boundaries.py",
+            "tests/test_winter_power.py",
+            "tests/test_axis_station_cache.py",
+            "tests/test_axis_station_ui.py",
+            "tests/test_axis_stations.py",
+            "tests/test_complex_setup.py",
+            "tests/test_complex_setup_ui.py",
+            "tests/test_excavator_fleet.py",
+            "tests/test_excavator_regions.py",
+            "tests/test_hydrology_workspace.py",
+            "tests/test_landing_queue.py",
+            "tests/test_landscape_display.py",
+            "tests/test_landscape_display_ui.py",
+            "tests/test_lift_coordination.py",
+            "tests/test_work_schedule.py"
+          ],
+          "finished_after_seconds": 495.91755087099955,
+          "tests": 505,
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0
+        }
+      ],
+      "total": 932
+    },
+    "new_cases": 14,
+    "cli": {
+      "total_commands": 32,
+      "groups": [
+        {
+          "group": "Legacy CLI",
+          "commands": 1,
+          "passed": true,
+          "seconds": 3.715526811000018
+        },
+        {
+          "group": "ATS 2.0 logistics smoke test",
+          "commands": 6,
+          "passed": true,
+          "seconds": 16.439235752998684
+        },
+        {
+          "group": "Offline real DEM smoke test",
+          "commands": 2,
+          "passed": true,
+          "seconds": 0.5653460030007409
+        },
+        {
+          "group": "Save and resume airborne simulation",
+          "commands": 4,
+          "passed": true,
+          "seconds": 4.52008296799977
+        },
+        {
+          "group": "Prepared Qattara channel smoke test",
+          "commands": 2,
+          "passed": true,
+          "seconds": 5.945077831999697
+        },
+        {
+          "group": "Layered soil and complete snapshot continuation",
+          "commands": 4,
+          "passed": true,
+          "seconds": 4.791482427000119
+        },
+        {
+          "group": "Energy sizing and executable equipment template",
+          "commands": 3,
+          "passed": true,
+          "seconds": 1.113248310999552
+        },
+        {
+          "group": "Two complexes on common regional project and exact resume",
+          "commands": 4,
+          "passed": true,
+          "seconds": 31.021983038001054
+        },
+        {
+          "group": "Twenty complexes on one physical map and exact snapshot continuation",
+          "commands": 4,
+          "passed": true,
+          "seconds": 13.223281949000011
+        },
+        {
+          "group": "Continuous design includes real platform hardware",
+          "commands": 2,
+          "passed": true,
+          "seconds": 1.349642775000575
+        }
+      ]
+    },
+    "covered": [
+      "Free diggers and other excavators remain productive with 3 and 10 Krots during preparation",
+      "Early rig request, priority promotion and stable target with concurrent requests",
+      "Rig reserved in flight does not start crew muster",
+      "No new courier rotation or cargo dispatch once physical rig is delivered",
+      "Unsafe destination does not reserve the whole fleet",
+      "Actual finite relocation through a backlog of loaded soil containers",
+      "Exact save/load continuation in PREPARATION, RENDEZVOUS and FLY",
+      "Reset of a loaded rig courier keeps cargo and completes delivery",
+      "Completed cut cancels only unstarted rig job and preserves fill work",
+      "Successive relocation of two different Krots with productive work between moves",
+      "Actual MainWindow sidebar, fleet tooltip and LogisticsWindow show target and blocker",
+      "Manual fleet landing defers new lift and safely drains loaded soil",
+      "Historical v1-v3 frozen reports remain exact; all repository checkpoint tests pass"
+    ]
+  },
+  "controlled_relocation": {
+    "command": "python scripts/benchmark_lift_coordination.py --output lift-after.json",
+    "fixture": "4 drones, 3 Krots, 24 containers filled from real scoops, 56 full drone spare modules, explicit safe +8m air relocation request",
+    "before": {
+      "model_seconds": 3192.0,
+      "wall_seconds": 3.875759895000556,
+      "state": "RUNNING",
+      "reason": "",
+      "drones": 4,
+      "excavators": 3,
+      "initial_filled_containers": 24,
+      "drone_spare_modules": 56,
+      "first_group_seconds": 2928.0,
+      "completed_lifts": 1,
+      "target_relocations": 1,
+      "direct_digger_seconds_before_group": 0,
+      "queued_soil_jobs": 0,
+      "mass_error_kg": 0.0,
+      "energy_error_j": 5.21540641784668e-07,
+      "ids_preserved": true
+    },
+    "after": {
+      "model_seconds": 481.0,
+      "wall_seconds": 0.8228174149999177,
+      "state": "RUNNING",
+      "reason": "",
+      "drones": 4,
+      "excavators": 3,
+      "initial_filled_containers": 24,
+      "drone_spare_modules": 56,
+      "first_group_seconds": 216.0,
+      "completed_lifts": 1,
+      "target_relocations": 1,
+      "direct_digger_seconds_before_group": 635,
+      "queued_soil_jobs": 24,
+      "mass_error_kg": 2.2737367544323206e-13,
+      "energy_error_j": 3.3527612686157227e-08,
+      "ids_preserved": true
+    },
+    "interpretation": "Changed model dispatch order, not a wall-clock factor claim. Routine soil backlog is retained after earlier lift, never discarded. This is not the user save."
+  },
+  "legacy_v21": {
+    "source_commit": "7c93d3555283dca2700bacfe05eba1845703634e",
+    "source_format": 21,
+    "old_queued_rig_priority": 6,
+    "resumed_priority": 2,
+    "steps_before_second_save": 60,
+    "productive_drones_after_60_steps": 3,
+    "continuation_steps_after_reload": 30,
+    "exact_continuation": true,
+    "ids_preserved": true,
+    "uninterrupted_model_time": true,
+    "mass_error_kg": 1.4210854715202004e-13,
+    "energy_error_j": 2.2671883925795555e-08
+  },
+  "short_14x4_control": {
+    "fixture": "Same parent snapshot, shared terrain, 14 complexes x 4 drones, one Krot and 20 m2 PV per complex",
+    "model_seconds": 5,
+    "repetitions": 3,
+    "stage": "startup only; no pending Krot relocations at t=0",
+    "before": {
+      "fixture": "14x4.atsstate",
+      "seconds": [
+        4.4208928569996715,
+        4.175043554000695,
+        2.8510865900007047
+      ],
+      "median_seconds": 4.175043554000695,
+      "physical_report_sha256": "02286ccb1a7f8b951e1775460e21dde6f86a654686625d8f3a94482be490fd6b",
+      "mass_error_kg": 0.0,
+      "energy_error_j": -5.697584128938615e-07
+    },
+    "after": {
+      "fixture": "14x4.atsstate",
+      "seconds": [
+        4.3673884879999605,
+        4.158738991000064,
+        2.9222986639997544
+      ],
+      "median_seconds": 4.158738991000064,
+      "physical_report_sha256": "02286ccb1a7f8b951e1775460e21dde6f86a654686625d8f3a94482be490fd6b",
+      "mass_error_kg": 0.0,
+      "energy_error_j": -5.697584128938615e-07
+    },
+    "interpretation": "Physical reports identical except optional diagnostic field; high timing variance, no demonstrated speed-up or real UI FPS conclusion."
+  },
+  "limits": [
+    "All-drone lifting team and single-courier policy retained",
+    "Other Krots still pause new cycles during finite crew muster and actual group lift",
+    "Charging, missing tools, unsafe sites and insufficient lift energy remain legitimate waits",
+    "No user save supplied; not proof that every multi-hour wait is eliminated",
+    "New code tested locally on Linux with Qt offscreen; Windows CI requires later publication"
+  ]
+}
