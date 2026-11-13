@@ -34,13 +34,14 @@ class Simulation:
     def __init__(self, config=None,terrain=None,initial_stock=None):
         self.config = config or Config()
         self.config.validate()
-        resolve_config(self.config);self.config.validate()
+        if not self.config.conventional_only:resolve_config(self.config)
+        self.config.validate()
         from .base_layout import configure_layout
         self.initial_stock=initial_stock or []
         extra=[]
         for r in self.initial_stock:
             for _ in range(r['count']):extra.append((r['mass_kg']+(self.config.logistics.charger_slot_mass_kg if self.config.logistics and self.config.logistics.individual_chargers else 0.),r['capacity_kwh'],f'initial_stock_{len(extra)+1:05}'))
-        layout=configure_layout(self.config,extra)
+        layout=None if self.config.conventional_only else configure_layout(self.config,extra)
         self.terrain = Terrain(self.config) if terrain is None else terrain
         b = self.config.base
         self.base = SolarBase(b, np.array([b.x, b.y, self.terrain.sample(b.x, b.y)]))
@@ -112,7 +113,8 @@ class Simulation:
         self.laser_links = []
         self.event(f"Сценарий готов: дронов {len(self.drones)}, зарядных слотов {len(self.slots)}")
         points = [self.slot_position(i) for i in range(len(self.slots))]+[self.wait_position(i) for i in range(len(self.drones))]
-        if not self.base.safe_path(self.base.position[:2], self.terrain) or any(not self._safe_pad(p) for p in points):
+        if self.config.conventional_only:pass
+        elif not self.base.safe_path(self.base.position[:2], self.terrain) or any(not self._safe_pad(p) for p in points):
             self.block("База или посадочные площадки пересекают канаву, отвал либо край карты")
         elif ((getattr(self.terrain,'dump_reserve_info',None) is not None and not self.terrain.dump_reserve_info['sufficient'])
               or (getattr(self.terrain,'dump_reserve_info',None) is None and self.terrain.dump_space < max(0, self.terrain.remaining_cut-self.terrain.remaining_fill))):
@@ -122,6 +124,20 @@ class Simulation:
             from .logistics import Logistics
             self.logistics = Logistics(self)
         if solar_placement_issue:self.block(solar_placement_issue)
+        self.conventional=None
+        if self.config.conventional_only:self.base.battery=0.;self._initial_energy=0.
+
+    @classmethod
+    def conventional_only(cls,config=None):
+        from copy import deepcopy
+        c=deepcopy(config or Config());c.conventional_only=True
+        c.fleet.count=0;c.fleet.charge_slots=0;c.fleet.models=[]
+        c.logistics=None;c.base.layout=None;c.energy_design=None;c.operating_schedule=None;c.cost_catalog=None
+        return cls(c)
+
+    def install_conventional(self,config):
+        from .conventional_integration import install
+        return install(self,config)
 
     @property
     def drone(self):
@@ -214,6 +230,8 @@ class Simulation:
         return not np.any(blocked&near) and not (not enabled(t) and (t.excavation[iy,ix] or t.fill_mask[iy,ix]))
 
     def apply_plan(self, plan):
+        if getattr(self,'conventional',None) is not None:
+            raise ValueError('Рабочий участок обычной техники уже размечен; новый план задайте в новом проекте')
         if self.shared_site is not None:return self.shared_site.apply_plan(plan)
         from copy import deepcopy
         if self.pending_equipment is not None:raise ValueError("Сначала дождитесь установки оборудования или отмените её")
@@ -1277,7 +1295,19 @@ class Simulation:
         dt = self.config.dt if dt is None else dt
         if dt != self.config.dt:
             raise ValueError("Передавайте фиксированный шаг 1 с; ускорение = число шагов")
+        conventional=getattr(self,'conventional',None)
+        if conventional is not None:conventional.step()
+        if self.config.conventional_only:
+            if self._terrain_active:
+                self._terrain_active=self.terrain.relax()>self.config.terrain.avalanche_stop_volume
+            self.time+=dt
+            return
         if self.state != MissionState.RUNNING:
+            if conventional is not None:
+                if self._terrain_active:
+                    self._terrain_active=self.terrain.relax()>self.config.terrain.avalanche_stop_volume
+                self.base.solar_power=0.
+                self.time+=dt;self.record_activities(dt)
             return
         self._update_workfront()
         if self.state!=MissionState.RUNNING:return
@@ -1363,6 +1393,9 @@ class Simulation:
             for robot in self.logistics.excavators:robot.activity.record(excavator_activity(robot),start,dt)
 
     def report(self, *, full=True):
+        if self.config.conventional_only:
+            from .conventional_integration import standalone_report
+            return standalone_report(self)
         t,b = self.terrain,self.base
         cargo = sum(d.cargo for d in self.drones)
         consumed = sum(d.consumed for d in self.drones+self.retired_drones)
@@ -1399,9 +1432,14 @@ class Simulation:
         for row,drone in zip(extra['retired_drones'],self.retired_drones):row['activity']=drone.activity.report()
         result = {**extra,"state":self.state.value,"reason":self.reason,"time_seconds":self.time,"elapsed_display":elapsed_text(self.time),"solar_clock":self.clock_text,"date":self.date_text,"day_of_year":self.day_of_year,"latitude_deg":b.config.latitude_deg,"base_mass_kg":b.config.mass,"panel_area_m2":b.config.panel_area,"irradiance_w_m2":sun.irradiance,"sun_elevation_deg":sun.elevation_deg,"daylight_hours":sun.daylight_hours,"sunrise_hour":sun.sunrise_hour,"sunset_hour":sun.sunset_hour,"base_motion_power_w":b.motion_power(self.drones) if b.destination is not None else 0.0,"cable_length_m":drone_rows[0]["cable_length_m"],"hour":self.hour,"trips":self.trips,"relocations":b.relocations,"initial_excavation_m3":t.initial_excavation,"remaining_m3":remaining,"completion_percent":max(0,min(100,100*(1-remaining/max(t.initial_excavation,1e-12)))),"excavated_m3":self.excavated_mass/self.config.terrain.density,"excavated_mass_kg":self.excavated_mass,"cargo_kg":cargo,"drone_state":self.drone.state.value,"base_state":b.state.value,"drone_kwh":batteries/KWH,"base_kwh":b.battery/KWH,"solar_power_w":b.solar_power,"solar_generated_kwh":b.generated/KWH,"solar_curtailed_kwh":b.curtailed/KWH,"consumed_kwh":(consumed+b.consumed)/KWH,"charging_losses_kwh":b.charging_losses/KWH,"mass_error_kg":ground_error,"energy_error_j":energy_error,"minimum_drone_kwh":min(d.minimum_charge/KWH for d in self.drones),"initial_energy_kwh":self._initial_energy/KWH,"drone_count":len(self.drones),"charge_slots":len(self.slots),"slot_occupants":[v+1 if v is not None else None for v in self.slots],"queue":[i+1 for i in self.queue],"wait_mode":self.config.fleet.wait_mode,"drones":drone_rows}
         if self.logistics is not None:result=self.logistics.update_report(result,full=full)
+        conventional=getattr(self,'conventional',None)
+        if conventional is not None:
+            result['conventional']=conventional.report()
+            result['mass_error_kg']+=conventional.carried_mass_kg
         if t.soil is not None:
             result['excavated_m3']=self.excavated_volume;result['filled_m3']=self.filled_volume
             loads=[d.soil for d in self.drones if d.soil is not None]
+            if conventional is not None:loads.extend(conventional.loads())
             if self.logistics is not None:
                 loads.extend(c.soil for c in self.logistics.containers if c.soil is not None)
                 loads.extend(e.soil for e in self.logistics.excavators if e.soil is not None)

@@ -156,6 +156,7 @@ class Config:
     operating_schedule: dict | None = None  # None retains unrestricted operation in older saves
     cost_catalog: dict | None = None  # explicit editable capital-cost assumptions, not market quotes
     slope_model: str = 'materials'
+    conventional_only: bool = False
 
     def drone_models(self):
         from copy import deepcopy
@@ -195,7 +196,10 @@ class Config:
         t, q, d, b, dust = self.terrain, self.trench, self.drone, self.base, self.dust
         f = self.fleet
         from .equipment import MAX_DRONES
-        require(isinstance(f.count, int) and 1 <= f.count <= MAX_DRONES and isinstance(f.charge_slots, int) and 1 <= f.charge_slots <= MAX_DRONES, f"Число дронов и зарядных слотов: от 1 до {MAX_DRONES}")
+        empty=self.conventional_only and f.count==0 and f.charge_slots==0 and self.logistics is None
+        require(type(self.conventional_only) is bool, 'Режим обычной техники должен быть логическим значением')
+        require(not self.conventional_only or empty, 'Отдельная площадка обычной техники не содержит автономных дронов или зарядных слотов')
+        require(empty or isinstance(f.count, int) and 1 <= f.count <= MAX_DRONES and isinstance(f.charge_slots, int) and 1 <= f.charge_slots <= MAX_DRONES, f"Число дронов и зарядных слотов: от 1 до {MAX_DRONES}")
         require(not f.models or len(f.models) == f.count, "Число моделей не совпадает с числом дронов")
         require(f.wait_mode in ("ground", "air"), "Неизвестный режим очереди")
         require(f.separation > 0 and f.pad_spacing > f.separation and f.altitude_spacing > f.separation and f.waiting_offset > f.separation and f.ground_clearance > 0 and f.detour_distance > f.separation and f.emergency_landing_seconds > 0 and f.comparison_step_limit > 0, "Неверные расстояния безопасности или предел сравнения")

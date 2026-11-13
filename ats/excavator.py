@@ -96,6 +96,9 @@ class Excavator:
     def stable(self, point, terrain):
         c=self.config;z=terrain.sample(*point[:2]);side=terrain.height.shape[0]*terrain.cell
         radius=c.support_half_width_m
+        if getattr(getattr(terrain,'_site_owner',None),'conventional',None) is not None:
+            from .conventional_integration import occupied
+            if occupied(terrain,(point[0]-radius,point[1]-radius,2*radius,2*radius)):return False
         world=getattr(self,'_world',None)
         if world is not None and c.robot_count>1:
             from .site_ground import rectangle_polygon,polygons_overlap,marine_mask,rectangle_patch
@@ -277,6 +280,7 @@ class Excavator:
         if not valid and not self.can_drive(destination,terrain):return False
         delta=destination-self.position;length=np.linalg.norm(delta[:2])
         next_point=self.position+delta*min(1.,self.config.excavator_speed/max(length,1e-9))
+        if getattr(getattr(terrain,'_site_owner',None),'conventional',None) is not None and not self.stable(next_point,terrain):return False
         return self._path_clear(next_point,terrain)
 
     def tick(self, logistics):

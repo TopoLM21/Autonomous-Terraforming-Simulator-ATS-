@@ -267,8 +267,10 @@ class Terrain:
     def source_indices(self, source='cut'):
         if source=='cut' and self.front is not None:
             self.front.update()
-            return self.front.active_indices
-        return np.flatnonzero(self.source_excess(source)>1e-12)
+            indices=self.front.active_indices
+        else:indices=np.flatnonzero(self.source_excess(source)>1e-12)
+        mask=getattr(self,'_conventional_mask',None)
+        return indices[~mask.ravel()[indices]] if source=='cut' and mask is not None else indices
 
     def patch(self,x,y,radius):
         n=self.height.shape[0]

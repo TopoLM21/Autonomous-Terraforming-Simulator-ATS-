@@ -78,6 +78,9 @@ def paint_rect(terrain,mask,rect,margin=0.):
 
 
 def footprint_safe(terrain,rect,blocked=None,*,grade_deg=8.,relief_m=.6,margin=0.):
+    if getattr(getattr(terrain,'_site_owner',None),'conventional',None) is not None:
+        from .conventional_integration import occupied
+        if occupied(terrain,rect):return False
     patch=rectangle_patch(terrain,rect,margin)
     if patch is None:return False
     if np.any(marine_mask(terrain)[patch]):return False
@@ -99,6 +102,14 @@ def equipment_mask(terrain,simulations=()):
     from .base_layout import layout_footprints
     mask=np.zeros_like(terrain.height,dtype=bool)
     for s in simulations:
+        conventional=getattr(s,'conventional',None)
+        if conventional is not None:
+            x,y=conventional.base_position[:2]
+            paint_rect(terrain,mask,(x-4,y-4,8.,8.))
+            for m in conventional.machines:
+                x,y=m.position[:2];r=m.radius
+                paint_rect(terrain,mask,(x-r,y-r,2*r,2*r))
+        if getattr(s.config,'conventional_only',False):continue
         b=s.base
         boxes=list(layout_footprints(b.layout_spec,b.position)) if b.config.layout is not None else [(b.position[0]-b.config.radius,b.position[1]-b.config.radius,2*b.config.radius,2*b.config.radius)]
         for box in boxes:paint_rect(terrain,mask,box,1.)

@@ -384,6 +384,8 @@ class WorkspaceWindow(QtWidgets.QMainWindow):
         self.template_button=QtWidgets.QPushButton('Открыть комплектацию…');self.template_button.clicked.connect(self.load_template)
         for w in (self.build_button,self.landscape_button,self.template_button,self.load_button):controls.addWidget(w)
         controls.addStretch();layout.addLayout(controls)
+        self.conventional_button=QtWidgets.QPushButton('Экскаватор, самосвалы и топливная база…')
+        self.conventional_button.clicked.connect(self.show_conventional);layout.addWidget(self.conventional_button)
         self.inventory_status=QtWidgets.QLabel('На карте: 0 комплексов · 0 дронов · 0 Кротов · стоимость оборудования 0')
         layout.addWidget(self.inventory_status)
         self.map=pg.PlotWidget(background='#122133');self.map.setAspectLocked(True);self.map.setLabel('bottom','X',units='м');self.map.setLabel('left','Y',units='м')
@@ -397,6 +399,11 @@ class WorkspaceWindow(QtWidgets.QMainWindow):
     def make_preview(self):
         from .terrain import Terrain
         return Terrain(self.config)
+
+    def show_conventional(self):
+        from .conventional_workspace import ConventionalWorkWindow
+        self.work_window=ConventionalWorkWindow(self.config,self.landscape)
+        self.work_window.show();self.hide();self.work_window.show_conventional()
 
     def refresh_site(self):
         from .map_visuals import terrain_rgb
@@ -464,6 +471,12 @@ class WorkspaceWindow(QtWidgets.QMainWindow):
 
     def open_session(self,session,start=False):
         from .gui import MainWindow
+        if session.simulation.config.conventional_only:
+            from .conventional_workspace import ConventionalWorkWindow
+            self.work_window=ConventionalWorkWindow(session=session)
+            self.work_window.show()
+            if start:self.work_window.toggle_play()
+            self.hide();return
         if hasattr(self,'landscape_window'):self.landscape_window.close()
         self.work_window=MainWindow(session.simulation.config,session=session)
         self.work_window.show()

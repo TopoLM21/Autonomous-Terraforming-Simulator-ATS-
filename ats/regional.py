@@ -158,6 +158,8 @@ def own_ground_clear(actor,terrain,a,b,*,base=False):
 class RegionalTransition:
     @classmethod
     def prepare(cls,project,origin,section):
+        if any(getattr(u.simulation,'conventional',None) is not None for u in project.units):
+            raise ValueError('Обычная техника пока работает в текущем окне: межрегиональная перевозка не реализована')
         if project.landscape is None:raise ValueError('Переезд требует открытого регионального DEM')
         for u in project.units:
             s=u.simulation

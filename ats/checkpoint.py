@@ -19,7 +19,7 @@ import numpy as np
 
 
 FORMAT='ATS_SIMULATION'
-VERSION=21
+VERSION=22
 MAX_BYTES=1_500_000_000
 MAX_NODES=2_000_000
 
@@ -27,10 +27,10 @@ MAX_NODES=2_000_000
 def _classes():
     from . import (config,equipment,simulation,solar_base,drone,terrain,planner,dust,
                    logistics,logistics_config,inventory,batteries,excavator,cooperative_lift,
-                   productivity,activity,plan,laser,workfront,landscape,soil,complexes,power_design,shared_site,regional,solar_array,battery_platforms,self_solar,hydrology)
+                   productivity,activity,plan,laser,workfront,landscape,soil,complexes,power_design,shared_site,regional,solar_array,battery_platforms,self_solar,hydrology,conventional)
     modules=(config,equipment,simulation,solar_base,drone,terrain,planner,dust,logistics,
              logistics_config,inventory,batteries,excavator,cooperative_lift,productivity,
-             activity,plan,laser,workfront,landscape,soil,complexes,power_design,shared_site,regional,solar_array,battery_platforms,self_solar,hydrology)
+             activity,plan,laser,workfront,landscape,soil,complexes,power_design,shared_site,regional,solar_array,battery_platforms,self_solar,hydrology,conventional)
     classes=[value for module in modules for value in vars(module).values()
              if isinstance(value,type) and value.__module__==module.__name__]
     from .tile_cache import TileMap
@@ -214,6 +214,13 @@ def _validate(session):
     s=session.simulation
     if type(s) is not Simulation or not isinstance(s.state,MissionState):raise ValueError('Нет состояния симуляции')
     s.config.validate();t=s.terrain
+    fleet=getattr(s,'conventional',None)
+    if fleet is not None:
+        from .conventional import ConventionalFleet
+        if type(fleet) is not ConventionalFleet or fleet.sim is not s:
+            raise ValueError('Потеряна связь обычной техники с площадкой')
+        fleet.config.validate()
+        fleet.validate()
     if t.front is not None and t.front.sectors:
         f=t.front
         if (type(f.stationed) is not bool or type(f.moving) is not bool or
@@ -393,7 +400,10 @@ def load_state(path):
             from .config import TerrainConfig,FleetConfig
             from .logistics_config import LogisticsConfig
             from .terrain import Terrain
+            from .simulation import Simulation
             for value in decoder.objects:
+                if isinstance(value,Simulation) and not hasattr(value,'conventional'):value.conventional=None
+                if isinstance(value,Config) and 'conventional_only' not in vars(value):value.conventional_only=False
                 if isinstance(value,Config) and 'slope_model' not in vars(value):value.slope_model='legacy'
                 if isinstance(value,TerrainConfig) and 'compact_spoil' not in vars(value):value.compact_spoil=False
                 if isinstance(value,TerrainConfig) and 'cut_policy' not in vars(value):value.cut_policy='profile'

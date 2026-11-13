@@ -103,6 +103,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setup_button.clicked.connect(self.show_composer)
         from .ui_windows import menu_button,hidden_action
         actions_menu=menu_button(header,self,'Управление ▾')
+        actions_menu.addAction('Экскаватор и самосвалы…',self.show_conventional)
         actions_menu.addAction('Батарейные платформы…',self.show_battery_platforms)
         actions_menu.addAction('Солнечные платформы и отвал…',self.show_site)
         fleet_button=QtWidgets.QPushButton("Оборудование")
@@ -627,6 +628,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.landscape is not None:self.landscape.cancel_prefetch()
         if self.map_dialog is not None:self.map_dialog.close()
         if hasattr(self,'logistics_window'):self.logistics_window.close()
+        if hasattr(self,'conventional_window'):self.conventional_window.close()
         if hasattr(self,'power_window'):self.power_window.close()
         if hasattr(self,'complex_window'):self.complex_window.close()
         if hasattr(self,'base_layout_window'):self.base_layout_window.close()
@@ -650,6 +652,8 @@ class MainWindow(QtWidgets.QMainWindow):
         dialog=LandscapeDialog(self);dialog.exec()
 
     def commit_landscape(self):
+        from .conventional_integration import require_unloaded
+        require_unloaded(self.sim)
         if self.complex_project is not None and self.complex_project.shared_site is not None:
             self.complex_project.persist_window();return
         s=self.sim
@@ -778,6 +782,10 @@ class MainWindow(QtWidgets.QMainWindow):
             QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CursorShape.WaitCursor)
             try:session=load_state(path)
             finally:QtWidgets.QApplication.restoreOverrideCursor()
+            if session.simulation.config.conventional_only:
+                from .conventional_workspace import ConventionalWorkWindow
+                self.ground_window=ConventionalWorkWindow(session=session);self.ground_window.show();self.hide()
+                loaded=True;return
             self.install_simulation(session.simulation,session.landscape,session.complex_project);self.restore_session_ui(session.ui)
             self._session_path=Path(path);loaded=True
             self.refresh(True);self.statusBar().showMessage(f'Загружено: {path}. Симуляция на паузе.',10000)
@@ -820,6 +828,18 @@ class MainWindow(QtWidgets.QMainWindow):
         from .battery_platforms_ui import BatteryPlatformsWindow
         if hasattr(self,'battery_platforms_window'):self.battery_platforms_window.close()
         self.battery_platforms_window=BatteryPlatformsWindow(self);self.battery_platforms_window.show()
+
+    def show_conventional(self):
+        from .conventional_ui import ConventionalWindow
+        if hasattr(self,'conventional_window'):self.conventional_window.close()
+        self.conventional_window=ConventionalWindow(self);self.conventional_window.show()
+
+    def install_conventional(self,config):
+        if self.complex_project is not None and len(self.complex_project.units)>1:
+            raise ValueError('Обычная техника первого этапа требует отдельной площадки или одного комплекса')
+        fleet=self.sim.install_conventional(config)
+        self.refresh(True)
+        return fleet
 
     def show_complexes(self):
         from .complexes import ComplexProject,ComplexTemplate
@@ -950,7 +970,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.replace_simulation(deepcopy(self.config))
 
     def toggle_play(self):
-        if not (self.complex_project.running if self.complex_project is not None else self.sim.state==MissionState.RUNNING):
+        if not (self.complex_project.running if self.complex_project is not None else self.sim.state==MissionState.RUNNING or getattr(self.sim,'conventional',None) is not None):
             return
         self.running = not self.running
         if self.running:
@@ -1020,11 +1040,12 @@ class MainWindow(QtWidgets.QMainWindow):
                     robot_ready=all(u.simulation.logistics is None or (not u.simulation.logistics.active and not u.simulation.logistics.group and
                         all(c.soil_kg==0 for c in u.simulation.logistics.containers) and all(e.bucket_kg==0 for e in u.simulation.logistics.excavators)) for u in self.complex_project.units)
                 requested=any(u.simulation.landing_requested for u in self.complex_project.units) if shared else self.sim.landing_requested
-                if requested and robot_ready and grounded and not (self.complex_project is not None and self.complex_project.transition is not None):
+                if requested and robot_ready and grounded and getattr(self.sim,'conventional',None) is None and not (self.complex_project is not None and self.complex_project.transition is not None):
                     self.running=False;self.credit=0;self.play.setText("▶ Start")
                     self.plan_editor.info.setText("Флот приземлён. Можно применить нарисованный план.")
                     break
                 done=not self.complex_project.running if self.complex_project is not None else self.sim.state!=MissionState.RUNNING
+                if getattr(self.sim,'conventional',None) is not None:done=False
                 if done:
                     if self.complex_project is None and self.sim.state==MissionState.COMPLETED and self.landscape is not None and self.config.georeference.get('channel'):
                         self.commit_landscape()
@@ -1194,6 +1215,8 @@ class MainWindow(QtWidgets.QMainWindow):
         for label in [*self.drone_labels,self.base_label,self.excavator_label]:label.setVisible(self.labels_view.isChecked())
         from .shared_ui import refresh
         refresh(self)
+        from .conventional_integration import refresh_map
+        refresh_map(self)
         beacons(self)
         cache_paths(self)
         if telemetry_due(self,force):self.refresh_telemetry(s.report(full=False))
@@ -1310,17 +1333,24 @@ class MainWindow(QtWidgets.QMainWindow):
             self.compact_telemetry.setText(self.compact_telemetry.text()+f'\nОбщая выемка: {volume:.2f} м³')
         if report.get('lift_preparation'):
             self.compact_telemetry.setText(self.compact_telemetry.text()+'\n'+report['lift_preparation']['reason'])
+        if report.get('conventional'):
+            ground=report['conventional'];cost=ground['cost_per_m3_usd']
+            self.compact_telemetry.setText(self.compact_telemetry.text()+f"\nОбычная техника: {ground['excavated_m3']:.2f} м³ · "+
+                (f'{cost:.2f} USD/м³' if cost is not None else 'ещё нет выемки')+' · отдельная смета')
         for serial, timestamp, message in s.events:
             if serial > self.last_event:
                 self.log.appendPlainText(f"[{timestamp/60:6.1f} мин] {message}")
                 self.last_event = serial
-        self.play.setEnabled(self.complex_project.running if self.complex_project is not None else s.state==MissionState.RUNNING)
+        self.play.setEnabled(self.complex_project.running if self.complex_project is not None else s.state==MissionState.RUNNING or getattr(s,'conventional',None) is not None)
 
 
 def launch(config,landscape=None,session=None):
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     app.setApplicationName("ATS")
-    if session is not None or config.logistics is None:
+    if config.conventional_only:
+        from .conventional_workspace import ConventionalWorkWindow
+        window=ConventionalWorkWindow(config,landscape,session)
+    elif session is not None or config.logistics is None:
         window=MainWindow(config,session=session)
         if session is None:window.landscape=landscape
     else:

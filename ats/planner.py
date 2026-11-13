@@ -69,6 +69,8 @@ class Planner:
             candidates=candidates[useful]
         else:
             excess = terrain.source_excess(source)
+            if source=='cut' and getattr(terrain,'_conventional_mask',None) is not None:
+                excess[terrain._conventional_mask]=0
             for point in reserved:
                 excess[(terrain.x-point[0])**2+(terrain.y-point[1])**2 < self.config.fleet.separation**2] = 0
             candidates = np.flatnonzero(excess.ravel() > 1e-12)

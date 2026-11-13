@@ -173,7 +173,7 @@ class ComplexProject:
     def active(self):return next(u for u in self.units if u.id==self.active_id)
 
     @property
-    def running(self):return not self.blocked and any(u.simulation.state.value=='RUNNING' for u in self.units)
+    def running(self):return any(getattr(u.simulation,'conventional',None) is not None for u in self.units) or not self.blocked and any(u.simulation.state.value=='RUNNING' for u in self.units)
 
     @property
     def blocked(self):return any(u.simulation.state.value=='BLOCKED' for u in self.units)
@@ -190,6 +190,8 @@ class ComplexProject:
         return False
 
     def add(self,template,origin=None,section=None):
+        if any(getattr(u.simulation,'conventional',None) is not None for u in self.units):
+            raise ValueError('Обычная техника первого этапа требует отдельной площадки или одного комплекса')
         template.validate()
         if len(self.units)>=20:raise ValueError('Одновременно допускается до 20 рабочих комплексов')
         if self.landscape is None:raise ValueError('Для работы нескольких комплексов откройте региональный DEM или проект канала')
@@ -228,6 +230,8 @@ class ComplexProject:
         return unit
 
     def enable_shared(self):
+        if any(getattr(u.simulation,'conventional',None) is not None for u in self.units):
+            raise ValueError('Обычная техника пока не поддерживает общий диспетчер нескольких комплексов')
         if self.shared_site is not None:return self.shared_site
         if len(self.units)!=1:raise ValueError('Общий участок создаётся из одного действующего комплекса; раздельные региональные участки сохраняются в прежнем режиме')
         from .shared_site import SharedSite
@@ -235,6 +239,8 @@ class ComplexProject:
 
     def add_shared(self,template,position=None):
         """Deliver a real independent complex onto the existing physical map."""
+        if any(getattr(u.simulation,'conventional',None) is not None for u in self.units):
+            raise ValueError('Сначала откройте отдельную площадку: обычная техника пока не участвует в общем диспетчере комплексов')
         if self.transition is not None:raise ValueError('Сначала завершите или отмените региональный переезд')
         if len(self.units)>=20:raise ValueError('Одновременно допускается до 20 рабочих комплексов')
         template.validate();site=self.enable_shared();source=self.units[0].simulation.config
@@ -336,7 +342,7 @@ class ComplexProject:
         if self.shared_site is not None:self.shared_site.start_tick()
         for unit in self.units:
             s=unit.simulation
-            if s.state.value=='RUNNING':unit.committed=False;s.step()
+            if s.state.value=='RUNNING' or getattr(s,'conventional',None) is not None:unit.committed=False;s.step()
             elif s.state.value=='COMPLETED':
                 # Finished machinery is parked and powered off. Its calendar
                 # still follows the common project clock, without generating
@@ -345,7 +351,7 @@ class ComplexProject:
                 if s.logistics is not None:
                     s.logistics.base_load_power_w=s.logistics.base_battery_power_w=0.
                     for slot in s.logistics.battery_service.slots.values():slot.input_power_w=0.
-            if self.shared_site is None and s.state.value=='COMPLETED' and not unit.committed:
+            if self.shared_site is None and s.state.value=='COMPLETED' and not unit.committed and getattr(s,'conventional',None) is None:
                 self.commit(unit);unit.committed=True
         if self.shared_site is not None and self.transition is None:self.shared_site.advance_tasks()
         self.time+=1.
@@ -386,6 +392,8 @@ class ComplexProject:
             channel.record(r);self.landscape.channel_project=channel.to_data()
 
     def commit(self,unit):
+        from .conventional_integration import require_unloaded
+        require_unloaded(unit.simulation)
         if self.landscape is None:return
         if self.shared_site is not None and any(u.simulation.state.value!='COMPLETED' for u in self.units):
             raise ValueError('Дождитесь завершения общей карты; текущее состояние всей группы сохраняется в .atsstate')

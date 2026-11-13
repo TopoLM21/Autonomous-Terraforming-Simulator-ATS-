@@ -1,0 +1,538 @@
+{
+  "baseline_commit": "2af5ce721b6e81f33f7f3c5c4e9dcce6f54f62f2",
+  "environment": {
+    "os": "Linux",
+    "python": "3.12.14",
+    "numpy": "2.5.4",
+    "qt": "6.12.0",
+    "platform_plugin": "offscreen"
+  },
+  "tests": {
+    "unique_cases": 979,
+    "legacy_cases": 932,
+    "new_cases": 47,
+    "all_passed": true,
+    "full_collection_run": {
+      "tests": 971,
+      "wall_seconds": 540.5289587940006,
+      "batches": [
+        {
+          "batch": 0,
+          "exit_code": 0,
+          "files": [
+            "tests/test_base_layout.py",
+            "tests/test_channel.py",
+            "tests/test_channel_space.py",
+            "tests/test_completion.py",
+            "tests/test_workfront.py"
+          ],
+          "finished_after_seconds": 233.25498583800072
+        },
+        {
+          "batch": 2,
+          "exit_code": 0,
+          "files": [
+            "tests/test_airspace.py",
+            "tests/test_base_batteries.py",
+            "tests/test_batch_strategy.py",
+            "tests/test_battery_platforms.py",
+            "tests/test_checkpoint.py",
+            "tests/test_cli.py",
+            "tests/test_coastal_compact.py",
+            "tests/test_compact_season.py",
+            "tests/test_earthworks_performance.py",
+            "tests/test_energy.py",
+            "tests/test_equipment.py",
+            "tests/test_hydrology.py",
+            "tests/test_individual_chargers.py",
+            "tests/test_landscape.py",
+            "tests/test_landscape_ui.py",
+            "tests/test_laser.py",
+            "tests/test_laser_reference.py",
+            "tests/test_salinity.py",
+            "tests/test_scheduler_utilization.py",
+            "tests/test_sea_exchange.py",
+            "tests/test_sectors.py",
+            "tests/test_site_layout.py",
+            "tests/test_soil.py",
+            "tests/test_solar.py",
+            "tests/test_spare_controls.py",
+            "tests/test_terrain.py",
+            "tests/test_tool_station.py"
+          ],
+          "finished_after_seconds": 317.08220543899915
+        },
+        {
+          "batch": 1,
+          "exit_code": 0,
+          "files": [
+            "tests/test_activity_stats.py",
+            "tests/test_compact_overviews.py",
+            "tests/test_complexes.py",
+            "tests/test_dig_rate.py",
+            "tests/test_display_modes.py",
+            "tests/test_drone.py",
+            "tests/test_dust.py",
+            "tests/test_equipment_caches.py",
+            "tests/test_fleet.py",
+            "tests/test_gui.py",
+            "tests/test_large_solar_base_specs.py",
+            "tests/test_live_inventory_solar.py",
+            "tests/test_logistics.py",
+            "tests/test_map_visuals.py",
+            "tests/test_maps_and_zoom.py",
+            "tests/test_material_slopes.py",
+            "tests/test_natural_excavation.py",
+            "tests/test_plan.py",
+            "tests/test_power_design.py",
+            "tests/test_procedural.py",
+            "tests/test_regional.py",
+            "tests/test_runtime_optimizations.py",
+            "tests/test_self_solar.py",
+            "tests/test_service_recovery.py",
+            "tests/test_shared_site.py",
+            "tests/test_streaming.py",
+            "tests/test_window_boundaries.py",
+            "tests/test_winter_power.py",
+            "tests/test_axis_station_cache.py",
+            "tests/test_axis_station_ui.py",
+            "tests/test_axis_stations.py",
+            "tests/test_complex_setup.py",
+            "tests/test_complex_setup_ui.py",
+            "tests/test_conventional.py",
+            "tests/test_conventional_integration.py",
+            "tests/test_conventional_schedule.py",
+            "tests/test_conventional_ui.py",
+            "tests/test_conventional_workspace.py",
+            "tests/test_excavator_fleet.py",
+            "tests/test_excavator_regions.py",
+            "tests/test_hydrology_workspace.py",
+            "tests/test_landing_queue.py",
+            "tests/test_landscape_display.py",
+            "tests/test_landscape_display_ui.py",
+            "tests/test_lift_coordination.py",
+            "tests/test_work_schedule.py"
+          ],
+          "finished_after_seconds": 540.2784931189999
+        }
+      ]
+    },
+    "final_affected_run": {
+      "tests": 76,
+      "scope": "All final 47 conventional cases plus 17 checkpoint, 7 legacy GUI and 5 CLI cases after final physics/config integration fixes"
+    },
+    "final_ui_copy_check": {
+      "tests": 3,
+      "scope": "Conventional dialog and actual ATS2 window after final Russian status/pause labels"
+    },
+    "method": "932 existing cases passed in the full 971-case run; all final 47 new cases plus 29 affected existing cases repeated after fixes. IDs deduplicated. Final UI wording additionally checked in 3 cases. No skips or failures.",
+    "cli_commands": 32,
+    "cli_groups": 10
+  },
+  "normal_initial_fill_run": {
+    "state": "RUNNING",
+    "reason": "",
+    "time_seconds": 1800.0,
+    "elapsed_display": "0 д 00:30:00",
+    "date": "21.06",
+    "hour": 6.5,
+    "day_of_year": 172,
+    "latitude_deg": 55.0,
+    "drone_count": 0,
+    "drones": [],
+    "autonomous_equipment_cost_usd": 0.0,
+    "mass_error_kg": 4.547473508864641e-13,
+    "energy_error_j": 0.0,
+    "remaining_m3": 141.63857305721575,
+    "remaining_cut_m3": 141.63857305721575,
+    "map_side_m": 128.0,
+    "cell_size_m": 0.5,
+    "conventional": {
+      "enabled": true,
+      "reason": "",
+      "work_rect": [
+        35.0,
+        40.0,
+        60.0,
+        20.0
+      ],
+      "base_position_m": [
+        12.0,
+        12.0,
+        0.0
+      ],
+      "excavated_m3": 2.5362431953697504,
+      "excavated_mass_kg": 4057.9891125916,
+      "delivered_m3": 1.0271450782788154,
+      "carried_mass_kg": 2414.5569873454956,
+      "capital_cost_usd": 305000.0,
+      "operating_cost_usd": 9.483345264031502,
+      "total_cost_usd": 305009.48334526405,
+      "cost_per_m3_usd": 120260.34565695413,
+      "fuel_stock_l": 4200.0,
+      "water_stock_l": 998.499999999899,
+      "food_stock_units": 97.0,
+      "fuel_used_l": 3.599999999999954,
+      "water_used_l": 1.4999999999999611,
+      "food_used_units": 3.0,
+      "payroll_usd": 0.6362304180931743,
+      "fuel_cost_usd": 1.3781512605041841,
+      "food_cost_usd": 5.602240896358544,
+      "water_cost_usd": 0.14005602240895995,
+      "maintenance_usd": 1.726666666666639,
+      "inventory_purchases_usd": 2194.2110177404297,
+      "consumable_inventory_value_usd": 2187.0905695611496,
+      "fuel_balance_error_l": -3.410605131648481e-12,
+      "water_balance_error_l": 1.0099276970265691e-10,
+      "food_balance_error_units": 0.0,
+      "diesel_energy_consumed_mj": 128.87999999999835,
+      "shift": {
+        "active": true,
+        "crew": 1,
+        "reason": "Рабочая смена",
+        "seconds_left": 12600.0,
+        "key": [
+          0,
+          0
+        ]
+      },
+      "ramp": {
+        "entry_m": [
+          35.0,
+          50.0
+        ],
+        "end_m": [
+          95.0,
+          50.0
+        ],
+        "width_m": 9.0,
+        "max_gradient": 0.12,
+        "remaining_m3": 0.602780194298649
+      },
+      "remaining_work_m3": 141.03579286291713,
+      "refuel_slots": 1,
+      "route_calculations": 57,
+      "crew_count": 3,
+      "machines": [
+        {
+          "id": "excavator_1",
+          "kind": "excavator",
+          "state": "DIGGING",
+          "reason": "",
+          "position_m": [
+            29.05,
+            47.75,
+            0.0
+          ],
+          "dimensions_m": [
+            6.0,
+            3.0,
+            3.0
+          ],
+          "footprint_radius_m": 3.3541019662496847,
+          "fuel_l": 296.75500000000295,
+          "cargo_kg": 0.0,
+          "excavated_m3": 2.5362431953697504,
+          "delivered_m3": 0.0,
+          "path_m": [],
+          "tank_capacity_l": 300.0,
+          "emergency_work_seconds": 0.0,
+          "engine_seconds": 649.0,
+          "working_seconds": 611.0,
+          "distance_m": 26.091473703108402
+        },
+        {
+          "id": "truck_1",
+          "kind": "truck",
+          "state": "UNLOADING",
+          "reason": "",
+          "position_m": [
+            86.75,
+            76.25,
+            0.0
+          ],
+          "dimensions_m": [
+            7.0,
+            2.8,
+            3.2
+          ],
+          "footprint_radius_m": 3.7696153649941526,
+          "fuel_l": 249.6583333333338,
+          "cargo_kg": 2054.5569873454956,
+          "excavated_m3": 0.0,
+          "delivered_m3": 1.0271450782788154,
+          "path_m": [],
+          "tank_capacity_l": 250.0,
+          "emergency_work_seconds": 0.0,
+          "engine_seconds": 125.0,
+          "working_seconds": 0.0,
+          "distance_m": 213.08845102325532
+        },
+        {
+          "id": "truck_2",
+          "kind": "truck",
+          "state": "WAIT_LOAD",
+          "reason": "",
+          "position_m": [
+            29.05,
+            39.75,
+            0.0
+          ],
+          "dimensions_m": [
+            7.0,
+            2.8,
+            3.2
+          ],
+          "footprint_radius_m": 3.7696153649941526,
+          "fuel_l": 249.9866666666667,
+          "cargo_kg": 359.99999999999994,
+          "excavated_m3": 0.0,
+          "delivered_m3": 0.0,
+          "path_m": [],
+          "tank_capacity_l": 250.0,
+          "emergency_work_seconds": 0.0,
+          "engine_seconds": 3.0,
+          "working_seconds": 0.0,
+          "distance_m": 11.79682160583943
+        }
+      ]
+    },
+    "soil": {
+      "max_material_mass_error_kg": 3.979039320256561e-13
+    },
+    "benchmark": {
+      "steps": 1800,
+      "wall_seconds": 0.8047730719990795,
+      "max_step_seconds": 0.028914643000462092,
+      "scope": "128 m synthetic site, 0.5 m cells, normal initial empty tanks and one 30 L/min pump; headless only"
+    }
+  },
+  "controlled_fleet_runs": {
+    "python": "3.12.14",
+    "platform": "Linux",
+    "source_sha256": "918cce8f496ea3834d22d765a080a064f7fd04e79eb0464efe93d350660e1365",
+    "scope": "Controlled conventional-only CPU runs; one 128m map, .5m cells, initial flat ground, shallow planned cut -.3m, one excavator, 2 or 16 trucks",
+    "assumptions": [
+      "Each starts with empty tank; stock5000L; one pump artificially accelerated from default30L/min to3000L/min ONLY for controlled preparation",
+      "Movement, bucket30s cycles, fuel use, loading/unloading, road safety and worker schedule are production defaults",
+      "No Qt painting/FPS measured; concurrent repository tests may influence wall times",
+      "900modelseconds is not 23hour validation and not normal default initial-refueling throughput"
+    ],
+    "runs": [
+      {
+        "trucks": 2,
+        "model_seconds": 900.0,
+        "wall_seconds": 1.4262486719999288,
+        "max_step_seconds": 0.1633175740007573,
+        "excavated_m3": 2.8940930936993747,
+        "delivered_m3": 2.5791420995213725,
+        "carried_mass_kg": 503.9215906848034,
+        "mass_error_kg": 5.684341886080801e-13,
+        "fuel_balance_error_l": -5.115907697472721e-12,
+        "water_balance_error_l": 5.046640882966358e-11,
+        "food_balance_error_units": 0.0,
+        "route_calculations": 82,
+        "excavator_state": "DIGGING",
+        "reason": "",
+        "config": {
+          "enabled": true,
+          "excavator_count": 1,
+          "truck_count": 2,
+          "base_x": 12.0,
+          "base_y": 12.0,
+          "work_rect": [
+            35.0,
+            40.0,
+            60.0,
+            20.0
+          ],
+          "shifts_per_day": 1,
+          "shift_start_hour": 6.0,
+          "shift_span_hours": 9.0,
+          "lunch_after_hours": 4.0,
+          "lunch_hours": 1.0,
+          "weekly_rest_day": 4,
+          "start_weekday": 0,
+          "excavator_wage_egp_month": 16625.0,
+          "driver_wage_egp_month": 16218.0,
+          "egp_per_usd": 53.55,
+          "diesel_egp_l": 20.5,
+          "food_egp_unit": 100.0,
+          "water_egp_l": 5.0,
+          "fuel_stock_l": 5000.0,
+          "water_stock_l": 1000.0,
+          "food_stock_units": 100.0,
+          "water_l_per_person_hour": 1.0,
+          "food_units_per_person_shift": 1.0,
+          "excavator_purchase_usd": 120000.0,
+          "truck_purchase_usd": 80000.0,
+          "base_purchase_usd": 25000.0,
+          "maintenance_usd_per_engine_hour": 8.0,
+          "bucket_m3": 1.2,
+          "bucket_cycle_s": 30.0,
+          "excavator_reach_m": 9.0,
+          "excavator_dig_depth_m": 6.0,
+          "truck_payload_kg": 18000.0,
+          "truck_body_m3": 10.0,
+          "excavator_speed_m_s": 0.7,
+          "truck_speed_m_s": 4.0,
+          "excavator_tank_l": 300.0,
+          "truck_tank_l": 250.0,
+          "excavator_work_l_h": 18.0,
+          "truck_drive_l_h": 16.0,
+          "idle_l_h": 2.0,
+          "refuel_l_min": 3000.0,
+          "refuel_slots": 1,
+          "fuel_reserve_fraction": 0.15,
+          "ramp_gradient": 0.12,
+          "ramp_width_m": 9.0,
+          "route_step_m": 2.0,
+          "max_route_nodes": 5000
+        }
+      },
+      {
+        "trucks": 16,
+        "model_seconds": 900.0,
+        "wall_seconds": 4.00060718199893,
+        "max_step_seconds": 0.2422745349995239,
+        "excavated_m3": 3.5396545482261237,
+        "delivered_m3": 1.1775382330142552,
+        "carried_mass_kg": 3779.3861043389907,
+        "mass_error_kg": -4.547473508864641e-13,
+        "fuel_balance_error_l": -4.547473508864641e-12,
+        "water_balance_error_l": -2.085887018665744e-11,
+        "food_balance_error_units": 0.0,
+        "route_calculations": 110,
+        "excavator_state": "DIGGING",
+        "reason": "",
+        "config": {
+          "enabled": true,
+          "excavator_count": 1,
+          "truck_count": 16,
+          "base_x": 12.0,
+          "base_y": 12.0,
+          "work_rect": [
+            35.0,
+            40.0,
+            60.0,
+            20.0
+          ],
+          "shifts_per_day": 1,
+          "shift_start_hour": 6.0,
+          "shift_span_hours": 9.0,
+          "lunch_after_hours": 4.0,
+          "lunch_hours": 1.0,
+          "weekly_rest_day": 4,
+          "start_weekday": 0,
+          "excavator_wage_egp_month": 16625.0,
+          "driver_wage_egp_month": 16218.0,
+          "egp_per_usd": 53.55,
+          "diesel_egp_l": 20.5,
+          "food_egp_unit": 100.0,
+          "water_egp_l": 5.0,
+          "fuel_stock_l": 5000.0,
+          "water_stock_l": 1000.0,
+          "food_stock_units": 100.0,
+          "water_l_per_person_hour": 1.0,
+          "food_units_per_person_shift": 1.0,
+          "excavator_purchase_usd": 120000.0,
+          "truck_purchase_usd": 80000.0,
+          "base_purchase_usd": 25000.0,
+          "maintenance_usd_per_engine_hour": 8.0,
+          "bucket_m3": 1.2,
+          "bucket_cycle_s": 30.0,
+          "excavator_reach_m": 9.0,
+          "excavator_dig_depth_m": 6.0,
+          "truck_payload_kg": 18000.0,
+          "truck_body_m3": 10.0,
+          "excavator_speed_m_s": 0.7,
+          "truck_speed_m_s": 4.0,
+          "excavator_tank_l": 300.0,
+          "truck_tank_l": 250.0,
+          "excavator_work_l_h": 18.0,
+          "truck_drive_l_h": 16.0,
+          "idle_l_h": 2.0,
+          "refuel_l_min": 3000.0,
+          "refuel_slots": 1,
+          "fuel_reserve_fraction": 0.15,
+          "ramp_gradient": 0.12,
+          "ramp_width_m": 9.0,
+          "route_step_m": 2.0,
+          "max_route_nodes": 5000
+        }
+      }
+    ],
+    "intermediate_before_single_bay_and_failed_retry_backoff": {
+      "trucks": 16,
+      "model_seconds": 900,
+      "wall_seconds": 7.617088663999311,
+      "max_step_seconds": 0.7687251570005174,
+      "route_calculations": 7695,
+      "excavated_m3": 0.13546966805415261,
+      "delivered_m3": 0.13546966805415261,
+      "mass_error_kg": 0.0,
+      "caveat": "Uncommitted intermediate implementation on same controlled fixture. Dispatch behavior changes intentionally, so it is not bitwise-equivalent work or a strict equal-work speed-up."
+    },
+    "tests": {
+      "core_cases": 22,
+      "schedule_cases": 12,
+      "passed": 34,
+      "seconds": 6.07
+    }
+  },
+  "old_v21_migration": {
+    "source_version": 21,
+    "target_version": 22,
+    "ids_preserved": true,
+    "exact_continuation": true,
+    "conventional_created": false,
+    "time_preserved": true
+  },
+  "autonomy_14x4_control": {
+    "before": {
+      "fixture": "14x4.atsstate",
+      "seconds": [
+        4.528997503000937,
+        4.6102294540014555,
+        2.9760579070007225
+      ],
+      "median_seconds": 4.528997503000937,
+      "physical_report_sha256": "02286ccb1a7f8b951e1775460e21dde6f86a654686625d8f3a94482be490fd6b",
+      "mass_error_kg": 0.0,
+      "energy_error_j": -5.697584128938615e-07
+    },
+    "after": {
+      "fixture": "14x4.atsstate",
+      "seconds": [
+        4.488172295999902,
+        4.587235176999457,
+        3.2594743549998384
+      ],
+      "median_seconds": 4.488172295999902,
+      "physical_report_sha256": "02286ccb1a7f8b951e1775460e21dde6f86a654686625d8f3a94482be490fd6b",
+      "mass_error_kg": 0.0,
+      "energy_error_j": -5.697584128938615e-07
+    },
+    "model_seconds": 5,
+    "repetitions": 3,
+    "scope": "Same saved 14-complex x 4-drone shared startup state, 20 m2 PV and one Krot per complex, no conventional fleet, headless",
+    "conclusion": "Physical report hashes identical; timing difference within observed variance, not a promised speed-up or sustained-performance result."
+  },
+  "ui_static_control": {
+    "platform": "Qt offscreen",
+    "frames": 20,
+    "scope": "static 128m loaded worksite; forced refresh + event processing, not actual desktop FPS",
+    "median_refresh_seconds": 0.007917454498965526,
+    "max_refresh_seconds": 0.015532313998846803
+  },
+  "limits": [
+    "One conventional excavator with 1-16 trucks; one standalone map or one autonomous complex; no shared multi-complex dispatch for the new fleet",
+    "Conventional regional transport disabled explicitly; snapshot save/load supported",
+    "Retained ramp and unreachable deep cuts remain unfinished, never silently counted as completed",
+    "Bounded local A* may reject a route needing a longer detour; kinematic footprint and slope model, no full soil bearing/road/vehicle dynamics",
+    "Normal Egypt hours, breaks, weekly rest modeled; annual/public leave, desert heat special rules, taxes and exceptional overtime administration not implemented",
+    "Salary survey gross rates and editable model equipment prices; no manufacturer quote or legal compliance certification",
+    "Short profiles do not verify previously reported 23-hour freezes; offscreen redraw costs are not actual desktop FPS",
+    "New stage locally checked on Linux; Windows CI awaits publication"
+  ]
+}

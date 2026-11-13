@@ -16,6 +16,9 @@ def _write_report(report, path):
 
 
 def _finish_region(sim, region, report, save_path=None):
+    if save_path:
+        from .conventional_integration import require_unloaded
+        require_unloaded(sim)
     if region is None:return
     if save_path:
         w=sim.logistics;e=w.excavator if w else None
