@@ -190,14 +190,19 @@ def test_completed_ground_stage_hands_ramp_and_buffer_back_to_aircraft_naturally
     from ats.plan import PlanConfig,PlanSegment
     from ats.simulation import Simulation
     from ats.complexes import ComplexProject,ComplexTemplate
-    c=experiment_config(with_map_size(Config(),128))
+    # Keep this handoff test independent of the hours needed to recharge the
+    # first spent packs. Extra packs are real, finite initial stock in both
+    # complexes, included in their equipment mass and energy ledgers.
+    c=experiment_config(with_map_size(Config(),128),drone_spare_sets=4)
     c.plan=PlanConfig([PlanSegment([[42.,43.],[44.,43.]],width=2.,height=-.05),
                        PlanSegment([[48.,43.],[48.5,43.]],width=1.,height=-.1),
                        PlanSegment([[65.,60.],[90.,60.]],width=2.,height=-.25)])
     p=ComplexProject(Simulation(c));template=ComplexTemplate.capture(c);p.add_shared(template,position=(100.,20.))
     f=p.units[0].simulation.install_conventional(ConventionalConfig(base_x=12.,base_y=100.,work_rect=(40.,40.,6.,6.),truck_count=1,refuel_l_min=3000.))
     reserved=p.shared_site.core._conventional_mask.copy();released=False;cleanup_flight=False
-    for _ in range(1800):
+    # Bounded local tipping and a physically checked return can take one more
+    # small haul than the former expanding dump. Keep all handoff conditions.
+    for _ in range(2400):
         p.step()
         if not np.any(p.shared_site.core._conventional_mask):
             released=True

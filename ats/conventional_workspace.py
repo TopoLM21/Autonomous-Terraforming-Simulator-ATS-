@@ -48,14 +48,14 @@ class ConventionalWorkWindow(QtWidgets.QMainWindow):
         self.image=pg.ImageItem(axisOrder='row-major');self.map.addItem(self.image)
         self.design_overlay=pg.ImageItem(axisOrder='row-major');self.map.addItem(self.design_overlay)
         self.work_outline=pg.PlotDataItem(pen=pg.mkPen('#46d6fc',width=2));self.map.addItem(self.work_outline)
-        self.ramp_outline=pg.PlotDataItem(pen=pg.mkPen('#9df3a4',width=2));self.map.addItem(self.ramp_outline)
         self.paths=pg.PlotDataItem(pen=pg.mkPen('#f8dd7c',width=1),connect='finite');self.map.addItem(self.paths)
         self.machines=pg.ScatterPlotItem(pxMode=True);self.map.addItem(self.machines)
-        self.camp_marker=pg.ScatterPlotItem(pxMode=True,symbol='s',size=17,brush='#65dcb2',pen=pg.mkPen('#10232d',width=2));self.map.addItem(self.camp_marker)
+        self.machines.setZValue(3.);self.paths.setZValue(2.)
+        self.camp_marker=pg.ScatterPlotItem(pxMode=True,symbol='+',size=11,brush='#65dcb2',pen=pg.mkPen('#10232d',width=2));self.map.addItem(self.camp_marker);self.camp_marker.setZValue(3.)
         self.camp_label=pg.TextItem('Заправка',color='#a7f0c3',anchor=(0,0));self.map.addItem(self.camp_label)
         layout.addWidget(self.map,1)
         self.details=QtWidgets.QLabel();self.details.setWordWrap(True);layout.addWidget(self.details)
-        note=QtWidgets.QLabel('Голубой контур — рабочая захватка; зелёный — сохранённый съезд; жёлтый — проверенные наземные маршруты. Смета обычной техники учитывается отдельно от автономных комплексов.')
+        note=QtWidgets.QLabel('Корпуса машин и топливная база показаны в масштабе, в метрах. Голубой контур — рабочая захватка; зелёный — проектный контур съезда, его готовность определяется грунтом; жёлтый — проверенные наземные маршруты. Смета обычной техники учитывается отдельно от автономных комплексов.')
         note.setWordWrap(True);layout.addWidget(note)
         self.timer=QtCore.QTimer(self);self.timer.timeout.connect(self.tick);self.timer.start(20)
         self.refresh(True);self.reset_view();fit_window(self,1150,790)
@@ -135,11 +135,13 @@ class ConventionalWorkWindow(QtWidgets.QMainWindow):
             self.design_overlay.setRect(QtCore.QRectF(0,0,t.cell*n,t.cell*n))
             self._map_revision=key
         fleet=getattr(self.sim,'conventional',None)
+        from .conventional_visuals import refresh_geometry
+        refresh_geometry(self,self.map,fleet)
         self.play.setEnabled(fleet is not None);self.step_button.setEnabled(fleet is not None and not self.running)
         if fleet is None:
             self.overview.setText(f'Время {elapsed_text(self.sim.time)} · Обычная техника: не размещена · Автономная техника: отсутствует')
             self.details.setText('Откройте «Обычная техника…»: выберите машины, рабочую захватку и базу заправки.')
-            self.machines.clear();self.camp_marker.clear();self.work_outline.clear();self.ramp_outline.clear();self.paths.clear()
+            self.machines.clear();self.camp_marker.clear();self.work_outline.clear();self.paths.clear()
             self.camp_label.hide()
             for label in self._label_items.values():label.hide()
             return
@@ -150,17 +152,10 @@ class ConventionalWorkWindow(QtWidgets.QMainWindow):
         camp=report.get('base_position_m',[fleet.config.base_x,fleet.config.base_y])
         self.camp_marker.setData([camp[0]],[camp[1]])
         self.camp_label.setPos(camp[0]+.8,camp[1]-3.5);self.camp_label.show()
-        ramp=report.get('ramp') or {}
-        if ramp.get('entry_m') is not None and ramp.get('end_m') is not None:
-            start,end=np.asarray(ramp['entry_m'][:2]),np.asarray(ramp['end_m'][:2]);delta=end-start
-            side=np.array([-delta[1],delta[0]])/max(float(np.linalg.norm(delta)),1e-9)*ramp.get('width_m',0.)/2
-            polygon=np.asarray([start+side,end+side,end-side,start-side,start+side])
-            self.ramp_outline.setData(polygon[:,0],polygon[:,1])
-        else:self.ramp_outline.clear()
         spots=[];routes=[];rows=[];visible=set()
         for machine in machines:
             position=machine['position_m'];kind=machine['kind'];name=machine['id'];visible.add(name)
-            spots.append(dict(pos=tuple(position[:2]),symbol='s' if kind=='excavator' else 't',size=16,
+            spots.append(dict(pos=tuple(position[:2]),symbol='s' if kind=='excavator' else 't',size=6,
                 brush='#f2b95e' if kind=='excavator' else '#d5e8f4',pen=pg.mkPen('#11232d',width=1.5)))
             label=self._label_items.get(name)
             if label is None:label=pg.TextItem(anchor=(0,1),color='#f4f6f0',fill=pg.mkBrush(10,22,35,210));self.map.addItem(label);self._label_items[name]=label

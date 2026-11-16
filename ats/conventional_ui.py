@@ -28,6 +28,17 @@ class ConventionalWindow(QtWidgets.QDialog):
         fixed=QtWidgets.QLabel('1 гусеничный экскаватор · отдельные водители и машинисты каждой смены')
         fixed.setWordWrap(True);machines.addRow(fixed)
         self._integer(machines,'truck_count','Самосвалы',1,16)
+        self.dimension_controls={}
+        for key,label in (('excavator_dimensions_m','Экскаватор: Д × Ш × В, м'),('truck_dimensions_m','Самосвал: Д × Ш × В, м')):
+            row=QtWidgets.QHBoxLayout();widgets=[]
+            for value in getattr(self.defaults,key):
+                widget=self._spin(.5,30.,value);row.addWidget(widget);widgets.append(widget)
+            self.dimension_controls[key]=widgets;machines.addRow(label,row)
+        self._real(machines,'ramp_width_m','Ширина грунтового съезда, м',2.,100.)
+        self.auto_area=QtWidgets.QCheckBox('Автоматически выбрать участок канала и топливную базу')
+        self.auto_area.setChecked(bool(getattr(self.defaults,'auto_work_area',False)))
+        self.auto_area.setEnabled(bool(getattr(host.sim.config.plan,'channel',None)))
+        machines.addRow(self.auto_area)
         extent=host.sim.terrain.height.shape[0]*host.sim.terrain.cell
         self._real(machines,'base_x','База X, м',0,float(extent))
         self._real(machines,'base_y','База Y, м',0,float(extent))
@@ -71,11 +82,11 @@ class ConventionalWindow(QtWidgets.QDialog):
         basis.setWordWrap(True);costs.addRow(basis)
         live=QtWidgets.QWidget();live_layout=QtWidgets.QVBoxLayout(live);self.tabs.addTab(live,'4 · Работа и расходы')
         self.summary=QtWidgets.QLabel('Обычная техника ещё не создана.');self.summary.setWordWrap(True);live_layout.addWidget(self.summary)
-        self.table=QtWidgets.QTableWidget(0,7)
-        self.table.setHorizontalHeaderLabels(['Машина','Тип','Состояние','Бак, л','Грунт, кг','X / Y, м','Причина ожидания'])
+        self.table=QtWidgets.QTableWidget(0,8)
+        self.table.setHorizontalHeaderLabels(['Машина','Тип','Состояние','Бак, л','Грунт, кг','X / Y, м','Д × Ш × В, м','Причина ожидания'])
         self.table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Interactive)
-        self.table.horizontalHeader().setSectionResizeMode(6,QtWidgets.QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(7,QtWidgets.QHeaderView.ResizeMode.Stretch)
         for col,width in enumerate((90,90,100,85,85,100)):self.table.setColumnWidth(col,width)
         live_layout.addWidget(self.table,1)
         supplies=QtWidgets.QGroupBox('Внешняя поставка расходников');supply_layout=QtWidgets.QGridLayout(supplies)
@@ -96,6 +107,10 @@ class ConventionalWindow(QtWidgets.QDialog):
             signal=widget.currentIndexChanged if isinstance(widget,QtWidgets.QComboBox) else widget.valueChanged
             signal.connect(self.update_preview)
         for widget in self.rect:widget.valueChanged.connect(self.update_preview)
+        for widgets in self.dimension_controls.values():
+            for widget in widgets:widget.valueChanged.connect(self.update_preview)
+        self.auto_area.toggled.connect(self.placement_mode_changed)
+        self.placement_mode_changed()
         self.shift_changed()
         self.timer=QtCore.QTimer(self);self.timer.setInterval(500);self.timer.timeout.connect(self.refresh);self.timer.start()
         from .ui_windows import fit_window
@@ -123,7 +138,14 @@ class ConventionalWindow(QtWidgets.QDialog):
         from dataclasses import replace
         values={key:(widget.currentData() if isinstance(widget,QtWidgets.QComboBox) else widget.value()) for key,widget in self.controls.items()}
         values['work_rect']=tuple(widget.value() for widget in self.rect)
+        values['auto_work_area']=self.auto_area.isChecked()
+        for key,widgets in self.dimension_controls.items():values[key]=tuple(widget.value() for widget in widgets)
         return replace(self.defaults,**values)
+
+    def placement_mode_changed(self,*_):
+        manual=not self.auto_area.isChecked()
+        for widget in (*self.rect,self.controls['base_x'],self.controls['base_y']):widget.setEnabled(manual)
+        self.update_preview()
 
     def shift_changed(self,*_):
         count=self.controls['shifts_per_day'].value();span=self.controls['shift_span_hours']
@@ -132,7 +154,8 @@ class ConventionalWindow(QtWidgets.QDialog):
 
     def update_preview(self,*_):
         c=self.config_value();people=(1+c.truck_count)*c.shifts_per_day
-        self.model_info.setText(f'Модельные параметры: ковш {c.bucket_m3:g} м³, базовый цикл {c.bucket_cycle_s:g} с; самосвал до {c.truck_payload_kg/1000:g} т / {c.truck_body_m3:g} м³; съезд до {100*c.ramp_gradient:g} %. Начальные баки пусты, заправка {c.refuel_l_min:g} л/мин занимает модельное время.')
+        excavator=' × '.join(f'{v:g}' for v in c.excavator_dimensions_m);truck=' × '.join(f'{v:g}' for v in c.truck_dimensions_m)
+        self.model_info.setText(f'Габариты Д × Ш × В: экскаватор {excavator} м; самосвал {truck} м; топливная база 8 × 8 × 3 м. На карте корпуса показаны в масштабе; безопасный габарит движения учитывает запас при повороте. Модельные параметры: ковш {c.bucket_m3:g} м³, базовый цикл {c.bucket_cycle_s:g} с; самосвал до {c.truck_payload_kg/1000:g} т / {c.truck_body_m3:g} м³; съезд до {100*c.ramp_gradient:g} %. Начальные баки пусты, заправка {c.refuel_l_min:g} л/мин занимает модельное время.')
         productive=c.shift_span_hours-c.lunch_hours
         self.shift_note.setText(f'{c.shifts_per_day} бригады · {people} работников всего. Одна смена: {c.shift_span_hours:g} ч присутствия, {productive:g} ч труда, {c.lunch_hours:g} ч обеда. Для трёх смен присутствие ограничено 8 ч; это до 7 ч труда на человека при часовом обеде.')
         capital=c.excavator_purchase_usd+c.truck_count*c.truck_purchase_usd+c.base_purchase_usd
@@ -145,6 +168,9 @@ class ConventionalWindow(QtWidgets.QDialog):
         fleet=self.fleet();x,y,w,h=config.work_rect
         geometry=f'X={x:g}, Y={y:g} · {w:g} × {h:g} м'
         if fleet is None:
+            if config.auto_work_area:
+                self.patch_status.setText('Автоматический участок канала: при размещении будут проверены реальная незавершённая выемка, размеры машин, съезд, безопасная стоянка и пути. До успешной проверки участок и база не приобретаются.')
+                return
             self.patch_status.setText(f'Участок к размещению: {geometry}. После размещения дроны будут получать задания за его границей с защитным отступом.')
             return
         terrain=getattr(fleet.terrain,'core',fleet.terrain);reserved=getattr(terrain,'_conventional_mask',None)
@@ -222,6 +248,11 @@ class ConventionalWindow(QtWidgets.QDialog):
             else:widget.setValue(value)
             widget.blockSignals(False)
         for widget,value in zip(self.rect,config.work_rect):widget.setValue(value)
+        self.auto_area.blockSignals(True);self.auto_area.setChecked(bool(getattr(config,'auto_work_area',False)));self.auto_area.blockSignals(False)
+        for key,widgets in self.dimension_controls.items():
+            for widget,value in zip(widgets,getattr(config,key)):
+                widget.blockSignals(True);widget.setValue(value);widget.blockSignals(False)
+        self.placement_mode_changed()
         self.update_preview()
 
     def _render_report(self,r):
@@ -242,7 +273,9 @@ class ConventionalWindow(QtWidgets.QDialog):
             capacity=self.fleet().config.excavator_tank_l if row['kind']=='excavator' else self.fleet().config.truck_tank_l
             reason=row['reason']
             if row['state']=='REFUELING' and not reason:reason=f"Заправка из склада: до полного бака ещё {max(0.,capacity-row['fuel_l']):.1f} л"
-            position=row['position_m'];values=[row['id'],kind,STATES.get(row['state'],row['state']),f"{row['fuel_l']:.1f} / {capacity:g}",_number(row['cargo_kg']),f'{position[0]:.1f} / {position[1]:.1f}',reason]
+            dimensions=row.get('dimensions_m',(6.,3.,3.) if row['kind']=='excavator' else (7.,2.8,3.2))
+            size=' × '.join(f'{v:g}' for v in dimensions)
+            position=row['position_m'];values=[row['id'],kind,STATES.get(row['state'],row['state']),f"{row['fuel_l']:.1f} / {capacity:g}",_number(row['cargo_kg']),f'{position[0]:.1f} / {position[1]:.1f}',size,reason]
             for j,value in enumerate(values):
                 item=self.table.item(i,j)
                 if item is None:item=QtWidgets.QTableWidgetItem();self.table.setItem(i,j,item)

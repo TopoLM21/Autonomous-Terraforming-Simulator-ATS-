@@ -1,0 +1,447 @@
+{
+  "date": "2026-11-16",
+  "baseline_commit": "bb66a6cadfffe0375d465b24afacedaf4d4f5f3b",
+  "environment": {
+    "os": "Linux",
+    "python": "3.12.14",
+    "numpy": "2.5.4",
+    "qt": "6.12.0",
+    "qt_platform": "offscreen"
+  },
+  "verification": {
+    "baseline_sha": "bb66a6cadfffe0375d465b24afacedaf4d4f5f3b",
+    "source": {
+      "initial_hash": "2a14f41b99871b41c08da27f1374594ca7fa516f84889bc092d8061594ee1861",
+      "final_hash": "b10ed8771e29a1fb6ec598ea21c09fe499e297ac04014c136358cdedf1bf68fa",
+      "files": 173,
+      "production_unchanged_after_full": true,
+      "differences_after_full": [
+        "tests/test_conventional_shared.py"
+      ]
+    },
+    "tests": {
+      "collected": 1042,
+      "full_initial": {
+        "tests": 1042,
+        "passed": 1041,
+        "failed": 1,
+        "wall_seconds": 578.3232431329998,
+        "batches": [
+          {
+            "batch": 0,
+            "files": [
+              "tests/test_base_layout.py",
+              "tests/test_channel.py",
+              "tests/test_channel_space.py",
+              "tests/test_completion.py",
+              "tests/test_workfront.py"
+            ],
+            "exit_code": 0,
+            "wall_seconds": 196.09835724000004,
+            "tests": 60,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "batch": 1,
+            "files": [
+              "tests/test_activity_stats.py",
+              "tests/test_compact_overviews.py",
+              "tests/test_complexes.py",
+              "tests/test_dig_rate.py",
+              "tests/test_display_modes.py",
+              "tests/test_drone.py",
+              "tests/test_dust.py",
+              "tests/test_equipment_caches.py",
+              "tests/test_fleet.py",
+              "tests/test_gui.py",
+              "tests/test_large_solar_base_specs.py",
+              "tests/test_live_inventory_solar.py",
+              "tests/test_logistics.py",
+              "tests/test_map_visuals.py",
+              "tests/test_maps_and_zoom.py",
+              "tests/test_material_slopes.py",
+              "tests/test_natural_excavation.py",
+              "tests/test_plan.py",
+              "tests/test_power_design.py",
+              "tests/test_procedural.py",
+              "tests/test_regional.py",
+              "tests/test_runtime_optimizations.py",
+              "tests/test_self_solar.py",
+              "tests/test_service_recovery.py",
+              "tests/test_shared_site.py",
+              "tests/test_streaming.py",
+              "tests/test_window_boundaries.py",
+              "tests/test_winter_power.py",
+              "tests/test_axis_station_cache.py",
+              "tests/test_axis_stations.py",
+              "tests/test_complex_setup_ui.py",
+              "tests/test_conventional_compatibility.py",
+              "tests/test_conventional_integration.py",
+              "tests/test_conventional_schedule.py",
+              "tests/test_conventional_siting.py",
+              "tests/test_conventional_workspace.py",
+              "tests/test_excavator_regions.py",
+              "tests/test_landing_queue.py",
+              "tests/test_landscape_display_ui.py",
+              "tests/test_mixed_boundaries.py",
+              "tests/test_mixed_ui.py"
+            ],
+            "exit_code": 0,
+            "wall_seconds": 417.17168528899856,
+            "tests": 468,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "batch": 2,
+            "files": [
+              "tests/test_airspace.py",
+              "tests/test_base_batteries.py",
+              "tests/test_batch_strategy.py",
+              "tests/test_battery_platforms.py",
+              "tests/test_checkpoint.py",
+              "tests/test_cli.py",
+              "tests/test_coastal_compact.py",
+              "tests/test_compact_season.py",
+              "tests/test_earthworks_performance.py",
+              "tests/test_energy.py",
+              "tests/test_equipment.py",
+              "tests/test_hydrology.py",
+              "tests/test_individual_chargers.py",
+              "tests/test_landscape.py",
+              "tests/test_landscape_ui.py",
+              "tests/test_laser.py",
+              "tests/test_laser_reference.py",
+              "tests/test_salinity.py",
+              "tests/test_scheduler_utilization.py",
+              "tests/test_sea_exchange.py",
+              "tests/test_sectors.py",
+              "tests/test_site_layout.py",
+              "tests/test_soil.py",
+              "tests/test_solar.py",
+              "tests/test_spare_controls.py",
+              "tests/test_terrain.py",
+              "tests/test_tool_station.py",
+              "tests/test_axis_station_ui.py",
+              "tests/test_complex_setup.py",
+              "tests/test_conventional.py",
+              "tests/test_conventional_geometry_ui.py",
+              "tests/test_conventional_routes.py",
+              "tests/test_conventional_shared.py",
+              "tests/test_conventional_ui.py",
+              "tests/test_excavator_fleet.py",
+              "tests/test_hydrology_workspace.py",
+              "tests/test_landscape_display.py",
+              "tests/test_lift_coordination.py",
+              "tests/test_mixed_setup.py",
+              "tests/test_work_schedule.py"
+            ],
+            "exit_code": 1,
+            "wall_seconds": 578.3202519349979,
+            "tests": 514,
+            "failures": 1,
+            "errors": 0,
+            "skipped": 0
+          }
+        ]
+      },
+      "corrected_fixture": {
+        "nodeid": "tests/test_conventional_shared.py::test_completed_ground_stage_hands_ramp_and_buffer_back_to_aircraft_naturally",
+        "passed": 1,
+        "junit_seconds": 148.885,
+        "pytest_log": "handoff-final.log",
+        "junit": "handoff-final.xml",
+        "change": "Four finite physical spare battery sets are included in initial test inventory; strict handoff assertions and 2400-step bound are unchanged."
+      },
+      "final_unique_verified": 1042,
+      "missing": [],
+      "extra": []
+    },
+    "cli": {
+      "commands": 32,
+      "all_passed": true,
+      "wall_seconds": 83.06081015699965
+    },
+    "initial_failure": {
+      "kind": "AssertionError",
+      "nodeid": "tests/test_conventional_shared.py::test_completed_ground_stage_hands_ramp_and_buffer_back_to_aircraft_naturally",
+      "assertion": "released and cleanup_flight and excavated_m3>0 and delivered_m3>0",
+      "observed": "released=True, cleanup_flight=False",
+      "diagnosis": "Root controlled reproduction: release at 1977 s; at 2400 s aircraft were charging to 100% with the finite original spare stock depleted. Only test energy isolation was adjusted, no production physics or strategy changed."
+    },
+    "limitations": [
+      "Local Linux/Python3.12/offscreen validation; fresh Windows/Ubuntu exact-commit CI is still to be run after publication."
+    ]
+  },
+  "actual_access_control": {
+    "map_side_m": 128,
+    "cell_m": 0.5,
+    "elapsed_seconds": 3000.0,
+    "ground_profile": "uniform",
+    "plan_depth_m": 1.5,
+    "excavator_dig_depth_m": 0.5,
+    "bucket_cycle_seconds": 0.5,
+    "refuel_l_min": 3000.0,
+    "excavator_position_m": [
+      33.5,
+      59.0,
+      -0.44999999999999996
+    ],
+    "excavated_m3": 44.29634919074685,
+    "delivered_m3": 44.29634919074689,
+    "carried_mass_kg": 0.0,
+    "excavator_distance_m": 58.84818451981671,
+    "truck_distance_m": 2952.510246242386,
+    "mass_error_kg": 9.237055564881302e-12,
+    "scope": "Fresh Terrain, finite real digging/haulage; at least two distinct lower working stations and excavation growth in last 1000 seconds; pause then actual return and exact snapshot continuation tested. Accelerated bucket/refuelling and reduced dig depth are explicit test parameters, not production defaults."
+  },
+  "coastal_allocation": [
+    {
+      "scenario": "basic",
+      "success": true,
+      "work_rect": [
+        208.0,
+        179.0,
+        71.5,
+        95.0
+      ],
+      "base_xy": [
+        287.25,
+        224.75
+      ],
+      "ramp": {
+        "entry_m": [
+          259.91707369306135,
+          265.16844383295654
+        ],
+        "end_m": [
+          228.36210730543615,
+          187.7408033957554
+        ],
+        "width_m": 9.0,
+        "max_gradient": 0.12,
+        "model": "supported_access_v2",
+        "entry_height_m": 2.3936528681749287,
+        "required_length_m": 61.61377390145774
+      },
+      "platform_count": 0,
+      "mass_error_kg": 0.0,
+      "allocation_seconds": 0.20046701000319445,
+      "wall_seconds": 1.8538735399997677
+    },
+    {
+      "scenario": "seasonal",
+      "success": true,
+      "work_rect": [
+        235.5,
+        244.0,
+        65.0,
+        84.0
+      ],
+      "base_xy": [
+        224.75,
+        287.25
+      ],
+      "ramp": {
+        "entry_m": [
+          282.21379146680545,
+          319.87876187000063
+        ],
+        "end_m": [
+          254.74720187219225,
+          252.48292956127437
+        ],
+        "width_m": 9.0,
+        "max_gradient": 0.12,
+        "model": "supported_access_v2",
+        "entry_height_m": 1.294337965981967,
+        "required_length_m": 52.45281638318306
+      },
+      "platform_count": 45,
+      "mass_error_kg": 0.0,
+      "allocation_seconds": 0.21196210400012205,
+      "wall_seconds": 3.8075048650025565
+    }
+  ],
+  "dump_failure_controls": {
+    "baseline_commit": "bb66a6cadfffe0375d465b24afacedaf4d4f5f3b",
+    "scope": "Valid configurable constructed physical dump geometry; not user-save reproduction. Truck placed6m from heap; actual scoop/deposit; six normal relax calls.",
+    "rows": [
+      {
+        "name": "default-capacity-control",
+        "grab_radius_m": 0.5,
+        "max_dump_height_m": 2.5,
+        "body_capacity_m3": 10.0,
+        "mass_kg": 16000.0,
+        "volume_m3": 10.0,
+        "capacity_m3": 32.5,
+        "pre_passable": true,
+        "immediate_passable": true,
+        "post_relax_passable": true,
+        "height_under_footprint_m": 0.20956349956295717,
+        "mass_error_kg": 0.0
+      },
+      {
+        "name": "valid-large-body",
+        "grab_radius_m": 0.5,
+        "max_dump_height_m": 2.5,
+        "body_capacity_m3": 12.0,
+        "mass_kg": 18000.0,
+        "volume_m3": 11.25,
+        "capacity_m3": 32.5,
+        "pre_passable": true,
+        "immediate_passable": true,
+        "post_relax_passable": false,
+        "height_under_footprint_m": 0.25764042263988013,
+        "mass_error_kg": 0.0
+      },
+      {
+        "name": "valid-local-expansion",
+        "grab_radius_m": 3.0,
+        "max_dump_height_m": 0.5,
+        "body_capacity_m3": 10.0,
+        "mass_kg": 14400.0,
+        "volume_m3": 9.0,
+        "capacity_m3": 14.0,
+        "pre_passable": true,
+        "immediate_passable": false,
+        "post_relax_passable": false,
+        "height_under_footprint_m": 0.4250518850524274,
+        "mass_error_kg": 0.0
+      }
+    ]
+  },
+  "known_crest_route_before": {
+    "source": "/tmp/ats-ground/baseline",
+    "start": [
+      150.0,
+      110.0,
+      -15.54
+    ],
+    "home": [
+      50.0,
+      84.0,
+      0.0
+    ],
+    "known_polyline": [
+      [
+        150.0,
+        110.0
+      ],
+      [
+        150.0,
+        244.0
+      ],
+      [
+        94.0,
+        244.0
+      ],
+      [
+        94.0,
+        84.0
+      ],
+      [
+        50.0,
+        84.0
+      ]
+    ],
+    "segments_safe": [
+      true,
+      true,
+      true,
+      true
+    ],
+    "old_local_bounds": [
+      [
+        18.0,
+        52.0
+      ],
+      [
+        182.0,
+        142.0
+      ]
+    ],
+    "known_exit_y": 240.0,
+    "path_found": false,
+    "path_nodes": 0,
+    "wall_seconds": 0.11656853099884756,
+    "failure": "legacy has no failure reason"
+  },
+  "known_crest_route_after": {
+    "source": "/workspace/ats-project",
+    "start": [
+      150.0,
+      110.0,
+      -15.54
+    ],
+    "home": [
+      50.0,
+      84.0,
+      0.0
+    ],
+    "known_polyline": [
+      [
+        150.0,
+        110.0
+      ],
+      [
+        150.0,
+        244.0
+      ],
+      [
+        94.0,
+        244.0
+      ],
+      [
+        94.0,
+        84.0
+      ],
+      [
+        50.0,
+        84.0
+      ]
+    ],
+    "segments_safe": [
+      true,
+      true,
+      true,
+      true
+    ],
+    "old_local_bounds": [
+      [
+        18.0,
+        52.0
+      ],
+      [
+        182.0,
+        142.0
+      ]
+    ],
+    "known_exit_y": 240.0,
+    "path_found": true,
+    "path_nodes": 174,
+    "wall_seconds": 1.7759575020027114,
+    "failure": ""
+  },
+  "old_save": {
+    "version": 22,
+    "baseline_commit": "bb66a6cadfffe0375d465b24afacedaf4d4f5f3b",
+    "fixture": "tests/fixtures/conventional-v22/loaded.atsstate",
+    "sha256": "6d0ff1e046ea16826fa50ff4e1a378df55848269ca9edee10465b7429529bc79",
+    "real_elapsed_seconds": 750,
+    "carried_mass_kg": 472.16416288857863,
+    "continuation_seconds": 30,
+    "old_geometry_and_ids_preserved": true
+  },
+  "limits": [
+    "One conventional brigade per physical shared map; automatic allocation selects its initial finite patch, not a regional convoy/continual reassignment.",
+    "New supported-ramp geometry is applied to new fleets. Old saves preserve existing terrain, ramp geometry and placement.",
+    "A vehicle already buried in an old save is not teleported or freed by deleting soil.",
+    "Conservative circular swept support footprints; no Ackermann steering, detailed tyre soil mechanics, water erosion or new hydrology.",
+    "Offscreen screenshots are not live user FPS measurements. The 23-model-hour freeze was not reproduced or claimed fixed.",
+    "CI for the final published commit is checked separately after publication."
+  ]
+}

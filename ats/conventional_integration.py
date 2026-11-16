@@ -69,7 +69,11 @@ def install(sim,config):
     if fleets_for(sim):raise ValueError('Техника уже приобретена: используйте обслуживание или новый проект')
     owners=simulations_for(sim);site=getattr(sim,'shared_site',None)
     if site is not None and site.project.transition is not None:raise ValueError('Дождитесь завершения регионального переезда')
-    config.validate();t=getattr(sim.terrain,'core',sim.terrain)
+    config.validate()
+    if getattr(config,'auto_work_area',False):
+        from .conventional_siting import prepare
+        config=prepare(sim,config)
+    t=getattr(sim.terrain,'core',sim.terrain)
     patch=rectangle_patch(t,config.work_rect)
     if patch is None:raise ValueError('Рабочий участок должен полностью помещаться на карте')
     reserved=reservation_mask(t,config,owners)
@@ -122,12 +126,15 @@ def standalone_report(sim):
 def refresh_map(host):
     """Lightweight map overlays; no per-cell or physics work in the renderer."""
     import pyqtgraph as pg
+    from .conventional_visuals import refresh_geometry
     fleet=fleet_for(host.sim)
+    refresh_geometry(host,host.view_box,fleet)
     if not hasattr(host,'ground_vehicle_markers'):
         if fleet is None:return
-        host.ground_vehicle_markers=pg.ScatterPlotItem(size=13,pen=pg.mkPen('#17202b',width=2))
+        host.ground_vehicle_markers=pg.ScatterPlotItem(size=6,pen=pg.mkPen('#17202b',width=1))
         host.ground_work_outline=pg.PlotDataItem(pen=pg.mkPen('#ffcf66',width=2))
         host.ground_routes=pg.PlotDataItem(pen=pg.mkPen('#f5d69a',width=1))
+        host.ground_vehicle_markers.setZValue(3);host.ground_routes.setZValue(2)
         for item in (host.ground_vehicle_markers,host.ground_work_outline,host.ground_routes):host.view_box.addItem(item)
     if fleet is None:
         host.ground_vehicle_markers.clear();host.ground_work_outline.clear();host.ground_routes.clear();return
