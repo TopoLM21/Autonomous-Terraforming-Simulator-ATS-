@@ -71,8 +71,8 @@ def prepare(landscape,config,origin,side):
         plan.channel['shore_data']=dict(shape=[n,n],origin_m=list(origin),cell_m=cell,
             protected=encode(np.zeros((n*n+7)//8,dtype=np.uint8)),cap=encode(np.full((n,n),-depth,dtype='<f8')))
         return
-    if count>2048:
-        raise SiteError(f'Береговой профиль требует сетку с окружением {count}×{count}; предел подготовки 2048×2048. Увеличьте рабочее окно с более крупной ячейкой либо уменьшите геометрию проекта')
+    if count>3072:
+        raise SiteError(f'Береговой профиль требует сетку с окружением {count}×{count}; предел подготовки 3072×3072. Увеличьте рабочее окно с более крупной ячейкой либо уменьшите геометрию проекта')
     start=np.asarray(origin)-halo*cell
     axis=(np.arange(count)+.5)*cell
     reference=np.empty((count,count),dtype=float)
@@ -102,8 +102,9 @@ def prepare(landscape,config,origin,side):
 
 
 def decode(terrain,data):
+    from .maps import MAX_ACTIVE_CELLS
     shape=tuple(data['shape']);size=math.prod(shape)
-    if shape!=terrain.height.shape or size>1024**2:raise ValueError('Неверная сетка береговой защиты')
+    if shape!=terrain.height.shape or size>MAX_ACTIVE_CELLS**2:raise ValueError('Неверная сетка береговой защиты')
     config=getattr(terrain,'config',None)
     if config is not None:
         if data.get('origin_m')!=(config.georeference or {}).get('origin_m') or data.get('cell_m')!=config.terrain.cell_size:

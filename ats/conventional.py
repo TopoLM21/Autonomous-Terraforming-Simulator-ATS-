@@ -836,13 +836,16 @@ class ConventionalFleet:
                     all(m.state in ('PARKED','REFUELING','WAIT_FUEL') and not m.path and
                         np.linalg.norm(m.position[:2]-m.home[:2])<.1 for m in self.machines))
 
-    def rebind_terrain(self,terrain):
+    def rebind_terrain(self,terrain,*,offset_m=(0.,0.)):
         """Extend the common window at the same resolution without moving gear."""
         old=self.terrain
         if terrain.cell!=old.cell:raise ValueError('Изменение разрешения с обычной техникой пока не поддерживается')
+        offset=np.asarray(offset_m,dtype=float)
+        cells=np.rint(offset/terrain.cell).astype(int)
+        if np.any(cells<0) or np.any(np.abs(cells*terrain.cell-offset)>1e-8):raise ValueError('Смещение участка должно совпадать с сеткой')
         old_surface=self.ramp_surface;entry=np.asarray(self.ramp['entry_m']);end=np.asarray(self.ramp['end_m'])
         delta=end-entry;length=float(np.linalg.norm(delta));unit=delta/length
-        old_along=(old.x[0,0]-entry[0])*unit[0]+(old.y[0,0]-entry[1])*unit[1]
+        old_along=(old.x[0,0]+offset[0]-entry[0])*unit[0]+(old.y[0,0]+offset[1]-entry[1])*unit[1]
         entry_height=self.ramp.get('entry_height_m',float(old_surface[0,0]+np.clip(old_along,0,length)*self.config.ramp_gradient))
         self.terrain=terrain;x,y,w,h=self.config.work_rect
         self.work_mask=(terrain.x>=x)&(terrain.x<x+w)&(terrain.y>=y)&(terrain.y<y+h);self.mask=self.work_mask
@@ -854,7 +857,7 @@ class ConventionalFleet:
             self.ramp_mask=self.work_mask&(self.ramp_surface>terrain.target+1e-8)
             self.access_mask=self.work_mask&terrain.dig_mask&(lateral<=self.config.ramp_width_m/2)&(along>=0)&(along<=length)
         else:self.ramp_mask=self.work_mask&(lateral<=self.config.ramp_width_m/2)
-        rows,cols=old_surface.shape;self.ramp_surface[:rows,:cols]=old_surface
+        rows,cols=old_surface.shape;dx,dy=cells;self.ramp_surface[dy:dy+rows,dx:dx+cols]=old_surface
         self._marine=None;self._marine_stamp=None
         for machine in self.machines:machine.route_token=None;machine.budget_cache=None
 

@@ -156,6 +156,7 @@ class ComplexProject:
 
     @staticmethod
     def hardware_mass(simulation):
+        if simulation.config.conventional_only:return 0.
         w=simulation.logistics
         if w is None:return simulation.base.config.mass+sum(d.config.empty_mass for d in simulation.drones)
         return (sum(item.mass_kg for item in w.inventory.items.values())+

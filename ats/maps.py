@@ -2,11 +2,14 @@
 from copy import deepcopy
 import math
 
+MAX_ACTIVE_CELLS = 2048
+MAX_ACTIVE_SIDE_M = 2048.
 
-def workspace_cell(side, minimum=.25):
+
+def workspace_cell(side, minimum=.25, *, max_cells=1024):
     """Bound active arrays to 1024² cells; leave existing small maps unchanged."""
     cell=minimum
-    while side/cell>1024:cell*=2
+    while side/cell>max_cells:cell*=2
     return cell
 
 

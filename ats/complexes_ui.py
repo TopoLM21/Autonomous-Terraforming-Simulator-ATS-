@@ -45,7 +45,7 @@ class ComplexesWindow(QtWidgets.QDialog):
         self.target_count=QtWidgets.QSpinBox();self.target_count.setRange(1,20);self.target_count.setValue(min(20,len(self.project.units)+1))
         controls.addWidget(QtWidgets.QLabel('Всего комплексов'),4,0);controls.addWidget(self.target_count,4,1)
         self.batch_button=QtWidgets.QPushButton('Добавить до указанного количества');self.batch_button.clicked.connect(self.clone_batch);controls.addWidget(self.batch_button,4,2,1,2)
-        self.map_side=QtWidgets.QSpinBox();self.map_side.setRange(32,1024);self.map_side.setSingleStep(32)
+        self.map_side=QtWidgets.QSpinBox();self.map_side.setRange(32,2048);self.map_side.setSingleStep(32)
         self.map_side.setValue(round(self.project.active.bounds()[2]));controls.addWidget(QtWidgets.QLabel('Сторона общей карты, м'),5,0);controls.addWidget(self.map_side,5,1)
         expand=QtWidgets.QPushButton('Увеличить без сброса');expand.clicked.connect(self.enlarge_map);controls.addWidget(expand,5,2,1,2)
         provision_layout.addLayout(controls)
@@ -183,6 +183,15 @@ class ComplexesWindow(QtWidgets.QDialog):
         self.map_side.setValue(round(required));return True
 
     def enlarge_map(self):
+        if self.project.landscape is not None:
+            from .active_expansion_ui import ActiveExpansionDialog
+            dialog=ActiveExpansionDialog(self.host)
+            if self.map_side.value()>dialog.current_side:dialog.side.setValue(self.map_side.value())
+            if dialog.exec()==QtWidgets.QDialog.DialogCode.Accepted:
+                self._count=0;self.refresh()
+                self.map_side.setValue(round(self.project.active.bounds()[2]))
+                self.info.setText('Соседние области включены в общую физическую карту; разрешение и прогресс сохранены.')
+            return
         try:
             self.project.enable_shared().enlarge(self.map_side.value())
             self.host.install_simulation(self.project.active.simulation,self.project.landscape,self.project)

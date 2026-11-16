@@ -111,6 +111,10 @@ def standalone_report(sim):
         elapsed_display=elapsed_text(sim.time),date=sim.date_text,hour=sim.hour,
         day_of_year=sim.day_of_year,latitude_deg=sim.config.base.latitude_deg,
         drone_count=0,drones=[],autonomous_equipment_cost_usd=0.,
+        # Shared-window bookkeeping uses the same report interface, but an
+        # ordinary-only site has no autonomous battery, panels or electrical
+        # loads. Diesel work remains in the separate conventional report.
+        initial_energy_kwh=0.,consumed_kwh=0.,base_capacity_kwh=0.,panel_area_m2=0.,excavated_m3=0.,
         mass_error_kg=t.mass_change+(fleet.carried_mass_kg if fleet else 0.),energy_error_j=0.,
         remaining_m3=t.remaining,remaining_cut_m3=t.remaining_cut,
         map_side_m=t.cell*t.height.shape[0],cell_size_m=t.cell)

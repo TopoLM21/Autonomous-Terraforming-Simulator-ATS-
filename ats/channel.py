@@ -183,7 +183,7 @@ class ChannelProject:
         _geometry(self.raw_points);_geometry(self.points)
         if self.version not in (1,2,3) or self.base_strategy not in ('bank','axis_ahead') or self.base_strategy=='axis_ahead' and self.version<3 or self.shore_reference not in ('axis','crest') or self.version==1 and self.shore_reference!='axis' or not all(math.isfinite(v) for v in (self.width_m,self.depth_m,self.shore_offset_m,self.side_m,self.spoil_height_m)):
             raise ValueError('Неверный проект канала')
-        if not (1<=self.width_m<=300 and .01<=self.depth_m<=500 and .01<=self.shore_offset_m<=10000 and (self.angle_deg is None or math.isfinite(self.angle_deg) and 5<=self.angle_deg<=75) and 32<=self.side_m<=1024 and .1<=self.spoil_height_m<=200):
+        if not (1<=self.width_m<=300 and .01<=self.depth_m<=500 and .01<=self.shore_offset_m<=10000 and (self.angle_deg is None or math.isfinite(self.angle_deg) and 5<=self.angle_deg<=75) and 32<=self.side_m<=2048 and .1<=self.spoil_height_m<=200):
             raise ValueError('Проверьте ширину, глубину канала, отступ, откосы и размер участка')
         if not isinstance(self.active_section,int) or not 0<=self.active_section<self.section_count:
             raise ValueError('Неверный номер участка канала')
@@ -255,7 +255,7 @@ class ChannelProject:
         if self.shore_reference!='crest' or origin is not None or side_m is not None:
             return self._configuration(landscape,config,index,origin=origin,prepared=prepared,side_m=side_m)
         from .channel_site import SiteError
-        sizes=[self.side_m,*[s for s in (64.,128.,256.,512.,1024.) if s>self.side_m]]
+        sizes=[self.side_m,*[s for s in (64.,128.,256.,512.,1024.,2048.) if s>self.side_m]]
         failures=[]
         for side in sizes:
             if np.any(np.asarray(landscape.raster.extent_m)<side):continue
@@ -264,7 +264,7 @@ class ChannelProject:
                 result.georeference['channel'].update(custom_window=False,auto_window=side!=self.side_m)
                 return result
             except SiteError as error:failures.append(f'{side:g} м: {error}')
-        if failures:raise SiteError('Рабочее окно не вмещает канал, откосы, отвал и комплекс. '+failures[-1]+' Максимум текущей сетки — 1024 м; профиль и безопасность не уменьшены.')
+        if failures:raise SiteError('Рабочее окно не вмещает канал, откосы, отвал и комплекс. '+failures[-1]+' Максимум расчётной области — 2048 м; профиль и безопасность не уменьшены.')
         raise ValueError('Локальная карта больше исходного DEM')
 
     def _configuration(self,landscape,config,index=None,*,origin=None,prepared=None,side_m=None):

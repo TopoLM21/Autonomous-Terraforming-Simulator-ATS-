@@ -1,0 +1,299 @@
+{
+  "generated_utc": "2026-11-16T13:37:42.866021+00:00",
+  "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+  "platform": "Linux; Qt offscreen",
+  "post_suite_start_changes": {
+    "source": "Reported by coordinating root; no code was modified by this aggregation task.",
+    "files": [
+      {
+        "file": "ats/active_expansion.py",
+        "sha256": "034265c98e92fdf3abb37235fb46b40f846af90e4e1a4558e704e04a62ba21bc",
+        "final_targeted_passed_cases": 31,
+        "case_ids": [
+          "tests.test_active_expansion::test_prepend_keeps_edited_columns_global_positions_inventory_and_balances[False]",
+          "tests.test_active_expansion::test_prepend_keeps_edited_columns_global_positions_inventory_and_balances[True]",
+          "tests.test_active_expansion::test_dirty_relaxation_and_original_target_are_retained_exactly",
+          "tests.test_active_expansion::test_busy_or_invalid_reframe_is_atomic[airborne]",
+          "tests.test_active_expansion::test_busy_or_invalid_reframe_is_atomic[service]",
+          "tests.test_active_expansion::test_busy_or_invalid_reframe_is_atomic[outside]",
+          "tests.test_active_expansion::test_busy_or_invalid_reframe_is_atomic[not_contained]",
+          "tests.test_active_expansion::test_append_native_resolution_preserves_live_drone_trip_and_cargo",
+          "tests.test_active_expansion::test_parked_conventional_road_and_machines_follow_frame_without_moving",
+          "tests.test_active_expansion::test_regional_sector_state_legacy_pickups_and_round_trip_after_expansion",
+          "tests.test_active_expansion::test_normal_landing_retains_queued_jobs_then_resumes_after_reframe",
+          "tests.test_active_expansion::test_expansion_retries_only_window_sector_blocks_and_rechecks_real_range[BLOCKED_SECTOR_SITE-True]",
+          "tests.test_active_expansion::test_expansion_retries_only_window_sector_blocks_and_rechecks_real_range[BLOCKED_SECTOR_RANGE-True]",
+          "tests.test_active_expansion::test_expansion_retries_only_window_sector_blocks_and_rechecks_real_range[BLOCKED_SECTOR_NO_PROGRESS-False]",
+          "tests.test_active_expansion::test_expansion_retries_only_window_sector_blocks_and_rechecks_real_range[UNRELATED_FAULT-False]",
+          "tests.test_active_expansion::test_sector_named_block_without_sector_model_is_not_cleared",
+          "tests.test_active_expansion_ui::test_centered_proposal_contains_current_window_on_same_nonzero_grid",
+          "tests.test_active_expansion_ui::test_proposal_clips_at_dem_edges_without_coarsening",
+          "tests.test_active_expansion_ui::test_ui_success_calls_explicit_growth_preserves_path_running_and_dirty_draft",
+          "tests.test_active_expansion_ui::test_ui_refusal_stays_open_and_landing_is_an_explicit_time_advancing_request",
+          "tests.test_active_expansion_ui::test_ui_no_growth_available_is_explained_and_disabled",
+          "tests.test_active_expansion_ui::test_translation_accepts_real_plan_segments_without_touching_input",
+          "tests.test_active_expansion_ui::test_first_shared_dispatcher_is_rolled_back_on_refused_growth",
+          "tests.test_active_expansion_ui::test_runtime_main_window_growth_preserves_physical_actors_clock_and_file",
+          "tests.test_active_expansion_ui::test_runtime_conventional_only_window_can_expand_and_keep_one_shared_clock",
+          "tests.test_expanded_window_limits::test_above_old_grid_limit_keeps_sparse_mixed_soil_and_region_roundtrip",
+          "tests.test_expanded_window_limits::test_grid_cap_rejects_before_sampling_or_dense_allocation",
+          "tests.test_expanded_window_limits::test_large_workspace_uses_extended_cell_budget_without_allocating_mocked_data",
+          "tests.test_expanded_window_limits::test_workspace_extent_limit_rejects_before_reading",
+          "tests.test_expanded_window_limits::test_expanded_native_grid_survives_preparation_of_next_regional_window",
+          "tests.test_expanded_window_limits::test_neighbours_make_real_wide_channel_patch_fit_without_reset_or_purchase"
+        ]
+      },
+      {
+        "file": "tests/test_active_expansion.py",
+        "sha256": "0d8343506d384bbfaea5d1d777b7f8a0148a14f7848a9f146d054cb892c9c9dc",
+        "final_targeted_passed_cases": 16,
+        "case_ids": [
+          "tests.test_active_expansion::test_prepend_keeps_edited_columns_global_positions_inventory_and_balances[False]",
+          "tests.test_active_expansion::test_prepend_keeps_edited_columns_global_positions_inventory_and_balances[True]",
+          "tests.test_active_expansion::test_dirty_relaxation_and_original_target_are_retained_exactly",
+          "tests.test_active_expansion::test_busy_or_invalid_reframe_is_atomic[airborne]",
+          "tests.test_active_expansion::test_busy_or_invalid_reframe_is_atomic[service]",
+          "tests.test_active_expansion::test_busy_or_invalid_reframe_is_atomic[outside]",
+          "tests.test_active_expansion::test_busy_or_invalid_reframe_is_atomic[not_contained]",
+          "tests.test_active_expansion::test_append_native_resolution_preserves_live_drone_trip_and_cargo",
+          "tests.test_active_expansion::test_parked_conventional_road_and_machines_follow_frame_without_moving",
+          "tests.test_active_expansion::test_regional_sector_state_legacy_pickups_and_round_trip_after_expansion",
+          "tests.test_active_expansion::test_normal_landing_retains_queued_jobs_then_resumes_after_reframe",
+          "tests.test_active_expansion::test_expansion_retries_only_window_sector_blocks_and_rechecks_real_range[BLOCKED_SECTOR_SITE-True]",
+          "tests.test_active_expansion::test_expansion_retries_only_window_sector_blocks_and_rechecks_real_range[BLOCKED_SECTOR_RANGE-True]",
+          "tests.test_active_expansion::test_expansion_retries_only_window_sector_blocks_and_rechecks_real_range[BLOCKED_SECTOR_NO_PROGRESS-False]",
+          "tests.test_active_expansion::test_expansion_retries_only_window_sector_blocks_and_rechecks_real_range[UNRELATED_FAULT-False]",
+          "tests.test_active_expansion::test_sector_named_block_without_sector_model_is_not_cleared"
+        ]
+      },
+      {
+        "file": "ats/landscape_ui.py",
+        "sha256": "700d811f549cea718638c74267c3ac2188afce80315e3e59f84d44a6ad44f40e",
+        "final_targeted_passed_cases": 13,
+        "case_ids": [
+          "tests.test_landscape_ui::test_region_overview_draws_real_corridor_and_opens_msl_workspace",
+          "tests.test_landscape_ui::test_switching_regions_preserves_excavation_and_refuses_inflight_soil",
+          "tests.test_landscape_ui::test_channel_start_uses_drawn_route_dimensions_and_ready_excavation_plan",
+          "tests.test_landscape_ui::test_geographic_latitude_is_readonly_and_follows_actual_site_in_gui",
+          "tests.test_landscape_ui::test_next_section_keeps_landscape_and_completed_section_history",
+          "tests.test_landscape_display_ui::test_msl_and_horizontal_slices_preserve_route_project_zoom_and_physical_state",
+          "tests.test_landscape_display_ui::test_sections_and_shift_click_inspect_landscape_without_editing_the_route",
+          "tests.test_landscape_display_ui::test_hover_distinguishes_sea_dry_depression_and_nodata",
+          "tests.test_landscape_display_ui::test_nodata_viewport_source_change_and_reopening_restore_display_only",
+          "tests.test_landscape_display_ui::test_larger_dem_sea_preparation_does_not_block_gui_and_discards_stale_result",
+          "tests.test_landscape_display_ui::test_failed_background_mask_reports_error_without_changing_the_region",
+          "tests.test_landscape_display_ui::test_planning_map_stays_large_and_controls_scroll_on_a_small_screen",
+          "tests.test_landscape_display_ui::test_real_qattara_default_is_msl_and_dry_destination_is_not_marine"
+        ]
+      }
+    ]
+  },
+  "limitations": [
+    "Full suite collection occurred before the final six added active-expansion cases; final targeted JUnit covers the changed implementation and all six additions.",
+    "No Windows CI or push is included in this local verification.",
+    "Short bounded validation is not evidence about a 23-model-hour freeze."
+  ],
+  "source_parent": "5199dc94b00a09fc1b1bb20ba3f4bc4ee800a531",
+  "full_suite": {
+    "wall_seconds": 622.2441002269989,
+    "batches": [
+      {
+        "batch": 0,
+        "files": [
+          "tests/test_base_layout.py",
+          "tests/test_channel.py",
+          "tests/test_channel_space.py",
+          "tests/test_completion.py",
+          "tests/test_workfront.py"
+        ],
+        "exit_code": 0,
+        "wall_seconds": 179.0981507409997,
+        "tests": 60,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "batch": 1,
+        "files": [
+          "tests/test_activity_stats.py",
+          "tests/test_compact_overviews.py",
+          "tests/test_complexes.py",
+          "tests/test_dig_rate.py",
+          "tests/test_display_modes.py",
+          "tests/test_drone.py",
+          "tests/test_dust.py",
+          "tests/test_equipment_caches.py",
+          "tests/test_fleet.py",
+          "tests/test_gui.py",
+          "tests/test_large_solar_base_specs.py",
+          "tests/test_live_inventory_solar.py",
+          "tests/test_logistics.py",
+          "tests/test_map_visuals.py",
+          "tests/test_maps_and_zoom.py",
+          "tests/test_material_slopes.py",
+          "tests/test_natural_excavation.py",
+          "tests/test_plan.py",
+          "tests/test_power_design.py",
+          "tests/test_procedural.py",
+          "tests/test_regional.py",
+          "tests/test_runtime_optimizations.py",
+          "tests/test_self_solar.py",
+          "tests/test_service_recovery.py",
+          "tests/test_shared_site.py",
+          "tests/test_streaming.py",
+          "tests/test_window_boundaries.py",
+          "tests/test_winter_power.py",
+          "tests/test_active_expansion.py",
+          "tests/test_axis_station_cache.py",
+          "tests/test_axis_stations.py",
+          "tests/test_complex_setup_ui.py",
+          "tests/test_conventional_compatibility.py",
+          "tests/test_conventional_integration.py",
+          "tests/test_conventional_schedule.py",
+          "tests/test_conventional_siting.py",
+          "tests/test_conventional_workspace.py",
+          "tests/test_excavator_regions.py",
+          "tests/test_hydrology_workspace.py",
+          "tests/test_landscape_display.py",
+          "tests/test_lift_coordination.py",
+          "tests/test_mixed_setup.py",
+          "tests/test_work_schedule.py"
+        ],
+        "exit_code": 0,
+        "wall_seconds": 503.2022578969991,
+        "tests": 499,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "batch": 2,
+        "files": [
+          "tests/test_airspace.py",
+          "tests/test_base_batteries.py",
+          "tests/test_batch_strategy.py",
+          "tests/test_battery_platforms.py",
+          "tests/test_checkpoint.py",
+          "tests/test_cli.py",
+          "tests/test_coastal_compact.py",
+          "tests/test_compact_season.py",
+          "tests/test_earthworks_performance.py",
+          "tests/test_energy.py",
+          "tests/test_equipment.py",
+          "tests/test_hydrology.py",
+          "tests/test_individual_chargers.py",
+          "tests/test_landscape.py",
+          "tests/test_landscape_ui.py",
+          "tests/test_laser.py",
+          "tests/test_laser_reference.py",
+          "tests/test_salinity.py",
+          "tests/test_scheduler_utilization.py",
+          "tests/test_sea_exchange.py",
+          "tests/test_sectors.py",
+          "tests/test_site_layout.py",
+          "tests/test_soil.py",
+          "tests/test_solar.py",
+          "tests/test_spare_controls.py",
+          "tests/test_terrain.py",
+          "tests/test_tool_station.py",
+          "tests/test_active_expansion_ui.py",
+          "tests/test_axis_station_ui.py",
+          "tests/test_complex_setup.py",
+          "tests/test_conventional.py",
+          "tests/test_conventional_geometry_ui.py",
+          "tests/test_conventional_routes.py",
+          "tests/test_conventional_shared.py",
+          "tests/test_conventional_ui.py",
+          "tests/test_excavator_fleet.py",
+          "tests/test_expanded_window_limits.py",
+          "tests/test_landing_queue.py",
+          "tests/test_landscape_display_ui.py",
+          "tests/test_mixed_boundaries.py",
+          "tests/test_mixed_ui.py"
+        ],
+        "exit_code": 0,
+        "wall_seconds": 622.2401189640004,
+        "tests": 508,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    ],
+    "executed_case_count": 1067,
+    "unique_case_count": 1067
+  },
+  "final_targeted": {
+    "artifact": "/tmp/ats-window-expansion/final-targeted.xml",
+    "tests": 44,
+    "status_counts": {
+      "passed": 44
+    },
+    "junit_seconds": 25.246
+  },
+  "final_union": {
+    "unique_case_count": 1073,
+    "status_counts": {
+      "passed": 1073
+    },
+    "total_executions": 1111,
+    "repeated_case_count": 38,
+    "added_after_full_collection": [
+      "tests.test_active_expansion::test_expansion_retries_only_window_sector_blocks_and_rechecks_real_range[BLOCKED_SECTOR_NO_PROGRESS-False]",
+      "tests.test_active_expansion::test_expansion_retries_only_window_sector_blocks_and_rechecks_real_range[BLOCKED_SECTOR_RANGE-True]",
+      "tests.test_active_expansion::test_expansion_retries_only_window_sector_blocks_and_rechecks_real_range[BLOCKED_SECTOR_SITE-True]",
+      "tests.test_active_expansion::test_expansion_retries_only_window_sector_blocks_and_rechecks_real_range[UNRELATED_FAULT-False]",
+      "tests.test_active_expansion::test_normal_landing_retains_queued_jobs_then_resumes_after_reframe",
+      "tests.test_active_expansion::test_sector_named_block_without_sector_model_is_not_cleared"
+    ]
+  },
+  "cli": {
+    "count": 32,
+    "all_exit_zero": true,
+    "sum_command_seconds": 72.88418560700302,
+    "artifact": "/tmp/ats-window-expansion/cli-result.json",
+    "harness_note": "Initial CLI harness lacked its relative docs directory at command index 13; root supplied a link to the checkout docs and resumed at index 13. Retained entries 0–12 and final entries 13–31 all exited zero. No application fix was involved."
+  },
+  "coastal_control": {
+    "scenario": "loaded published coastal Qattara 45 PV carriers, 4 drones, 1 Krot and parked conventional fleet; 512 to 640 m at 0.5 m cells",
+    "side_m": 640,
+    "cell_m": 0.5,
+    "shape": [
+      1280,
+      1280
+    ],
+    "platforms": 45,
+    "expansion_seconds": 3.627016693000769,
+    "peak_rss_bytes": 1446494208,
+    "time_seconds": 0.0,
+    "mass_error_kg": 0.0,
+    "energy_error_j": 0.0,
+    "equipment_mass_error_kg": 0.0,
+    "snapshot_exact": true,
+    "ui_offscreen": true
+  },
+  "memory_control": {
+    "scope": "Single cold headless Linux process per size, unchanged flat synthetic Terrain at 0.25 m with the conditional Qattara SoilProfile. No actors, GUI, imported Python lists, or long-duration simulation. One observation per size; times are descriptive, not a speedup claim.",
+    "baseline": {
+      "n": 1024,
+      "side_m": 256,
+      "terrain_construction_seconds": 0.38076790899867774,
+      "process_peak_rss_mib": 208.859375,
+      "imports_peak_rss_mib": 23.2421875,
+      "top_level_array_mib": 66.02046966552734,
+      "neighbour_pair_index_mib": 63.906280517578125,
+      "active_soil_tiles": 0
+    },
+    "expanded": {
+      "n": 1280,
+      "side_m": 320,
+      "terrain_construction_seconds": 0.3740801999992982,
+      "process_peak_rss_mib": 309.359375,
+      "imports_peak_rss_mib": 23.30859375,
+      "top_level_array_mib": 103.14742279052734,
+      "neighbour_pair_index_mib": 99.88284301757812,
+      "active_soil_tiles": 0
+    },
+    "interpretation": "A 25% wider same-resolution square has 56.25% more cells. Observed process peak increased by 100.5 MiB. Dense physics arrays still grow with area even if modified soil tiles remain sparse; this does not establish interactive frame latency or fix a 23-model-hour freeze."
+  }
+}

@@ -294,7 +294,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.width = self.spin(0.25, 15, config.trench.width, 0.25)
         self.depth = self.spin(0.05, 2, config.trench.depth, 0.05)
         side=config.terrain.n*config.terrain.cell_size
-        self.map_size=self.spin(32,1024,side,16,2);self.map_size.setSuffix(' м')
+        self.map_size=self.spin(32,max(1024,side),side,16,2);self.map_size.setSuffix(' м')
         self.grid_info=QtWidgets.QLabel()
         self.cx = self.spin(0.5, side-.5, config.trench.x, 0.25)
         self.cy = self.spin(0.5, side-.5, config.trench.y, 0.25)
@@ -470,7 +470,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def update_map_size_controls(self):
         side=self.map_size.value();cell=self.config.terrain.cell_size
         from .maps import workspace_cell
-        cell=workspace_cell(side,cell)
+        if abs(side-self.config.terrain.n*cell)>1e-8:cell=workspace_cell(side,cell)
         self.cx.setMaximum(side-.5);self.cy.setMaximum(side-.5)
         self.length.setMaximum(side-2*cell);self.width.setMaximum(side-2*cell)
         n=round(side/cell);self.grid_info.setText(f'Сетка {n}×{n} · ячейка {cell:g} м')
@@ -935,6 +935,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.credit = 0
         self.config = config
         self.sim = sim
+        self.map_size.setMaximum(max(1024,config.terrain.n*config.terrain.cell_size))
         self.map_size.setValue(config.terrain.n*config.terrain.cell_size)
         self.update_map_size_controls()
         self.cx.setValue(config.trench.x);self.cy.setValue(config.trench.y)

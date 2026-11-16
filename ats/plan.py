@@ -47,7 +47,7 @@ class PlanConfig:
                 raise ValueError('Неверный отступ верхней бровки от моря')
             data=self.channel.get('shore_data')
             if data is not None and (not isinstance(data,dict) or data.get('shape')!=[config.terrain.n]*2 or
-                    any(not isinstance(data.get(k),str) or len(data[k])>12_000_000 for k in ('protected','cap'))):
+                    any(not isinstance(data.get(k),str) or len(data[k])>48_000_000 for k in ('protected','cap'))):
                 raise ValueError('Повреждены данные береговой защиты')
             if any(s.mode!='dig' or s.height>=0 for s in self.segments):
                 raise ValueError('Проект канала задаёт выемку ниже моря. Для отдельной засыпки сначала очистите план канала')

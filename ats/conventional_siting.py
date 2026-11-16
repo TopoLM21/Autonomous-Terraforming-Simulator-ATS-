@@ -115,7 +115,8 @@ def prepare(sim,config):
         w,h=float((ix.max()-ix.min()+1)*terrain.cell+2*padding),float((iy.max()-iy.min()+1)*terrain.cell+2*padding)
         rect=(x,y,w,h);patch=rectangle_patch(terrain,rect)
         if patch is None:
-            reason='Полный поперечник канала с откосами выходит за окно; увеличьте локальную карту'
+            reason=('Расчётное окно не вмещает захватку с откосами и защитным отступом; '
+                    'подгрузите соседние области кнопкой «Подгрузить соседние области…»')
             continue
         if hi-lo+1e-6<depth/config.ramp_gradient+2*radius:
             reason=f'Рампе требуется не менее {depth/config.ramp_gradient+2*radius:.1f} м; выберите более длинный участок или увеличьте карту'

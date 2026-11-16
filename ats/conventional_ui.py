@@ -22,6 +22,9 @@ class ConventionalWindow(QtWidgets.QDialog):
         intro=QtWidgets.QLabel('Одна обычная бригада на общей физической карте. Её рабочий участок отделён от заданий автономной техники; топливная база и смета собственные. Выбор другого автономного комплекса не создаёт новую бригаду.')
         intro.setWordWrap(True);layout.addWidget(intro)
         self.patch_status=QtWidgets.QLabel();self.patch_status.setWordWrap(True);layout.addWidget(self.patch_status)
+        self.expand_button=QtWidgets.QPushButton('Подгрузить соседние области…')
+        self.expand_button.setToolTip('Расширить активную физическую карту без нового запуска и покупки техники. Разрешение и выкопанный грунт сохраняются.')
+        self.expand_button.clicked.connect(self.expand_area);layout.addWidget(self.expand_button)
         self.tabs=QtWidgets.QTabWidget();layout.addWidget(self.tabs,1)
         self.setup_pages=[]
         machines=self._form_tab('1 · Машины и участок')
@@ -200,6 +203,23 @@ class ConventionalWindow(QtWidgets.QDialog):
             self.tabs.setCurrentIndex(3);self._notify_host()
         except ValueError as error:self.message.setText(str(error))
 
+    def expand_area(self):
+        from .active_expansion_ui import ActiveExpansionDialog
+        draft=self.config_value()
+        dialog=ActiveExpansionDialog(self.host)
+        if dialog.exec()!=QtWidgets.QDialog.DialogCode.Accepted:return
+        from dataclasses import replace
+        dx,dy=dialog.offset_m
+        x,y,w,h=draft.work_rect
+        draft=replace(draft,base_x=draft.base_x+dx,base_y=draft.base_y+dy,work_rect=(x+dx,y+dy,w,h))
+        if draft.ramp_entry_m is not None:
+            draft=replace(draft,ramp_entry_m=(draft.ramp_entry_m[0]+dx,draft.ramp_entry_m[1]+dy),
+                          ramp_end_m=(draft.ramp_end_m[0]+dx,draft.ramp_end_m[1]+dy))
+        self._simulation=self.host.sim
+        self._load_controls(draft)
+        self.message.setText('Соседние области включены в расчёт. Настройки бригады сохранены; повторите размещение техники.')
+        self._notify_host()
+
     def toggle(self):
         fleet=self.fleet()
         if fleet is None:return
@@ -221,6 +241,7 @@ class ConventionalWindow(QtWidgets.QDialog):
 
     def refresh(self):
         fleet=self.fleet();active=fleet is not None
+        self.expand_button.setEnabled(getattr(self.host,'landscape',None) is not None)
         self.create_button.setEnabled(not active);self.pause_button.setEnabled(active);self.replenish_button.setEnabled(active)
         for page in self.setup_pages:page.setEnabled(not active)
         if self._simulation is not self.host.sim:

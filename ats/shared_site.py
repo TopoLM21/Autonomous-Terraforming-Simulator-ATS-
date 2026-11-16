@@ -234,8 +234,11 @@ class SharedSite:
         else:t.front=None
         self.partition()
 
-    def enlarge(self,side_m):
+    def enlarge(self,side_m,*,origin_m=None,preserve_resolution=False):
         """Extend a live map, conserving edited fine material and all machinery."""
+        if origin_m is not None or preserve_resolution:
+            from .active_expansion import enlarge
+            return enlarge(self,side_m,origin_m=origin_m,preserve_resolution=preserve_resolution)
         if self.project.transition is not None:raise ValueError('Сначала завершите или отмените региональный переезд')
         from .maps import workspace_cell
         from .power_design import equipment_copy

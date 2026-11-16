@@ -207,7 +207,8 @@ class Config:
         for model in f.models:
             clone = Config(terrain=t, trench=q, drone=model, base=b, dust=dust, seed=self.seed, dt=self.dt, start_hour=self.start_hour)
             clone.validate()
-        require(isinstance(t.n, int) and t.n >= 16 and t.cell_size > 0, "Неверная сетка")
+        from .maps import MAX_ACTIVE_CELLS
+        require(isinstance(t.n, int) and 16 <= t.n <= MAX_ACTIVE_CELLS and t.cell_size > 0, "Неверная сетка")
         require(self.dt == 1.0, "Движок использует фиксированный шаг 1 с")
         require(t.density > 0 and t.floor < -q.depth - t.roughness, "Неверная плотность/нижняя граница грунта")
         require(t.roughness >= 0 and 0 < t.relaxation <= 0.5, "Неверные параметры рельефа")

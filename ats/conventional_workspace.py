@@ -22,6 +22,7 @@ class ConventionalWorkWindow(QtWidgets.QMainWindow):
             raise ValueError('Это окно предназначено для площадки без автономной техники')
         self.config=self.sim.config
         self.landscape=session.landscape if session is not None else landscape
+        self.complex_project=session.complex_project if session is not None else None
         self.running=False;self.last_wall=time.perf_counter();self._credit=0.
         self._map_revision=None;self._last_refresh=-float('inf');self._label_items={}
         self.equipment_window=None
@@ -71,7 +72,9 @@ class ConventionalWorkWindow(QtWidgets.QMainWindow):
 
     def single_step(self):
         if self.running or getattr(self.sim,'conventional',None) is None:return
-        self.sim.step();self.refresh(True)
+        if self.complex_project is not None:self.complex_project.step()
+        else:self.sim.step()
+        self.refresh(True)
 
     def tick(self):
         now=time.perf_counter();elapsed=max(0.,now-self.last_wall);self.last_wall=now
@@ -80,7 +83,9 @@ class ConventionalWorkWindow(QtWidgets.QMainWindow):
             self._credit+=min(elapsed,.25)*self.speed.currentData()
             deadline=now+.05;steps=0
             while self._credit>=1. and time.perf_counter()<deadline:
-                previous=self.sim.time;self.sim.step()
+                previous=self.sim.time
+                if self.complex_project is not None:self.complex_project.step()
+                else:self.sim.step()
                 if self.sim.time==previous:
                     self.running=False;self.play.setText('▶ Старт');break
                 self._credit-=1.;steps+=1
@@ -91,6 +96,14 @@ class ConventionalWorkWindow(QtWidgets.QMainWindow):
     def install_conventional(self,config):
         self.sim.install_conventional(config)
         self.refresh(True)
+
+    def install_simulation(self,simulation,landscape=None,complex_project=None):
+        """Adopt a larger live ground window, retaining this window's widgets."""
+        if simulation.drones or simulation.logistics is not None:
+            raise ValueError('Эта площадка предназначена для обычной техники')
+        self.sim=simulation;self.config=simulation.config
+        self.landscape=landscape;self.complex_project=complex_project
+        self._map_revision=None;self.reset_clock();self.refresh(True);self.reset_view()
 
     def show_conventional(self):
         from .conventional_ui import ConventionalWindow
@@ -179,7 +192,7 @@ class ConventionalWorkWindow(QtWidgets.QMainWindow):
             path=QtWidgets.QFileDialog.getSaveFileName(self,'Сохранить площадку','','Состояние ATS (*.atsstate)')[0]
         if not path:return False
         try:
-            save_state(path,self.sim,self.landscape,ui={'conventional_workspace':True,'conventional_speed':self.speed.currentData()})
+            save_state(path,self.sim,self.landscape,ui={'conventional_workspace':True,'conventional_speed':self.speed.currentData()},complex_project=self.complex_project)
             self.statusBar().showMessage(f'Сохранено: {Path(path).name}');return True
         except (OSError,ValueError,TypeError) as error:
             self.statusBar().showMessage(f'Ошибка сохранения: {error}');return False
@@ -194,6 +207,7 @@ class ConventionalWorkWindow(QtWidgets.QMainWindow):
                 raise ValueError('Откройте сохранение автономных комплексов через главное окно проекта')
             if self.equipment_window is not None:self.equipment_window.close();self.equipment_window=None
             self.running=False;self.play.setText('▶ Старт');self.sim=session.simulation;self.config=self.sim.config;self.landscape=session.landscape
+            self.complex_project=session.complex_project
             choice=(session.ui or {}).get('conventional_speed',50);index=self.speed.findData(choice)
             if index>=0:self.speed.setCurrentIndex(index)
             self.reset_clock();self.refresh(True);self.reset_view()

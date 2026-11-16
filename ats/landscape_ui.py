@@ -37,7 +37,7 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.x=QtWidgets.QDoubleSpinBox();self.y=QtWidgets.QDoubleSpinBox()
         for s in (self.x,self.y):s.setRange(0,100_000_000);s.setDecimals(2);s.setSingleStep(64);s.setSuffix(' м')
         self.side=QtWidgets.QComboBox()
-        for size in (32,64,128,256,512,1024):self.side.addItem(f'{size} м',size)
+        for size in (32,64,128,256,512,1024,2048):self.side.addItem(f'{size} м',size)
         self.side.setCurrentIndex(1)
         self.route_mode=QtWidgets.QCheckBox('Рисовать маршрут (ЛКМ)');self.route_mode.setChecked(True)
         self.target=QtWidgets.QDoubleSpinBox();self.target.setRange(-11000,10000);self.target.setDecimals(2);self.target.setValue(-5);self.target.setSuffix(' м MSL')
@@ -61,9 +61,9 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.base_strategy.addItem('На оси · впереди забоя','axis_ahead');self.base_strategy.addItem('Сбоку от канала','bank')
         self.base_strategy.setToolTip('На нетронутом грунте по оси будущего канала, впереди текущего сектора с запасом на откос и весь раскрытый комплекс. После переезда прежняя стоянка раскапывается. Для старых миссий сохраняется боковая стоянка.')
         self.project_side=QtWidgets.QComboBox()
-        for size in (32,64,128,256,512,1024):self.project_side.addItem(f'{size} м',size)
+        for size in (32,64,128,256,512,1024,2048):self.project_side.addItem(f'{size} м',size)
         self.project_side.setCurrentIndex(self.project_side.findData(512))
-        self.project_side.setToolTip('Предпочтительный размер нового рабочего окна. Если откосы, отвал или полный комплекс не помещаются, начальное окно автоматически увеличивается до 1024 м. При переезде размер и разрешение сохраняются.')
+        self.project_side.setToolTip('Предпочтительный размер нового рабочего окна. Если откосы, отвал или полный комплекс не помещаются, начальное окно автоматически увеличивается до 2048 м. Большая область требует больше RAM. При переезде размер и разрешение сохраняются.')
         self.spoil=QtWidgets.QDoubleSpinBox();self.spoil.setRange(.1,200);self.spoil.setValue(20);self.spoil.setSuffix(' м')
         self.section=QtWidgets.QSpinBox();self.section.setRange(1,1)
         for i,(label,widget) in enumerate([('Ширина дна',self.width),('Глубина дна',self.depth),('Отступ от берега',self.offset),('Проектный откос',self.angle),('Карта рабочего участка',self.project_side),('Высота отвала',self.spoil),('Участок проекта',self.section),('Разработка',self.cut_policy),('Полётные эшелоны',self.airspace),('Стоянка базы',self.base_strategy)]):
@@ -103,7 +103,10 @@ class LandscapeDialog(QtWidgets.QDialog):
         self.prefetch_button=QtWidgets.QPushButton('Предзагрузить выбранное окно')
         self.prefetch_cancel=QtWidgets.QPushButton('Отменить предзагрузку')
         self.prefetch_retry=QtWidgets.QPushButton('Повторить чтение при переезде')
-        for widget in (self.prefetch_auto,self.cache_limit,self.prefetch_button,self.prefetch_cancel,self.prefetch_retry):streaming.addWidget(widget)
+        self.expand_button=QtWidgets.QPushButton('Подгрузить соседние области · расширить расчёт…')
+        self.expand_button.setEnabled(getattr(window,'landscape',None) is self.region and not getattr(window,'planning_only',False))
+        self.expand_button.clicked.connect(self.expand_active_area)
+        for widget in (self.prefetch_auto,self.cache_limit,self.prefetch_button,self.prefetch_cancel,self.prefetch_retry,self.expand_button):streaming.addWidget(widget)
         layout.addLayout(streaming)
         self.prefetch_status=QtWidgets.QLabel();self.prefetch_status.setWordWrap(True);layout.addWidget(self.prefetch_status)
         self.prefetch_button.clicked.connect(self.prefetch_selected)
@@ -186,11 +189,25 @@ class LandscapeDialog(QtWidgets.QDialog):
 
     def prefetch_selected(self):
         try:
-            side=self.side.currentData();n=min(1024,round(side/self.region.cell_size));cell=side/n
+            from .maps import workspace_cell
+            side=self.side.currentData()
+            cell=workspace_cell(side,self.region.cell_size,max_cells=2048 if side>1024 else 1024)
+            n=round(side/cell)
             origin=[round(v/self.region.cell_size)*self.region.cell_size for v in (self.x.value(),self.y.value())]
             self.region.prefetch_window(origin,n,cell_size=cell)
             self.refresh_prefetch()
         except (ValueError,OSError,TypeError,KeyError) as error:self.result.setText(str(error))
+
+    def expand_active_area(self):
+        if self.region is not getattr(self.window,'landscape',None) or getattr(self.window,'planning_only',False):
+            self.result.setText('Присоединение доступно для активной карты текущей миссии. Выбранный другой ландшафт относится к новому запуску.')
+            return
+        from .active_expansion_ui import ActiveExpansionDialog
+        dialog=ActiveExpansionDialog(self.window)
+        if dialog.exec()==QtWidgets.QDialog.DialogCode.Accepted:
+            self.region=self.window.landscape
+            self.show_region()
+            self.result.setText('Соседние области включены в активный расчёт. Прежний грунт, техника, энергия и модельное время сохранены.')
 
     def cancel_prefetch(self):
         self.selection_timer.stop()
@@ -259,6 +276,7 @@ class LandscapeDialog(QtWidgets.QDialog):
         return True
 
     def show_region(self):
+        self.expand_button.setEnabled(self.region is getattr(self.window,'landscape',None) and not getattr(self.window,'planning_only',False))
         r=self.region.raster;h=r.height
         lo,hi=float(np.nanmin(h)),float(np.nanmax(h))
         rx,ry=r.resolution_m;w,t=r.extent_m
@@ -369,7 +387,7 @@ class LandscapeDialog(QtWidgets.QDialog):
         start=r.to_source(*p.points[0]);end=r.to_source(*p.points[-1])
         start_z=float(r.sample(*p.points[0]));end_z=float(r.sample(*p.points[-1]))
         shore=(f'сухая полоса до всей бровки не менее {p.shore_offset_m:g} м с ячеечным запасом' if p.shore_reference=='crest' else f'прежний отступ по оси {p.shore_offset_m:g} м')
-        frame=(f'Новое окно: от {p.side_m:g} до 1024 м с проверкой поперечника, вместимости отвала и раскрытых платформ.' if p.shore_reference=='crest' else f'Прежний проект: окно {p.side_m:g} м и целевой профиль сохранены.')
+        frame=(f'Новое окно: от {p.side_m:g} до 2048 м с проверкой поперечника, вместимости отвала и раскрытых платформ.' if p.shore_reference=='crest' else f'Прежний проект: окно {p.side_m:g} м и целевой профиль сохранены.')
         frame+=' База на оси впереди забоя; группа продвигается после вывоза грунта всего сектора.' if p.base_strategy=='axis_ahead' else ' База на боковой стоянке.'
         self.project_info.setText(f'Канал: {p.length/1000:.2f} км · дно шириной {p.width_m:g} м, отметка −{p.depth_m:g} м MSL · участков {p.section_count}, завершено {len(p.completed)}.\nНачало: {start[0]:.6f}, {start[1]:.6f}, {start_z:+.3f} м MSL; {shore}. Конец: {end[0]:.6f}, {end[1]:.6f}, {end_z:+.3f} м MSL — первый вход в выбранную сухую впадину.\n{frame} «Переехать» сохраняет всю группу, заряды и общие часы; сетка в пути не меняется.')
         self.result.setText(f"Готовый проект: ориентировочная выемка {profile['estimated_cut_m3']/1e6:.2f} млн м³. Точность берега определяется DEM ({r.resolution_m[0]:.0f}×{r.resolution_m[1]:.0f} м).")

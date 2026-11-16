@@ -136,7 +136,8 @@ class SoilField:
 
     def validate(self):
         self.profile.validate()
-        if (type(self.n) is not int or not 16<=self.n<=1024 or
+        from .maps import MAX_ACTIVE_CELLS
+        if (type(self.n) is not int or not 16<=self.n<=MAX_ACTIVE_CELLS or
                 not math.isfinite(self.cell) or self.cell<=0 or
                 not math.isfinite(self.fine_cell) or self.fine_cell<=0 or
                 type(self.factor) is not int or self.factor not in (1,2,4) or

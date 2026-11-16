@@ -194,8 +194,9 @@ class Landscape:
         if soil_profile is not None:soil_profile.validate()
 
     def _grid(self, origin, n, cell_size=None):
-        if len(origin) != 2 or not all(math.isfinite(v) for v in origin) or not isinstance(n,int) or not 16 <= n <= 1024:
-            raise ValueError('Неверный рабочий участок; максимум 1024×1024')
+        from .maps import MAX_ACTIVE_CELLS
+        if len(origin) != 2 or not all(math.isfinite(v) for v in origin) or not isinstance(n,int) or not 16 <= n <= MAX_ACTIVE_CELLS:
+            raise ValueError(f'Неверный рабочий участок; максимум {MAX_ACTIVE_CELLS}×{MAX_ACTIVE_CELLS}')
         cell=self.cell_size if cell_size is None else cell_size
         factor=round(cell/self.cell_size)
         if factor not in (1,2,4) or abs(factor*self.cell_size-cell)>1e-9:
@@ -567,16 +568,23 @@ class Landscape:
 def workspace_config(landscape, config, origin, side_m=64.,*,prepared=None):
     """Start a local SI workspace without flattening or rebasing the DEM to zero."""
     from .plan import PlanConfig
-    from .maps import workspace_cell
+    from .maps import workspace_cell,MAX_ACTIVE_SIDE_M,MAX_ACTIVE_CELLS
     # These matrices and the old plan/frame are replaced below. Copying them
     # first doubles a large window's transient RAM for no physical purpose.
     c=copy(config)
     c.initial_height=c.reference_height=c.initial_soil=c.plan=c.georeference=None
     c=deepcopy(c)
-    cell = workspace_cell(side_m,landscape.cell_size)
+    # Ordinary windows keep their historical resolution. Large, explicitly
+    # joined windows may use more cells instead of silently averaging away
+    # already excavated fine ground at a regional handoff.
+    same_grid=(config.georeference is not None and
+               abs(config.terrain.n*config.terrain.cell_size-side_m)<1e-8)
+    cell = (config.terrain.cell_size if same_grid else
+            workspace_cell(side_m,landscape.cell_size) if side_m<=1024 else
+            workspace_cell(side_m,max(landscape.cell_size,config.terrain.cell_size),max_cells=MAX_ACTIVE_CELLS))
     n = round(side_m/cell)
-    if not 32 <= side_m <= 1024 or abs(n*cell-side_m) > 1e-8:
-        raise ValueError('Рабочий участок: 32…1024 м, кратно ячейке')
+    if not 32 <= side_m <= MAX_ACTIVE_SIDE_M or n>MAX_ACTIVE_CELLS or abs(n*cell-side_m) > 1e-8:
+        raise ValueError(f'Рабочий участок: 32…{MAX_ACTIVE_SIDE_M:g} м, максимум {MAX_ACTIVE_CELLS}×{MAX_ACTIVE_CELLS}, кратно ячейке')
     baseline, current = landscape.read_window(origin,n,cell_size=cell,prepared=prepared)
     c.terrain.n, c.terrain.cell_size = n, cell
     c.terrain.roughness = 0.
