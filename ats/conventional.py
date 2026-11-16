@@ -322,6 +322,22 @@ class ConventionalFleet:
         def key(p):return tuple(np.rint((np.asarray(p)-lo)/step).astype(int))
         first=key(start)
         def point(k):return start if k==first else lo+np.asarray(k)*step
+        diagonal=math.sqrt(2.)-1.
+        finish=key(goal);terminals=[]
+        for ox in range(-2,3):
+            for oy in range(-2,3):
+                q=lo+(np.asarray(finish)+(ox,oy))*step
+                tail=float(np.linalg.norm(q-goal))
+                if tail<=step*1.5:terminals.append((float(q[0]),float(q[1]),tail))
+        def heuristic(p):
+            # Exact relaxed cost on the eight-neighbour lattice plus its
+            # off-grid final connector. Ignoring obstacles gives an admissible
+            # lower bound; a constant connector discount instead leaves a huge
+            # cheaper plateau ahead of the goal on long diagonal journeys.
+            px,py=map(float,p)
+            return min(max(dx,dy)+diagonal*min(dx,dy)+tail
+                       for qx,qy,tail in terminals
+                       for dx,dy in [(abs(px-qx),abs(py-qy))])
         queue=[(float(np.linalg.norm(start-goal)),0.,first)]
         costs={first:0.};parents={};checked={};edges={};seen=set();limit=self.config.max_route_nodes
         def clear(k):
@@ -329,7 +345,10 @@ class ConventionalFleet:
                 p=point(k);checked[k]=bool(np.all(p>=lo)&np.all(p<=hi)) and self.passable(p,machine.radius,machine)
             return checked[k]
         while queue and len(seen)<limit:
-            _,cost,current=heapq.heappop(queue)
+            # Equal lower-bound costs may describe thousands of equivalent
+            # diagonal-grid paths. Prefer greater progress within that tie;
+            # the physical cost and admissible primary priority stay intact.
+            _,negative_cost,current=heapq.heappop(queue);cost=-negative_cost
             if current in seen:continue
             seen.add(current);p=point(current)
             if np.linalg.norm(p-goal)<=step*1.5 and self.segment_safe(p,goal,machine.radius,machine):
@@ -350,7 +369,7 @@ class ConventionalFleet:
                 if edge not in edges:edges[edge]=self.segment_safe(p,q,machine.radius,machine)
                 if not edges[edge]:continue
                 costs[nxt]=tentative;parents[nxt]=current
-                heapq.heappush(queue,(tentative+float(np.linalg.norm(q-goal)),tentative,nxt))
+                heapq.heappush(queue,(tentative+heuristic(q),-tentative,nxt))
         self._route_failure=('Лимит узлов локального поиска исчерпан; отсутствие пути не доказано'
                              if queue else 'Нет безопасного пути в локальном окне поиска')
         return None
@@ -361,7 +380,19 @@ class ConventionalFleet:
         path=self._without_loops(m.position[:2],path)
         if after!='PARKED':
             shift=self.shift();outbound=self._path_length(m,path)/self._speed(m)
+            checked_home=None
+            if home_path is None:
+                # A coarse grid may find an approach but miss its reverse
+                # off-grid connection. Retain the physical way back: reverse
+                # this actual outbound, then follow the current checked exit.
+                checked_home=self._home_route(m,validate=True)
             old=m.position.copy();m.position[:2]=destination[:2];m.position[2]=self.terrain.sample(*destination[:2])
+            if home_path is None and checked_home is not None:
+                visited=[tuple(old[:2]),*path]
+                backtrack=[*reversed(visited[:-1]),*checked_home]
+                if all(self.segment_safe(a,b,m.radius,m)
+                       for a,b in zip([m.position[:2],*backtrack[:-1]],backtrack)):
+                    home_path=backtrack
             if home_path is None:home_path=self.route(m,m.home[:2])
             if home_path is None:
                 m.position[:]=old
@@ -574,7 +605,8 @@ class ConventionalFleet:
 
     def _choose_excavator_site(self,e,advance_only=False,expose=None):
         target=self._available_target(e)
-        if target is not None and not advance_only and expose is None:e.target=target;e.state='WAIT_TRUCK';return True
+        if target is not None and not advance_only and expose is None:
+            e.target=target;e.state='WAIT_TRUCK';e.reason='';self.reason='';return True
         t=self.terrain;remaining=self._remaining();ids=np.flatnonzero(remaining>1e-6)
         if not len(ids):
             self._work_complete=True;self.reason='Захватка обработана; выездная рампа остаётся в проектной выемке';return False
@@ -609,15 +641,29 @@ class ConventionalFleet:
             points=entry+stations[:,None]*unit
             order=np.argsort(np.sum((points-e.position[:2])**2,axis=1),kind='stable')
             side=np.array([-unit[1],unit[0]])*(self.config.ramp_width_m/2+e.radius+1.)
-            road_points=points[order[:24]]
+            chosen=list(order[:24])
+            # Work starts at the first unfinished access cross-section, which
+            # can be far from a camp beside the middle of a long ramp. Nearby
+            # parking stations alone cannot expose that section. Retain both
+            # local repositioning and stations at the actual excavation front.
+            access=getattr(self,'access_mask',None)
+            if access is not None:
+                pending=ids[access.ravel()[ids]&(remaining.ravel()[ids]>min(.12,max(.03,.2*t.cell)))]
+                if len(pending):
+                    along=(t.x.ravel()[pending]-entry[0])*unit[0]+(t.y.ravel()[pending]-entry[1])*unit[1]
+                    chosen.extend(np.argsort(np.abs(stations-float(along.min())),kind='stable')[:24])
+            road_points=points[list(dict.fromkeys(chosen))]
             candidates.extend(sorted([p+offset for p in road_points for offset in (side,-side,np.zeros(2))],
                 key=lambda p:(t.sample(*p),float(np.sum((p-e.position[:2])**2)))))
+            # Include the very approach already checked by automatic siting.
+            # It must still pass current body, terrain, route and return tests.
+            candidates.insert(0,entry-unit*(e.radius+t.cell))
         for index in samples:
             x,y=t.x.ravel()[index],t.y.ravel()[index]
             for dx,dy in ((-1,0),(0,-1),(1,0),(0,1)):
                 candidates.append(np.array([x+dx*self.config.excavator_reach_m*.8,y+dy*self.config.excavator_reach_m*.8]))
         cursor_field='advance_search_cursor' if advance_only else 'site_search_cursor'
-        cursor=getattr(e,cursor_field,0)%len(candidates);limited=False
+        cursor=getattr(e,cursor_field,0)%len(candidates);limited=False;dispatch_wait=''
         for offset,p in enumerate(candidates[cursor:]+candidates[:cursor]):
             if advance_only and t.sample(*p)>=e.position[2]-.05:continue
             if np.linalg.norm(p-e.position[:2])<max(.5,t.cell) or not self.passable(p,e.radius,e):continue
@@ -647,10 +693,12 @@ class ConventionalFleet:
                 setattr(e,cursor_field,0)
                 e.expose_target=tuple(expose) if expose is not None else None
                 e.target=useful if expose is not None else None
+                self.reason=''
                 return True
+            if e.reason.startswith(('Недостаточно топлива','Недостаточно времени')):dispatch_wait=e.reason
         if not limited:setattr(e,cursor_field,0)
         if advance_only or expose is not None:return False
-        self.reason=('Лимит поиска полок; следующие варианты будут проверены после ожидания' if limited else
+        self.reason=dispatch_wait or ('Лимит поиска полок; следующие варианты будут проверены после ожидания' if limited else
                      'Нет доступной рабочей полки с безопасным выездом; рампа и остаток сохранены')
         e.reason=self.reason;return False
 

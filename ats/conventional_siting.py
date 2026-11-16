@@ -100,16 +100,24 @@ def prepare(sim,config):
     reason='Для захватки и стоянки нет безопасного места'
     for edge_start,direction,start,end,anchor in candidates:
         length=max(32.,2*config.excavator_reach_m+2*radius)
-        selected=None;depth=0.
-        for _ in range(4):
+        selected=None;depth=0.;converged=False
+        # Extending a ramp can expose higher ground and require a longer
+        # ramp again. Always evaluate the final footprint, not the stale
+        # selection from before the last length increase. Grid rounding makes
+        # small terrain-height increments settle without sub-cell tail loops.
+        for _ in range(20):
             lo=max(start,min(anchor,end-length));hi=min(end,lo+length)
             selected=design&(along>=lo-terrain.cell)&(along<=hi)
             if not np.any(selected&pending):break
             depth=float(np.maximum(terrain.height-terrain.target,0.)[selected].max())
             needed=depth/config.ramp_gradient+2*radius+2*terrain.cell
-            if needed<=length+1e-6:break
-            length=needed
+            if needed<=length+1e-6:
+                converged=True;break
+            length=math.ceil(needed/terrain.cell)*terrain.cell
         if selected is None or not np.any(selected&pending):continue
+        if not converged:
+            reason='Подбор длины рампы не сошёлся за 20 уточнений; выберите другой участок или увеличьте карту'
+            continue
         iy,ix=np.nonzero(selected);padding=max(1.,terrain.cell)
         x,y=float(ix.min()*terrain.cell-padding),float(iy.min()*terrain.cell-padding)
         w,h=float((ix.max()-ix.min()+1)*terrain.cell+2*padding),float((iy.max()-iy.min()+1)*terrain.cell+2*padding)
