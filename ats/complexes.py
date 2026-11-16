@@ -191,7 +191,7 @@ class ComplexProject:
 
     def add(self,template,origin=None,section=None):
         if any(getattr(u.simulation,'conventional',None) is not None for u in self.units):
-            raise ValueError('Обычная техника первого этапа требует отдельной площадки или одного комплекса')
+            raise ValueError('С обычной техникой добавляйте комплексы на общую физическую карту, а не в отдельные региональные окна')
         template.validate()
         if len(self.units)>=20:raise ValueError('Одновременно допускается до 20 рабочих комплексов')
         if self.landscape is None:raise ValueError('Для работы нескольких комплексов откройте региональный DEM или проект канала')
@@ -230,8 +230,6 @@ class ComplexProject:
         return unit
 
     def enable_shared(self):
-        if any(getattr(u.simulation,'conventional',None) is not None for u in self.units):
-            raise ValueError('Обычная техника пока не поддерживает общий диспетчер нескольких комплексов')
         if self.shared_site is not None:return self.shared_site
         if len(self.units)!=1:raise ValueError('Общий участок создаётся из одного действующего комплекса; раздельные региональные участки сохраняются в прежнем режиме')
         from .shared_site import SharedSite
@@ -239,8 +237,6 @@ class ComplexProject:
 
     def add_shared(self,template,position=None):
         """Deliver a real independent complex onto the existing physical map."""
-        if any(getattr(u.simulation,'conventional',None) is not None for u in self.units):
-            raise ValueError('Сначала откройте отдельную площадку: обычная техника пока не участвует в общем диспетчере комплексов')
         if self.transition is not None:raise ValueError('Сначала завершите или отмените региональный переезд')
         if len(self.units)>=20:raise ValueError('Одновременно допускается до 20 рабочих комплексов')
         template.validate();site=self.enable_shared();source=self.units[0].simulation.config
@@ -446,6 +442,10 @@ class ComplexProject:
             result['shared_worksite']=dict(remaining_m3=site.core.remaining,assignments=site.assignments,
                 unique_ground_cells=site.core.height.size,shared_height_arrays=1,
                 max_material_mass_error_kg=float(np.abs(errors).max()) if errors is not None else None)
+            fleets=site.conventional_fleets()
+            if fleets:
+                result['conventional']=fleets[0].report()
+                result['total_excavated_m3']=result['excavated_m3']+sum(f.excavated_m3 for f in fleets)
         return result
 
     def validate(self):

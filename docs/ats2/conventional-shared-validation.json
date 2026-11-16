@@ -1,0 +1,611 @@
+{
+  "date": "2026-11-16",
+  "baseline_commit": "d7e6538978bfb4b38a2ad0bfe482df7560ee682a",
+  "environment": {
+    "os": "Linux",
+    "python": "3.12.14",
+    "numpy": "2.5.4",
+    "qt": "6.12.0",
+    "qt_platform": "offscreen"
+  },
+  "tests": {
+    "full_unique": 1006,
+    "final_affected_unique": 86,
+    "overlap": 84,
+    "final_unique": 1008,
+    "collected_unique": 1008,
+    "missing": [],
+    "extra": [],
+    "full_suite_wall_seconds": 517.2404091890003,
+    "final_affected_wall_seconds": 101.48371927500011,
+    "all_final_cases_passed": true,
+    "windows_checked": false,
+    "ui_stability": [
+      {
+        "run": 1,
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "seconds": 3.788
+      },
+      {
+        "run": 2,
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "seconds": 3.656
+      },
+      {
+        "run": 3,
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "seconds": 3.545
+      }
+    ]
+  },
+  "cli": {
+    "commands": 32,
+    "all_passed": true,
+    "successful_command_seconds": 76.06862784599889,
+    "checks": [
+      {
+        "index": 0,
+        "command": "/workspace/ats-project/.venv/bin/python -m ats --headless --mode legacy --steps 10000 --seed 42",
+        "exit_code": 0,
+        "wall_seconds": 3.049202337000679
+      },
+      {
+        "index": 1,
+        "command": "/workspace/ats-project/.venv/bin/python -m ats --headless --drones 4 --steps 20000 --json ats2-ci.json > ats2-ci-stdout.json",
+        "exit_code": 0,
+        "wall_seconds": 7.790207721000115
+      },
+      {
+        "index": 2,
+        "command": "/workspace/ats-project/.venv/bin/python -c \"import json; r=json.load(open('ats2-ci.json',encoding='utf-8')); assert r['state']=='COMPLETED'; assert len({j['executor'] for j in r['jobs'] if j['kind']=='EXCAVATE_DIRECT'})>=2; assert abs(r['mass_error_kg'])<1e-7; assert abs(r['energy_error_j'])<0.002\"",
+        "exit_code": 0,
+        "wall_seconds": 0.05426519200045732
+      },
+      {
+        "index": 3,
+        "command": "/workspace/ats-project/.venv/bin/python -c \"import json; r=json.load(open('ats2-ci.json',encoding='utf-8')); s=r['battery_service']; assert r['map_side_m']==64; assert s['mode']=='individual'; assert s['capacity']==len(s['slots']); assert len({p['module_id'] for p in s['slots']})==s['capacity']; assert all(p['input_power_w']<=p['rated_w']+1e-7 for p in s['slots'])\"",
+        "exit_code": 0,
+        "wall_seconds": 0.04496923399983643
+      },
+      {
+        "index": 4,
+        "command": "/workspace/ats-project/.venv/bin/python -c \"import json; r=json.load(open('ats2-ci.json',encoding='utf-8')); e=r['excavator']; assert all(d['activity']['total_seconds']==r['time_seconds'] for d in r['drones']); assert e['activity']['total_seconds']==r['time_seconds']; assert abs(sum(d['mass_kg'] for d in e['daily_excavation'])-e['excavated_kg'])<1e-7\"",
+        "exit_code": 0,
+        "wall_seconds": 0.04227522100063652
+      },
+      {
+        "index": 5,
+        "command": "/workspace/ats-project/.venv/bin/python -m ats --headless --mode logistics --no-idle-digging --steps 20000 --json ats2-strict-ci.json > ats2-strict-stdout.json",
+        "exit_code": 0,
+        "wall_seconds": 6.922900677000143
+      },
+      {
+        "index": 6,
+        "command": "/workspace/ats-project/.venv/bin/python -c \"import json; r=json.load(open('ats2-strict-ci.json',encoding='utf-8')); assert r['state']=='COMPLETED'; assert r['excavator']['swaps']>=1; assert r['battery_service']['drone_swap_count']>=1; assert abs(r['mass_error_kg'])<1e-7; assert abs(r['energy_error_j'])<0.002\"",
+        "exit_code": 0,
+        "wall_seconds": 0.04647831799957203
+      },
+      {
+        "index": 7,
+        "command": "/workspace/ats-project/.venv/bin/python -m ats --headless --qattara --steps 0 --json dem-ci.json > dem-ci-stdout.json",
+        "exit_code": 0,
+        "wall_seconds": 0.5635808480001288
+      },
+      {
+        "index": 8,
+        "command": "/workspace/ats-project/.venv/bin/python -c \"import json; r=json.load(open('dem-ci.json',encoding='utf-8')); assert r['georeference']['vertical_datum']=='MSL'; assert r['landscape']['modified_tiles']==0; assert r['landscape']['fine_storage_bytes']==0; assert r['remaining_m3']==0; assert r['panel_area_m2']==20\"",
+        "exit_code": 0,
+        "wall_seconds": 0.04187333600020793
+      },
+      {
+        "index": 9,
+        "command": "/workspace/ats-project/.venv/bin/python -m ats --headless --steps 75 --save-state flight-ci.atsstate --json flight-ci.json > flight-ci-stdout.json",
+        "exit_code": 0,
+        "wall_seconds": 0.8871240830003444
+      },
+      {
+        "index": 10,
+        "command": "/workspace/ats-project/.venv/bin/python -m ats --headless --load-state flight-ci.atsstate --steps 125 --json resumed-ci.json > resumed-ci-stdout.json",
+        "exit_code": 0,
+        "wall_seconds": 1.5370525730004374
+      },
+      {
+        "index": 11,
+        "command": "/workspace/ats-project/.venv/bin/python -m ats --headless --steps 200 --json straight-ci.json > straight-ci-stdout.json",
+        "exit_code": 0,
+        "wall_seconds": 2.0101300919995992
+      },
+      {
+        "index": 12,
+        "command": "/workspace/ats-project/.venv/bin/python -c \"import json; a=json.load(open('resumed-ci.json',encoding='utf-8')); b=json.load(open('straight-ci.json',encoding='utf-8')); assert a==b; assert a['time_seconds']==200; assert abs(a['mass_error_kg'])<1e-7; assert abs(a['energy_error_j'])<0.002\"",
+        "exit_code": 0,
+        "wall_seconds": 0.07168182299938053
+      },
+      {
+        "index": 13,
+        "command": "/workspace/ats-project/.venv/bin/python -m ats --headless --qattara --channel-route docs/ats2/qattara-channel.json --steps 0 --json channel-ci.json > channel-ci-stdout.json",
+        "exit_code": 0,
+        "wall_seconds": 5.246631600000001
+      },
+      {
+        "index": 14,
+        "command": "/workspace/ats-project/.venv/bin/python -c \"import json; r=json.load(open('channel-ci.json',encoding='utf-8')); assert r['state']=='RUNNING'; assert r['remaining_cut_m3']>0; assert r['plan_segments']>0; assert r['map_side_m']==512 and r['cell_size_m']==0.5; assert 31<r['latitude_deg']<32; assert r['landscape']['channel']['target_msl']==-5; assert r['landscape']['fine_storage_bytes']==0; assert abs(r['mass_error_kg'])<1e-7\"",
+        "exit_code": 0,
+        "wall_seconds": 0.042820578999453573
+      },
+      {
+        "index": 15,
+        "command": "/workspace/ats-project/.venv/bin/python -m ats --headless --soil-profile qattara --steps 75 --save-state soil-ci.atsstate --json soil-flight-ci.json > soil-flight-ci-stdout.json",
+        "exit_code": 0,
+        "wall_seconds": 1.1996952660001625
+      },
+      {
+        "index": 16,
+        "command": "/workspace/ats-project/.venv/bin/python -m ats --headless --load-state soil-ci.atsstate --steps 125 --json soil-resumed-ci.json > soil-resumed-ci-stdout.json",
+        "exit_code": 0,
+        "wall_seconds": 1.6207380269997884
+      },
+      {
+        "index": 17,
+        "command": "/workspace/ats-project/.venv/bin/python -m ats --headless --soil-profile qattara --steps 200 --json soil-straight-ci.json > soil-straight-ci-stdout.json",
+        "exit_code": 0,
+        "wall_seconds": 1.9958464849996744
+      },
+      {
+        "index": 18,
+        "command": "/workspace/ats-project/.venv/bin/python -c \"import json; a=json.load(open('soil-resumed-ci.json',encoding='utf-8')); b=json.load(open('soil-straight-ci.json',encoding='utf-8')); assert a==b; assert a['soil']['max_material_mass_error_kg']<1e-7; assert abs(a['mass_error_kg'])<1e-7; assert abs(a['energy_error_j'])<0.002\"",
+        "exit_code": 0,
+        "wall_seconds": 0.044012935999489855
+      },
+      {
+        "index": 19,
+        "command": "/workspace/ats-project/.venv/bin/python -m ats --headless --latitude 31 --steps 0 --work-hours 12 --work-start-hour 6 --power-report power-ci.json --save-complex-template complex-ci.atstemplate > power-ci-stdout.json",
+        "exit_code": 0,
+        "wall_seconds": 0.36748966999948607
+      },
+      {
+        "index": 20,
+        "command": "/workspace/ats-project/.venv/bin/python -m ats --headless --complex-template complex-ci.atstemplate --steps 10 --json template-ci.json > template-ci-stdout.json",
+        "exit_code": 0,
+        "wall_seconds": 0.6710556650004946
+      },
+      {
+        "index": 21,
+        "command": "/workspace/ats-project/.venv/bin/python -c \"import json; p=json.load(open('power-ci.json',encoding='utf-8')); r=json.load(open('template-ci.json',encoding='utf-8')); assert r['state']=='RUNNING'; assert r['panel_area_m2']==p['panel_area_m2']; assert r['base_capacity_kwh']==p['base_capacity_kwh']; assert p['storage_check']['unserved_kwh']<1e-7; assert abs(p['storage_check']['energy_error_kwh'])<1e-7; assert abs(r['energy_error_j'])<0.002\"",
+        "exit_code": 0,
+        "wall_seconds": 0.05255846999989444
+      },
+      {
+        "index": 22,
+        "command": "/workspace/ats-project/.venv/bin/python -m ats --headless --qattara --channel-route docs/ats2/qattara-channel.json --complexes 2 --steps 5 --save-state complexes-ci.atsstate > complexes-ci-stdout.json",
+        "exit_code": 0,
+        "wall_seconds": 16.355285915999957
+      },
+      {
+        "index": 23,
+        "command": "/workspace/ats-project/.venv/bin/python -m ats --headless --load-state complexes-ci.atsstate --steps 15 --json complexes-resumed-ci.json > complexes-resumed-ci-stdout.json",
+        "exit_code": 0,
+        "wall_seconds": 3.124024398999609
+      },
+      {
+        "index": 24,
+        "command": "/workspace/ats-project/.venv/bin/python -m ats --headless --qattara --channel-route docs/ats2/qattara-channel.json --complexes 2 --steps 20 --json complexes-straight-ci.json > complexes-straight-ci-stdout.json",
+        "exit_code": 0,
+        "wall_seconds": 11.15174201300033
+      },
+      {
+        "index": 25,
+        "command": "/workspace/ats-project/.venv/bin/python -c \"import json; a=json.load(open('complexes-resumed-ci.json',encoding='utf-8')); b=json.load(open('complexes-straight-ci.json',encoding='utf-8')); assert a==b; assert a['state']=='RUNNING' and a['complex_count']==2 and a['drone_count']==8 and a['time_seconds']==20; assert abs(a['mass_error_kg'])<1e-7; assert abs(a['equipment_mass_error_kg'])<1e-7; assert abs(a['energy_error_j'])<0.002; assert a['delivered_energy_kwh']>0\"",
+        "exit_code": 0,
+        "wall_seconds": 0.043062003000159166
+      },
+      {
+        "index": 26,
+        "command": "/workspace/ats-project/.venv/bin/python -m ats --headless --shared-site --complexes 20 --soil-profile qattara --steps 30 --save-state shared-ci.atsstate > shared-ci-stdout.json",
+        "exit_code": 0,
+        "wall_seconds": 3.3822510659992986
+      },
+      {
+        "index": 27,
+        "command": "/workspace/ats-project/.venv/bin/python -m ats --headless --load-state shared-ci.atsstate --steps 30 --json shared-resumed-ci.json > shared-resumed-ci-stdout.json",
+        "exit_code": 0,
+        "wall_seconds": 2.8237705989995447
+      },
+      {
+        "index": 28,
+        "command": "/workspace/ats-project/.venv/bin/python -m ats --headless --shared-site --complexes 20 --soil-profile qattara --steps 60 --json shared-straight-ci.json > shared-straight-ci-stdout.json",
+        "exit_code": 0,
+        "wall_seconds": 3.5747358830003577
+      },
+      {
+        "index": 29,
+        "command": "/workspace/ats-project/.venv/bin/python -c \"import json; a=json.load(open('shared-resumed-ci.json',encoding='utf-8')); b=json.load(open('shared-straight-ci.json',encoding='utf-8')); assert a==b; assert a['complex_count']==20 and a['drone_count']==80 and a['time_seconds']==60; assert a['shared_worksite']['max_material_mass_error_kg']<1e-7; assert abs(a['mass_error_kg'])<1e-7; assert abs(a['equipment_mass_error_kg'])<1e-7; assert abs(a['energy_error_j'])<0.002\"",
+        "exit_code": 0,
+        "wall_seconds": 0.09570813300069858
+      },
+      {
+        "index": 30,
+        "command": "/workspace/ats-project/.venv/bin/python -m ats --headless --latitude 31 --continuous-design --drone-duty 85 --steps 0 --power-report continuous-ci.json --json continuous-world-ci.json > continuous-ci-stdout.json",
+        "exit_code": 0,
+        "wall_seconds": 1.1374126539994904
+      },
+      {
+        "index": 31,
+        "command": "/workspace/ats-project/.venv/bin/python -c \"import json; d=json.load(open('continuous-ci.json',encoding='utf-8')); r=json.load(open('continuous-world-ci.json',encoding='utf-8')); assert r['state']=='RUNNING'; assert d['request']['work_hours']==24; assert d['base_layout']['platform_count']>1; assert r['base_specification']['layout']['platform_count']==d['base_layout']['platform_count']; assert d['storage_check']['daily_storage_drift_kwh']>=-1e-7; assert abs(r['energy_error_j'])<0.002\"",
+        "exit_code": 0,
+        "wall_seconds": 0.0780450269994617
+      }
+    ]
+  },
+  "qt_test_isolation": {
+    "initial_ordered_native_crashes": 2,
+    "location": "tests/test_mixed_ui.py QApplication.processEvents while waiting for the actual calculator worker",
+    "observation": "Full 1006-case suite passed. Two ordered affected reruns segfaulted. Instrumented GC observer passed; it did not prove deletion of QWidget on a worker thread.",
+    "final_test_ownership": "gui_lifetime fixture holds QApplication, collects old closed-window cycles on main before the worker, waits for thread completion and drains deferred deletes after the test.",
+    "final_affected": "86 cases passed without instrumentation; exact native failure mechanism remains unproven. No production GC/worker behaviour changed.",
+    "ui_stability": "Three separate uninstrumented UI processes passed 9/9 cases each after explicit lifetime cleanup."
+  },
+  "scenario": {
+    "map_side_m": 128,
+    "autonomous_complexes": 2,
+    "drones_per_complex": 4,
+    "excavators": 1,
+    "trucks": 2,
+    "soil": "layered Qattara model",
+    "simulated_seconds": 800,
+    "autonomous_excavated_kg": [
+      1625.1542003452091,
+      2580.5476739112178
+    ],
+    "conventional_excavated_m3": 0.1911803766493205,
+    "conventional_delivered_m3": 0.16262143832466025,
+    "mass_error_kg": -5.684341886080802e-14,
+    "refuel_l_min": 3000,
+    "refuel_note": "Accelerated refuelling only in this regression fixture; default remains 30 L/min."
+  },
+  "performance": {
+    "baseline_commit": "d7e6538978bfb4b38a2ad0bfe482df7560ee682a",
+    "environment": {
+      "python": "3.12.14",
+      "numpy": "2.5.4",
+      "qt": "6.12.0",
+      "os": "Linux",
+      "platform": "offscreen"
+    },
+    "scope": [
+      "Autonomous14x4:128m shared map,4 drones each, layered Qattara soil,20m2 PV per complex; warm100s, time100s.",
+      "Conventional:128m0.5m grid,1 excavator2 trucks, layered soil, normal empty tanks/30Lmin singlepump; warm1200s,time100s.",
+      "Mixed current-only:128m shared map,2x4 drones+1excavator2trucks, layered soil, accelerated3000Lmin fixture refuelling; actual conventional delivery and both autonomous crews excavating before checkpoint at726s; time100s."
+    ],
+    "timing_limitations": [
+      "Initial current and first retimed samples overlapped another CPU process for part of the run. Shared-host timing variation remained substantial: do not infer a precise speedup/slowdown from medians.",
+      "Short headless windows and paused forced offscreen Qt redraws do not reproduce user FPS, full-day throughput, a45platform wintercomplex, or23h stalls.",
+      "Mixed shared-map baseline did not exist; no before/after speedup claimed for that feature."
+    ],
+    "initial": {
+      "baseline": {
+        "autonomous14x4": {
+          "steps": 100,
+          "wall_seconds": [
+            9.184148381999876,
+            8.569868413000222,
+            8.535703100000319
+          ],
+          "median_wall_seconds": 8.569868413000222,
+          "factor": 11.668790602234118,
+          "max_step_seconds": [
+            0.2772241920001761,
+            0.254379737999443,
+            0.25457657700007985
+          ],
+          "physical_digests": [
+            "c3982404b706372af5a2363bc568c2275a764a80dfdd43ccd66c961fb04439e7",
+            "c3982404b706372af5a2363bc568c2275a764a80dfdd43ccd66c961fb04439e7",
+            "c3982404b706372af5a2363bc568c2275a764a80dfdd43ccd66c961fb04439e7"
+          ],
+          "repeat_deterministic": true
+        },
+        "conventional": {
+          "steps": 100,
+          "wall_seconds": [
+            0.09183598900017387,
+            0.08934540199970797,
+            0.09206852700026502
+          ],
+          "median_wall_seconds": 0.09183598900017387,
+          "factor": 1088.8977304944217,
+          "max_step_seconds": [
+            0.015903258999969694,
+            0.014911272000063036,
+            0.017304611999861663
+          ],
+          "physical_digests": [
+            "f0fd9fad26e5475266d5347ec3116e73cef0122a4f9adb40e1d2a6a604ca3b3a",
+            "f0fd9fad26e5475266d5347ec3116e73cef0122a4f9adb40e1d2a6a604ca3b3a",
+            "f0fd9fad26e5475266d5347ec3116e73cef0122a4f9adb40e1d2a6a604ca3b3a"
+          ],
+          "repeat_deterministic": true
+        }
+      },
+      "current": {
+        "autonomous14x4": {
+          "steps": 100,
+          "wall_seconds": [
+            11.746856017000027,
+            10.777371859000596,
+            10.668814349000058
+          ],
+          "median_wall_seconds": 10.777371859000596,
+          "factor": 9.278699975122986,
+          "max_step_seconds": [
+            0.30684928399932687,
+            0.3004881859997113,
+            0.31813208699986717
+          ],
+          "physical_digests": [
+            "c3982404b706372af5a2363bc568c2275a764a80dfdd43ccd66c961fb04439e7",
+            "c3982404b706372af5a2363bc568c2275a764a80dfdd43ccd66c961fb04439e7",
+            "c3982404b706372af5a2363bc568c2275a764a80dfdd43ccd66c961fb04439e7"
+          ],
+          "repeat_deterministic": true
+        },
+        "conventional": {
+          "steps": 100,
+          "wall_seconds": [
+            0.11931244100014737,
+            0.11154395100038528,
+            0.10400001799916936
+          ],
+          "median_wall_seconds": 0.11154395100038528,
+          "factor": 896.5076017403633,
+          "max_step_seconds": [
+            0.02061530799983302,
+            0.01869417899979453,
+            0.017930386000443832
+          ],
+          "physical_digests": [
+            "f0fd9fad26e5475266d5347ec3116e73cef0122a4f9adb40e1d2a6a604ca3b3a",
+            "f0fd9fad26e5475266d5347ec3116e73cef0122a4f9adb40e1d2a6a604ca3b3a",
+            "f0fd9fad26e5475266d5347ec3116e73cef0122a4f9adb40e1d2a6a604ca3b3a"
+          ],
+          "repeat_deterministic": true
+        },
+        "mixed2x4": {
+          "steps": 100,
+          "wall_seconds": [
+            2.788112457000352,
+            2.760811692000061,
+            2.797165431999929
+          ],
+          "median_wall_seconds": 2.788112457000352,
+          "factor": 35.86655902236707,
+          "max_step_seconds": [
+            0.16202847399927123,
+            0.17516372599948227,
+            0.1522516650002217
+          ],
+          "physical_digests": [
+            "be706fdf848e11b6eb06bf732371a2199132a7763de9bab149f174a3063e2dad",
+            "be706fdf848e11b6eb06bf732371a2199132a7763de9bab149f174a3063e2dad",
+            "be706fdf848e11b6eb06bf732371a2199132a7763de9bab149f174a3063e2dad"
+          ],
+          "repeat_deterministic": true
+        }
+      }
+    },
+    "retimed": {
+      "baseline": {
+        "autonomous14x4": {
+          "steps": 100,
+          "wall_seconds": [
+            12.00506389200018,
+            10.639553937000528,
+            8.60865461999947
+          ],
+          "median_wall_seconds": 10.639553937000528,
+          "factor": 9.39889027229197,
+          "max_step_seconds": [
+            0.33016659500026435,
+            0.3281003250003778,
+            0.24352462099977856
+          ],
+          "physical_digests": [
+            "c3982404b706372af5a2363bc568c2275a764a80dfdd43ccd66c961fb04439e7",
+            "c3982404b706372af5a2363bc568c2275a764a80dfdd43ccd66c961fb04439e7",
+            "c3982404b706372af5a2363bc568c2275a764a80dfdd43ccd66c961fb04439e7"
+          ],
+          "repeat_deterministic": true
+        },
+        "conventional": {
+          "steps": 100,
+          "wall_seconds": [
+            0.09475320399997145,
+            0.08819342399965535,
+            0.09964557500006777
+          ],
+          "median_wall_seconds": 0.09475320399997145,
+          "factor": 1055.3732832087676,
+          "max_step_seconds": [
+            0.014788559999942663,
+            0.01378704699982336,
+            0.016840427000715863
+          ],
+          "physical_digests": [
+            "f0fd9fad26e5475266d5347ec3116e73cef0122a4f9adb40e1d2a6a604ca3b3a",
+            "f0fd9fad26e5475266d5347ec3116e73cef0122a4f9adb40e1d2a6a604ca3b3a",
+            "f0fd9fad26e5475266d5347ec3116e73cef0122a4f9adb40e1d2a6a604ca3b3a"
+          ],
+          "repeat_deterministic": true
+        }
+      },
+      "current": {
+        "autonomous14x4": {
+          "steps": 100,
+          "wall_seconds": [
+            12.583949449999636,
+            12.437674583000444,
+            8.981961821000368
+          ],
+          "median_wall_seconds": 12.437674583000444,
+          "factor": 8.040088147721596,
+          "max_step_seconds": [
+            0.3687472469991917,
+            0.3742632230005256,
+            0.2511077339995609
+          ],
+          "physical_digests": [
+            "c3982404b706372af5a2363bc568c2275a764a80dfdd43ccd66c961fb04439e7",
+            "c3982404b706372af5a2363bc568c2275a764a80dfdd43ccd66c961fb04439e7",
+            "c3982404b706372af5a2363bc568c2275a764a80dfdd43ccd66c961fb04439e7"
+          ],
+          "repeat_deterministic": true
+        },
+        "conventional": {
+          "steps": 100,
+          "wall_seconds": [
+            0.12353460400026961,
+            0.10366454300037731,
+            0.1052491740001642
+          ],
+          "median_wall_seconds": 0.1052491740001642,
+          "factor": 950.1262214166544,
+          "max_step_seconds": [
+            0.028293981999922835,
+            0.01637211099932756,
+            0.018156916000407364
+          ],
+          "physical_digests": [
+            "f0fd9fad26e5475266d5347ec3116e73cef0122a4f9adb40e1d2a6a604ca3b3a",
+            "f0fd9fad26e5475266d5347ec3116e73cef0122a4f9adb40e1d2a6a604ca3b3a",
+            "f0fd9fad26e5475266d5347ec3116e73cef0122a4f9adb40e1d2a6a604ca3b3a"
+          ],
+          "repeat_deterministic": true
+        },
+        "mixed2x4": {
+          "steps": 100,
+          "wall_seconds": [
+            3.278121141000156,
+            3.388222472000052,
+            3.3443458849997114
+          ],
+          "median_wall_seconds": 3.3443458849997114,
+          "factor": 29.901213402754433,
+          "max_step_seconds": [
+            0.18098325499977364,
+            0.18603190400062886,
+            0.19356606600013038
+          ],
+          "physical_digests": [
+            "be706fdf848e11b6eb06bf732371a2199132a7763de9bab149f174a3063e2dad",
+            "be706fdf848e11b6eb06bf732371a2199132a7763de9bab149f174a3063e2dad",
+            "be706fdf848e11b6eb06bf732371a2199132a7763de9bab149f174a3063e2dad"
+          ],
+          "repeat_deterministic": true
+        }
+      }
+    },
+    "offscreen_ui": {
+      "baseline": {
+        "scope": "Paused Qt offscreen 1200x800 window, forced refresh + processEvents + QWidget.grab per frame. Includes map and telemetry work. Not live user FPS.",
+        "results": {
+          "autonomous14x4": {
+            "frames": 30,
+            "median_seconds": 0.07303785850035638,
+            "mean_seconds": 0.07574075256682894,
+            "maximum_seconds": 0.12726931100041838,
+            "model_time": 100.0,
+            "physical_time_unchanged": true
+          },
+          "conventional": {
+            "frames": 30,
+            "median_seconds": 0.010296037499756494,
+            "mean_seconds": 0.010387596733289683,
+            "maximum_seconds": 0.013210404999881575,
+            "model_time": 1200.0,
+            "physical_time_unchanged": true
+          }
+        }
+      },
+      "current": {
+        "scope": "Paused Qt offscreen 1200x800 window, forced refresh + processEvents + QWidget.grab per frame. Includes map and telemetry work. Not live user FPS.",
+        "results": {
+          "autonomous14x4": {
+            "frames": 30,
+            "median_seconds": 0.06748350450016005,
+            "mean_seconds": 0.07097508670003663,
+            "maximum_seconds": 0.11863640499996109,
+            "model_time": 100.0,
+            "physical_time_unchanged": true
+          },
+          "conventional": {
+            "frames": 30,
+            "median_seconds": 0.010361578500578617,
+            "mean_seconds": 0.010471403366742986,
+            "maximum_seconds": 0.01275675300075818,
+            "model_time": 1200.0,
+            "physical_time_unchanged": true
+          },
+          "mixed2x4": {
+            "frames": 30,
+            "median_seconds": 0.08690210350005145,
+            "mean_seconds": 0.09037176626664707,
+            "maximum_seconds": 0.14779614899998705,
+            "model_time": 726.0,
+            "physical_time_unchanged": true
+          }
+        }
+      }
+    },
+    "physical": {
+      "autonomous14x4": {
+        "time_seconds": 200.0,
+        "mass_error_kg": 3.410605131648481e-13,
+        "energy_error_j": -1.6032281564548612e-06,
+        "equipment_mass_error_kg": 0.0,
+        "max_material_mass_error_kg": 7.105427357601002e-13,
+        "deterministic_all_six_repeats": true,
+        "exact_baseline_report_and_height": true
+      },
+      "conventional": {
+        "time_seconds": 1300.0,
+        "mass_error_kg": 2.2737367544323206e-13,
+        "energy_error_j": 0.0,
+        "equipment_mass_error_kg": null,
+        "max_material_mass_error_kg": null,
+        "deterministic_all_six_repeats": true,
+        "exact_baseline_report_and_height": true
+      },
+      "mixed2x4": {
+        "time_seconds": 826.0,
+        "mass_error_kg": -2.2737367544323206e-13,
+        "energy_error_j": -5.21540641784668e-08,
+        "equipment_mass_error_kg": 0.0,
+        "max_material_mass_error_kg": 9.237055564881302e-14,
+        "deterministic_all_six_repeats": true
+      }
+    }
+  },
+  "compatibility": {
+    "snapshot_version": 22,
+    "existing_reading_preserved": true,
+    "first_delivery": "Same original Terrain and fleet objects, clock/cargo/fuel/payroll/history retained; autonomous hardware delivered at current time.",
+    "shared_terrain": "One height/material ledger, one conventional physical owner; derived geometry/masks are shared.",
+    "regional_moves_with_conventional": false,
+    "same_cell_map_growth": true,
+    "coarsening_with_conventional": false,
+    "plan_replacement_with_conventional": false
+  },
+  "limitations": [
+    "One conventional brigade per shared map; up to 20 autonomous complexes.",
+    "Long runs after 23 model hours were not tested.",
+    "Offscreen forced redraw timings are not live user FPS.",
+    "Headless before/after timings are noisy and partly CPU-contended; no precise speedup or regression claim.",
+    "New mixed version not published or checked on Windows CI in this stage."
+  ]
+}

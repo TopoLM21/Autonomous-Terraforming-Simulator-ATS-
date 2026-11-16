@@ -30,6 +30,8 @@ class ConventionalWorkWindow(QtWidgets.QMainWindow):
         layout=QtWidgets.QVBoxLayout(central);toolbar=QtWidgets.QHBoxLayout()
         self.equipment_button=QtWidgets.QPushButton('Обычная техника…')
         self.equipment_button.clicked.connect(self.show_conventional)
+        self.autonomous_button=QtWidgets.QPushButton('＋ Автономный комплекс…')
+        self.autonomous_button.clicked.connect(self.show_composer)
         self.play=QtWidgets.QPushButton('▶ Старт');self.play.clicked.connect(self.toggle_play)
         self.step_button=QtWidgets.QPushButton('Шаг 1 с');self.step_button.clicked.connect(self.single_step)
         self.speed=QtWidgets.QComboBox()
@@ -39,6 +41,7 @@ class ConventionalWorkWindow(QtWidgets.QMainWindow):
         self.load_button=QtWidgets.QPushButton('Открыть…');self.load_button.clicked.connect(self.load_session)
         for widget in (self.equipment_button,self.play,self.step_button,self.speed,self.save_button,self.load_button):toolbar.addWidget(widget)
         toolbar.addStretch();layout.addLayout(toolbar)
+        delivery=QtWidgets.QHBoxLayout();delivery.addWidget(self.autonomous_button);delivery.addStretch();layout.addLayout(delivery)
         self.overview=QtWidgets.QLabel();self.overview.setWordWrap(True);layout.addWidget(self.overview)
         self.map=MapWidget(background='#122133');self.map.setAspectLocked(True)
         self.map.setLabel('bottom','X',units='м');self.map.setLabel('left','Y',units='м')
@@ -93,6 +96,24 @@ class ConventionalWorkWindow(QtWidgets.QMainWindow):
         from .conventional_ui import ConventionalWindow
         if self.equipment_window is None:self.equipment_window=ConventionalWindow(self)
         self.equipment_window.show();self.equipment_window.raise_();self.equipment_window.activateWindow()
+
+    def show_composer(self):
+        from .complex_setup_ui import ComplexSetupDialog
+        if hasattr(self,'setup_window'):self.setup_window.close()
+        self.setup_window=ComplexSetupDialog(self);self.setup_window.show()
+
+    def _after_file_action(self,running):
+        self.running=bool(running and self.sim.conventional is not None)
+        self.reset_clock();self.play.setText('Ⅱ Пауза' if self.running else '▶ Старт')
+
+    def open_mixed_session(self,session,start=False):
+        from .gui import MainWindow
+        self.running=False;self.timer.stop()
+        if self.equipment_window:self.equipment_window.close()
+        self.mixed_window=MainWindow(session.simulation.config,session=session)
+        self.mixed_window.show()
+        if start:self.mixed_window.toggle_play()
+        self.hide()
 
     def reset_view(self):
         side=self.sim.terrain.cell*self.sim.terrain.height.shape[0]
@@ -187,6 +208,7 @@ class ConventionalWorkWindow(QtWidgets.QMainWindow):
 
     def closeEvent(self,event):
         self.running=False;self.timer.stop()
+        if hasattr(self,'setup_window'):self.setup_window.close()
         if self.equipment_window is not None:self.equipment_window.close()
         if self.landscape is not None:self.landscape.cancel_prefetch()
         super().closeEvent(event)

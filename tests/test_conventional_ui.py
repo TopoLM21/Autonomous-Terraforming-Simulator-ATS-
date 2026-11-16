@@ -59,3 +59,83 @@ def test_real_placement_pause_supplies_and_loaded_dialog_keep_a_separate_account
         assert host.sim.conventional.report()['capital_cost_usd']==capital
         assert host.sim.time==before and not host.sim.drones
     finally:host.close();app.processEvents()
+
+
+def test_selecting_another_shared_complex_keeps_one_conventional_fleet_and_account():
+    from PySide6 import QtWidgets
+    from ats.checkpoint import Session
+    from ats.conventional import ConventionalConfig
+    from ats.conventional_ui import ConventionalWindow
+    from ats.gui import MainWindow
+    from tests.test_shared_site import site
+    app=QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    project,template=site();project.add_shared(template,position=(100.,20.));project.select('complex_1')
+    host=MainWindow(project.active.simulation.config,
+                    session=Session(project.active.simulation,complex_project=project));host.timer.stop()
+    fresh=None
+    try:
+        cfg=ConventionalConfig(base_x=12.,base_y=100.,work_rect=(35.,30.,20.,20.),truck_count=2)
+        fleet=host.install_conventional(cfg)
+        # The UI host need not return the engine object when submitting commands.
+        if fleet is None:fleet=host.sim.conventional
+        host.show_conventional();dialog=host.conventional_window;dialog.timer.stop()
+        assert dialog.fleet() is fleet
+        owners=[getattr(unit.simulation,'conventional',None) for unit in project.units]
+        capital=fleet.report()['capital_cost_usd'];clock=project.time
+        host.select_complex('complex_2');host.timer.stop();host.show_conventional()
+        other=host.conventional_window;other.timer.stop();other.refresh()
+        assert other.fleet() is fleet and not other.create_button.isEnabled()
+        assert all(not page.isEnabled() for page in other.setup_pages)
+        assert tuple(widget.value() for widget in other.rect)==cfg.work_rect
+        assert 'Зарезервированный участок' in other.patch_status.text()
+        assert 'дроны работают на других участках' in other.patch_status.text()
+        assert other.table.rowCount()==3
+        other.create()  # also exercise the command guard, not just a disabled button
+        assert 'уже' in other.message.text().lower()
+        assert [getattr(unit.simulation,'conventional',None) for unit in project.units]==owners
+        assert fleet.report()['capital_cost_usd']==capital and project.time==clock
+        fuel=fleet.report()['fuel_stock_l']
+        other.supply_fuel.setValue(10);other.supply_water.setValue(0);other.supply_food.setValue(0)
+        other.replenish_button.click()
+        assert fleet.report()['fuel_stock_l']==pytest.approx(fuel+10)
+        other.pause_button.click();assert not fleet.report()['enabled']
+        other.pause_button.click();assert fleet.report()['enabled']
+        host.select_complex('complex_1');host.timer.stop();other.refresh()
+        assert other.fleet() is fleet and not other.create_button.isEnabled()
+        assert tuple(widget.value() for widget in other.rect)==cfg.work_rect
+        host.select_complex('complex_2');host.timer.stop()
+        fresh=ConventionalWindow(host);fresh.timer.stop()
+        assert fresh.fleet() is fleet and not fresh.create_button.isEnabled()
+        assert fresh.controls['truck_count'].value()==2 and fresh.table.rowCount()==3
+        assert project.time==clock
+    finally:
+        if fresh is not None:fresh.close()
+        host.close();app.processEvents()
+
+
+def test_released_patch_updates_the_open_dialog_without_another_purchase():
+    from PySide6 import QtWidgets
+    from ats.checkpoint import Session
+    from ats.conventional import ConventionalConfig
+    from ats.gui import MainWindow
+    from tests.test_shared_site import site
+    app=QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    project,_=site();project.enable_shared()
+    host=MainWindow(project.active.simulation.config,
+                    session=Session(project.active.simulation,complex_project=project));host.timer.stop()
+    try:
+        fleet=host.install_conventional(ConventionalConfig(base_x=108.,base_y=20.,work_rect=(35.,30.,15.,20.)))
+        host.show_conventional();dialog=host.conventional_window;dialog.timer.stop()
+        assert 'Зарезервированный участок' in dialog.patch_status.text()
+        capital=fleet.report()['capital_cost_usd'];clock=project.time
+        # Presentation fixture only: natural handoff is covered by core tests.
+        # Keep the same fleet and mask objects to catch stale widget caches.
+        fleet._work_complete=True
+        assert fleet.ground_stage_drained
+        project.shared_site.core._conventional_mask.fill(False)
+        dialog.refresh()
+        assert 'Участок передан дронам' in dialog.patch_status.text()
+        assert 'Зарезервированный участок' not in dialog.patch_status.text()
+        assert dialog.fleet() is fleet and not dialog.create_button.isEnabled()
+        assert fleet.report()['capital_cost_usd']==capital and project.time==clock
+    finally:host.close();app.processEvents()

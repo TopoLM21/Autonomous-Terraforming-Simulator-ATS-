@@ -835,9 +835,25 @@ class MainWindow(QtWidgets.QMainWindow):
         self.conventional_window=ConventionalWindow(self);self.conventional_window.show()
 
     def install_conventional(self,config):
-        if self.complex_project is not None and len(self.complex_project.units)>1:
-            raise ValueError('Обычная техника первого этапа требует отдельной площадки или одного комплекса')
-        fleet=self.sim.install_conventional(config)
+        from .complexes import ComplexProject
+        previous=self.complex_project
+        project=previous or ComplexProject(self.sim,self.landscape)
+        installing_site=project.shared_site is None
+        # SharedSite installs terrain views and divides work immediately. A
+        # refused purchase must restore the previous dispatcher as well as gear.
+        states=[(u,vars(u.simulation).copy(),u.simulation.config.terrain.completion_volume,u.committed)
+                for u in project.units] if installing_site else []
+        try:
+            project.enable_shared()
+            fleet=self.sim.install_conventional(config)
+        except (ValueError,OSError):
+            if installing_site:
+                project.shared_site=None
+                for unit,state,tolerance,committed in states:
+                    vars(unit.simulation).clear();vars(unit.simulation).update(state)
+                    unit.simulation.config.terrain.completion_volume=tolerance;unit.committed=committed
+            raise
+        self.complex_project=project
         self.refresh(True)
         return fleet
 
@@ -1040,12 +1056,13 @@ class MainWindow(QtWidgets.QMainWindow):
                     robot_ready=all(u.simulation.logistics is None or (not u.simulation.logistics.active and not u.simulation.logistics.group and
                         all(c.soil_kg==0 for c in u.simulation.logistics.containers) and all(e.bucket_kg==0 for e in u.simulation.logistics.excavators)) for u in self.complex_project.units)
                 requested=any(u.simulation.landing_requested for u in self.complex_project.units) if shared else self.sim.landing_requested
-                if requested and robot_ready and grounded and getattr(self.sim,'conventional',None) is None and not (self.complex_project is not None and self.complex_project.transition is not None):
+                from .conventional_integration import fleet_for
+                if requested and robot_ready and grounded and fleet_for(self.sim) is None and not (self.complex_project is not None and self.complex_project.transition is not None):
                     self.running=False;self.credit=0;self.play.setText("▶ Start")
                     self.plan_editor.info.setText("Флот приземлён. Можно применить нарисованный план.")
                     break
                 done=not self.complex_project.running if self.complex_project is not None else self.sim.state!=MissionState.RUNNING
-                if getattr(self.sim,'conventional',None) is not None:done=False
+                if fleet_for(self.sim) is not None:done=False
                 if done:
                     if self.complex_project is None and self.sim.state==MissionState.COMPLETED and self.landscape is not None and self.config.georeference.get('channel'):
                         self.commit_landscape()

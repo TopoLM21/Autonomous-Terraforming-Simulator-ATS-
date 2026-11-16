@@ -1,5 +1,6 @@
 """Conventional diesel fleet: configuration and its separate operating account."""
 from PySide6 import QtCore,QtWidgets
+from .conventional_integration import fleet_for
 
 STATES={'PARKED':'Стоит','REFUELING':'Заправка','WAIT_FUEL':'Очередь на заправку','DRIVING':'В пути',
         'WAIT_TRUCK':'Ждёт самосвал','DIGGING':'Копает','WAIT_LOAD':'Ждёт погрузку','UNLOADING':'Разгрузка'}
@@ -14,12 +15,13 @@ class ConventionalWindow(QtWidgets.QDialog):
     def __init__(self,host):
         super().__init__(host);self.host=host;self._world=None;self._simulation=host.sim
         from .conventional import ConventionalConfig
-        existing=getattr(host.sim,'conventional',None)
+        existing=fleet_for(host.sim)
         self.defaults=existing.config if existing is not None else ConventionalConfig.for_simulation(host.sim)
         self.controls={};self.setWindowTitle('Обычная техника · экскаватор и самосвалы')
         layout=QtWidgets.QVBoxLayout(self)
-        intro=QtWidgets.QLabel('Отдельная бригада, топливная база и смета. Грунт и карта общие с автономной техникой; расходы учитываются отдельно.')
+        intro=QtWidgets.QLabel('Одна обычная бригада на общей физической карте. Её рабочий участок отделён от заданий автономной техники; топливная база и смета собственные. Выбор другого автономного комплекса не создаёт новую бригаду.')
         intro.setWordWrap(True);layout.addWidget(intro)
+        self.patch_status=QtWidgets.QLabel();self.patch_status.setWordWrap(True);layout.addWidget(self.patch_status)
         self.tabs=QtWidgets.QTabWidget();layout.addWidget(self.tabs,1)
         self.setup_pages=[]
         machines=self._form_tab('1 · Машины и участок')
@@ -32,7 +34,7 @@ class ConventionalWindow(QtWidgets.QDialog):
         self.rect=[]
         for label,value,minimum in zip(('X участка, м','Y участка, м','Ширина участка, м','Высота участка, м'),self.defaults.work_rect,(0.,0.,6.,6.)):
             control=self._spin(minimum,float(extent),value);self.rect.append(control);machines.addRow(label,control)
-        planned=QtWidgets.QLabel('Прямоугольник ограничивает доступ к существующему плану выемки. Задайте профиль кистью или планом канала. Подъезды и сохраняемый выезд проверяются до начала работ.')
+        planned=QtWidgets.QLabel('Прямоугольник вместе с защитным отступом резервируется для обычной бригады в общем плане выемки; дроны получают задания за его границей. Задайте профиль кистью или планом канала. Подъезды и сохраняемый выезд проверяются до начала работ.')
         planned.setWordWrap(True);machines.addRow(planned)
         self.model_info=QtWidgets.QLabel();self.model_info.setWordWrap(True);machines.addRow(self.model_info)
         calendar=self._form_tab('2 · Смены и люди')
@@ -93,6 +95,7 @@ class ConventionalWindow(QtWidgets.QDialog):
         for widget in self.controls.values():
             signal=widget.currentIndexChanged if isinstance(widget,QtWidgets.QComboBox) else widget.valueChanged
             signal.connect(self.update_preview)
+        for widget in self.rect:widget.valueChanged.connect(self.update_preview)
         self.shift_changed()
         self.timer=QtCore.QTimer(self);self.timer.setInterval(500);self.timer.timeout.connect(self.refresh);self.timer.start()
         from .ui_windows import fit_window
@@ -136,8 +139,30 @@ class ConventionalWindow(QtWidgets.QDialog):
         wages=(c.excavator_wage_egp_month+c.truck_count*c.driver_wage_egp_month)*c.shifts_per_day/c.egp_per_usd
         phase='Приобретённый состав' if self.fleet() is not None else 'Перед размещением'
         self.preview.setText(f'{phase}: техника и база ≈ {_number(capital)} USD · персонал {_number(wages)} USD/месяц. Расходы обычной бригады учитываются отдельно от автономного комплекса.')
+        self.refresh_patch_status(c)
 
-    def fleet(self):return getattr(self.host.sim,'conventional',None)
+    def refresh_patch_status(self,config):
+        fleet=self.fleet();x,y,w,h=config.work_rect
+        geometry=f'X={x:g}, Y={y:g} · {w:g} × {h:g} м'
+        if fleet is None:
+            self.patch_status.setText(f'Участок к размещению: {geometry}. После размещения дроны будут получать задания за его границей с защитным отступом.')
+            return
+        terrain=getattr(fleet.terrain,'core',fleet.terrain);reserved=getattr(terrain,'_conventional_mask',None)
+        # Reservations cover the whole rectangle and are released as a whole.
+        # Sample its centre instead of scanning a potentially million-cell map
+        # on every UI refresh; in-place clearing is also seen immediately.
+        row=int((y+h/2)/terrain.cell);col=int((x+w/2)/terrain.cell)
+        active=(reserved is not None and 0<=row<reserved.shape[0] and
+                0<=col<reserved.shape[1] and bool(reserved[row,col]))
+        if active:
+            text=f'Зарезервированный участок: {geometry}; для дронов — с защитным отступом. Общий грунт и время; дроны работают на других участках, сметы раздельные.'
+        elif fleet.ground_stage_drained and fleet.sim.shared_site is not None:
+            text=f'Участок передан дронам: {geometry}. Наземный этап завершён; рампа и защитная полоса доступны для завершения выемки. Парк и отдельная смета сохранены.'
+        else:
+            text=f'Рабочий участок обычной бригады: {geometry}. Общий грунт и время, сметы раздельные.'
+        self.patch_status.setText(text)
+
+    def fleet(self):return fleet_for(self.host.sim)
 
     def _notify_host(self):
         self.host.refresh(True);self.refresh()
@@ -182,6 +207,7 @@ class ConventionalWindow(QtWidgets.QDialog):
         if self._world is not fleet:
             self._world=fleet;self._load_controls(fleet.config)
             self.message.setText('Состав приобретён. Остановка запрашивает безопасный возврат; расход топлива, питания и воды входит в отдельную смету.')
+        self.refresh_patch_status(fleet.config)
         r=fleet.report();self.pause_button.setText('Приостановить и вернуться' if r.get('enabled',fleet.config.enabled) else 'Возобновить работу')
         self._render_report(r)
 

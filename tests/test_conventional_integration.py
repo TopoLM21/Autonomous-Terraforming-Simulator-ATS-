@@ -49,9 +49,9 @@ def test_checkpoint_keeps_loaded_soil_materials_and_fuel_in_one_ledger(tmp_path,
         c.soil_profile=SoilProfile.qattara()
     s=Simulation.conventional_only(c);f=s.install_conventional(fleet_config());truck=f.machines[-1]
     if s.terrain.soil is not None:
-        truck.soil=s.terrain.scoop_load(55.,50.,120.)
+        truck.soil=s.terrain.scoop_load(55.,50.,120.,source='conventional')
         truck.cargo_kg=truck.soil.mass
-    else:truck.cargo_kg=s.terrain.scoop(55.,50.,120.)
+    else:truck.cargo_kg=s.terrain.scoop(55.,50.,120.,source='conventional')
     f.excavated_mass_kg=truck.cargo_kg
     f.excavated_m3=truck.soil.volume if layered else truck.cargo_kg/c.terrain.density
     if layered:f.extracted_materials+=truck.soil.masses
@@ -94,7 +94,7 @@ def test_existing_ats2_window_shows_a_separate_fleet_without_combining_costs():
         auto_cost=w.sim.report().get('equipment_cost_estimate')
         assert auto_cost['total']>0
         from dataclasses import replace
-        w.install_conventional(replace(fleet_config(),base_x=108.,base_y=20.))
+        w.install_conventional(replace(fleet_config(),base_x=108.,base_y=20.,work_rect=(35.,40.,25.,20.)))
         w.refresh(True);w.show_conventional()
         w.conventional_window.timer.stop()
         assert w.conventional_window.isVisible()
@@ -110,7 +110,7 @@ def test_soil_still_slumps_when_only_the_conventional_fleet_keeps_working():
     from ats.plan import PlanConfig,PlanSegment
     c=workspace_config();c.plan=PlanConfig([PlanSegment([[40.,50.],[90.,50.]],width=2.,height=-1.)])
     s=Simulation(c);f=s.install_conventional(fleet_config());truck=f.machines[-1]
-    truck.cargo_kg=s.terrain.scoop(55.25,50.25,400.,radius=.01)
+    truck.cargo_kg=s.terrain.scoop(55.25,50.25,400.,source='conventional',radius=.01)
     assert truck.cargo_kg==400
     f.excavated_mass_kg=truck.cargo_kg;f.excavated_m3=truck.cargo_kg/c.terrain.density
     before=s.terrain.height.copy();s._terrain_active=True;s.state=MissionState.COMPLETED

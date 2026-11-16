@@ -48,7 +48,10 @@ def equipment_copy(config):
     for key in ('operating_schedule','cost_catalog'):
         value=getattr(config,key,None)
         if value is not None:setattr(c,key,deepcopy(value))
-    resolve_config(c);return c
+    # A diesel-only workspace deliberately has zero landing slots and drones.
+    # Resolving autonomous equipment here would manufacture an invalid base.
+    if not c.conventional_only:resolve_config(c)
+    return c
 
 
 def _laser_reference(config,request,active_kw):

@@ -270,6 +270,9 @@ class Terrain:
             indices=self.front.active_indices
         else:indices=np.flatnonzero(self.source_excess(source)>1e-12)
         mask=getattr(self,'_conventional_mask',None)
+        if source=='cut' and mask is not None:
+            from .conventional_integration import cut_exclusion
+            mask=cut_exclusion(self)
         return indices[~mask.ravel()[indices]] if source=='cut' and mask is not None else indices
 
     def patch(self,x,y,radius):
@@ -299,6 +302,9 @@ class Terrain:
                 if abs(x-px)<1e-8 and abs(y-py)<1e-8:
                     allowed |= (self.x[patch]-px)**2+(self.y[patch]-py)**2<=r*r
             footprint &= allowed
+        if source=='cut' and getattr(self,'_conventional_mask',None) is not None:
+            from .conventional_integration import cut_exclusion
+            footprint &= ~cut_exclusion(self,patch)
         return patch,np.where(mask[patch]&footprint,np.maximum(self.height[patch]-surface[patch],0),0)
 
     def available_mass(self,x,y,source='cut',radius=None):

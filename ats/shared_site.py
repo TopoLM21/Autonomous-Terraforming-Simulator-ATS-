@@ -75,8 +75,31 @@ class SharedSite:
         if not isinstance(s.terrain,WorkTerrain):s.terrain=WorkTerrain(self.core,s.config,self,unit.id)
         s.shared_site=self
 
+    def conventional_fleets(self):
+        """Physical owners only: selected-unit aliases must never duplicate soil."""
+        seen=set();fleets=[]
+        for unit in self.project.units:
+            fleet=getattr(unit.simulation,'conventional',None)
+            if fleet is not None and id(fleet) not in seen:seen.add(id(fleet));fleets.append(fleet)
+        return fleets
+
+    def conventional_mask(self):
+        mask=getattr(self.core,'_conventional_mask',None)
+        return mask if mask is not None else np.zeros(self.core.height.shape,dtype=bool)
+
+    def release_conventional_stage(self):
+        fleets=self.conventional_fleets();reserved=getattr(self.core,'_conventional_mask',None)
+        if not fleets or reserved is None or not np.any(reserved) or not fleets[0].ground_stage_drained:return False
+        # Safe point between world steps: cargo is delivered and every machine
+        # is physically parked. The retained ramp/buffer becomes aircraft work.
+        self.core._conventional_mask=np.zeros(self.core.height.shape,dtype=bool)
+        self.partition()
+        fleets[0].reason='Захватка передана дронам для завершения рампы и защитной полосы'
+        fleets[0].sim.event('Обычная техника вернулась на базу; рампа и защитная полоса переданы дронам')
+        return True
+
     def reserved_mask(self):
-        t=self.core;mask=np.zeros(t.height.shape,dtype=bool)
+        t=self.core;mask=self.conventional_mask().copy()
         for unit in self.project.units:
             s=unit.simulation
             for d in s.drones:
@@ -92,7 +115,8 @@ class SharedSite:
 
     def allocation(self,units):
         """Detached dispatcher masks for a proposed roster; no ground mutation."""
-        owners=self.owners.copy()
+        owners=self.owners.copy();reserved=self.conventional_mask()
+        owners[(owners==0)&~reserved]=int(units[0].id[8:]);owners[reserved]=0
         t=self.core;indices=np.flatnonzero(t.dig_mask|t.fill_mask)
         if not len(indices):return owners
         fixed=self.reserved_mask().ravel()[indices]
@@ -162,6 +186,7 @@ class SharedSite:
         if changed:self.assignments+=1;self._refresh()
 
     def apply_plan(self,plan):
+        if self.conventional_fleets():raise ValueError('На общей карте размещена обычная техника; изменение её рабочего плана требует нового проекта')
         if self.project.transition is not None:raise ValueError('Сначала завершите или отмените региональный переезд')
         from copy import copy
         from .simulation import MissionState
@@ -219,6 +244,7 @@ class SharedSite:
         if not math.isfinite(side) or not old_side<=side<=1024:raise ValueError('Карту можно увеличивать до 1024 м')
         if side==old_side:return
         cell=workspace_cell(side,old.cell);n=round(side/cell)
+        if self.conventional_fleets() and cell!=old.cell:raise ValueError('С обычной техникой можно увеличить карту только без изменения разрешения')
         if abs(n*cell-side)>1e-8:raise ValueError('Размер должен быть кратен рабочей ячейке')
         if cell!=old.cell and any(not d.grounded for u in self.project.units for d in u.simulation.drones):
             raise ValueError('Для изменения разрешения посадите все комплексы; время и заряды сохранятся')
@@ -280,10 +306,16 @@ class SharedSite:
             s.config.georeference=deepcopy(c.georeference);s._terrain_active=True
             # Dirty display and capability caches refer to the new shared grid.
             s._capability_key=None;s._latitude_position=None
-        self.partition()
+        for fleet in self.conventional_fleets():
+            fleet.rebind_terrain(replacement)
+            from .conventional_integration import reservation_mask
+            replacement._conventional_mask=(np.zeros(replacement.height.shape,dtype=bool) if fleet.ground_stage_drained else
+                                              reservation_mask(replacement,fleet.config,[u.simulation for u in self.project.units]))
+        self.invalidate_geometry();self.partition()
         self.project.active.simulation.event(f'Общая карта увеличена до {side:g} м; грунт, техника и заряды сохранены')
 
     def start_tick(self):
+        self.release_conventional_stage()
         self._build_geometry()
         self._actors=[];self._actor_groups=[];self._actor_returns=[];owners=[];starts=[];radii=[]
         self._simulation_numbers={u.simulation:int(u.id[8:]) for u in self.project.units}
@@ -344,9 +376,17 @@ class SharedSite:
                 if len(s.logistics.excavators)>1:points.extend(e.destination[:2] for e in s.logistics.excavators if e.destination is not None)
             if kind=='dump' and s.logistics:
                 points.extend(j.destination[:2] for j in s.logistics.jobs if j.kind=='PICKUP_FULL_CONTAINER' and j.status in ('ACTIVE','QUEUED'))
+        for fleet in self.conventional_fleets():
+            points.extend(m.position[:2] for m in fleet.machines)
+            points.append(fleet.base_position[:2])
         return points
 
     def ground_occupied(self,owner,rect):
+        reserved=getattr(self.core,'_conventional_mask',None)
+        if reserved is not None and owner!='conventional':
+            from .site_ground import rectangle_patch
+            patch=rectangle_patch(self.core,rect)
+            if patch is None or np.any(reserved[patch]):return True
         self._ensure_geometry()
         x,y,w,h=rect;seen=set()
         for gx in range(math.floor((x-2)/16),math.floor((x+w+2)/16)+1):
@@ -380,8 +420,8 @@ class SharedSite:
                 self._geometry_dirty.add(owner)
 
     def placement_goal(self):
-        t=self.core;ids=np.flatnonzero(t.work_mask&(np.abs(t.height-t.target)>1e-10))
-        if not len(ids):ids=np.flatnonzero(t.work_mask)
+        t=self.core;ids=np.flatnonzero(t.work_mask&~self.conventional_mask()&(np.abs(t.height-t.target)>1e-10))
+        if not len(ids):ids=np.flatnonzero(t.work_mask&~self.conventional_mask())
         if not len(ids):return np.array(t.height.shape)*t.cell/2
         if t.front is not None:
             along=t.front.chainage.ravel()[ids]
@@ -440,7 +480,8 @@ class SharedSite:
         if units is None or getattr(self,'_geometry_core',None)!=core_key or not hasattr(self,'_ground_polygons'):
             units=self._geometry_units={};self._ground_grid={};self._ground_polygons={}
             self._geometry_core=core_key;self._geometry_ground_stamp=None
-        live={u.id for u in self.project.units};changed=False
+        fleets=self.conventional_fleets()
+        live={u.id for u in self.project.units}|({'conventional'} if fleets else set());changed=False
         for unit_id in list(units):
             if unit_id not in live:self._remove_unit_geometry(units.pop(unit_id));changed=True
         ground_stamp=(core_key,self.core.revision,self.project.time)
@@ -456,6 +497,15 @@ class SharedSite:
                 if old:self._remove_unit_geometry(old)
                 data=self._unit_geometry(unit);data.update(key=dynamic,shape=shape)
                 units[unit.id]=data;self._add_unit_geometry(data);changed=True
+        if fleets:
+            # Keep moving road machinery in its own cache entry. A truck step
+            # must not rebuild the owner's photovoltaic/base geometry.
+            fleet=fleets[0];old=units.get('conventional')
+            key=(id(fleet),tuple(fleet.base_position),tuple((m.id,tuple(m.position),tuple(m.home),m.radius,m.dimensions_m) for m in fleet.machines))
+            if old is None or old['key']!=key:
+                if old:self._remove_unit_geometry(old)
+                data=self._conventional_geometry(fleet);data.update(key=key,shape=None)
+                units['conventional']=data;self._add_unit_geometry(data);changed=True
         self._geometry_dirty=set();self._geometry_ground_stamp=ground_stamp
         if changed:self._obstacle_top=max((v['top'] for v in units.values()),default=-math.inf)
 
@@ -475,10 +525,32 @@ class SharedSite:
             for gx in range(math.floor(x/16),math.floor((x+w)/16)+1):
                 for gy in range(math.floor(y/16),math.floor((y+h)/16)+1):self._ground_grid.setdefault((gx,gy),[]).append(row)
 
+    def _conventional_geometry(self,fleet):
+        from .site_ground import rectangle_polygon,polygon_bounds
+        entries=[];bx,by,bz=map(float,fleet.base_position)
+        rect=(bx-4.,by-4.,8.,8.);polygon=rectangle_polygon(rect)
+        entries.append((('conventional',*rect,bz+3.),polygon));top=bz+3.
+        for machine in fleet.machines:
+            # Circumscribe the already conservative circular machine footprint;
+            # the polygon must not cut off corners of its support disc.
+            angle=np.arange(16)*2*math.pi/16;radius=machine.radius/math.cos(math.pi/16)
+            polygon=np.c_[np.cos(angle),np.sin(angle)]*radius+machine.position[:2]
+            rect=polygon_bounds(polygon);height=float(machine.position[2]+machine.dimensions_m[2])
+            entries.append((('conventional',*map(float,rect),height),polygon));top=max(top,height)
+            # Reserve the physical home bay while its vehicle works elsewhere.
+            # Empty parking contributes ground height only, never a fake roof.
+            home_polygon=np.c_[np.cos(angle),np.sin(angle)]*radius+machine.home[:2]
+            home_rect=polygon_bounds(home_polygon);home_z=float(self.core.sample(*machine.home[:2]))
+            entries.append((('conventional',*map(float,home_rect),home_z),home_polygon))
+        points=np.asarray([fleet.base_position[:2],*[m.position[:2] for m in fleet.machines],*[m.home[:2] for m in fleet.machines]])
+        return dict(entries=entries,top=top,ground_points=points,ground_heights=self.core.sample_many(points).copy())
+
     def _unit_geometry(self,unit):
         from .base_layout import platform_polygons
         from .site_ground import rectangle_polygon,polygon_bounds
         s=unit.simulation;b=s.base;r=b.config.radius;entries=[]
+        if s.config.conventional_only:
+            return dict(entries=[],top=-math.inf,ground_points=np.empty((0,2)),ground_heights=np.empty(0))
         polygons=list(platform_polygons(b.layout_spec,b.position)) if b.config.layout is not None else [rectangle_polygon((b.position[0]-r,b.position[1]-r,2*r,2*r))]
         boxes=[polygon_bounds(p) for p in polygons]
         # Parked aircraft remain actors; the service deck is the solid body.
@@ -530,6 +602,8 @@ class SharedSite:
                 patch=t.patch(x,y,f.separation)
                 mask=(t.x[patch]-x)**2+(t.y[patch]-y)**2<f.separation**2
                 blocked=work[patch]|t.dump_mask[patch]
+                reserved=getattr(t,'_conventional_mask',None)
+                if reserved is not None:blocked|=reserved[patch]
                 if t.protected is not None:blocked=blocked|t.protected[patch]
                 from .site_ground import marine_mask
                 blocked=blocked|marine_mask(t)[patch]
@@ -546,6 +620,7 @@ class SharedSite:
                     if c.soil is not None:yield c.soil
                 for e in s.logistics.excavators:
                     if e.soil is not None:yield e.soil
+        for fleet in self.conventional_fleets():yield from fleet.loads()
 
     def mass_error(self):
         soil=0.
@@ -557,6 +632,7 @@ class SharedSite:
                 soil+=sum(e.bucket_kg for e in w.excavators)
         if getattr(self,'_mass_revision',None)!=self.core.revision:
             self._ground_mass=self.core.mass_change;self._mass_revision=self.core.revision
+        soil+=sum(fleet.carried_mass_kg for fleet in self.conventional_fleets())
         return self._ground_mass+soil+getattr(self,'archived_mass_error',0.)
 
     def material_errors(self):
@@ -571,7 +647,18 @@ class SharedSite:
     def validate(self):
         if self.owners.shape!=self.core.height.shape or self.owners.dtype.kind not in 'iu':raise ValueError('Повреждён диспетчер общего участка')
         ids={int(u.id[8:]) for u in self.project.units}
-        if not set(np.unique(self.owners[self.core.work_mask])).issubset(ids):raise ValueError('Участок принадлежит отсутствующему комплексу')
+        reserved=self.conventional_mask();fleets=self.conventional_fleets()
+        if reserved.shape!=self.core.height.shape or reserved.dtype.kind!='b':raise ValueError('Повреждена маска участка обычной техники')
+        if not fleets and np.any(reserved):raise ValueError('Зарезервирован участок отсутствующей обычной техники')
+        if sum(getattr(u.simulation,'conventional',None) is not None for u in self.project.units)>1:raise ValueError('Обычный парк повторно прикреплён к нескольким комплексам')
+        if len(fleets)>1:raise ValueError('На одной карте найдено несколько экземпляров обычного парка')
+        if fleets:
+            fleet=fleets[0]
+            if fleet.terrain is not self.core or fleet.sim not in [u.simulation for u in self.project.units]:raise ValueError('Потеряна связь обычной техники с общим грунтом')
+            if reserved.shape!=self.core.height.shape or not np.array_equal(self.owners[reserved],np.zeros(np.count_nonzero(reserved),dtype=self.owners.dtype)):raise ValueError('Рабочий участок обычной техники не зарезервирован')
+            fleet.validate()
+        if not set(np.unique(self.owners[self.core.work_mask&~reserved])).issubset(ids):raise ValueError('Участок принадлежит отсутствующему комплексу')
+        if np.any((self.owners==0)&~reserved):raise ValueError('Участок без владельца вне захватки обычной техники')
         for u in self.project.units:
             t=u.simulation.terrain
             if not isinstance(t,WorkTerrain) or t.core is not self.core or t.shared_site is not self or t.owner_id!=u.id:

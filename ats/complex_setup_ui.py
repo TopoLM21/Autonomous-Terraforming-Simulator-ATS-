@@ -116,6 +116,11 @@ class _Calculation(QtCore.QRunnable):
 class ComplexSetupDialog(QtWidgets.QDialog):
     def __init__(self,host):
         super().__init__(host);self.host=host;self.source=equipment_copy(host.config)
+        if self.source.conventional_only:
+            from .logistics_config import LogisticsConfig
+            self.source.conventional_only=False
+            self.source.fleet.count=4;self.source.fleet.charge_slots=4;self.source.fleet.models=[]
+            self.source.logistics=LogisticsConfig()
         self.catalog=deepcopy(getattr(host.config,'cost_catalog',None) or default_catalog())
         self.result=None;self.generation=0;self.job=None;self._pending=False
         self.setWindowTitle('Собрать и разместить комплекс');self.setStyleSheet(STYLE)
@@ -334,6 +339,12 @@ class ComplexSetupDialog(QtWidgets.QDialog):
             if getattr(self.host,'planning_only',False):
                 session=place(self.result,self.host.landscape,position=position)
                 self._pending=False;self.host.open_session(session,self.start_after.isChecked());self.accept();return
+            if self.host.sim.config.conventional_only:
+                from .mixed_setup import adopt_first
+                self.host.running=False
+                session=adopt_first(self.host.sim,self.result.template(),self.host.landscape,position=position)
+                self._pending=False;self.delivery_timer.stop()
+                self.host.open_mixed_session(session,self.start_after.isChecked());self.accept();return
             from .complexes import ComplexProject
             project=self.host.complex_project
             if project is None:

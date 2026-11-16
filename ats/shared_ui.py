@@ -61,6 +61,7 @@ def refresh(host):
     revision=(id(site),id(site.core.height),site.assignments,site.core.height.shape,site.core.cell)
     if host._assignment_revision!=revision:
         lookup=np.zeros((21,4),dtype=np.uint8)
+        if site.conventional_fleets():lookup[0]=[242,171,68,95]
         for u in p.units:
             rgb=pg.intColor(int(u.id[8:])-1,hues=20).getRgb();lookup[int(u.id[8:])]=[*rgb[:3],95]
         overlay=np.zeros((*site.core.height.shape,4),dtype=np.uint8)

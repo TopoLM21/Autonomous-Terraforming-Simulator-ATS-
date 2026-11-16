@@ -2,35 +2,100 @@
 import numpy as np
 
 
+def simulations_for(sim):
+    site=getattr(sim,'shared_site',None)
+    return [unit.simulation for unit in site.project.units] if site is not None else [sim]
+
+
+def fleets_for(sim):
+    """Discover physical fleets site-wide without attaching aliases to units."""
+    seen=set();result=[]
+    for owner in simulations_for(sim):
+        fleet=getattr(owner,'conventional',None)
+        if fleet is not None and id(fleet) not in seen:seen.add(id(fleet));result.append(fleet)
+    return result
+
+
+def fleet_for(sim):
+    fleets=fleets_for(sim)
+    return fleets[0] if fleets else None
+
+
+def reservation_mask(terrain,config,simulations):
+    """Reserve the contractor's rectangle and the actual grab/reach margin."""
+    margin=terrain.cell
+    for s in simulations:
+        margin=max([margin,*[float(d.config.grab_radius or terrain.cell) for d in s.drones]])
+        if s.logistics:margin=max(margin,s.logistics.config.reach_m)
+    x,y,w,h=config.work_rect
+    return ((terrain.x>=x-margin)&(terrain.x<=x+w+margin)&
+            (terrain.y>=y-margin)&(terrain.y<=y+h+margin))
+
+
+def cut_exclusion(terrain,patch=None):
+    """Reserved work plus complete physical camp/body footprints, site-wide.
+
+    Cached local painting avoids full-grid distance calculations every tick.
+    The work reservation can be released, while parked physical gear remains.
+    """
+    core=getattr(terrain,'core',terrain);site=getattr(terrain,'shared_site',None)
+    owner=site.project.units[0].simulation if site is not None else getattr(core,'_site_owner',None)
+    fleet=fleet_for(owner) if owner is not None else None
+    reserved=getattr(core,'_conventional_mask',None)
+    if fleet is None:return reserved[patch] if reserved is not None and patch is not None else reserved
+    key=(id(core.height),id(reserved),tuple(fleet.base_position[:2]),tuple((m.id,tuple(m.position[:2]),tuple(m.home[:2]),m.radius) for m in fleet.machines))
+    cached=getattr(fleet,'_cut_exclusion_cache',None)
+    if cached is None or cached[0]!=key:
+        mask=reserved.copy() if reserved is not None else np.zeros(core.height.shape,dtype=bool)
+        from .site_ground import paint_rect
+        x,y=fleet.base_position[:2];paint_rect(core,mask,(x-4,y-4,8,8))
+        for machine in fleet.machines:
+            radius=machine.radius+.5
+            for position in (machine.position,machine.home):
+                area=core.patch(*position[:2],radius)
+                mask[area]|=(core.x[area]-position[0])**2+(core.y[area]-position[1])**2<=radius**2
+        cached=(key,mask);fleet._cut_exclusion_cache=cached
+    return cached[1][patch] if patch is not None else cached[1]
+
+
+def _overlap_circle(terrain,mask,point,radius):
+    patch=terrain.patch(*point[:2],radius)
+    return bool(np.any(mask[patch]&((terrain.x[patch]-point[0])**2+(terrain.y[patch]-point[1])**2<=radius**2)))
+
+
 def install(sim,config):
     from .conventional import ConventionalFleet
     from .site_ground import equipment_mask,rectangle_patch
-    if getattr(sim,'conventional',None) is not None:
-        raise ValueError('Техника уже приобретена: используйте обслуживание или новый проект')
-    if sim.shared_site is not None:
-        raise ValueError('Первый этап обычной техники: отдельная площадка или один автономный комплекс')
-    if sim.base.destination is not None or sim.relocation_pending is not None:
-        raise ValueError('Дождитесь завершения переезда базы')
-    if any(not d.grounded or d.trip is not None for d in sim.drones):
-        raise ValueError('Перед разметкой посадите автономный флот и завершите рейсы')
-    if sim.logistics and (sim.logistics.group or sim.logistics.active or
-            any(e.bucket_kg or e.active_container for e in sim.logistics.excavators)):
-        raise ValueError('Завершите текущие циклы Кротов и грузовые операции')
-    config.validate()
-    t=sim.terrain
+    if fleets_for(sim):raise ValueError('Техника уже приобретена: используйте обслуживание или новый проект')
+    owners=simulations_for(sim);site=getattr(sim,'shared_site',None)
+    if site is not None and site.project.transition is not None:raise ValueError('Дождитесь завершения регионального переезда')
+    config.validate();t=getattr(sim.terrain,'core',sim.terrain)
     patch=rectangle_patch(t,config.work_rect)
     if patch is None:raise ValueError('Рабочий участок должен полностью помещаться на карте')
-    if sim.drones and np.any(equipment_mask(t,[sim])[patch]):
-        raise ValueError('Рабочий участок пересекает установленную автономную технику')
+    reserved=reservation_mask(t,config,owners)
+    for s in owners:
+        if s.base.destination is not None or s.relocation_pending is not None:raise ValueError('Дождитесь завершения переезда базы')
+        if s.drones and np.any(equipment_mask(t,[s])[patch]):raise ValueError('Рабочий участок пересекает установленную автономную технику')
+        for drone in s.drones:
+            if drone.trip is not None and any(_overlap_circle(t,reserved,p,drone.config.grab_radius or t.cell) for p in (drone.trip.dig,drone.trip.dump)):
+                raise ValueError('Участок занят действующим рейсом дрона; завершите или сбросьте его приказ')
+        if s.logistics:
+            for job in s.logistics.jobs:
+                if job.status in ('QUEUED','ACTIVE') and any(_overlap_circle(t,reserved,p,t.cell) for p in (job.origin,job.destination)):
+                    raise ValueError('Участок зарезервирован заданием автономного комплекса')
+            for e in s.logistics.excavators:
+                if (e.bucket_kg or e.active_container or e.state.value in ('DIGGING','FILLING_CONTAINER')) and _overlap_circle(t,reserved,e.position,s.logistics.config.reach_m):
+                    raise ValueError('На участке выполняется цикл Крота; завершите текущую выемку')
+    if site is not None and any(s.drones for s in owners):
+        free=(t.dig_mask|t.fill_mask)&~reserved
+        volume=float(np.abs(t.height-t.target)[free].sum()*t.area)
+        if volume<=site.completion_volume:
+            raise ValueError('После выделения участка обычной техники не остаётся работы для дронов; уменьшите захватку или расширьте план')
+    # Construction only reads physical ground. No ownership, purchase or cargo
+    # changes are committed until all placement and reservation checks pass.
     fleet=ConventionalFleet(sim,config)
-    sim.conventional=fleet
-    # Leave physical design/volume intact. Only new autonomous target choices
-    # exclude the separate contractor's patch and a grabber-width boundary.
-    x,y,w,h=config.work_rect
-    margin=max([d.config.grab_radius for d in sim.drones]+[t.cell])
-    if sim.logistics:margin=max(margin,sim.logistics.config.reach_m)
-    t._conventional_mask=((t.x>=x-margin)&(t.x<=x+w+margin)&
-                          (t.y>=y-margin)&(t.y<=y+h+margin))
+    sim.conventional=fleet;t._conventional_mask=reserved
+    if site is not None:site.partition();site.invalidate_geometry()
     sim.event('Обычная техника приобретена: отдельные топливо, зарплаты и смета')
     return fleet
 
@@ -57,7 +122,7 @@ def standalone_report(sim):
 def refresh_map(host):
     """Lightweight map overlays; no per-cell or physics work in the renderer."""
     import pyqtgraph as pg
-    fleet=getattr(host.sim,'conventional',None)
+    fleet=fleet_for(host.sim)
     if not hasattr(host,'ground_vehicle_markers'):
         if fleet is None:return
         host.ground_vehicle_markers=pg.ScatterPlotItem(size=13,pen=pg.mkPen('#17202b',width=2))
@@ -78,7 +143,9 @@ def refresh_map(host):
 
 
 def occupied(terrain,rect):
-    owner=getattr(terrain,'_site_owner',None);fleet=getattr(owner,'conventional',None)
+    site=getattr(terrain,'shared_site',None)
+    owner=site.project.units[0].simulation if site is not None else getattr(terrain,'_site_owner',None)
+    fleet=fleet_for(owner) if owner is not None else None
     if fleet is None:return False
     x,y,w,h=rect;bx,by=fleet.base_position[:2]
     if x<bx+4 and x+w>bx-4 and y<by+4 and y+h>by-4:return True
@@ -89,6 +156,6 @@ def occupied(terrain,rect):
 
 
 def require_unloaded(sim):
-    fleet=getattr(sim,'conventional',None)
+    fleet=fleet_for(sim)
     if fleet is not None and fleet.carried_mass_kg>1e-8:
         raise ValueError('Сначала выгрузите самосвалы; работающая техника и груз сохраняются в .atsstate')

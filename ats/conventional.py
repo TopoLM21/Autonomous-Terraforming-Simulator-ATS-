@@ -160,7 +160,7 @@ class ConventionalFleet:
         self._marine=None;self._marine_stamp=None;self._crew_paid=set();self._work_complete=False
         self._last_time=None;self._last_report_time=None
         if not self.passable(self.base_position[:2],4.,ignore_vehicles=True):raise ValueError('Топливная база не помещается на безопасной суше')
-        if np.any(self.work_mask[t.patch(c.base_x,c.base_y,4.)]):raise ValueError('Топливная база пересекает выемку')
+        if np.any((self.work_mask|t.work_mask)[t.patch(c.base_x,c.base_y,4.)]):raise ValueError('Топливная база пересекает проектную выемку')
         self.ramp=self._make_ramp()
         for i in range(c.excavator_count+c.truck_count):
             kind='excavator' if i<c.excavator_count else 'truck';serial=i+1 if kind=='excavator' else i-c.excavator_count+1
@@ -195,13 +195,13 @@ class ConventionalFleet:
                 p=(x+dx*step,y+dy*step)
                 if not self.passable(p,radius):continue
                 patch=self.terrain.patch(*p,radius)
-                if np.any((self.work_mask|self.terrain.dump_mask)[patch]):continue
+                if np.any((self.work_mask|self.terrain.work_mask|self.terrain.dump_mask)[patch]):continue
                 return p
         return None
 
     def _other_rectangles(self,bounds):
         s=self.sim;t=self.terrain;site=getattr(s,'shared_site',None)
-        if site is not None:return [row[1:5] for row in site.ground_token(-1000,bounds)]
+        if site is not None:return [row[1:5] for row in site.ground_token('conventional',bounds)]
         if getattr(s.config,'conventional_only',False):return []
         if s.base.config.layout is not None:
             from .base_layout import layout_footprints
@@ -235,14 +235,17 @@ class ConventionalFleet:
         if not ignore_vehicles:
             for other in self.machines:
                 if other is not machine and np.linalg.norm(other.position[:2]-[x,y])<other.radius+radius+.25:return False
-        for drone in self.sim.drones:
-            if drone.grounded and np.linalg.norm(drone.position[:2]-[x,y])<radius+max(.5,self.sim.config.fleet.separation/2):return False
-            if drone.trip is not None:
-                for point in (drone.trip.dig,drone.trip.dump):
-                    if np.linalg.norm(np.asarray(point)[:2]-[x,y])<radius+max(drone.config.grab_radius or .5,self.sim.config.fleet.separation):return False
-        for e in (self.sim.logistics.excavators if self.sim.logistics else ()):
-
-            if np.linalg.norm(e.position[:2]-[x,y])<e.config.support_half_width_m+radius+.3:return False
+        # Every autonomous unit shares this road network. Inspect actual
+        # grounded aircraft and committed low-altitude work on the whole site.
+        from .conventional_integration import simulations_for
+        for owner in simulations_for(self.sim):
+            for drone in owner.drones:
+                if drone.grounded and np.linalg.norm(drone.position[:2]-[x,y])<radius+max(.5,owner.config.fleet.separation/2):return False
+                if drone.trip is not None:
+                    for point in (drone.trip.dig,drone.trip.dump):
+                        if np.linalg.norm(np.asarray(point)[:2]-[x,y])<radius+max(drone.config.grab_radius or .5,owner.config.fleet.separation):return False
+            for e in (owner.logistics.excavators if owner.logistics else ()):
+                if np.linalg.norm(e.position[:2]-[x,y])<e.config.support_half_width_m+radius+.3:return False
         return True
 
     def segment_safe(self,a,b,radius,machine=None):
@@ -493,10 +496,41 @@ class ConventionalFleet:
         else:
             mass=t.scoop(x,y,min(mass_limit,available_volume*t.config.terrain.density),source='conventional',radius=radius,allowed_mask=allowed,minimum_height=floor)
             volume=mass/t.config.terrain.density
-        if mass>0:self.sim._terrain_active=True
+        if mass>0:self._terrain_changed()
         truck.cargo_kg+=mass;self.excavated_mass_kg+=mass;self.excavated_m3+=volume;e.excavated_m3+=volume
         e.target=target
         return mass>1e-9
+
+    @property
+    def ground_stage_drained(self):
+        """A parked finished crew can hand its ramp/buffer to the aircraft."""
+        return bool(self._work_complete and self.carried_mass_kg<=1e-8 and
+                    all(m.state in ('PARKED','REFUELING','WAIT_FUEL') and not m.path and
+                        np.linalg.norm(m.position[:2]-m.home[:2])<.1 for m in self.machines))
+
+    def rebind_terrain(self,terrain):
+        """Extend the common window at the same resolution without moving gear."""
+        old=self.terrain
+        if terrain.cell!=old.cell:raise ValueError('Изменение разрешения с обычной техникой пока не поддерживается')
+        old_surface=self.ramp_surface;entry=np.asarray(self.ramp['entry_m']);end=np.asarray(self.ramp['end_m'])
+        delta=end-entry;length=float(np.linalg.norm(delta));unit=delta/length
+        old_along=(old.x[0,0]-entry[0])*unit[0]+(old.y[0,0]-entry[1])*unit[1]
+        entry_height=float(old_surface[0,0]+np.clip(old_along,0,length)*self.config.ramp_gradient)
+        self.terrain=terrain;x,y,w,h=self.config.work_rect
+        self.work_mask=(terrain.x>=x)&(terrain.x<x+w)&(terrain.y>=y)&(terrain.y<y+h);self.mask=self.work_mask
+        along=(terrain.x-entry[0])*unit[0]+(terrain.y-entry[1])*unit[1]
+        lateral=np.abs((terrain.x-entry[0])*unit[1]-(terrain.y-entry[1])*unit[0])
+        self.ramp_mask=self.work_mask&(lateral<=self.config.ramp_width_m/2)
+        self.ramp_surface=entry_height-np.clip(along,0,length)*self.config.ramp_gradient
+        rows,cols=old_surface.shape;self.ramp_surface[:rows,:cols]=old_surface
+        self._marine=None;self._marine_stamp=None
+        for machine in self.machines:machine.route_token=None;machine.budget_cache=None
+
+    def _terrain_changed(self):
+        from .conventional_integration import simulations_for
+        for owner in simulations_for(self.sim):owner._terrain_active=True
+        # Terrain revision/local route tokens already invalidate affected data.
+        # Do not discard every photovoltaic/base geometry cache for one scoop.
 
     def set_enabled(self,enabled):
         self.enabled=bool(enabled);self.config.enabled=self.enabled
@@ -626,7 +660,7 @@ class ConventionalFleet:
                         if self.terrain.local_dump_space(*m.target)+1e-9<volume:
                             m.reason='Отвал изменился: выбирается другая точка; груз сохранён';self._dump_point(m);continue
                         self.terrain.deposit(*m.target,m.cargo_kg,radius=2.,load=m.soil)
-                        self.sim._terrain_active=True
+                        self._terrain_changed()
                         self.delivered_mass_kg+=m.cargo_kg
                         if m.soil is not None:self.delivered_materials+=m.soil.masses
                         self.delivered_m3+=volume;m.delivered_m3+=volume;m.cargo_kg=0.;m.soil=None;m.target=None;m.state='PARKED'
