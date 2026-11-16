@@ -1,17 +1,30 @@
 """Explicit adjacent-window loading preserves resolution and caller drafts."""
 import os
+import gc
+import subprocess
+import sys
+from pathlib import Path
 os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
 from copy import deepcopy
 from types import SimpleNamespace
 import numpy as np
 import pytest
-from PySide6 import QtWidgets
+from PySide6 import QtCore,QtWidgets
 from ats.active_expansion_ui import ActiveExpansionDialog,expansion_proposal,_translated_ui
+
+
+_APP=None
 
 
 @pytest.fixture
 def app():
-    return QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    # Keep Qt alive and collect closed mock dialogs on the GUI thread.
+    global _APP
+    _APP=QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    gc.collect()
+    yield _APP
+    _APP.sendPostedEvents(None,QtCore.QEvent.Type.DeferredDelete)
+    gc.collect()
 
 
 def context(origin=(100.,100.),cell=.5,n=128,extent=(1000.,1000.)):
@@ -145,7 +158,7 @@ def regional_config():
     return config,land
 
 
-def test_runtime_main_window_growth_preserves_physical_actors_clock_and_file(app):
+def _probe_main_window_growth(app):
     from ats.gui import MainWindow
     config,land=regional_config();host=MainWindow(config);host.landscape=land;host.timer.stop()
     host._session_path='kept.atsstate';host.running=False
@@ -163,7 +176,7 @@ def test_runtime_main_window_growth_preserves_physical_actors_clock_and_file(app
     host.close();dialog.close();app.processEvents()
 
 
-def test_runtime_conventional_only_window_can_expand_and_keep_one_shared_clock(app,tmp_path):
+def _probe_conventional_window_growth(app,tmp_path):
     from ats.conventional_workspace import ConventionalWorkWindow
     from ats.conventional import ConventionalConfig
     config,land=regional_config();host=ConventionalWorkWindow(config,landscape=land);host.timer.stop()
@@ -183,3 +196,32 @@ def test_runtime_conventional_only_window_can_expand_and_keep_one_shared_clock(a
     assert host.sim.time==host.complex_project.time==1.
     host.single_step();assert host.sim.time==host.complex_project.time==2.
     host.close();dialog.close();app.processEvents()
+
+
+def _window_process(kind,directory=None):
+    # Qt 6.11/Python 3.11 can corrupt native view ownership when the complete
+    # main-window and standalone save/load trees are collected in one pytest
+    # process. Exercise each real entry point with its own QApplication life
+    # cycle; all physical, snapshot and widget assertions still run below.
+    code='''
+import sys
+from pathlib import Path
+from PySide6 import QtWidgets
+from tests.test_active_expansion_ui import _probe_main_window_growth,_probe_conventional_window_growth
+app=QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+if sys.argv[1]=='main':_probe_main_window_growth(app)
+else:_probe_conventional_window_growth(app,Path(sys.argv[2]))
+'''
+    result=subprocess.run([sys.executable,'-c',code,kind,str(directory or '')],
+        cwd=Path(__file__).resolve().parents[1],
+        env={**os.environ,'QT_QPA_PLATFORM':'offscreen','PYTHONIOENCODING':'utf-8'},
+        capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=60)
+    assert result.returncode==0,result.stdout+'\n'+result.stderr
+
+
+def test_runtime_main_window_growth_preserves_physical_actors_clock_and_file():
+    _window_process('main')
+
+
+def test_runtime_conventional_only_window_can_expand_and_keep_one_shared_clock(tmp_path):
+    _window_process('conventional',tmp_path)
