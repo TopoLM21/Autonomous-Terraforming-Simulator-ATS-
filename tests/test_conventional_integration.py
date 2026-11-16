@@ -78,7 +78,7 @@ def test_existing_headless_resume_path_accepts_an_empty_autonomous_fleet(tmp_pat
     result=subprocess.run([sys.executable,'-m','ats','--headless','--load-state',str(path),
         '--steps','5','--json',str(out)],capture_output=True,text=True)
     assert result.returncode==0,result.stderr
-    r=json.loads(out.read_text());assert r['time_seconds']==5 and r['drone_count']==0
+    r=json.loads(out.read_text(encoding='utf-8'));assert r['time_seconds']==5 and r['drone_count']==0
     assert 'conventional' in r and abs(r['mass_error_kg'])<1e-7
 
 
