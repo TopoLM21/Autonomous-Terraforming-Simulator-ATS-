@@ -71,3 +71,12 @@ material amounts, cargo, volumes and fuel; route searches fell from 16 to 13.
 Work/dump geometry each built once. This is a small headless control, not a
 claim about the user's GUI speed. Far-to-near intentionally changes haul
 distances and can cost more time or fuel than nearest-place dispatch.
+
+Python 3.11 / Qt 6.11 CI exposed a native crash while collecting closed Qt
+window trees during later GUI tests. A related order-sensitive crash also
+occurs with the preceding implementation in a selected GUI-only run. The
+three new GUI cases therefore execute their complete real-window assertions
+in separate Python processes, following the existing expansion-window test
+pattern. This does not skip assertions, disable garbage collection or change
+the application's physics. The final targeted checks pass on Python 3.11
+and 3.12; the complete matrix result belongs to the published CI run.

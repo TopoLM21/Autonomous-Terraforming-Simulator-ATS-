@@ -11,9 +11,9 @@
     "ats/gui.py": "d74cd6637e3ec8f8843b2946e5b70e7dd9524359adc6c699fcc5687eb9233343",
     "ats/shared_site.py": "ec2bc0e323c9f7ffdba7b83b3e2085a49defeb37855034a4aa901240c05c3f30",
     "ats/simulation.py": "3eb6f199169036d124b64ef7758dc911963e553f926397baaf2920cf4fc9704d",
-    "tests/test_blocked_drone_ui.py": "fc5ca0a8840c15981430de4ad5eef306208fedc20cdbb5bda845fca0dd598f35",
+    "tests/test_blocked_drone_ui.py": "2deeb74ca912d793803374142699f101d13777a1c963e357d08466a0be051c9e",
     "tests/test_conventional_plan.py": "43455e136aa96d9706c0979f731e65fab89e4e93ddb1d24eff3ad5aed7942e4f",
-    "tests/test_conventional_plan_ui.py": "90d09a0ae2eb24a1251438ee0b06654847c01e958b5fb132235048600ea890bd",
+    "tests/test_conventional_plan_ui.py": "ac69176f8c907b4217a17c87d918b5fd75b2df4a41d635638be5e5cce49a7acb",
     "tests/test_sloped_service_decks.py": "11b9852bcb96c5835dfe29fb5c8f294235bda621841ba6f27801a11d180de7bd"
   },
   "physical_comparison": {
@@ -183,5 +183,29 @@
       "passed": 8,
       "seconds": 4.99
     }
+  },
+  "ci_follow_up": {
+    "initial_implementation_commit": "c638eea268057c27cdd73c118213456e6f950827",
+    "initial_ci": "https://github.com/TopoLM21/Autonomous-Terraforming-Simulator-ATS-/actions/runs/44063499998",
+    "initial_failure": "Both Python 3.11 jobs exited in native Qt/pyqtgraph allocation or garbage collection while constructing MainWindow in test_conventional_ui.py.",
+    "change": "Run all three newly added GUI cases in isolated Python processes. Assertions, actual windows and production code are unchanged. No skips or garbage-collector suppression.",
+    "targeted_files": [
+      "tests/test_blocked_drone_ui.py",
+      "tests/test_conventional_plan_ui.py",
+      "tests/test_conventional_ui.py"
+    ],
+    "python_3_11": {
+      "python": "3.11.17",
+      "qt": "6.11.3",
+      "passed": 7,
+      "seconds": 4.5
+    },
+    "python_3_12": {
+      "python": "3.12.14",
+      "qt": "6.12.0",
+      "passed": 7,
+      "seconds": 4.34
+    },
+    "diagnostic_limit": "The selected GUI-only run also produced an order-sensitive native crash on the previous 9877ff5 source. It is not evidence of a new physics defect. The final complete CI matrix is verified separately."
   }
 }

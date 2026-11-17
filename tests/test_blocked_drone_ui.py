@@ -1,17 +1,17 @@
 """A mixed site's running diesel fleet must not hide stopped drone work."""
 import os
-os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
-
-from PySide6 import QtWidgets
-
-from ats.checkpoint import Session
-from ats.drone import DroneState
-from ats.gui import MainWindow
-from ats.simulation import MissionState
-from tests.test_conventional_shared import mixed
+from pathlib import Path
+import subprocess
+import sys
 
 
-def test_mixed_block_reason_remains_visible_for_stopped_drone_operations():
+def _probe_mixed_block_reason():
+    from PySide6 import QtWidgets
+    from ats.checkpoint import Session
+    from ats.drone import DroneState
+    from ats.gui import MainWindow
+    from ats.simulation import MissionState
+    from tests.test_conventional_shared import mixed
     app=QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     project,_,_=mixed()
     sim=project.active.simulation
@@ -57,3 +57,15 @@ def test_mixed_block_reason_remains_visible_for_stopped_drone_operations():
         assert not window.drone_labels[0].toolTip()
     finally:
         window.close();app.processEvents()
+
+
+def test_mixed_block_reason_remains_visible_for_stopped_drone_operations():
+    # Keep this complete MainWindow tree in its own QApplication lifetime.
+    # Qt 6.11/Python 3.11 may otherwise collect its native plot objects during
+    # a later, unrelated GUI test. The child executes every real assertion.
+    code='from tests.test_blocked_drone_ui import _probe_mixed_block_reason; _probe_mixed_block_reason()'
+    result=subprocess.run([sys.executable,'-c',code],
+        cwd=Path(__file__).resolve().parents[1],
+        env={**os.environ,'QT_QPA_PLATFORM':'offscreen','PYTHONIOENCODING':'utf-8'},
+        capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=90)
+    assert result.returncode==0,result.stdout+'\n'+result.stderr

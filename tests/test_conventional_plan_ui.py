@@ -1,21 +1,18 @@
 """The work-plan controls submit a policy without resetting physical work."""
-import gc
+from contextlib import contextmanager
 import os
-import numpy as np
-import pytest
-os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
-from PySide6 import QtCore,QtWidgets
-
-_APP=None
+from pathlib import Path
+import subprocess
+import sys
+from tempfile import TemporaryDirectory
 
 
-@pytest.fixture
-def host():
-    global _APP
+@contextmanager
+def _host():
+    from PySide6 import QtCore,QtWidgets
     from ats.simulation import Simulation
     from tests.test_conventional_workspace import workspace_config
-    _APP=QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
-    gc.collect()
+    app=QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     class Host(QtWidgets.QWidget):
         landscape=None
         def __init__(self):
@@ -23,12 +20,14 @@ def host():
         def refresh(self,*args):pass
         def install_conventional(self,config):return self.sim.install_conventional(config)
     value=Host()
-    yield value
-    value.close();value.deleteLater()
-    _APP.sendPostedEvents(None,QtCore.QEvent.Type.DeferredDelete);gc.collect()
+    try:yield value
+    finally:
+        value.close();value.deleteLater()
+        app.sendPostedEvents(None,QtCore.QEvent.Type.DeferredDelete)
+        app.processEvents()
 
 
-def test_new_fleet_policy_is_selected_before_purchase(host):
+def _check_new_fleet_policy(host):
     from ats.conventional_ui import ConventionalWindow
     dialog=ConventionalWindow(host);dialog.timer.stop()
     try:
@@ -42,7 +41,8 @@ def test_new_fleet_policy_is_selected_before_purchase(host):
     finally:dialog.close();dialog.deleteLater()
 
 
-def test_live_order_applies_only_after_explicit_command_and_preserves_trip(host,tmp_path):
+def _check_live_order(host,tmp_path):
+    import numpy as np
     from ats.conventional import ConventionalConfig
     from ats.conventional_ui import ConventionalWindow
     from ats.checkpoint import save_state,load_state
@@ -76,3 +76,31 @@ def test_live_order_applies_only_after_explicit_command_and_preserves_trip(host,
         assert dialog.controls['dump_order'].currentData()=='nearest'
         assert not dialog.plan_apply_button.isEnabled()
     finally:dialog.close();dialog.deleteLater()
+
+
+def _probe_plan_ui(kind):
+    with _host() as host:
+        if kind=='new':_check_new_fleet_policy(host)
+        else:
+            with TemporaryDirectory(prefix='ats-plan-ui-') as directory:
+                _check_live_order(host,Path(directory))
+
+
+def _window_process(kind):
+    # A new QWidget/Qt cleanup sequence must not collect native objects left
+    # by unrelated MainWindow tests in the parent pytest process. Each case
+    # executes its complete widget, policy and snapshot assertions in a child.
+    code='import sys; from tests.test_conventional_plan_ui import _probe_plan_ui; _probe_plan_ui(sys.argv[1])'
+    result=subprocess.run([sys.executable,'-c',code,kind],
+        cwd=Path(__file__).resolve().parents[1],
+        env={**os.environ,'QT_QPA_PLATFORM':'offscreen','PYTHONIOENCODING':'utf-8'},
+        capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=90)
+    assert result.returncode==0,result.stdout+'\n'+result.stderr
+
+
+def test_new_fleet_policy_is_selected_before_purchase():
+    _window_process('new')
+
+
+def test_live_order_applies_only_after_explicit_command_and_preserves_trip():
+    _window_process('live')
