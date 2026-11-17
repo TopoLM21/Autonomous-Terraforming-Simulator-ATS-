@@ -91,7 +91,7 @@ class _Encoder:
             node.update(kind='object',type=name,attrs={k:self.encode(v,matrix=name=='ats.config.Config' and
                 k in ('initial_height','reference_height') and v is not None) for k,v in vars(value).items()
                 if k not in ('_sector_progress_cache','_prefetch_runtime','_prefetch_auto_key','_prefetch_world_stamp','_flooding_basis','_flight_ceiling_cache','_shore_cache','_axis_station_cache','_work_window_cache','_robot_static_cache','_static_robot_site_cache',
-                             '_work_plan_cache','_dump_plan_cache')})
+                             '_work_plan_cache','_dump_plan_cache','_cooperative_return_cache')})
         return {'ref':index}
 
 

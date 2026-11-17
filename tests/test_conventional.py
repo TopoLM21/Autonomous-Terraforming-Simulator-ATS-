@@ -188,7 +188,9 @@ def test_full_swept_footprints_and_invalid_schedule_are_not_silently_accepted():
 
 def test_both_trucks_complete_repeated_load_cycles_without_soil_loss():
     s,f=world()
-    for _ in range(2400):
+    # Two nearly full bodies with real 30 s buckets take longer than the old
+    # forced five-minute partial hauls. Still require both physical deliveries.
+    for _ in range(3000):
         s.step()
         if all(m.delivered_m3>.2 for m in f.machines[1:]):break
     assert all(m.delivered_m3>.2 for m in f.machines[1:])

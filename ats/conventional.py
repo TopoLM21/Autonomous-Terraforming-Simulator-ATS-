@@ -414,7 +414,7 @@ class ConventionalFleet:
         if after!='PARKED':
             points=np.array([np.asarray(destination)[:2],*home_path]);lo=points.min(axis=0)-m.radius;hi=points.max(axis=0)+m.radius
             bounds=tuple(np.r_[lo,hi])
-            m.budget_cache=dict(position=tuple(destination[:2]),path=list(home_path),bounds=bounds,token=self.terrain.route_token(bounds))
+            m.budget_cache=dict(position=tuple(destination[:2]),path=list(home_path),bounds=bounds,token=self._home_route_token(m,bounds))
         return True
 
     @staticmethod
@@ -447,7 +447,10 @@ class ConventionalFleet:
         return True
 
     def _move(self,m):
-        if not m.path:m.state=m.after_drive;return
+        if not m.path:
+            m.state=m.after_drive
+            if m.kind=='truck' and m.state=='WAIT_LOAD' and m.cargo_kg<=1e-9:m.load_started=self.sim.time
+            return
         if self.sim.time<m.retry_route_at:m.waiting_seconds+=1;return
         if m.route_token!=self.terrain.route_token(m.route_bounds):
             path=self.route(m,m.destination)
@@ -465,7 +468,12 @@ class ConventionalFleet:
         if length>1e-9:m.heading_rad=math.atan2(delta[1],delta[0])
         m.position[:2]=next_point;m.position[2]=self.terrain.sample(*next_point);m.distance_m+=min(length,self._speed(m))
         if length<=self._speed(m)+1e-9:m.path.pop(0)
-        if not m.path:m.state=m.after_drive;m.reason=''
+        if not m.path:
+            m.state=m.after_drive;m.reason=''
+            # Approach time is not idle loading time. A loaded truck following
+            # a new shelf retains its last actual bucket timestamp instead of
+            # extending an unproductive wait through repeated repositioning.
+            if m.kind=='truck' and m.state=='WAIT_LOAD' and m.cargo_kg<=1e-9:m.load_started=self.sim.time
 
     def shift(self,when=None):
         c=self.config;seconds=self.sim.config.start_hour*3600+(self.sim.time if when is None else when)
@@ -535,7 +543,7 @@ class ConventionalFleet:
         """
         key=tuple(m.position[:2]);cache=m.budget_cache
         if cache is not None and np.linalg.norm(np.asarray(cache['position'])-m.position[:2])<1e-7:
-            token=self.terrain.route_token(cache['bounds'])
+            token=self._home_route_token(m,cache['bounds'])
             if not validate and cache['token']==token:return cache['path']
             path=cache['path']
             if all(self.segment_safe(a,b,m.radius,m) for a,b in zip([m.position[:2],*path[:-1]],path)):
@@ -543,23 +551,241 @@ class ConventionalFleet:
         path=self.route(m,m.home[:2])
         if path is None:return None
         points=np.array([m.position[:2],*path]);bounds=tuple(np.r_[points.min(axis=0)-m.radius,points.max(axis=0)+m.radius])
-        m.budget_cache=dict(position=key,path=path,bounds=bounds,token=self.terrain.route_token(bounds))
+        m.budget_cache=dict(position=key,path=path,bounds=bounds,token=self._home_route_token(m,bounds))
         return path
 
+    def _home_route_token(self,m,bounds):
+        x0,y0,x1,y1=bounds
+        own=tuple((v.id,tuple(v.position),v.radius,v.dimensions_m) for v in self.machines if v is not m and
+                  x0-v.radius<=v.position[0]<=x1+v.radius and y0-v.radius<=v.position[1]<=y1+v.radius)
+        return (id(self.terrain.height),self.terrain.cell,self.terrain.height.shape,m.radius,m.dimensions_m,
+                tuple(self.base_position),own,self._cooperative_token(bounds))
+
+    def _route_seconds(self,m,path):
+        return float(sum(max(1,math.ceil(float(np.linalg.norm(np.asarray(b)-np.asarray(a)))/self._speed(m)-1e-12))
+                         for a,b in zip([m.position[:2],*path[:-1]],path)))
+
+    def _cooperative_stamp(self,e,bounds=None):
+        def relevant(m):
+            return (bounds is None or m is e or
+                    bounds[0]-m.radius<=m.position[0]<=bounds[2]+m.radius and
+                    bounds[1]-m.radius<=m.position[1]<=bounds[3]+m.radius)
+        return (id(self.terrain),id(self.terrain.height),self.terrain.cell,self.terrain.height.shape,
+                e.id,tuple((m.id,tuple(m.position),tuple(m.home),m.state,m.radius,m.dimensions_m) for m in self.machines if relevant(m)),
+                self.config.truck_speed_m_s,self.config.excavator_speed_m_s)
+
+    def _cooperative_token(self,bounds):
+        from .conventional_integration import simulations_for
+        x0,y0,x1,y1=bounds;actors=[]
+        def near(point,margin):return x0-margin<=point[0]<=x1+margin and y0-margin<=point[1]<=y1+margin
+        for owner in simulations_for(self.sim):
+            for d in owner.drones:
+                radius=max(.5,owner.config.fleet.separation/2)
+                if d.grounded and near(d.position,radius):actors.append(('drone',d.serial,tuple(d.position),radius))
+                if d.trip is not None:
+                    for point in (d.trip.dig,d.trip.dump):
+                        radius=max(owner.config.fleet.separation,d.config.grab_radius or .5)
+                        if near(point,radius):actors.append(('trip',d.serial,tuple(point),radius))
+            for robot in (owner.logistics.excavators if owner.logistics else ()):
+                if near(robot.position,robot.config.support_half_width_m):actors.append(('robot',tuple(robot.position),robot.config.support_half_width_m))
+        return self.terrain.route_token(bounds),tuple(self._other_rectangles(bounds)),tuple(actors)
+
+    def _cached_cooperative_return(self,e,truck=None):
+        plan=getattr(self,'_cooperative_return_cache',None)
+        if (plan is not None and plan['stamp']==self._cooperative_stamp(e,plan['bounds']) and
+                (truck is None or plan['truck_id']==truck.id) and
+                plan['token']==self._cooperative_token(plan['bounds'])):return plan
+        return None
+
+    def _remember_cooperative_return(self,e,vehicle,truck_path,path):
+        points=np.array([e.position[:2],e.home[:2],vehicle.position[:2],vehicle.home[:2],*path,*truck_path])
+        margin=max(e.radius,vehicle.radius)+1.
+        bounds=tuple(np.r_[points.min(axis=0)-margin,points.max(axis=0)+margin])
+        truck_seconds=self._route_seconds(vehicle,truck_path)
+        plan=dict(stamp=self._cooperative_stamp(e,bounds),truck_id=vehicle.id,truck_path=list(truck_path),
+                  path=list(path),wait_seconds=truck_seconds+2.,truck_seconds=truck_seconds,
+                  e_seconds=self._route_seconds(e,path),bounds=bounds)
+        plan['token']=self._cooperative_token(bounds);self._cooperative_return_cache=plan
+        self.cooperative_return_hints=dict(truck_id=vehicle.id,e_start=tuple(e.position),truck_start=tuple(vehicle.position),
+            e_home=tuple(e.home),truck_home=tuple(vehicle.home),path=list(path),truck_path=list(truck_path))
+        return plan
+
+    def _checked_cooperative_hint(self,e,truck=None):
+        hint=getattr(self,'cooperative_return_hints',None)
+        if hint is None:return None
+        vehicle=next((m for m in self.machines if m.id==hint['truck_id']),None)
+        if vehicle is None or truck is not None and truck is not vehicle:return None
+        if truck is None and not (vehicle.state=='WAIT_LOAD' or vehicle.state=='DRIVING' and vehicle.after_drive=='WAIT_LOAD'):return None
+        for current,saved in ((e.position,hint['e_start']),(vehicle.position,hint['truck_start']),
+                              (e.home,hint['e_home']),(vehicle.home,hint['truck_home'])):
+            if not np.allclose(current,saved,rtol=0.,atol=1e-8):return None
+        path=hint['path'];truck_path=hint['truck_path']
+        for machine,route in ((e,path),(vehicle,truck_path)):
+            endpoint=route[-1] if route else machine.position[:2]
+            if not np.allclose(endpoint,machine.home[:2],rtol=0.,atol=1e-8):return None
+        if not all(self.segment_safe(a,b,vehicle.radius,vehicle) for a,b in zip([vehicle.position[:2],*truck_path[:-1]],truck_path)):return None
+        old=vehicle.position.copy()
+        try:
+            vehicle.position[:]=vehicle.home
+            clear=all(self.segment_safe(a,b,e.radius,e) for a,b in zip([e.position[:2],*path[:-1]],path))
+        finally:vehicle.position[:]=old;e.budget_cache=None
+        return self._remember_cooperative_return(e,vehicle,truck_path,path) if clear else None
+
+    def _cooperative_return(self,e,truck=None,max_routes=8):
+        """Budget-only proof: a real truck withdrawal precedes E's return."""
+        plan=self._cached_cooperative_return(e,truck)
+        if plan is None:plan=self._checked_cooperative_hint(e,truck)
+        if plan is None:
+            candidates=[truck] if truck is not None else [m for m in self.machines if m.kind=='truck' and
+                (m.state=='WAIT_LOAD' or m.state=='DRIVING' and m.after_drive=='WAIT_LOAD') and
+                np.linalg.norm(m.position[:2]-e.position[:2])<=self._loading_distance(m)+m.radius]
+            started=self.route_calculations
+            cursor=0 if truck is not None or not candidates else getattr(e,'cooperative_search_cursor',0)%len(candidates)
+            for index in range(cursor,len(candidates)):
+                vehicle=candidates[index]
+                if self.route_calculations-started>=max_routes:
+                    if truck is None:e.cooperative_search_cursor=index
+                    return None
+                truck_path=self._home_route(vehicle,validate=True)
+                if truck_path is None:continue
+                if self.route_calculations-started>=max_routes:
+                    if truck is None:e.cooperative_search_cursor=index
+                    return None
+                old=vehicle.position.copy()
+                try:
+                    vehicle.position[:]=vehicle.home
+                    e.budget_cache=None;path=self._home_route(e,validate=True)
+                finally:
+                    vehicle.position[:]=old;e.budget_cache=None
+                if path is None:continue
+                plan=self._remember_cooperative_return(e,vehicle,truck_path,path)
+                if truck is None:e.cooperative_search_cursor=0
+                break
+            else:
+                if truck is None:e.cooperative_search_cursor=0
+        if plan is None:return None
+        vehicle=next((m for m in self.machines if m.id==plan['truck_id']),None)
+        needed=(plan['truck_seconds']+15)*self.config.truck_drive_l_h/3600+self._tank(vehicle)*self.config.fuel_reserve_fraction if vehicle else math.inf
+        return plan if vehicle is not None and vehicle.fuel_l>=needed else None
+
     def _return_budget(self,m,extra_s=0.):
-        path=self._home_route(m)
+        started=self.route_calculations
+        plan=self._cached_cooperative_return(m) if m.kind=='excavator' else None
+        if plan is None and m.kind=='excavator':plan=self._checked_cooperative_hint(m)
+        path=self._home_route(m) if plan is None else None
+        if path is None and m.kind=='excavator':plan=self._cooperative_return(m,max_routes=max(0,8-(self.route_calculations-started)))
+        rate=max(self.config.excavator_work_l_h,self.config.idle_l_h) if m.kind=='excavator' else self.config.truck_drive_l_h
+        if plan is not None:
+            seconds=plan['wait_seconds']+plan['e_seconds']+extra_s+15
+            fuel=((plan['e_seconds']+extra_s+15)*rate+plan['wait_seconds']*self.config.idle_l_h)/3600+self._tank(m)*self.config.fuel_reserve_fraction
+            return seconds,fuel,plan['path']
         if path is None:return None
         seconds=self._path_length(m,path)/self._speed(m)+extra_s+15
-        rate=max(self.config.excavator_work_l_h,self.config.idle_l_h) if m.kind=='excavator' else self.config.truck_drive_l_h
         fuel=seconds*rate/3600+self._tank(m)*self.config.fuel_reserve_fraction
         return seconds,fuel,path
 
+    def _retreat_loading_truck(self,e,plan,return_requested=False):
+        vehicle=next(m for m in self.machines if m.id==plan['truck_id'])
+        if not self._assign_route(vehicle,vehicle.home[:2],'PARKED',outbound_path=plan['truck_path']):return False
+        vehicle.loading_hold_for=e.id;vehicle.loading_hold_since=self.sim.time
+        e.wait_for_truck=vehicle.id;e.return_requested=bool(return_requested)
+        e.state='WAIT_TRUCK';e.retry_route_at=0.
+        e.reason='Ожидание фактического освобождения съезда самосвалом'
+        self._cooperative_return_cache=None
+        return True
+
+    def _prepare_productive_relocation(self,e,goal,max_routes=8):
+        """Prove the joint move, then move only the truck until it is home."""
+        if max_routes<3:return False
+        started=self.route_calculations;plan=self._cooperative_return(e,max_routes=max_routes-1)
+        if plan is None or self.route_calculations-started+1>max_routes:return False
+        vehicle=next(m for m in self.machines if m.id==plan['truck_id']);old=vehicle.position.copy()
+        try:
+            vehicle.position[:]=vehicle.home
+            path=self.route(e,goal)
+            if path is None:return False
+            visited=[tuple(e.position[:2]),*path];home=[*reversed(visited[:-1]),*plan['path']]
+            if not all(self.segment_safe(a,b,e.radius,e) for a,b in zip([goal,*home[:-1]],home)):return False
+            out_seconds=self._route_seconds(e,path)
+            position=e.position.copy()
+            try:
+                e.position[:2]=goal;e.position[2]=self.terrain.sample(*goal)
+                back_seconds=self._route_seconds(e,home)
+            finally:e.position[:]=position
+        finally:vehicle.position[:]=old;e.budget_cache=None
+        seconds=plan['wait_seconds']+out_seconds+back_seconds+max(60.,self.config.bucket_cycle_s)+45.
+        fuel=seconds*max(self._rate(e,True),self.config.truck_drive_l_h)/3600+self._tank(e)*self.config.fuel_reserve_fraction
+        if self.shift()['seconds_left']<seconds or e.fuel_l<fuel:return False
+        if not self._retreat_loading_truck(e,plan):return False
+        e.pending_relocation=dict(goal=tuple(map(float,goal)),requested_at=self.sim.time)
+        return True
+
     def _go_home(self,m):
-        if m.kind=='excavator':m.expose_target=None
-        if np.linalg.norm(m.position[:2]-m.home[:2])<.1:m.state='PARKED';m.path=[];m.reason='';return True
+        if m.kind=='excavator':
+            m.expose_target=None;m.return_requested=True;m.pending_relocation=None
+        if np.linalg.norm(m.position[:2]-m.home[:2])<.1:
+            m.state='PARKED';m.path=[];m.reason=''
+            if m.kind=='excavator':m.return_requested=False
+            return True
         path=self._home_route(m,validate=True)
-        if path is None:m.reason=getattr(self,'_route_failure','') or 'Нет безопасного пути на базу';m.retry_route_at=self.sim.time+30;return False
+        if path is None:
+            plan=self._cooperative_return(m) if m.kind=='excavator' else None
+            if plan is not None and self._retreat_loading_truck(m,plan,return_requested=True):return True
+            m.reason=getattr(self,'_route_failure','') or 'Нет безопасного пути на базу';m.retry_route_at=self.sim.time+30;return False
         return self._assign_route(m,m.home[:2],'PARKED',outbound_path=path)
+
+    def _target_indices(self,e,remaining=None,focus_access=True):
+        """Current reachable design centres, retaining the first road section."""
+        t=self.terrain
+        plan=self._work_plan();work_ids=plan['ids']
+        if remaining is None:remaining=self._work_remaining()
+        elif remaining.shape==t.height.shape:remaining=remaining.ravel()[work_ids]
+        access=getattr(self,'access_mask',None)
+        positions=np.flatnonzero(remaining>1e-6);ids=work_ids[positions]
+        if access is not None and focus_access:
+            road_tolerance=min(.12,max(.03,.2*t.cell))
+            pending_positions=positions[access.ravel()[ids]&(remaining[positions]>road_tolerance)]
+            pending=work_ids[pending_positions]
+            if len(pending):
+                # Work a support-sized band from the earliest road section.
+                # A one-metre strip can contain only protected crumbs while
+                # neighbouring reachable rows still accept full buckets. The
+                # floor, track support and physical access checks stay live.
+                along=plan['along'][pending_positions]
+                band=max(1.,t.cell,min(e.radius,self.config.excavator_reach_m/2))
+                ids=pending[along<=float(along.min())+band]
+        if not len(ids):return ids,remaining
+        distance=(t.x.ravel()[ids]-e.position[0])**2+(t.y.ravel()[ids]-e.position[1])**2
+        valid=(distance<=self.config.excavator_reach_m**2)&(distance>=(e.radius+1.)**2)
+        ids=ids[valid]
+        return ids,remaining
+
+    def target_yield(self,e,target=None):
+        """Next bucket's actual geometric volume, without changing the soil."""
+        target=self._available_target(e) if target is None else target
+        if target is None:return 0.
+        t=self.terrain;x,y=target[:2];radius=max(t.cell*.71,.5)
+        patch=t.patch(x,y,radius);floor,allowed=self._bucket_geometry(e,patch)
+        footprint=(t.x[patch]-x)**2+(t.y[patch]-y)**2<=radius**2
+        volume=float(np.where(allowed&footprint,np.maximum(t.height[patch]-floor,0.),0.).sum()*t.area)
+        return min(self.config.bucket_m3,volume)
+
+    def available_work_at_stance(self,e,remaining=None,focus_access=True):
+        """Distinct removable volume in the actionable road band, not future cuts.
+
+        A broad reachable annulus may contain much soil behind an unfinished
+        road section. Counting that future soil would favour a stance that can
+        currently take only crumbs. All floors/support guards are the same as
+        an actual bucket's, and no capacity is reserved or soil transferred.
+        """
+        ids,_=self._target_indices(e,remaining,focus_access)
+        if not len(ids):return 0.
+        t=self.terrain;n=t.height.shape[1]
+        patch=t.patch(*e.position[:2],self.config.excavator_reach_m)
+        floor,allowed=self._bucket_geometry(e,patch)
+        rows=ids//n-patch[0].start;cols=ids%n-patch[1].start
+        volume=np.where(allowed[rows,cols],np.maximum(t.height[patch][rows,cols]-floor[rows,cols],0.),0.)
+        return float(volume.sum()*t.area)
 
     def _available_target(self,e,remaining=None,focus_access=True):
         t=self.terrain
@@ -574,27 +800,9 @@ class ConventionalFleet:
                 if np.linalg.norm(e.position[:2]-[x,y])<=self.config.excavator_reach_m and allowed[i,j] and t.height[row,col]>floor[i,j]+1e-5:
                     return x,y,float(floor[i,j])
                 return None
+        ids,remaining=self._target_indices(e,remaining,focus_access)
+        if not len(ids):return None
         plan=self._work_plan();work_ids=plan['ids']
-        if remaining is None:remaining=self._work_remaining()
-        elif remaining.shape==t.height.shape:remaining=remaining.ravel()[work_ids]
-        access=getattr(self,'access_mask',None)
-        positions=np.flatnonzero(remaining>1e-6);ids=work_ids[positions]
-        focused=False
-        if access is not None and focus_access:
-            road_tolerance=min(.12,max(.03,.2*t.cell))
-            pending_positions=positions[access.ravel()[ids]&(remaining[positions]>road_tolerance)]
-            pending=work_ids[pending_positions]
-            if len(pending):
-                focused=True
-                # Finish both halves of the earliest cross-section before
-                # following the nearest bank farther down the entire channel.
-                along=plan['along'][pending_positions]
-                ids=pending[along<=float(along.min())+max(1.,t.cell)]
-        if not len(ids):return None
-        distance=(t.x.ravel()[ids]-e.position[0])**2+(t.y.ravel()[ids]-e.position[1])**2
-        valid=(distance<=self.config.excavator_reach_m**2)&(distance>=(e.radius+1.)**2)
-        ids=ids[valid]
-        if not len(ids):return None
         # Keep the present supporting footprint and a retained ramp uncut.
         score=(t.x.ravel()[ids]-e.position[0])**2+(t.y.ravel()[ids]-e.position[1])**2
         if self.ramp.get('model')=='supported_access_v2':
@@ -644,16 +852,18 @@ class ConventionalFleet:
         index=ids[int(np.argmax(remaining[np.searchsorted(plan['ids'],ids)]))]
         return float(t.x.ravel()[index]),float(t.y.ravel()[index])
 
-    def _choose_excavator_site(self,e,advance_only=False,expose=None):
+    def _choose_excavator_site(self,e,advance_only=False,expose=None,productive_only=False):
         target=self._available_target(e)
-        if target is not None and not advance_only and expose is None:
+        current_yield=self.target_yield(e,target) if productive_only else 0.
+        if target is not None and not advance_only and expose is None and not productive_only:
             e.target=target;e.state='WAIT_TRUCK';e.reason='';self.reason='';return True
         t=self.terrain;plan=self._work_plan();remaining=self._work_remaining();ids=plan['ids'][remaining>1e-6]
         if not len(ids):
+            if productive_only:return False
             self._work_complete=True;self.reason='Захватка обработана; выездная рампа остаётся в проектной выемке';return False
         routes_started=self.route_calculations
         current_escape=self._home_route(e,validate=True)
-        if current_escape is None:
+        if current_escape is None and not productive_only:
             if self._release_loading_bay(e):
                 e.reason='Ожидание освобождения однополосного съезда самосвалом'
                 e.retry_route_at=self.sim.time+5;e.next_plan_at=self.sim.time+5
@@ -702,14 +912,39 @@ class ConventionalFleet:
             x,y=t.x.ravel()[index],t.y.ravel()[index]
             for dx,dy in ((-1,0),(0,-1),(1,0),(0,1)):
                 candidates.append(np.array([x+dx*self.config.excavator_reach_m*.8,y+dy*self.config.excavator_reach_m*.8]))
-        cursor_field='advance_search_cursor' if advance_only else 'site_search_cursor'
+        productive_targets={}
+        if productive_only:
+            # Rank all cheap geometric candidates before spending the bounded
+            # route budget. A move must pay for a material improvement, rather
+            # than alternate between equivalent centimetre-scale leftovers.
+            minimum=max(current_yield*2.,current_yield+self.config.bucket_m3*.1)
+            ranked=[];seen=set()
+            for p in candidates:
+                key=tuple(map(float,p))
+                if key in seen:continue
+                seen.add(key)
+                if np.linalg.norm(p-e.position[:2])<max(.5,t.cell) or not self.passable(p,e.radius,e):continue
+                old=e.position.copy();old_expose=e.expose_target
+                e.position[:2]=p;e.position[2]=t.sample(*p)
+                try:
+                    useful=self._available_target(e,remaining)
+                    volume=self.target_yield(e,useful) if useful is not None else 0.
+                    if volume+1e-10<minimum:continue
+                    batch=self.available_work_at_stance(e,remaining)
+                finally:e.position[:]=old;e.expose_target=old_expose
+                productive_targets[key]=useful
+                ranked.append(((-volume,-batch,float(np.linalg.norm(p-e.position[:2]))),p))
+            if not ranked:return False
+            candidates=[p for _,p in sorted(ranked,key=lambda row:row[0])]
+        cursor_field='productive_search_cursor' if productive_only else 'advance_search_cursor' if advance_only else 'site_search_cursor'
         cursor=getattr(e,cursor_field,0)%len(candidates);limited=False;dispatch_wait=''
         for offset,p in enumerate(candidates[cursor:]+candidates[:cursor]):
             if advance_only and t.sample(*p)>=e.position[2]-.05:continue
             if np.linalg.norm(p-e.position[:2])<max(.5,t.cell) or not self.passable(p,e.radius,e):continue
             old=e.position.copy();e.position[:2]=p;e.position[2]=t.sample(*p)
             try:
-                if expose is None:useful=self._available_target(e,remaining,focus_access=not advance_only)
+                if productive_only:useful=productive_targets[tuple(map(float,p))]
+                elif expose is None:useful=self._available_target(e,remaining,focus_access=not advance_only)
                 else:
                     patch=t.patch(*expose,max(t.cell*.71,.5));floor,allowed=self._bucket_geometry(e,patch)
                     row=int(expose[1]/t.cell)-patch[0].start;col=int(expose[0]/t.cell)-patch[1].start
@@ -722,8 +957,21 @@ class ConventionalFleet:
             if useful is None:continue
             if self.route_calculations-routes_started>=8:
                 setattr(e,cursor_field,(cursor+offset)%len(candidates));limited=True;break
+            if productive_only and current_escape is None:
+                # A loading truck may occupy the only road. Its partial load
+                # must not be sent away merely to investigate a tiny target:
+                # reach this branch only after a material gain was ranked.
+                # The cooperative helper proves both routes and queues only
+                # the truck's physical retreat. E stays still until it clears.
+                if self._prepare_productive_relocation(e,p,max_routes=8-(self.route_calculations-routes_started)):
+                    setattr(e,cursor_field,0);self.reason='';return True
+                continue
             outbound=self.route(e,p)
-            if outbound is None:continue
+            if outbound is None:
+                if productive_only and self.route_calculations-routes_started<8:
+                    if self._prepare_productive_relocation(e,p,max_routes=8-(self.route_calculations-routes_started)):
+                        setattr(e,cursor_field,0);self.reason='';return True
+                continue
             # Footprint and absolute-grade checks are symmetric. Reversing the
             # validated outbound path then following the already checked home
             # path gives a real safe escape, without another A* per candidate.
@@ -737,39 +985,73 @@ class ConventionalFleet:
                 return True
             if e.reason.startswith(('Недостаточно топлива','Недостаточно времени')):dispatch_wait=e.reason
         if not limited:setattr(e,cursor_field,0)
-        if advance_only or expose is not None:return False
+        if advance_only or expose is not None or productive_only:return False
         self.reason=dispatch_wait or ('Лимит поиска полок; следующие варианты будут проверены после ожидания' if limited else
                      'Нет доступной рабочей полки с безопасным выездом; рампа и остаток сохранены')
         e.reason=self.reason;return False
 
-    def _loading_point(self,truck):
+    def _loading_point(self,truck,*,clear_exit=False,excavator_escape=None):
         e=self.excavator
+        if self.sim.time<truck.retry_route_at:return False
+        routes_started=self.route_calculations
+        escape=excavator_escape if excavator_escape is not None else self._home_route(e,validate=True)
+        if escape is None:
+            truck.reason='Нет проверенного выезда экскаватора для места погрузки'
+            truck.retry_route_at=self.sim.time+30;return False
         # A truck parks beside the counterweight, not on the cell being cut.
         distance=self._loading_distance(truck)
         candidates=[e.position[:2]+distance*np.array([math.cos(a),math.sin(a)]) for a in np.arange(8)*math.pi/4]
         candidates.sort(key=lambda p:(float(np.linalg.norm(p-truck.position[:2])),tuple(p)))
-        for p in candidates:
+        cursor=truck.site_search_cursor%len(candidates)
+        for index in range(cursor,len(candidates)):
+            p=candidates[index]
+            if clear_exit and np.linalg.norm(p-truck.position[:2])<max(.5,self.terrain.cell):continue
             if e.target is not None and np.linalg.norm(p-np.array(e.target[:2]))<truck.radius+1.:continue
-            if self.passable(p,truck.radius,truck) and self._assign_route(truck,p,'WAIT_LOAD'):return True
+            if not self.passable(p,truck.radius,truck):continue
+            old=truck.position.copy()
+            exit_limited=False
+            try:
+                truck.position[:2]=p;truck.position[2]=self.terrain.sample(*p)
+                exit_clear=all(self.segment_safe(a,b,e.radius,e)
+                    for a,b in zip([e.position[:2],*escape[:-1]],escape))
+                if not exit_clear:
+                    # A single-lane bay need not leave simultaneous room for
+                    # both machines: the truck must have a real withdrawal,
+                    # followed by a checked E route after it reaches home.
+                    if self.route_calculations-routes_started+5>8:exit_limited=True
+                    else:
+                        exit_clear=self._cooperative_return(e,truck,max_routes=8-(self.route_calculations-routes_started)-3) is not None
+                        if not exit_clear and self.route_calculations-routes_started+4<=8:
+                            exit_clear=self._home_route(e,validate=True) is not None
+            finally:
+                truck.position[:]=old
+                # The probe describes a future bay, not the current obstacle.
+                e.budget_cache=None
+            if exit_limited:
+                truck.site_search_cursor=index;truck.retry_route_at=self.sim.time+30
+                truck.reason='Лимит поиска места погрузки; следующие места проверяются после ожидания'
+                return False
+            if not exit_clear:continue
+            # _assign_route can require outbound, present return and fallback
+            # return searches. Keep the existing eight-search ceiling and
+            # resume the remaining circle after a bounded wait.
+            if self.route_calculations-routes_started+3>8:
+                truck.site_search_cursor=index;truck.retry_route_at=self.sim.time+30
+                truck.reason='Лимит поиска места погрузки; следующие места проверяются после ожидания'
+                return False
+            if self._assign_route(truck,p,'WAIT_LOAD'):
+                truck.site_search_cursor=0;return True
+        truck.site_search_cursor=0
+        truck.reason='Нет безопасного места погрузки с выездом экскаватора; груз сохранён'
+        truck.retry_route_at=self.sim.time+30
         return False
 
     def _loading_distance(self,truck):return max(8.,self.excavator.radius+truck.radius+.5)
 
     def _release_loading_bay(self,e):
-        """A real truck departure clears a single-lane ramp; never ignore it."""
-        for truck in self.machines:
-            if truck.kind!='truck' or truck.state!='WAIT_LOAD':continue
-            if np.linalg.norm(truck.position[:2]-e.position[:2])>self._loading_distance(truck)+.5:continue
-            # Distinguish a temporary loading obstacle from an earth barrier.
-            old=truck.position.copy()
-            try:
-                truck.position[:]=truck.home
-                escape=self._home_route(e,validate=True)
-            finally:truck.position[:]=old
-            if escape is None:continue
-            moved=(self._dump_point(truck) is not None) if truck.cargo_kg>0 else self._go_home(truck)
-            if moved:return True
-        return False
+        """Withdraw the actual truck without converting its partial load to a tip."""
+        plan=self._cooperative_return(e)
+        return plan is not None and self._retreat_loading_truck(e,plan,getattr(e,'return_requested',False))
 
     def _dump_point(self,truck):
         if self.sim.time<truck.retry_route_at:return None
@@ -928,7 +1210,9 @@ class ConventionalFleet:
         else:
             mass=t.scoop(x,y,min(mass_limit,available_volume*t.config.terrain.density),source='conventional',radius=radius,allowed_mask=allowed,minimum_height=floor)
             volume=mass/t.config.terrain.density
-        if mass>0:self._terrain_changed()
+        if mass>0:
+            self._terrain_changed()
+            truck.load_started=self.sim.time
         truck.cargo_kg+=mass;self.excavated_mass_kg+=mass;self.excavated_m3+=volume;e.excavated_m3+=volume
         e.target=target
         return mass>1e-9
@@ -964,7 +1248,14 @@ class ConventionalFleet:
         rows,cols=old_surface.shape;dx,dy=cells;self.ramp_surface[dy:dy+rows,dx:dx+cols]=old_surface
         self._marine=None;self._marine_stamp=None
         self._work_plan_cache=None;self._dump_plan_cache=None;self._dump_cursors={}
-        for machine in self.machines:machine.route_token=None;machine.budget_cache=None
+        self._cooperative_return_cache=None;self.cooperative_return_hints=None
+        for machine in self.machines:
+            machine.route_token=None;machine.budget_cache=None
+            pending=getattr(machine,'pending_relocation',None)
+            if pending is not None:
+                # _fleet_preview shallow-copies machines; never mutate the
+                # live command dictionary during an expansion preflight.
+                machine.pending_relocation={**pending,'goal':tuple(np.asarray(pending['goal'])+offset)}
 
     def _terrain_changed(self):
         from .conventional_integration import simulations_for
@@ -1017,6 +1308,26 @@ class ConventionalFleet:
             queued=[m for m in self.machines if np.linalg.norm(m.position[:2]-m.home[:2])<.1 and m.fuel_l<self._tank(m)-1e-9]
             pumps=sorted(queued,key=lambda m:(m.state!='REFUELING',m.id))[:c.refuel_slots]
         for m in self.machines:
+            if m.kind=='excavator':
+                waiting=getattr(m,'wait_for_truck',None)
+                if waiting:
+                    vehicle=next((v for v in self.machines if v.id==waiting),None)
+                    if vehicle is not None and (vehicle.state=='DRIVING' or np.linalg.norm(vehicle.position[:2]-vehicle.home[:2])>=.1):
+                        m.waiting_seconds+=1;m.reason='Ожидание фактического освобождения съезда самосвалом';continue
+                    m.wait_for_truck=None;m.retry_route_at=0.;m.next_plan_at=0.
+                if getattr(m,'return_requested',False) and m.state!='DRIVING':
+                    if np.linalg.norm(m.position[:2]-m.home[:2])<.1:m.return_requested=False
+                    elif self.sim.time>=m.retry_route_at:self._go_home(m);continue
+                    else:m.waiting_seconds+=1;continue
+                pending=getattr(m,'pending_relocation',None)
+                if pending is not None and m.state!='DRIVING':
+                    if not active:self._go_home(m);continue
+                    if self.sim.time<m.retry_route_at:m.waiting_seconds+=1;continue
+                    if self._assign_route(m,pending['goal'],'WAIT_TRUCK'):
+                        m.pending_relocation=None;m.target=None;continue
+                    if self.sim.time-pending['requested_at']<300:
+                        m.waiting_seconds+=1;continue
+                    m.pending_relocation=None;m.target=None;m.next_plan_at=0.
             if m.state=='DRIVING':
                 # A committed return continues after clock/lunch boundaries.
                 if not active and m.after_drive!='PARKED':
@@ -1031,6 +1342,23 @@ class ConventionalFleet:
             if m.state=='REFUELING':m.state='PARKED'
             if active and at_home and m.fuel_l<self._tank(m)*.95:
                 m.state='WAIT_FUEL';m.reason='Очередь к заправочному посту' if self.fuel_stock_l>0 else 'Топливо на базе исчерпано';continue
+            if (m.kind=='truck' and at_home and (getattr(self.excavator,'wait_for_truck',None) or
+                    getattr(self.excavator,'pending_relocation',None) is not None or
+                    getattr(self.excavator,'return_requested',False) or self.excavator.state=='DRIVING')):
+                m.state='PARKED';m.reason='Ожидание безопасного завершения манёвра экскаватора';m.waiting_seconds+=1;continue
+            if m.kind=='truck' and at_home and getattr(m,'loading_hold_for',None):
+                owner=self.excavator
+                busy=(getattr(owner,'wait_for_truck',None)==m.id or getattr(owner,'pending_relocation',None) is not None or
+                      getattr(owner,'return_requested',False) or owner.state=='DRIVING' or
+                      (owner.target is None and np.linalg.norm(owner.position[:2]-owner.home[:2])>=.1 and
+                       self.sim.time-getattr(m,'loading_hold_since',self.sim.time)<300))
+                if busy:
+                    m.state='PARKED';m.reason='Ожидание безопасного завершения манёвра экскаватора';m.waiting_seconds+=1;continue
+                m.loading_hold_for=None
+                body=cargo_volume(m.cargo_kg,m.soil,self.terrain.config.terrain.density)
+                if (active and not self._work_complete and m.cargo_kg>0 and m.cargo_kg<c.truck_payload_kg*.9 and body<c.truck_body_m3*.9 and
+                        owner.state in ('WAIT_TRUCK','DIGGING') and owner.target is not None):
+                    m.state='WAIT_LOAD';m.load_started=self.sim.time
             if not active:
                 m.reason=shift['reason'] if not shift['active'] else self.reason or 'Работа приостановлена'
                 if not at_home and self.sim.time>=m.retry_route_at:self._go_home(m)
@@ -1059,15 +1387,25 @@ class ConventionalFleet:
                     continue
                 loading=any(v.kind=='truck' and (v.state=='WAIT_LOAD' or v.state=='DRIVING' and v.after_drive=='WAIT_LOAD')
                             for v in self.machines)
-                if (self.ramp.get('model')=='supported_access_v2' and m.target is not None and m.expose_target is None and not loading
+                if (self.ramp.get('model')=='supported_access_v2' and m.target is not None and m.expose_target is None
                         and self.sim.time>=m.next_advance_at):
-                    # Move onto a genuinely prepared lower bench while the
-                    # truck hauls. Exhausting every lateral scrap first can
-                    # postpone entering a perfectly ready access road forever.
-                    m.next_advance_at=self.sim.time+60
-                    obstructed=self._obstructed_access_target(m)
-                    if self._choose_excavator_site(m,advance_only=obstructed is None,expose=obstructed):
-                        m.next_plan_at=0.;continue
+                    incoming=any(v.kind=='truck' and v.state=='DRIVING' and v.after_drive=='WAIT_LOAD' for v in self.machines)
+                    at_bay=any(v.kind=='truck' and v.state=='WAIT_LOAD' and
+                               np.linalg.norm(v.position[:2]-m.position[:2])<=self._loading_distance(v)+.5 for v in self.machines)
+                    weak_loading=at_bay and not incoming and m.timer<=1e-9 and self.target_yield(m)<c.bucket_m3*.15
+                    if not loading or weak_loading:
+                        m.next_advance_at=self.sim.time+60
+                        if weak_loading:
+                            # A waiting truck must not pin the excavator to
+                            # tiny scraps forever. Only a materially better
+                            # focused stance may interrupt a loading batch.
+                            moved=self._choose_excavator_site(m,productive_only=True)
+                        else:
+                            # Keep the existing road-opening/downward advance
+                            # while the truck is away hauling.
+                            obstructed=self._obstructed_access_target(m)
+                            moved=self._choose_excavator_site(m,advance_only=obstructed is None,expose=obstructed)
+                        if moved:m.next_plan_at=0.;continue
                 if m.state=='PARKED' or m.target is None:
                     if self.sim.time<m.next_plan_at:continue
                     if not self._choose_excavator_site(m):
@@ -1086,8 +1424,11 @@ class ConventionalFleet:
                 if m.timer>=c.bucket_cycle_s*factor:
                     m.timer=0.;cut=self._cut(m,truck)
                     body=cargo_volume(truck.cargo_kg,truck.soil,self.terrain.config.terrain.density)
-                    if truck.cargo_kg>=c.truck_payload_kg*.9 or body>=c.truck_body_m3*.9 or not cut:
-                        if truck.cargo_kg>0:
+                    full=truck.cargo_kg>=c.truck_payload_kg*.9 or body>=c.truck_body_m3*.9
+                    if full or not cut:
+                        # Losing one bucket target means replanning the cut,
+                        # not dispatching an otherwise useful partial load.
+                        if full and truck.cargo_kg>0:
                             if self._dump_point(truck) is None and not truck.reason:truck.reason='Нет доступного места отвала; груз сохранён'
                         m.target=None
             else:
@@ -1098,18 +1439,22 @@ class ConventionalFleet:
                     if not at_home:self._go_home(m)
                     continue
                 if m.state in ('PARKED','WAIT_LOAD'):
-                    if m.cargo_kg>0 and m.state=='PARKED':
-                        if self._dump_point(m) is None and not m.reason:m.reason='Нет доступного отвала; груз сохранён'
-                    elif m.cargo_kg>0 and m.state=='WAIT_LOAD' and self.excavator.target is None:
+                    body=cargo_volume(m.cargo_kg,m.soil,self.terrain.config.terrain.density)
+                    full=m.cargo_kg>=c.truck_payload_kg*.9 or body>=c.truck_body_m3*.9
+                    if m.cargo_kg>0 and (m.state=='PARKED' or full or self.sim.time-m.load_started>300):
                         if self._dump_point(m) is None and not m.reason:m.reason='Нет доступного отвала; груз сохранён'
                     elif self.excavator.state in ('WAIT_TRUCK','DIGGING') and self.excavator.target is not None:
-                        if m.state=='PARKED':
+                        following=m.state=='WAIT_LOAD' and np.linalg.norm(m.position[:2]-self.excavator.position[:2])>self._loading_distance(m)+.5
+                        if m.state=='PARKED' or following:
                             bay=next((other for other in self.machines if other is not m and other.kind=='truck' and
                                 (other.state=='WAIT_LOAD' or other.state=='DRIVING' and other.after_drive=='WAIT_LOAD')),None)
                             if bay is not None:
                                 m.reason='Очередь к единственному месту погрузки; ожидание на базе';m.waiting_seconds+=1;continue
-                            self._loading_point(m);m.load_started=self.sim.time
-                        elif self.sim.time-m.load_started>300 and m.cargo_kg>0:self._dump_point(m)
+                            if not self._loading_point(m):
+                                m.retry_route_at=max(m.retry_route_at,self.sim.time+30)
+                                if not m.reason:m.reason='Нет безопасной точки погрузки; груз сохранён'
+                        else:m.waiting_seconds+=1
+                    else:m.waiting_seconds+=1
                     continue
                 if m.state=='UNLOADING':
                     if not self._burn(m):continue

@@ -1,0 +1,180 @@
+{
+  "base_commit": "b789c99ef047e802cbbd7f3b488556da5fc78aa8",
+  "python": "3.12.14",
+  "source_sha256": {
+    "ats/conventional.py": "403b200870c86bce34e24dc53595f74700dbc19b5059e99fc13d036fd266a735",
+    "ats/checkpoint.py": "ad6f63dbee89253f08da9411b892f50c39034dd23685251d506588df6105792a",
+    "tests/test_conventional.py": "0322552c2d365178fd54d2e5aea4afd477bcf9d4c0f08f037ef8c621a024ab3a",
+    "tests/test_conventional_loading_progress.py": "e2b8bcea259447c15e8c01a8b3b7b05f2f2983fcda4c1e8ecf8c488f0dc92719",
+    "tests/test_conventional_productive_sites.py": "cb7ab5c155af95970bcc639d0313cee48e803304ba078053237da1c6489fb492",
+    "tests/test_conventional_churn.py": "dfaae2330511cb95b87359fa4c0bcffcaad6898ecfeca66f55d3199c25500dbc",
+    "tests/fixtures/conventional-v23/churn.atsstate": "c1f68b04c11993563c5f1fbbecc65aeb1c9e242e256ad32c54d73251b4a18f20"
+  },
+  "controlled_replay": {
+    "fixture": "tests/fixtures/conventional-v23/churn.atsstate",
+    "geometry": "Synthetic homogeneous canal width12m, bottom-1m, 128m window, 0.5m cells, 2 trucks. Natural intermediate state at 3501 model seconds. Normal 30s bucket cycle; explicitly accelerated initial finite-stock refuelling pump 3000L/min.",
+    "before": {
+      "initial": {
+        "time": 3501.0,
+        "cut": 20.753662755978713,
+        "delivered": 20.725857528107365,
+        "distance": 32.61063527802062,
+        "fuel": 20.734444444445245,
+        "position": [
+          21.75,
+          64.5,
+          -0.18
+        ]
+      },
+      "model_seconds": 1000.0,
+      "wall_seconds": 28.811553462997836,
+      "max_step_seconds": 1.4923694819990487,
+      "excavated_m3": 0.26122403621940293,
+      "delivered_m3": 0.17210826030283854,
+      "excavator_distance_m": 5.877397871182573,
+      "fuel_l": 7.044999999999508,
+      "position": [
+        16.395898033750314,
+        63.5,
+        0.0
+      ],
+      "state": "DIGGING",
+      "reason": "",
+      "remaining_m3": 383.09488810360557,
+      "mass_error_kg": 2.8990143619012088e-12,
+      "energy_error_j": 0.0,
+      "fuel_error_l": -2.3646862246096134e-11
+    },
+    "after": {
+      "initial": {
+        "time": 3501.0,
+        "cut": 20.753662755978713,
+        "delivered": 20.725857528107365,
+        "distance": 32.61063527802062,
+        "fuel": 20.734444444445245,
+        "position": [
+          21.75,
+          64.5,
+          -0.18
+        ]
+      },
+      "model_seconds": 1000.0,
+      "wall_seconds": 15.84804179299681,
+      "max_step_seconds": 0.5677112310004304,
+      "excavated_m3": 17.34529104049326,
+      "delivered_m3": 9.247204955239418,
+      "excavator_distance_m": 2.1213203435596526,
+      "fuel_l": 5.087777777776417,
+      "position": [
+        20.25,
+        63.0,
+        0.0
+      ],
+      "state": "DIGGING",
+      "reason": "",
+      "remaining_m3": 366.0108210993317,
+      "mass_error_kg": -7.275957614183426e-12,
+      "energy_error_j": 0.0,
+      "fuel_error_l": -1.8530954548623413e-11
+    },
+    "volume_ratio": 66.40005755796872,
+    "before_dump_departure_kg": [
+      37.25065908594325,
+      31.0494090527174,
+      27.991726461020328,
+      21.799180614781477,
+      20.97291434695121,
+      17.768581842146602,
+      16.247902002063075,
+      13.867321942401745,
+      12.702128948064395,
+      11.824556257635166,
+      9.8648431459877,
+      9.545628190670463,
+      187.07360606065896
+    ],
+    "after_dump_departure_kg": [
+      14751.039563788912,
+      11581.793505237023,
+      9212.325311384571,
+      7597.351394103706,
+      6334.980003801784,
+      2735.240993314203,
+      2010.2976252593035,
+      1606.2019210175326,
+      892.5789706025517,
+      321.88531731877015
+    ],
+    "interpretation": "The first new loaded departure changes from 37.25kg to 14.75t. Later smaller departure amounts in the same loaded run are residual cargo after bounded partial tipping, not new tiny excavation batches. Wall timings were obtained with other targeted validations present and are not GUI FPS or universal speedups."
+  },
+  "qattara_control": {
+    "scenario": "offline Qattara, width20m, bottom-5MSL, 512m window, 2trucks, layered soil",
+    "bucket_cycle_s": 30.0,
+    "refuel_l_min": 3000.0,
+    "excavated_m3": 12.380955075770222,
+    "delivered_m3": 9.197629633456934,
+    "cargo_kg": 5093.320707701268,
+    "mass_error_kg": 5.4569682106375694e-12,
+    "energy_error_j": 0.0,
+    "fuel_error_l": -5.229594535194337e-12,
+    "states": [
+      {
+        "id": "excavator_1",
+        "state": "DIGGING",
+        "reason": ""
+      },
+      {
+        "id": "truck_1",
+        "state": "PARKED",
+        "reason": "Очередь к единственному месту погрузки; ожидание на базе"
+      },
+      {
+        "id": "truck_2",
+        "state": "WAIT_LOAD",
+        "reason": ""
+      }
+    ],
+    "elapsed_wall_s": 119.66986745399845,
+    "notes": "Short startup/configuration and save continuation control; not a 150m3 user-save replay. Refuelling pump accelerated explicitly; digging cycle remains 30s.",
+    "model_seconds": 1230,
+    "material_balance_check": "passed with 1e-7kg absolute tolerance"
+  },
+  "checks": {
+    "initial_targeted": {
+      "passed": 42,
+      "failed": 1,
+      "seconds": 132.49,
+      "failure": "The existing two-truck test allowed only 2400s, relying on old forced 300s partial hauls. Both nearly full delivery cycles completed physically at 2491s; its bound is now 3000s, with both deliveries and conservation assertions unchanged."
+    },
+    "corrected_case": {
+      "command": ".venv/bin/python -m pytest -q tests/test_conventional.py::test_both_trucks_complete_repeated_load_cycles_without_soil_loss",
+      "passed": 1,
+      "seconds": 9.01
+    },
+    "mixed_site_checks": {
+      "cases": [
+        "test_unrelated_flights_continue_when_a_free_patch_is_reserved",
+        "test_ground_obstacle_tokens_include_moving_trucks_but_router_ignores_its_own_fleet"
+      ],
+      "passed": 2,
+      "seconds": 0.93
+    },
+    "final_unique_cases_verified": 45,
+    "loading_specific": {
+      "passed": 21,
+      "seconds": 7.03
+    },
+    "productive_sites": {
+      "passed": 6,
+      "seconds": 0.84
+    },
+    "full_suite_run": false,
+    "matrix_ci_waited": false
+  },
+  "limitations": [
+    "No user save was supplied; the exact 150m3 stage was not reproduced.",
+    "Qattara 20m/-5MSL control covers startup and exact save continuation for 1230 model seconds, not the user late stage.",
+    "Small essential cuts and residual-cargo moves after partial tipping remain physically valid.",
+    "The existing one-excavator/one-loading-bay model and finite route-search limits remain."
+  ]
+}
