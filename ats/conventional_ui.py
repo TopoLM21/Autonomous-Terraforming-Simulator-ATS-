@@ -4,6 +4,7 @@ from .conventional_integration import fleet_for
 
 STATES={'PARKED':'Стоит','REFUELING':'Заправка','WAIT_FUEL':'Очередь на заправку','DRIVING':'В пути',
         'WAIT_TRUCK':'Ждёт самосвал','DIGGING':'Копает','WAIT_LOAD':'Ждёт погрузку','UNLOADING':'Разгрузка'}
+DUMP_ORDERS=(('От дальнего края к подъезду','far_to_near'),('Ближайшее свободное место','nearest'))
 
 
 def _number(value,decimals=2):
@@ -38,6 +39,11 @@ class ConventionalWindow(QtWidgets.QDialog):
                 widget=self._spin(.5,30.,value);row.addWidget(widget);widgets.append(widget)
             self.dimension_controls[key]=widgets;machines.addRow(label,row)
         self._real(machines,'ramp_width_m','Ширина грунтового съезда, м',2.,100.)
+        dump_order=QtWidgets.QComboBox()
+        for label,value in DUMP_ORDERS:dump_order.addItem(label,value)
+        dump_order.setCurrentIndex(dump_order.findData(self.defaults.dump_order))
+        dump_order.setToolTip('Порядок закреплён относительно топливной базы, а не текущего положения самосвала. Вместимость, осыпание, занятость и безопасный выезд проверяются перед рейсом.')
+        self.controls['dump_order']=dump_order;machines.addRow('Заполнение отвала',dump_order)
         self.auto_area=QtWidgets.QCheckBox('Автоматически выбрать участок канала и топливную базу')
         self.auto_area.setChecked(bool(getattr(self.defaults,'auto_work_area',False)))
         self.auto_area.setEnabled(bool(getattr(host.sim.config.plan,'channel',None)))
@@ -48,7 +54,7 @@ class ConventionalWindow(QtWidgets.QDialog):
         self.rect=[]
         for label,value,minimum in zip(('X участка, м','Y участка, м','Ширина участка, м','Высота участка, м'),self.defaults.work_rect,(0.,0.,6.,6.)):
             control=self._spin(minimum,float(extent),value);self.rect.append(control);machines.addRow(label,control)
-        planned=QtWidgets.QLabel('Прямоугольник вместе с защитным отступом резервируется для обычной бригады в общем плане выемки; дроны получают задания за его границей. Задайте профиль кистью или планом канала. Подъезды и сохраняемый выезд проверяются до начала работ.')
+        planned=QtWidgets.QLabel('Прямоугольник вместе с защитным отступом резервируется для обычной бригады в общем плане выемки; дроны получают задания за его границей. Конечный профиль задаётся кистью или планом канала. Геометрический порядок разработки полос съезда сохраняется; фактический остаток, подъезд и выезд проверяются по текущему грунту.')
         planned.setWordWrap(True);machines.addRow(planned)
         self.model_info=QtWidgets.QLabel();self.model_info.setWordWrap(True);machines.addRow(self.model_info)
         calendar=self._form_tab('2 · Смены и люди')
@@ -85,6 +91,15 @@ class ConventionalWindow(QtWidgets.QDialog):
         basis.setWordWrap(True);costs.addRow(basis)
         live=QtWidgets.QWidget();live_layout=QtWidgets.QVBoxLayout(live);self.tabs.addTab(live,'4 · Работа и расходы')
         self.summary=QtWidgets.QLabel('Обычная техника ещё не создана.');self.summary.setWordWrap(True);live_layout.addWidget(self.summary)
+        plan_group=QtWidgets.QGroupBox('План работ');plan_layout=QtWidgets.QVBoxLayout(plan_group)
+        self.plan_summary=QtWidgets.QLabel();self.plan_summary.setWordWrap(True);plan_layout.addWidget(self.plan_summary)
+        plan_actions=QtWidgets.QHBoxLayout();self.live_dump_order=QtWidgets.QComboBox()
+        for label,value in DUMP_ORDERS:self.live_dump_order.addItem(label,value)
+        self.live_dump_order.setToolTip(dump_order.toolTip());plan_actions.addWidget(self.live_dump_order,1)
+        self.plan_apply_button=QtWidgets.QPushButton('Применить к новым рейсам')
+        self.plan_apply_button.clicked.connect(self.apply_dump_order);plan_actions.addWidget(self.plan_apply_button)
+        self.live_dump_order.currentIndexChanged.connect(self.update_plan_button)
+        plan_layout.addLayout(plan_actions);live_layout.addWidget(plan_group)
         self.table=QtWidgets.QTableWidget(0,8)
         self.table.setHorizontalHeaderLabels(['Машина','Тип','Состояние','Бак, л','Грунт, кг','X / Y, м','Д × Ш × В, м','Причина ожидания'])
         self.table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -239,10 +254,24 @@ class ConventionalWindow(QtWidgets.QDialog):
             self._notify_host()
         except ValueError as error:self.message.setText(str(error))
 
+    def update_plan_button(self,*_):
+        fleet=self.fleet()
+        self.plan_apply_button.setEnabled(fleet is not None and self.live_dump_order.currentData()!=fleet.config.dump_order)
+
+    def apply_dump_order(self):
+        fleet=self.fleet()
+        if fleet is None:return
+        try:
+            fleet.set_dump_order(self.live_dump_order.currentData())
+            self.message.setText('Порядок отвала изменён для новых рейсов. Текущие маршруты, грузы и разгрузки сохранены.')
+            self._notify_host()
+        except ValueError as error:self.message.setText(str(error))
+
     def refresh(self):
         fleet=self.fleet();active=fleet is not None
         self.expand_button.setEnabled(getattr(self.host,'landscape',None) is not None)
         self.create_button.setEnabled(not active);self.pause_button.setEnabled(active);self.replenish_button.setEnabled(active)
+        self.live_dump_order.setEnabled(active);self.update_plan_button()
         for page in self.setup_pages:page.setEnabled(not active)
         if self._simulation is not self.host.sim:
             self._simulation=self.host.sim
@@ -250,16 +279,27 @@ class ConventionalWindow(QtWidgets.QDialog):
                 from .conventional import ConventionalConfig
                 self._load_controls(ConventionalConfig.for_simulation(self.host.sim));self._world=None
         if not active:
+            self.plan_summary.setText('Конечный профиль хранится в плане. После размещения бригады будут подготовлены полосы выемки и порядок заполнения отвала; безопасность проверяется при выполнении.')
             self.summary.setText('Обычная техника ещё не создана. Настройте состав, участок и смены, затем разместите бригаду.');self.table.setRowCount(0);return
         if self._world is not fleet:
             self._world=fleet;self._load_controls(fleet.config)
             self.message.setText('Состав приобретён. Остановка запрашивает безопасный возврат; расход топлива, питания и воды входит в отдельную смету.')
+        setup_order=self.controls['dump_order']
+        if setup_order.currentData()!=fleet.config.dump_order:
+            setup_order.blockSignals(True);setup_order.setCurrentIndex(setup_order.findData(fleet.config.dump_order));setup_order.blockSignals(False)
         self.refresh_patch_status(fleet.config)
+        plan=fleet.plan_report()
+        order=next(label for label,value in DUMP_ORDERS if value==plan['policy'])
+        self.plan_summary.setText(f"Выемка: {plan['work_cells']} ячеек · {plan['access_sections']} полос съезда. Отвал: {plan['dump_candidates']} точек · {order.lower()}. Геометрия плана переиспользуется; остаток грунта, вместимость и безопасный путь проверяются по фактическому состоянию.")
+        self.update_plan_button()
         r=fleet.report();self.pause_button.setText('Приостановить и вернуться' if r.get('enabled',fleet.config.enabled) else 'Возобновить работу')
         self._render_report(r)
 
     def _load_controls(self,config):
         self.defaults=config;extent=self.host.sim.terrain.height.shape[0]*self.host.sim.terrain.cell
+        self.live_dump_order.blockSignals(True)
+        self.live_dump_order.setCurrentIndex(self.live_dump_order.findData(config.dump_order))
+        self.live_dump_order.blockSignals(False)
         self.controls['shift_span_hours'].setMaximum(8 if config.shifts_per_day==3 else 9)
         for key in ('base_x','base_y'):self.controls[key].setMaximum(extent)
         for widget in self.rect:widget.setMaximum(extent)

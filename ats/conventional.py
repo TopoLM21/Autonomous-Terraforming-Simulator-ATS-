@@ -20,6 +20,7 @@ class ConventionalConfig:
     base_y: float = 10.
     work_rect: tuple = (24.,24.,24.,16.)
     auto_work_area: bool = False
+    dump_order: str = 'far_to_near'
     excavator_dimensions_m: tuple = (6.,3.,3.)
     truck_dimensions_m: tuple = (7.,2.8,3.2)
     shifts_per_day: int = 1
@@ -88,6 +89,7 @@ class ConventionalConfig:
                      'excavator_tank_l','truck_tank_l','refuel_l_min','route_step_m'):
             if getattr(self,name)<=0:raise ValueError('Параметр должен быть положительным: '+name)
         if type(self.auto_work_area) is not bool:raise ValueError('Автоматическое назначение участка должно быть включено или выключено')
+        if self.dump_order not in ('far_to_near','nearest'):raise ValueError('Неизвестный порядок заполнения отвала')
         if (self.ramp_entry_m is None)!=(self.ramp_end_m is None):raise ValueError('Задайте оба конца съезда')
         if self.ramp_entry_m is not None:
             if any(len(p)!=2 or any(not math.isfinite(v) for v in p) for p in (self.ramp_entry_m,self.ramp_end_m)):
@@ -484,6 +486,47 @@ class ConventionalFleet:
         t=self.terrain;floor=np.where(self.ramp_mask,np.maximum(t.target,self.ramp_surface),t.target)
         return np.where(self.work_mask&t.dig_mask,np.maximum(t.height-floor,0.),0.)
 
+    def _work_plan(self):
+        from .conventional_plan import work_geometry
+        t=self.terrain
+        key=(id(t),id(self.work_mask),id(self.ramp_surface),t.cell,
+             tuple(self.ramp['entry_m']),tuple(self.ramp['end_m']),self.config.ramp_width_m,self.excavator.radius)
+        cached=getattr(self,'_work_plan_cache',None)
+        if cached is None or cached['key']!=key:
+            cached=work_geometry(self);cached['key']=key;self._work_plan_cache=cached
+            self._work_plan_builds=getattr(self,'_work_plan_builds',0)+1
+        return cached
+
+    def _work_remaining(self):
+        """Live residual on cached work cells, without a full-map allocation."""
+        t=self.terrain;ids=self._work_plan()['ids']
+        floor=np.where(self.ramp_mask.ravel()[ids],np.maximum(t.target.ravel()[ids],self.ramp_surface.ravel()[ids]),t.target.ravel()[ids])
+        return np.where(t.dig_mask.ravel()[ids],np.maximum(t.height.ravel()[ids]-floor,0.),0.)
+
+    def _dump_plan(self):
+        from .conventional_plan import dump_geometry
+        t=self.terrain;key=(id(t),id(t._dump_indices),tuple(self.base_position[:2]))
+        cached=getattr(self,'_dump_plan_cache',None)
+        if cached is None or cached['key']!=key:
+            cached=dump_geometry(self);cached['key']=key;self._dump_plan_cache=cached
+            self._dump_plan_builds=getattr(self,'_dump_plan_builds',0)+1
+        return cached
+
+    def set_dump_order(self,order):
+        if order not in ('far_to_near','nearest'):raise ValueError('Неизвестный порядок заполнения отвала')
+        if self.config.dump_order!=order:
+            self.config.dump_order=order;self._dump_cursors={}
+            # Existing routes, their cargo and destination remain committed.
+            for m in self.machines:m.retry_route_at=0.
+
+    def plan_report(self):
+        p=self._work_plan();ids=p['ids'];t=self.terrain
+        access=getattr(self,'access_mask',None)
+        sections=(len(np.unique(np.floor(p['along'][access.ravel()[ids]]/max(1.,t.cell)))) if access is not None else 0)
+        return dict(policy=self.config.dump_order,work_cells=int(np.count_nonzero(t.dig_mask.ravel()[ids])),access_sections=sections,
+                    dump_candidates=len(self._dump_plan()['ids']),
+                    work_plan_builds=getattr(self,'_work_plan_builds',0),dump_plan_builds=getattr(self,'_dump_plan_builds',0))
+
     def _home_route(self,m,validate=False):
         """Retain fine stance connectors instead of rediscovering a coarse grid.
 
@@ -531,20 +574,21 @@ class ConventionalFleet:
                 if np.linalg.norm(e.position[:2]-[x,y])<=self.config.excavator_reach_m and allowed[i,j] and t.height[row,col]>floor[i,j]+1e-5:
                     return x,y,float(floor[i,j])
                 return None
-        if remaining is None:remaining=self._remaining()
+        plan=self._work_plan();work_ids=plan['ids']
+        if remaining is None:remaining=self._work_remaining()
+        elif remaining.shape==t.height.shape:remaining=remaining.ravel()[work_ids]
         access=getattr(self,'access_mask',None)
-        ids=np.flatnonzero(remaining>1e-6)
+        positions=np.flatnonzero(remaining>1e-6);ids=work_ids[positions]
         focused=False
         if access is not None and focus_access:
             road_tolerance=min(.12,max(.03,.2*t.cell))
-            pending=ids[access.ravel()[ids]&(remaining.ravel()[ids]>road_tolerance)]
+            pending_positions=positions[access.ravel()[ids]&(remaining[positions]>road_tolerance)]
+            pending=work_ids[pending_positions]
             if len(pending):
                 focused=True
                 # Finish both halves of the earliest cross-section before
                 # following the nearest bank farther down the entire channel.
-                entry=np.asarray(self.ramp['entry_m']);delta=np.asarray(self.ramp['end_m'])-entry
-                unit=delta/max(float(np.linalg.norm(delta)),1e-9)
-                along=(t.x.ravel()[pending]-entry[0])*unit[0]+(t.y.ravel()[pending]-entry[1])*unit[1]
+                along=plan['along'][pending_positions]
                 ids=pending[along<=float(along.min())+max(1.,t.cell)]
         if not len(ids):return None
         distance=(t.x.ravel()[ids]-e.position[0])**2+(t.y.ravel()[ids]-e.position[1])**2
@@ -554,10 +598,8 @@ class ConventionalFleet:
         # Keep the present supporting footprint and a retained ramp uncut.
         score=(t.x.ravel()[ids]-e.position[0])**2+(t.y.ravel()[ids]-e.position[1])**2
         if self.ramp.get('model')=='supported_access_v2':
-            entry=np.asarray(self.ramp['entry_m']);delta=np.asarray(self.ramp['end_m'])-entry
-            unit=delta/max(float(np.linalg.norm(delta)),1e-9)
-            along=(t.x.ravel()[ids]-entry[0])*unit[0]+(t.y.ravel()[ids]-entry[1])*unit[1]
-            lateral=np.abs((t.x.ravel()[ids]-entry[0])*unit[1]-(t.y.ravel()[ids]-entry[1])*unit[0])
+            selected=np.searchsorted(work_ids,ids)
+            along=plan['along'][selected];lateral=plan['lateral'][selected]
             ids=ids[np.lexsort((score,along,lateral>self.config.ramp_width_m/2))]
         else:ids=ids[np.argsort(score,kind='stable')]
         # Do not spend endless full cycles on avalanching millilitre tails.
@@ -591,23 +633,22 @@ class ConventionalFleet:
         """The earliest road bump hidden inside the current track safety guard."""
         access=getattr(self,'access_mask',None)
         if access is None:return None
-        t=self.terrain;remaining=self._remaining()
-        ids=np.flatnonzero(access&(remaining>min(.12,max(.03,.2*t.cell))))
+        t=self.terrain;plan=self._work_plan();remaining=self._work_remaining()
+        positions=np.flatnonzero(access.ravel()[plan['ids']]&(remaining>min(.12,max(.03,.2*t.cell))))
+        ids=plan['ids'][positions]
         if not len(ids):return None
-        entry=np.asarray(self.ramp['entry_m']);delta=np.asarray(self.ramp['end_m'])-entry
-        unit=delta/max(float(np.linalg.norm(delta)),1e-9)
-        along=(t.x.ravel()[ids]-entry[0])*unit[0]+(t.y.ravel()[ids]-entry[1])*unit[1]
+        along=plan['along'][positions]
         distance=np.hypot(t.x.ravel()[ids]-e.position[0],t.y.ravel()[ids]-e.position[1])
         ids=ids[(along<=float(along.min())+max(1.,t.cell))&(distance<e.radius+1.)]
         if not len(ids):return None
-        index=ids[int(np.argmax(remaining.ravel()[ids]))]
+        index=ids[int(np.argmax(remaining[np.searchsorted(plan['ids'],ids)]))]
         return float(t.x.ravel()[index]),float(t.y.ravel()[index])
 
     def _choose_excavator_site(self,e,advance_only=False,expose=None):
         target=self._available_target(e)
         if target is not None and not advance_only and expose is None:
             e.target=target;e.state='WAIT_TRUCK';e.reason='';self.reason='';return True
-        t=self.terrain;remaining=self._remaining();ids=np.flatnonzero(remaining>1e-6)
+        t=self.terrain;plan=self._work_plan();remaining=self._work_remaining();ids=plan['ids'][remaining>1e-6]
         if not len(ids):
             self._work_complete=True;self.reason='Захватка обработана; выездная рампа остаётся в проектной выемке';return False
         routes_started=self.route_calculations
@@ -636,11 +677,9 @@ class ConventionalFleet:
             # A half-metre backshift can expose the row just beyond the track
             # guard. Coarse two-metre stations can strand that row underneath
             # the next footprint despite there being a safe intermediate stance.
-            spacing=t.cell
-            stations=np.r_[np.arange(-e.radius-1.,0.,spacing),np.arange(0.,length+1e-8,spacing)]
-            points=entry+stations[:,None]*unit
+            stations=plan['stations'];points=plan['points']
             order=np.argsort(np.sum((points-e.position[:2])**2,axis=1),kind='stable')
-            side=np.array([-unit[1],unit[0]])*(self.config.ramp_width_m/2+e.radius+1.)
+            side=plan['side']
             chosen=list(order[:24])
             # Work starts at the first unfinished access cross-section, which
             # can be far from a camp beside the middle of a long ramp. Nearby
@@ -648,9 +687,10 @@ class ConventionalFleet:
             # local repositioning and stations at the actual excavation front.
             access=getattr(self,'access_mask',None)
             if access is not None:
-                pending=ids[access.ravel()[ids]&(remaining.ravel()[ids]>min(.12,max(.03,.2*t.cell)))]
+                selected=np.searchsorted(plan['ids'],ids)
+                pending=ids[access.ravel()[ids]&(remaining[selected]>min(.12,max(.03,.2*t.cell)))]
                 if len(pending):
-                    along=(t.x.ravel()[pending]-entry[0])*unit[0]+(t.y.ravel()[pending]-entry[1])*unit[1]
+                    along=plan['along'][np.searchsorted(plan['ids'],pending)]
                     chosen.extend(np.argsort(np.abs(stations-float(along.min())),kind='stable')[:24])
             road_points=points[list(dict.fromkeys(chosen))]
             candidates.extend(sorted([p+offset for p in road_points for offset in (side,-side,np.zeros(2))],
@@ -734,21 +774,37 @@ class ConventionalFleet:
     def _dump_point(self,truck):
         if self.sim.time<truck.retry_route_at:return None
         t=self.terrain;volume=cargo_volume(truck.cargo_kg,truck.soil,t.config.terrain.density)
-        ids=t._dump_indices
+        fixed=self.config.dump_order=='far_to_near'
+        ids=self._dump_plan()['ids'] if fixed else t._dump_indices
         available=np.maximum(t.dump_cap.ravel()[ids]-t.height.ravel()[ids],0.)
-        ids=ids[available>1e-8]
-        if not len(ids):
+        free=(available>1e-8)&t.dump_mask.ravel()[ids]
+        if not np.any(free):
             truck.retry_route_at=self.sim.time+30;truck.reason='Отвал заполнен; груз сохранён';return None
         obstacles=self._dump_obstacles()
-        distance=(t.x.ravel()[ids]-truck.position[0])**2+(t.y.ravel()[ids]-truck.position[1])**2
-        points=[(float(t.x.ravel()[i]),float(t.y.ravel()[i]))
-                for i in ids[np.argsort(distance,kind='stable')[::max(1,len(ids)//32)][:32]]]
-        candidates=[(x,y,dx,dy) for x,y in points for dx,dy in ((-1,0),(0,-1),(1,0),(0,1))]
         cursors=getattr(self,'_dump_cursors',{});self._dump_cursors=cursors
-        cursor=cursors.get(truck.id,0)%len(candidates);routes_started=self.route_calculations;limited=False
-        for offset,(x,y,dx,dy) in enumerate(candidates[cursor:]+candidates[:cursor]):
+        if fixed:
+            from .conventional_plan import far_dump_candidates
+            candidates=far_dump_candidates(self,free,cursors.get(truck.id,0))
+        else:
+            # Compatibility policy: choose near the truck as older saves did.
+            ids=ids[free]
+            distance=(t.x.ravel()[ids]-truck.position[0])**2+(t.y.ravel()[ids]-truck.position[1])**2
+            points=[(float(t.x.ravel()[i]),float(t.y.ravel()[i]))
+                    for i in ids[np.argsort(distance,kind='stable')[::max(1,len(ids)//32)][:32]]]
+            values=[(x,y,dx,dy) for x,y in points for dx,dy in ((-1,0),(0,-1),(1,0),(0,1))]
+            cursor=cursors.get(truck.id,0)%len(values)
+            candidates=(((cursor+offset)%len(values),value) for offset,value in enumerate(values[cursor:]+values[:cursor]))
+        routes_started=self.route_calculations;limited=False
+        for checked,(candidate,(x,y,dx,dy)) in enumerate(candidates):
+            if fixed and checked>=128:
+                cursors[truck.id]=candidate;limited=True;break
             distance=truck.dimensions_m[0]/2+2.5
             p=np.array([x+dx*distance,y+dy*distance])
+            if fixed and any(other is not truck and other.cargo_kg>0. and other.target is not None and
+                (other.state=='UNLOADING' or (other.state=='DRIVING' and other.after_drive=='UNLOADING')) and
+                (np.linalg.norm(np.asarray(other.target)-[x,y])<4. or
+                 (other.destination is not None and np.linalg.norm(np.asarray(other.destination)-p)<other.radius+truck.radius+.25))
+                for other in self.machines):continue
             if not self.passable(p,truck.radius,truck):continue
             minimum=min(volume,max(.25,volume*.15))
             # Cheap local upper bound first; the expensive road search only
@@ -756,7 +812,7 @@ class ConventionalFleet:
             _,upper=self._dump_capacity(truck,(x,y),p,[],obstacles)
             if upper.sum()*t.area<minimum-1e-9:continue
             if self.route_calculations-routes_started+2>8:
-                cursors[truck.id]=(cursor+offset)%len(candidates);limited=True;break
+                cursors[truck.id]=candidate;limited=True;break
             escape=self._escape_from(truck,p)
             if escape is None:continue
             _,capacity=self._dump_capacity(truck,(x,y),p,escape,obstacles)
@@ -822,7 +878,7 @@ class ConventionalFleet:
         if m.cargo_kg==0.:
             if m.soil is not None:m.soil.validate(0.)
             m.soil=None;m.target=None;m.state='PARKED';return True
-        t=self.terrain;escape=self.route(m,m.home[:2])
+        t=self.terrain;escape=self._home_route(m,validate=True)
         if escape is None:
             m.reason='Нет безопасного выезда перед разгрузкой; груз сохранён';m.retry_route_at=self.sim.time+30;return False
         patch,capacity=self._dump_capacity(m,m.target,m.position[:2],escape)
@@ -907,6 +963,7 @@ class ConventionalFleet:
         else:self.ramp_mask=self.work_mask&(lateral<=self.config.ramp_width_m/2)
         rows,cols=old_surface.shape;dx,dy=cells;self.ramp_surface[dy:dy+rows,dx:dx+cols]=old_surface
         self._marine=None;self._marine_stamp=None
+        self._work_plan_cache=None;self._dump_plan_cache=None;self._dump_cursors={}
         for machine in self.machines:machine.route_token=None;machine.budget_cache=None
 
     def _terrain_changed(self):
@@ -1097,7 +1154,9 @@ class ConventionalFleet:
         food=self.food_used_units*c.food_egp_unit/currency;water=self.water_used_l*c.water_egp_l/currency
         operating=fuel+food+water+self.payroll_usd+self.maintenance_usd
         capital=c.excavator_count*c.excavator_purchase_usd+c.truck_count*c.truck_purchase_usd+c.base_purchase_usd
-        t=self.terrain;retained=np.where(self.ramp_mask&t.dig_mask,np.maximum(np.minimum(t.height,self.ramp_surface)-t.target,0.),0.)
+        t=self.terrain;ids=self._work_plan()['ids']
+        retained=np.where(self.ramp_mask.ravel()[ids]&t.dig_mask.ravel()[ids],
+            np.maximum(np.minimum(t.height.ravel()[ids],self.ramp_surface.ravel()[ids])-t.target.ravel()[ids],0.),0.)
         ramp={**self.ramp,'remaining_m3':float(retained.sum()*t.area)}
         return dict(enabled=self.enabled,reason=self.reason,work_rect=list(c.work_rect),base_position_m=self.base_position.tolist(),
             excavated_m3=self.excavated_m3,excavated_mass_kg=self.excavated_mass_kg,delivered_m3=self.delivered_m3,
@@ -1111,7 +1170,7 @@ class ConventionalFleet:
             fuel_balance_error_l=c.fuel_stock_l+self.fuel_imported_l-self.fuel_stock_l-self.fuel_used_l-sum(m.fuel_l for m in self.machines),
             water_balance_error_l=c.water_stock_l+self.water_imported_l-self.water_stock_l-self.water_used_l,
             food_balance_error_units=c.food_stock_units+self.food_imported_units-self.food_stock_units-self.food_used_units,
-            diesel_energy_consumed_mj=self.fuel_used_l*35.8,shift=self.shift(),ramp=ramp,remaining_work_m3=float(self._remaining().sum()*t.area),
+            diesel_energy_consumed_mj=self.fuel_used_l*35.8,shift=self.shift(),ramp=ramp,remaining_work_m3=float(self._work_remaining().sum()*t.area),
             refuel_slots=c.refuel_slots,route_calculations=self.route_calculations,crew_count=c.shifts_per_day*(c.excavator_count+c.truck_count),
             machines=[dict(id=m.id,kind=m.kind,state=m.state,reason=m.reason,position_m=m.position.tolist(),dimensions_m=list(m.dimensions_m),footprint_radius_m=m.radius,fuel_l=m.fuel_l,
                            heading_rad=m.heading_rad,cargo_kg=m.cargo_kg,excavated_m3=m.excavated_m3,delivered_m3=m.delivered_m3,path_m=[list(p) for p in m.path],

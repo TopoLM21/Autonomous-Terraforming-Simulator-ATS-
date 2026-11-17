@@ -1,6 +1,7 @@
 """Qt presentation. Fixed engine steps are bounded by a per-frame time budget."""
 from copy import deepcopy
 from pathlib import Path
+from html import escape
 import time
 import math
 import numpy as np
@@ -1212,6 +1213,10 @@ class MainWindow(QtWidgets.QMainWindow):
             operation=" · грейфер вниз" if o.state==DroneState.DUMP and not o.dump_released else " · грейфер вверх" if o.state==DroneState.DUMP else ""
             laser=f" · лазер {o.laser_power_w/1000:.1f} кВт" if o.laser_power_w>0 else ""
             waiting='\n'+s.logistics.idle_reason(o) if s.logistics is not None and o.grounded else ''
+            if s.state==MissionState.BLOCKED:
+                waiting=f'\nОстановлен · {o.state.value}'
+                label.setToolTip('Работа комплекса заблокирована; операция не продвигается.\nПричина: '+s.reason)
+            else:label.setToolTip('')
             role=(' · курьер' if s.logistics.courier_id==o.identifier else ' · копатель' if o.attachment=='GRABBER' else '') if s.logistics is not None else ''
             label.setText(f"Д{o.serial}{role} · {o.cargo:.0f} кг · z {o.position[2]:.1f} м{operation}{laser}{waiting}")
             label.setPos(o.position[0]+.4,o.position[1]+.4+o.identifier*.3)
@@ -1275,17 +1280,21 @@ class MainWindow(QtWidgets.QMainWindow):
         self.base_label.setToolTip(f"Оборудование: {spec['installed_equipment_mass_kg']:.1f} кг; запасы: {spec['stored_items_mass_kg']:.1f} кг; пристыкованные дроны: {spec['docked_drones_mass_kg']:.1f} кг.\nПоле панелей: {field_text}.")
         self.fleet_table.setUpdatesEnabled(False)
         for row,o in enumerate(report['drones']):
-            values=[f"{o['serial']} · {o['name']}",o['state'],f"{o['battery_percent']:.0f}%",f"{o['cargo_kg']:.1f}",str(o['trips']),f"{o['excavated_mass_kg']:.0f} / {o['filled_mass_kg']:.0f}",f"{o['consumed_kwh']:.3f}",f"{o['waiting_seconds']/60:.1f}",f"{o['charging_seconds']/60:.1f}",str(o['traffic_yields']),f"{o['last24_volume_m3']:.4f}",f"{o['laser_power_w']/1000:.2f}"]
+            phase=f"Остановлен · {o['state']}" if s.state==MissionState.BLOCKED else o['state']
+            values=[f"{o['serial']} · {o['name']}",phase,f"{o['battery_percent']:.0f}%",f"{o['cargo_kg']:.1f}",str(o['trips']),f"{o['excavated_mass_kg']:.0f} / {o['filled_mass_kg']:.0f}",f"{o['consumed_kwh']:.3f}",f"{o['waiting_seconds']/60:.1f}",f"{o['charging_seconds']/60:.1f}",str(o['traffic_yields']),f"{o['last24_volume_m3']:.4f}",f"{o['laser_power_w']/1000:.2f}"]
             for col,value in enumerate(values):self.fleet_table.setItem(row,col,QtWidgets.QTableWidgetItem(value))
             if 'task' in o:self.fleet_table.item(row,1).setToolTip(f"{o['task']} · {o['attachment']}\n{o['wait_reason']}\nБатареи: {', '.join(o['battery_ids'])}\nЗамен комплектов: {o['battery_swaps']}; до завершения замены: {o['battery_swap_remaining_seconds']:.0f} с\nДо завершения смены инструмента: {o['tool_change_remaining_seconds']:.0f} с · возврат по отмене: {'да' if o['recall_requested'] else 'нет'}\nГрузовой лимит: {o['transport_payload_kg']:.1f} кг")
+            if s.state==MissionState.BLOCKED:
+                item=self.fleet_table.item(row,1)
+                item.setToolTip('Работа комплекса заблокирована; операция '+o['state']+' не продвигается.\nПричина: '+s.reason+'\n\n'+item.toolTip())
             self.fleet_table.item(row,2).setToolTip(f"Порог зарядки {o['charge_threshold_percent']:.0f}%; полных зарядок: {o['charge_cycles']}. Полёт сейчас: {o['current_flight_seconds']:.0f} с; самый длинный: {o['longest_flight_seconds']:.0f} с; в воздухе всего: {o['airborne_seconds']:.0f} с.")
             self.fleet_table.item(row,10).setToolTip(f"За текущие солнечные сутки: {o['today_volume_m3']:.4f} м³ / {o['today_mass_kg']:.2f} кг. Всего доставлено: {o['transported_volume_m3']:.4f} м³. Подробности — «По суткам».")
             self.fleet_table.item(row,11).setToolTip(f"{o['laser_status']}\nПолучено за миссию: {o['laser_received_kwh']:.3f} кВт·ч. Потребление двигателей и лебёдки за последний шаг: {o['flight_power_w']/1000:.2f} кВт. Показана фактическая мощность за последнюю физическую секунду.")
         self.fleet_table.setUpdatesEnabled(True)
         status = {MissionState.RUNNING: "Автономная работа" if self.running else "Готов / пауза", MissionState.COMPLETED: "✓ Миссия завершена", MissionState.BLOCKED: "⚠ Работа заблокирована"}[s.state]
-        if s.pending_equipment is not None:status="Посадка для установки оборудования"
+        if s.pending_equipment is not None and s.state!=MissionState.BLOCKED:status="Посадка для установки оборудования"
         self.cancel_equipment_button.setVisible(s.pending_equipment is not None)
-        self.status.setText(f"<b style='font-size:17px'>{status}</b><br>{s.reason}")
+        self.status.setText(f"<b style='font-size:17px'>{status}</b><br>{escape(s.reason)}")
         self.progress.setValue(round(report["completion_percent"]*10))
         self.progress.setFormat(f"{report['completion_percent']:.1f}% · допуск {self.config.terrain.completion_volume:.3f} м³")
         project=self.complex_project
@@ -1293,8 +1302,10 @@ class MainWindow(QtWidgets.QMainWindow):
             site=project.shared_site;percent=max(0.,min(100.,100*(1-site.core.remaining/max(site.core.initial_excavation,1e-12))))
             self.progress.setValue(round(percent*10));self.progress.setFormat(f'Общий план {percent:.1f}%')
             self.progress.setToolTip(f'Допуск общего плана: {site.completion_volume:.3f} м³')
-            state='Группа работает' if project.running and self.running else 'Группа на паузе' if project.running else 'Группа остановлена' if project.blocked else 'Общий план завершён'
-            self.status.setText(f'<b>{state}</b><br>Комплексов: {len(project.units)} · выбран {project.active_id[8:]}')
+            blocked=[u for u in project.units if u.simulation.state==MissionState.BLOCKED]
+            state=('⚠ Есть заблокированные комплексы' if blocked else 'Группа работает' if project.running and self.running else 'Группа на паузе' if project.running else 'Общий план завершён')
+            detail=''.join(f'<br>{escape(u.name)}: {escape(u.simulation.reason)}' for u in blocked)
+            self.status.setText(f'<b>{state}</b><br>Комплексов: {len(project.units)} · выбран {project.active_id[8:]}{detail}')
         flight_text='Общие 4 уровня' if s.config.fleet.airspace_mode=='shared_lanes' else 'Высоты по номеру дрона'
         if report.get('operation_policy'):
             flight_text+=' · '+', '.join(f'{h:.1f}' for h in report['operation_policy']['cruise_levels_msl'])+' м MSL'

@@ -1,0 +1,187 @@
+{
+  "baseline_commit": "9877ff53cbf67354b37fefea6378b6363f7311fe",
+  "python": "3.12.14",
+  "qt": "6.12.0",
+  "scope": "Mixed-service deck correction, narrow old-save migration and conventional work ordering; drone dump policy unchanged.",
+  "source_sha256": {
+    "ats/checkpoint.py": "edc5841588672c45936f9360c29375300d9eb15dcd8c5bb67f7de1a0485b6625",
+    "ats/conventional.py": "7446b0d01e5a38df39a259567b3c929d32cb59bdd433c0f2b147389dcdc722c1",
+    "ats/conventional_plan.py": "18c0149c50f192ac7266ba56a968fb3d80a4c91026e330d3aa4bfe608dae9654",
+    "ats/conventional_ui.py": "0fdce6bbbc61109389b7bc98c213ecac78acfa807094f55baa61b0d399dd8946",
+    "ats/gui.py": "d74cd6637e3ec8f8843b2946e5b70e7dd9524359adc6c699fcc5687eb9233343",
+    "ats/shared_site.py": "ec2bc0e323c9f7ffdba7b83b3e2085a49defeb37855034a4aa901240c05c3f30",
+    "ats/simulation.py": "3eb6f199169036d124b64ef7758dc911963e553f926397baaf2920cf4fc9704d",
+    "tests/test_blocked_drone_ui.py": "fc5ca0a8840c15981430de4ad5eef306208fedc20cdbb5bda845fca0dd598f35",
+    "tests/test_conventional_plan.py": "43455e136aa96d9706c0979f731e65fab89e4e93ddb1d24eff3ad5aed7942e4f",
+    "tests/test_conventional_plan_ui.py": "90d09a0ae2eb24a1251438ee0b06654847c01e958b5fb132235048600ea890bd",
+    "tests/test_sloped_service_decks.py": "11b9852bcb96c5835dfe29fb5c8f294235bda621841ba6f27801a11d180de7bd"
+  },
+  "physical_comparison": {
+    "scenario": "tests.test_conventional.world(trucks=1,soil=True), 1000 one-second steps, nearest policy in both versions; finite test pump 3000 L/min",
+    "equal_fields": [
+      "height_sha256",
+      "soil_delta_by_material_m3",
+      "cargo_material_kg",
+      "excavated_m3",
+      "delivered_m3",
+      "cargo_kg",
+      "fuel_l",
+      "states"
+    ],
+    "before": {
+      "residual_200_seconds": 0.05643606500052556,
+      "wall_seconds": 1.1773120279995055,
+      "max_step_seconds": 0.10007448200030922,
+      "model_seconds": 1000.0,
+      "excavated_m3": 5.6885947205199106,
+      "delivered_m3": 3.7439987194375,
+      "cargo_kg": 3111.3536017318543,
+      "route_calculations": 16,
+      "fuel_l": 4.504999999999938,
+      "mass_error_kg": 4.547473508864641e-13,
+      "energy_error_j": 0.0,
+      "fuel_error_l": -3.865352482534945e-12,
+      "states": [
+        "DIGGING",
+        "WAIT_LOAD"
+      ],
+      "plan": null,
+      "height_sha256": "74a4e890a63beaffeb1b4d0dca5bd432136255be5186d8f64f06e34ce59efd51",
+      "soil_delta_by_material_m3": [
+        -1.9445960010824086,
+        0.0,
+        0.0
+      ],
+      "cargo_material_kg": [
+        3111.3536017318543,
+        0.0,
+        0.0
+      ]
+    },
+    "after": {
+      "residual_200_seconds": 0.009270928000660206,
+      "wall_seconds": 1.1854208560007464,
+      "max_step_seconds": 0.09942360299919528,
+      "model_seconds": 1000.0,
+      "excavated_m3": 5.6885947205199106,
+      "delivered_m3": 3.7439987194375,
+      "cargo_kg": 3111.3536017318543,
+      "route_calculations": 13,
+      "fuel_l": 4.504999999999938,
+      "mass_error_kg": 4.547473508864641e-13,
+      "energy_error_j": 0.0,
+      "fuel_error_l": -3.865352482534945e-12,
+      "states": [
+        "DIGGING",
+        "WAIT_LOAD"
+      ],
+      "plan": {
+        "policy": "nearest",
+        "work_cells": 2056,
+        "access_sections": 59,
+        "dump_candidates": 6084,
+        "work_plan_builds": 1,
+        "dump_plan_builds": 1
+      },
+      "height_sha256": "74a4e890a63beaffeb1b4d0dca5bd432136255be5186d8f64f06e34ce59efd51",
+      "soil_delta_by_material_m3": [
+        -1.9445960010824086,
+        0.0,
+        0.0
+      ],
+      "cargo_material_kg": [
+        3111.3536017318543,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "cli_groups": [
+    {
+      "name": "Legacy headless smoke",
+      "returncode": 0,
+      "seconds": 1.6436451340005078
+    },
+    {
+      "name": "ATS 2.0 logistics smoke test",
+      "returncode": 0,
+      "seconds": 10.056643831000656
+    },
+    {
+      "name": "Offline real DEM smoke test",
+      "returncode": 0,
+      "seconds": 0.3838526670006104
+    },
+    {
+      "name": "Save and resume airborne simulation",
+      "returncode": 0,
+      "seconds": 2.8914159450005172
+    },
+    {
+      "name": "Prepared Qattara channel smoke test",
+      "returncode": 0,
+      "seconds": 3.7994302420001986
+    },
+    {
+      "name": "Layered soil and complete snapshot continuation",
+      "returncode": 0,
+      "seconds": 3.485415450999426
+    },
+    {
+      "name": "Energy sizing and executable equipment template",
+      "returncode": 0,
+      "seconds": 0.8785082679996776
+    },
+    {
+      "name": "Two complexes on common regional project and exact resume",
+      "returncode": 0,
+      "seconds": 28.550566574000186
+    },
+    {
+      "name": "Twenty complexes on one physical map and exact snapshot continuation",
+      "returncode": 0,
+      "seconds": 11.82724017200053
+    },
+    {
+      "name": "Continuous design includes real platform hardware",
+      "returncode": 0,
+      "seconds": 0.8229219539998667
+    }
+  ],
+  "limitations": [
+    "Short synthetic runs do not reproduce the user save or establish a fix for the historical 23-hour UI freeze.",
+    "Headless timings are not GUI FPS and were measured with other validation processes present.",
+    "Far-to-near changes haul lengths and can take more time than nearest; it is not bitwise-equivalent dispatch.",
+    "New dump ordering applies to conventional trucks only."
+  ],
+  "tests": {
+    "full_run": {
+      "command": "QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q",
+      "passed": 1119,
+      "failed": 1,
+      "seconds": 1200.26,
+      "failure": "A stale assertion in test_new_far_plan_checkpoint_rebuilds_only_derived_geometry expected no lazy cache after report() had already built it. The running pytest process had collected the earlier test body before its correction."
+    },
+    "corrected_file": {
+      "command": "QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q tests/test_conventional_plan.py",
+      "passed": 11,
+      "failed": 0,
+      "seconds": 1.17,
+      "notes": "Includes the corrected assertion and two added rebind/full-dump cases. A diagnostic plan_report work-cell count was refined during the full run; the consolidated conventional/UI suite (51 passed) and this final file run used the final source. The physical stepping code was unchanged."
+    },
+    "final_unique_cases_verified": 1122,
+    "cli_groups_passed": 10,
+    "targeted_service": {
+      "passed": 83,
+      "seconds": 170.79
+    },
+    "targeted_plan_and_ui": {
+      "passed": 51,
+      "seconds": 36.13
+    },
+    "targeted_blocked_ui": {
+      "passed": 8,
+      "seconds": 4.99
+    }
+  }
+}

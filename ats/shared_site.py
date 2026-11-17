@@ -549,7 +549,7 @@ class SharedSite:
         return dict(entries=entries,top=top,ground_points=points,ground_heights=self.core.sample_many(points).copy())
 
     def _unit_geometry(self,unit):
-        from .base_layout import platform_polygons
+        from .base_layout import platform_polygons,rotate_offset
         from .site_ground import rectangle_polygon,polygon_bounds
         s=unit.simulation;b=s.base;r=b.config.radius;entries=[]
         if s.config.conventional_only:
@@ -557,9 +557,11 @@ class SharedSite:
         polygons=list(platform_polygons(b.layout_spec,b.position)) if b.config.layout is not None else [rectangle_polygon((b.position[0]-r,b.position[1]-r,2*r,2*r))]
         boxes=[polygon_bounds(p) for p in polygons]
         # Parked aircraft remain actors; the service deck is the solid body.
-        heights=[a['dimensions_m'][2] if a.get('role')=='PV' else b.config.roof_height for a in b.layout_spec['platforms']] if b.config.layout is not None else [b.config.roof_height]
-        points=[(box[0]+box[2]/2,box[1]+box[3]/2) for box in boxes]
-        boxes=[(*box,float(s.terrain.sample(*point)+h)) for box,h,point in zip(boxes,heights,points)]
+        # Cache exactly the sampled carrier centres as well; AABB arithmetic
+        # can round a rotated centre across a terrain-cell boundary.
+        points=[b.position[:2]+rotate_offset(b.layout_spec['parameters'],a['offset_m']) for a in b.layout_spec['platforms']] if b.config.layout is not None else [b.position[:2]]
+        heights=[s.platform_roof_height(a) for a in b.layout_spec['platforms']] if b.config.layout is not None else [s.terrain.sample(*points[0])+b.config.roof_height]
+        boxes=[(*box,float(height)) for box,height in zip(boxes,heights)]
         top=max(r[4] for r in boxes)
         boxes.append((*self.pads_bounds(s.config,b.position[:2],getattr(b,'layout_spec',None)),float(b.position[2])))
         polygons.append(rectangle_polygon(boxes[-1][:4]))

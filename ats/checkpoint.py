@@ -19,7 +19,7 @@ import numpy as np
 
 
 FORMAT='ATS_SIMULATION'
-VERSION=22
+VERSION=23
 MAX_BYTES=1_500_000_000
 MAX_NODES=2_000_000
 
@@ -90,7 +90,8 @@ class _Encoder:
             if name not in self.classes:raise ValueError(f'Нельзя сохранить объект {name}')
             node.update(kind='object',type=name,attrs={k:self.encode(v,matrix=name=='ats.config.Config' and
                 k in ('initial_height','reference_height') and v is not None) for k,v in vars(value).items()
-                if k not in ('_sector_progress_cache','_prefetch_runtime','_prefetch_auto_key','_prefetch_world_stamp','_flooding_basis','_flight_ceiling_cache','_shore_cache','_axis_station_cache','_work_window_cache','_robot_static_cache','_static_robot_site_cache')})
+                if k not in ('_sector_progress_cache','_prefetch_runtime','_prefetch_auto_key','_prefetch_world_stamp','_flooding_basis','_flight_ceiling_cache','_shore_cache','_axis_station_cache','_work_window_cache','_robot_static_cache','_static_robot_site_cache',
+                             '_work_plan_cache','_dump_plan_cache')})
         return {'ref':index}
 
 
@@ -401,6 +402,7 @@ def load_state(path):
             from .logistics_config import LogisticsConfig
             from .terrain import Terrain
             from .simulation import Simulation
+            from .conventional import ConventionalConfig
             for value in decoder.objects:
                 if isinstance(value,Simulation) and not hasattr(value,'conventional'):value.conventional=None
                 if isinstance(value,Config) and 'conventional_only' not in vars(value):value.conventional_only=False
@@ -408,6 +410,7 @@ def load_state(path):
                 if isinstance(value,TerrainConfig) and 'compact_spoil' not in vars(value):value.compact_spoil=False
                 if isinstance(value,TerrainConfig) and 'cut_policy' not in vars(value):value.cut_policy='profile'
                 if isinstance(value,FleetConfig) and 'airspace_mode' not in vars(value):value.airspace_mode='per_drone'
+                if isinstance(value,ConventionalConfig) and 'dump_order' not in vars(value):value.dump_order='nearest'
                 if isinstance(value,LogisticsConfig) and 'solar' not in vars(value):value.solar=None
                 if isinstance(value,LogisticsConfig) and 'battery_platforms' not in vars(value):value.battery_platforms=None
                 if isinstance(value,LogisticsConfig) and 'self_solar' not in vars(value):value.self_solar=None
@@ -514,6 +517,9 @@ def load_state(path):
                     record_visible(s.terrain)
                     if status(f)['needs_next_window']:
                         s.state=MissionState.RUNNING;s.reason='';s.base_move_wait='NEEDS_NEXT_WINDOW'
+        if manifest['version']<23:
+            sims=[u.simulation for u in session.complex_project.units] if session.complex_project else [session.simulation]
+            for s in sims:s.repair_legacy_dock_geometry()
         _validate(session)
         return session
     except (zipfile.BadZipFile,EOFError,KeyError,TypeError,AttributeError,IndexError,OverflowError,RecursionError) as error:

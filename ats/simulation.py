@@ -155,6 +155,18 @@ class Simulation:
     def minimum_drone_charge(self):
         return self.drone.minimum_charge
 
+    def platform_roof_height(self, platform):
+        """World height of the rigid carrier deck used by docks and obstacles.
+
+        Supports level each carrier at its sampled centre. Sampling the ground
+        again beneath an offset landing pad would put a downhill pad inside its
+        own deck, even on a very gentle slope.
+        """
+        from .base_layout import rotate_offset
+        centre=self.base.position[:2]+rotate_offset(self.base.layout_spec['parameters'],platform['offset_m'])
+        height=platform['dimensions_m'][2] if platform.get('role')=='PV' else self.config.base.roof_height
+        return self.terrain.sample(*centre)+height
+
     def slot_position(self, slot):
         offset = station_offset(slot,self.config.fleet.pad_spacing)
         if self.base.config.layout is None:return self.base.position+np.array([0,offset,self.config.base.roof_height])
@@ -162,7 +174,76 @@ class Simulation:
         spec=getattr(self.base,'layout_spec',{})
         position=spec.get('dock_offsets',[])
         xy=self.base.position[:2]+rotate_offset(self.base.config.layout,position[slot] if slot is not None and slot<len(position) else [0,offset])
-        return np.r_[xy,self.terrain.sample(*xy)+self.config.base.roof_height] if position else self.base.position+np.array([*(xy-self.base.position[:2]),self.config.base.roof_height])
+        if position:
+            binding=spec.get('bindings',{}).get(f'landing_pad_{slot+1}',{}) if slot is not None else {}
+            carrier=next((a for a in spec.get('platforms',()) if a['id']==binding.get('platform_id')),None)
+            height=self.platform_roof_height(carrier) if carrier is not None else self.terrain.sample(*xy)+self.config.base.roof_height
+            return np.r_[xy,height]
+        return self.base.position+np.array([*(xy-self.base.position[:2]),self.config.base.roof_height])
+
+    def repair_legacy_dock_geometry(self):
+        """Migrate only exact historical dock anchors when reading old saves.
+
+        No aircraft in flight is moved and no battery energy is changed. A
+        parked aircraft and its mounted items inherit the corrected rigid deck
+        anchor. An unfinished powered handling leg is planned from its actual
+        saved module positions, retaining energy already consumed. Unrelated
+        blocked missions, arbitrary poses and reservations are left intact.
+        """
+        if (self.base.config.layout is None or not self.base.layout_spec.get('dock_offsets') or
+                self.base.destination is not None or getattr(self,'regional_stage',None) in ('DRIVE','ARRIVE') or
+                getattr(self.logistics,'regional_folded',False)):return []
+        repairs=[];w=self.logistics
+        def same(a,b):
+            return a is not None and np.asarray(a).shape==(3,) and np.allclose(a,b,rtol=0.,atol=1e-8)
+        for d in self.drones:
+            if d.slot is None or not 0<=d.slot<len(self.slots) or self.slots[d.slot]!=d.identifier:continue
+            corrected=self.slot_position(d.slot)
+            historical=np.r_[corrected[:2],self.terrain.sample(*corrected[:2])+self.config.base.roof_height]
+            if abs(corrected[2]-historical[2])<=1e-8:continue
+            parked=d.docked and same(d.position,historical)
+            landing=d.state in (DS.LANDING,DS.SLOT_LANDING) and same(d.destination,historical)
+            if not parked and not landing:continue
+            repaired=dict(serial=d.serial,pose=bool(parked),destination=bool(landing),resumed=False,handling_replanned=False)
+            if parked:
+                d.position[:]=corrected
+                if w is not None:
+                    swap=w.battery_service.drone_swaps.get(d.serial)
+                    if swap is not None and w.battery_platforms:
+                        phase=swap.get('phase')
+                        if phase in ('FETCH','RETURN','ABORT'):
+                            # Saved modules keep their actual positions. Only
+                            # the remaining motion and future work are rebuilt.
+                            w.battery_service._handling_leg(d,swap,phase)
+                            repaired['handling_replanned']=True
+                        elif phase=='SWAP':
+                            from .inventory import Location
+                            owner=f'drone_swap_{d.serial}'
+                            for id in swap['ids']:
+                                item=w.inventory.items[id]
+                                if (item.location==Location.IN_TRANSFER and item.holder_id==f'station_transfer_{d.serial}'
+                                        and item.reserved_by==owner and same(item.position,historical)):
+                                    w.inventory.move(id,item.location,item.holder_id,corrected,item.state,owner)
+                            for id,target in swap.get('targets',{}).items():
+                                if same(target,historical):
+                                    swap['targets'][id]=corrected.tolist()
+                                    if id in swap.get('paths',{}):swap['paths'][id][-1]=corrected.tolist()
+            if landing:
+                d.destination=corrected.copy()
+                # Retry only the proven vertical descent into the aircraft's
+                # own old pad. The unchanged position must already clear the
+                # corrected roof; the normal swept checks run on the next tick.
+                if (self.state==MissionState.BLOCKED and
+                        self.reason==f'Траектория дрона {d.serial} пересекает рельеф или базу' and
+                        corrected[2]>historical[2]+1e-8 and d.detour is None and
+                        np.allclose(d.position[:2],corrected[:2],rtol=0.,atol=1e-8) and
+                        d.position[2]>=corrected[2]-1e-9):
+                    self.state=MissionState.RUNNING;self.reason='';repaired['resumed']=True
+            repairs.append(repaired)
+        if repairs:
+            if w is not None:w.sync_batteries()
+            self.event('Восстановлена высота посадочных площадок старого сохранения: '+', '.join(str(r['serial']) for r in repairs))
+        return repairs
 
     def base_specification(self):
         """Nominal envelope from existing geometry; live mass from actual equipment."""
