@@ -31,6 +31,37 @@ def dump_geometry(fleet):
     return dict(ids=ids[order],anchor=tuple(anchor))
 
 
+def shelf_candidates(terrain, unfinished, reach, start):
+    """Yield possible track centres near the remaining work, coarse grid first.
+
+    The index can be saved between planning ticks. A large work area needs no
+    full allocation of candidate points; each finer grid skips previous cells.
+    Actual support, bucket work, outbound and return routes are checked live.
+    """
+    rows,cols=np.unravel_index(unfinished,terrain.height.shape)
+    margin=int(np.ceil(reach/terrain.cell))
+    left=max(0,int(cols.min())-margin)
+    top=max(0,int(rows.min())-margin)
+    right=min(terrain.height.shape[1]-1,int(cols.max())+margin)
+    bottom=min(terrain.height.shape[0]-1,int(rows.max())+margin)
+    stride=1
+    while 2*stride*terrain.cell<=reach/2:
+        stride*=2
+    first_stride=stride
+    offset=0
+    while stride:
+        width=(right-left)//stride+1
+        count=width*((bottom-top)//stride+1)
+        for local in range(max(0,start-offset),count):
+            row,col=divmod(local,width)
+            if stride!=first_stride and row%2==0 and col%2==0:
+                continue
+            yield offset+local,np.array([(left+col*stride+.5)*terrain.cell,
+                                         (top+row*stride+.5)*terrain.cell])
+        offset+=count
+        stride//=2
+
+
 def far_dump_candidates(fleet,available,cursor):
     """Resume a bounded search without forgetting blocked or partly filled cells.
 

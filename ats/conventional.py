@@ -155,6 +155,8 @@ class GroundMachine:
     body_dimensions_m: tuple | None = None
     heading_rad: float = 0.
     expose_target: tuple | None = None
+    side_bucket: bool = False
+    site_search_stage: int = 0
 
     @property
     def dimensions_m(self):return self.body_dimensions_m or ((6.,3.,3.) if self.kind=='excavator' else (7.,2.8,3.2))
@@ -826,38 +828,62 @@ class ConventionalFleet:
         committed=getattr(e,'expose_target',None)
         if committed is not None and focus_access:
             x,y=committed;row,col=int(y/t.cell),int(x/t.cell)
-            goal=max(t.target[row,col],self.ramp_surface[row,col] if self.ramp_mask[row,col] else -math.inf)
-            if t.height[row,col]<=goal+min(.12,max(.03,.2*t.cell)):e.expose_target=None
-            else:
-                patch=t.patch(x,y,max(.5,t.cell*.71));floor,allowed=self._bucket_geometry(e,patch)
-                i,j=row-patch[0].start,col-patch[1].start
-                if np.linalg.norm(e.position[:2]-[x,y])<=self.config.excavator_reach_m and allowed[i,j] and t.height[row,col]>floor[i,j]+1e-5:
-                    return x,y,float(floor[i,j])
-                return None
+            patch=t.patch(x,y,max(t.cell*.71,.5));floor,allowed=self._bucket_geometry(e,patch)
+            i,j=row-patch[0].start,col-patch[1].start
+            if np.linalg.norm(e.position[:2]-[x,y])<=self.config.excavator_reach_m:
+                target=(x,y,float(floor[i,j]))
+                if getattr(e,'side_bucket',False):
+                    # A side bite can reach a remaining cell with the edge of
+                    # its scoop even when the centre is at the depth limit.
+                    if self.target_yield(e,target)>1e-12:return target
+                elif allowed[i,j] and t.height[row,col]>floor[i,j]+1e-6:
+                    return target
+            # New terrain or a parked truck can close a formerly useful bite.
+            # A trial pose must never cancel the live excavator's commitment.
+            if remaining is None:
+                e.expose_target=None
+                e.side_bucket=False
         ids,remaining=self._target_indices(e,remaining,focus_access)
         if not len(ids):return None
         plan=self._work_plan();work_ids=plan['ids']
-        # Keep the present supporting footprint and a retained ramp uncut.
         score=(t.x.ravel()[ids]-e.position[0])**2+(t.y.ravel()[ids]-e.position[1])**2
         if self.ramp.get('model')=='supported_access_v2':
             selected=np.searchsorted(work_ids,ids)
             along=plan['along'][selected];lateral=plan['lateral'][selected]
             ids=ids[np.lexsort((score,along,lateral>self.config.ramp_width_m/2))]
         else:ids=ids[np.argsort(score,kind='stable')]
-        # Do not spend endless full cycles on avalanching millilitre tails.
-        # Start near 0.5% of a bucket, then shrink the threshold with the whole
-        # remaining job so its final small positive cuts are physically finished.
-        best=None;best_volume=min(.005,self.config.bucket_m3*.005,max(1e-12,float(remaining.sum()*t.area)*.001))
-        for index in ids[:128]:
-            x,y=float(t.x.ravel()[index]),float(t.y.ravel()[index])
-            patch=t.patch(x,y,max(t.cell*.71,.5));floor,allowed=self._bucket_geometry(e,patch)
-            footprint=(t.x[patch]-x)**2+(t.y[patch]-y)**2<=max(t.cell*.71,.5)**2
-            volume=float(np.where(allowed&footprint,np.maximum(t.height[patch]-floor,0.),0.).sum()*t.area)
-            if volume>best_volume+1e-10:
-                cy=int(y/t.cell)-patch[0].start;cx=int(x/t.cell)-patch[1].start
-                best=(x,y,float(floor[cy,cx]));best_volume=volume
-                if volume>=self.config.bucket_m3:return best
-        return best
+
+        # Evaluate the physical support and depth floor once for this pose.
+        # Every centre in reach shares these same cells, including the rim of
+        # its bucket. Padding the local rectangle treats off-map cells as empty.
+        radius=max(t.cell*.71,.5)
+        patch=t.patch(*e.position[:2],self.config.excavator_reach_m+radius)
+        floor,allowed=self._bucket_geometry(e,patch)
+        removable=np.where(allowed,np.maximum(t.height[patch]-floor,0.),0.)
+        span=int(math.floor(radius/t.cell))
+        depth=np.pad(removable,span) if span else removable
+        rows=ids//t.height.shape[1]-patch[0].start
+        cols=ids%t.height.shape[1]-patch[1].start
+        volume=np.zeros(len(ids))
+        for dy in range(-span,span+1):
+            for dx in range(-span,span+1):
+                if (dx*t.cell)**2+(dy*t.cell)**2<=radius**2:
+                    volume+=depth[rows+span+dy,cols+span+dx]
+        volume*=t.area
+
+        # Keep the preferred approach order for ordinary productive scoops.
+        # If the leading block cannot provide a useful bite, include all the
+        # remaining cells in reach before declaring the stance exhausted.
+        limit=min(128,len(ids))
+        minimum=min(.005,self.config.bucket_m3*.005,max(1e-12,float(remaining.sum()*t.area)*.001))
+        if volume[:limit].max()<=minimum+1e-10:
+            limit=len(ids)
+        volume=volume[:limit]
+        full=np.flatnonzero(volume>=self.config.bucket_m3)
+        best=int(full[0]) if len(full) else int(np.argmax(volume))
+        if volume[best]<=1e-12:return None
+        index=ids[best]
+        return float(t.x.ravel()[index]),float(t.y.ravel()[index]),float(floor[rows[best],cols[best]])
 
     def _bucket_geometry(self,e,patch):
         """One effective floor/support law for selection and actual extraction."""
@@ -890,7 +916,9 @@ class ConventionalFleet:
         target=self._available_target(e)
         current_yield=self.target_yield(e,target) if productive_only else 0.
         if target is not None and not advance_only and expose is None and not productive_only:
-            e.target=target;e.state='WAIT_TRUCK';e.reason='';self.reason='';return True
+            e.target=target;e.state='WAIT_TRUCK';e.reason='';self.reason=''
+            e.site_search_cursor=0;e.site_search_stage=0
+            return True
         t=self.terrain;plan=self._work_plan();remaining=self._work_remaining();ids=plan['ids'][remaining>1e-6]
         if not len(ids):
             if productive_only:return False
@@ -970,15 +998,49 @@ class ConventionalFleet:
                 ranked.append(((-volume,-batch,float(np.linalg.norm(p-e.position[:2]))),p))
             if not ranked:return False
             candidates=[p for _,p in sorted(ranked,key=lambda row:row[0])]
-        cursor_field='productive_search_cursor' if productive_only else 'advance_search_cursor' if advance_only else 'site_search_cursor'
-        cursor=getattr(e,cursor_field,0)%len(candidates);limited=False;dispatch_wait=''
-        for offset,p in enumerate(candidates[cursor:]+candidates[:cursor]):
+        ordinary=not (productive_only or advance_only or expose is not None)
+        cursor_field='productive_search_cursor' if productive_only else 'advance_search_cursor' if advance_only or expose is not None else 'site_search_cursor'
+        cursor=getattr(e,cursor_field,0)
+        def search_order():
+            if not ordinary:
+                first=cursor%len(candidates)
+                for offset in range(len(candidates)):
+                    index=(first+offset)%len(candidates)
+                    yield index,candidates[index],False
+                return
+            for index in range(cursor,len(candidates)):
+                yield index,candidates[index],False
+            # After the fast ramp-first search, check for work on the flanks.
+            # Try reaching it from the current tracks before asking for a move.
+            if cursor<=len(candidates):
+                yield len(candidates),e.position[:2].copy(),True
+            from .conventional_plan import shelf_candidates
+            scan_start=len(candidates)+1
+            for index,point in shelf_candidates(t,ids,self.config.excavator_reach_m,max(0,cursor-scan_start)):
+                yield scan_start+index,point,True
+
+        limited=False;dispatch_wait='';sampled=0
+        stage=getattr(e,'site_search_stage',0) if cursor and ordinary else 0
+        for index,p,expanded in search_order():
+            if expanded:
+                if sampled>=48:
+                    setattr(e,cursor_field,index);limited=True;break
+                sampled+=1
             if advance_only and t.sample(*p)>=e.position[2]-.05:continue
-            if np.linalg.norm(p-e.position[:2])<max(.5,t.cell) or not self.passable(p,e.radius,e):continue
+            same_pose=expanded and index==len(candidates)
+            minimum_move=1e-7 if expanded else max(.5,t.cell)
+            if not same_pose and np.linalg.norm(p-e.position[:2])<minimum_move:continue
+            if not self.passable(p,e.radius,e):continue
+            stage=max(stage,1)
             old=e.position.copy();e.position[:2]=p;e.position[2]=t.sample(*p)
+            side_target=False
             try:
                 if productive_only:useful=productive_targets[tuple(map(float,p))]
-                elif expose is None:useful=self._available_target(e,remaining,focus_access=not advance_only)
+                elif expose is None:
+                    useful=self._available_target(e,remaining,focus_access=not advance_only)
+                    if useful is None and expanded:
+                        useful=self._available_target(e,remaining,focus_access=False)
+                        side_target=useful is not None
                 else:
                     patch=t.patch(*expose,max(t.cell*.71,.5));floor,allowed=self._bucket_geometry(e,patch)
                     row=int(expose[1]/t.cell)-patch[0].start;col=int(expose[0]/t.cell)-patch[1].start
@@ -989,8 +1051,15 @@ class ConventionalFleet:
                     useful=(*expose,float(floor[row,col])) if reachable else None
             finally:e.position[:]=old
             if useful is None:continue
+            stage=max(stage,2)
+            if same_pose:
+                e.side_bucket=side_target
+                e.expose_target=tuple(useful[:2]) if side_target else None
+                e.target=useful;e.state='WAIT_TRUCK';e.reason='';self.reason=''
+                setattr(e,cursor_field,0)
+                return True
             if self.route_calculations-routes_started>=8:
-                setattr(e,cursor_field,(cursor+offset)%len(candidates));limited=True;break
+                setattr(e,cursor_field,index);limited=True;break
             if productive_only and current_escape is None:
                 # A loading truck may occupy the only road. Its partial load
                 # must not be sent away merely to investigate a tiny target:
@@ -1013,15 +1082,25 @@ class ConventionalFleet:
             escape=[*reversed(points[:-1]),*current_escape]
             if self._assign_route(e,p,'WAIT_TRUCK',home_path=escape,outbound_path=outbound):
                 setattr(e,cursor_field,0)
+                e.side_bucket=side_target
                 e.expose_target=tuple(expose) if expose is not None else None
-                e.target=useful if expose is not None else None
+                if side_target:e.expose_target=tuple(useful[:2])
+                e.target=useful if side_target or expose is not None else None
                 self.reason=''
                 return True
             if e.reason.startswith(('Недостаточно топлива','Недостаточно времени')):dispatch_wait=e.reason
         if not limited:setattr(e,cursor_field,0)
         if advance_only or expose is not None or productive_only:return False
-        self.reason=dispatch_wait or ('Лимит поиска полок; следующие варианты будут проверены после ожидания' if limited else
-                     'Нет доступной рабочей полки с безопасным выездом; рампа и остаток сохранены')
+        e.site_search_stage=stage if limited else 0
+        if limited:
+            message='Лимит поиска за один шаг; продолжается проверка рабочих позиций'
+        elif stage==0:
+            message='Рабочая позиция не найдена: грунт или препятствия не дают разместить гусеницы'
+        elif stage==1:
+            message='Рабочая позиция не найдена: с проверенных опор ковш не достаёт до доступного грунта'
+        else:
+            message='Рабочая позиция не найдена: до проверенных мест не найден безопасный подъезд с возвратом'
+        self.reason=dispatch_wait or f'{message}. С учётом съезда осталось вынуть {float(remaining.sum()*t.area):.3f} м³'
         e.reason=self.reason;return False
 
     def _loading_point(self,truck,*,clear_exit=False,excavator_escape=None):

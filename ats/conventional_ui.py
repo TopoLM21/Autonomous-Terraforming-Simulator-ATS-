@@ -93,6 +93,7 @@ class ConventionalWindow(QtWidgets.QDialog):
         self.summary=QtWidgets.QLabel('Обычная техника ещё не создана.');self.summary.setWordWrap(True);live_layout.addWidget(self.summary)
         plan_group=QtWidgets.QGroupBox('План работ');plan_layout=QtWidgets.QVBoxLayout(plan_group)
         self.plan_summary=QtWidgets.QLabel();self.plan_summary.setWordWrap(True);plan_layout.addWidget(self.plan_summary)
+        self.plan_summary.setToolTip('Рабочая полка — место для гусениц, откуда ковш достаёт до выемки и есть путь обратно. Экскаватор вынимает грунт до профиля съезда и оставляет дорогу с боковыми откосами для выезда.')
         plan_actions=QtWidgets.QHBoxLayout();self.live_dump_order=QtWidgets.QComboBox()
         for label,value in DUMP_ORDERS:self.live_dump_order.addItem(label,value)
         self.live_dump_order.setToolTip(dump_order.toolTip());plan_actions.addWidget(self.live_dump_order,1)
@@ -290,9 +291,14 @@ class ConventionalWindow(QtWidgets.QDialog):
         self.refresh_patch_status(fleet.config)
         plan=fleet.plan_report()
         order=next(label for label,value in DUMP_ORDERS if value==plan['policy'])
-        self.plan_summary.setText(f"Выемка: {plan['work_cells']} ячеек · {plan['access_sections']} полос съезда. Отвал: {plan['dump_candidates']} точек · {order.lower()}. Геометрия плана переиспользуется; остаток грунта, вместимость и безопасный путь проверяются по фактическому состоянию.")
+        r=fleet.report()
+        self.plan_summary.setText(
+            f"Осталось вынуть {_number(r['remaining_work_m3'],3)} м³. Для выезда оставлено "
+            f"{_number(r['ramp']['remaining_m3'],3)} м³ грунта в теле съезда и его откосах.\n"
+            f"Выемка охватывает {plan['work_cells']} ячеек и {plan['access_sections']} полос съезда. "
+            f"Отвал включает {plan['dump_candidates']} точек, {order.lower()}.")
         self.update_plan_button()
-        r=fleet.report();self.pause_button.setText('Приостановить и вернуться' if r.get('enabled',fleet.config.enabled) else 'Возобновить работу')
+        self.pause_button.setText('Приостановить и вернуться' if r.get('enabled',fleet.config.enabled) else 'Возобновить работу')
         self._render_report(r)
 
     def _load_controls(self,config):
