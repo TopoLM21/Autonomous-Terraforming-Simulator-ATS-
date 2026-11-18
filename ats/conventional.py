@@ -294,11 +294,35 @@ class ConventionalFleet:
         return True
 
     def segment_safe(self,a,b,radius,machine=None):
-        length=float(np.linalg.norm(np.asarray(b)[:2]-np.asarray(a)[:2]));step=min(1.,self.terrain.cell)
-        points=np.linspace(np.asarray(a)[:2],np.asarray(b)[:2],max(2,int(math.ceil(length/step))+1))
-        if any(not self.passable(p,radius,machine) for p in points):return False
-        heights=self.terrain.sample_many(points);runs=np.linalg.norm(np.diff(points,axis=0),axis=1)
-        return bool(np.all(np.abs(np.diff(heights))<=.2*runs+.12))
+        a=np.asarray(a)[:2];b=np.asarray(b)[:2]
+        length=float(np.linalg.norm(b-a));step=min(1.,self.terrain.cell)
+        def samples(start,end):
+            distance=float(np.linalg.norm(end-start))
+            return np.linspace(start,end,max(2,int(math.ceil(distance/step))+1))
+        def checks():
+            yield samples(a,b)
+            if machine is not None and length>self._speed(machine)+1e-9:
+                # The support mask includes individual terrain cells. A long
+                # edge's samples can miss a cut lip which the differently phased
+                # one-second driving steps then hit forever. Check those steps
+                # too, retaining the original grade checks. Both directions are
+                # needed: an outbound is reversed as a checked escape route.
+                speed=self._speed(machine)
+                for start,end in ((a,b),(b,a)):
+                    direction=(end-start)/length
+                    for distance in np.arange(0.,length,speed):
+                        yield samples(start+direction*distance,
+                                      start+direction*min(length,distance+speed))
+        checked=set()
+        for points in checks():
+            heights=self.terrain.sample_many(points);runs=np.linalg.norm(np.diff(points,axis=0),axis=1)
+            if np.any(np.abs(np.diff(heights))>.2*runs+.12):return False
+            for point in points:
+                key=tuple(point)
+                if key not in checked:
+                    if not self.passable(point,radius,machine):return False
+                    checked.add(key)
+        return True
 
     def route(self,machine,destination):
         """Bounded deterministic A*; routes are computed only on assignment/change."""
@@ -321,14 +345,17 @@ class ConventionalFleet:
         origin=np.floor(extent.min(axis=0)/step)*step-32
         lo=np.maximum(machine.radius+self.terrain.cell/2,origin)
         hi=np.minimum(side-machine.radius-self.terrain.cell/2,extent.max(axis=0)+32)
-        def key(p):return tuple(np.rint((np.asarray(p)-lo)/step).astype(int))
-        first=key(start)
-        def point(k):return start if k==first else lo+np.asarray(k)*step
+        # Anchor the lattice to the actual pose. Replacing just its first grid
+        # vertex with an off-grid pose skews every first edge; that can miss a
+        # narrow but safe straight withdrawal from an excavated shelf.
+        def key(p):return tuple(np.rint((np.asarray(p)-start)/step).astype(int))
+        first=(0,0)
+        def point(k):return start+np.asarray(k)*step
         diagonal=math.sqrt(2.)-1.
         finish=key(goal);terminals=[]
         for ox in range(-2,3):
             for oy in range(-2,3):
-                q=lo+(np.asarray(finish)+(ox,oy))*step
+                q=point(np.asarray(finish)+(ox,oy))
                 tail=float(np.linalg.norm(q-goal))
                 if tail<=step*1.5:terminals.append((float(q[0]),float(q[1]),tail))
         def heuristic(p):
@@ -408,14 +435,18 @@ class ConventionalFleet:
                 m.reason='Недостаточно времени на рейс и возвращение до обеда / конца смены';m.retry_route_at=self.sim.time+30;return False
             if m.fuel_l<fuel:m.reason='Недостаточно топлива на рейс, возврат и резерв';m.retry_route_at=self.sim.time+30;return False
         m.budget_cache=None;m.retry_route_at=0.
-        m.path=path;m.destination=tuple(destination[:2]);m.after_drive=after;m.state='DRIVING'
-        points=np.array([m.position[:2],*path]);lo=points.min(axis=0)-m.radius;hi=points.max(axis=0)+m.radius
-        m.route_bounds=tuple(np.r_[lo,hi]);m.route_token=self.terrain.route_token(m.route_bounds);m.reason=''
+        self._set_drive_path(m,path)
+        m.destination=tuple(destination[:2]);m.after_drive=after;m.state='DRIVING';m.reason=''
         if after!='PARKED':
             points=np.array([np.asarray(destination)[:2],*home_path]);lo=points.min(axis=0)-m.radius;hi=points.max(axis=0)+m.radius
             bounds=tuple(np.r_[lo,hi])
             m.budget_cache=dict(position=tuple(destination[:2]),path=list(home_path),bounds=bounds,token=self._home_route_token(m,bounds))
         return True
+
+    def _set_drive_path(self,m,path):
+        m.path=self._without_loops(m.position[:2],path)
+        points=np.array([m.position[:2],*m.path]);lo=points.min(axis=0)-m.radius;hi=points.max(axis=0)+m.radius
+        m.route_bounds=tuple(np.r_[lo,hi]);m.route_token=self.terrain.route_token(m.route_bounds)
 
     @staticmethod
     def _without_loops(start,path):
@@ -448,23 +479,26 @@ class ConventionalFleet:
 
     def _move(self,m):
         if not m.path:
-            m.state=m.after_drive
+            m.state=m.after_drive;m.reason=''
             if m.kind=='truck' and m.state=='WAIT_LOAD' and m.cargo_kg<=1e-9:m.load_started=self.sim.time
             return
         if self.sim.time<m.retry_route_at:m.waiting_seconds+=1;return
         if m.route_token!=self.terrain.route_token(m.route_bounds):
             path=self.route(m,m.destination)
             if path is None:m.reason='Маршрут изменён грунтом или препятствием; груз сохранён';m.retry_route_at=self.sim.time+30;m.waiting_seconds+=1;return
-            m.path=path;m.route_token=self.terrain.route_token(m.route_bounds)
+            self._set_drive_path(m,path)
+            if not m.path:return self._move(m)
         destination=np.asarray(m.path[0]);delta=destination-m.position[:2];length=float(np.linalg.norm(delta))
         next_point=m.position[:2]+delta*min(1.,self._speed(m)/max(length,1e-9))
         if not self.segment_safe(m.position,next_point,m.radius,m):
             m.reason='Проезд занят или уклон изменился';m.waiting_seconds+=1
             if self.sim.time>=m.next_plan_at:
                 m.next_plan_at=self.sim.time+30;path=self.route(m,m.destination)
-                if path is not None:m.path=path
+                if path is not None:self._set_drive_path(m,path)
+                elif getattr(self,'_route_failure',''):m.reason+=': '+self._route_failure
             return
         if not self._burn(m):return
+        m.reason=''
         if length>1e-9:m.heading_rad=math.atan2(delta[1],delta[0])
         m.position[:2]=next_point;m.position[2]=self.terrain.sample(*next_point);m.distance_m+=min(length,self._speed(m))
         if length<=self._speed(m)+1e-9:m.path.pop(0)
