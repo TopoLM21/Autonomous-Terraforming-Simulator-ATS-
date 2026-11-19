@@ -34,10 +34,18 @@ def _check_new_fleet_policy(host):
         assert dialog.config_value().dump_order=='far_to_near'
         assert not dialog.live_dump_order.isEnabled()
         assert not dialog.plan_apply_button.isEnabled()
+        assert not dialog.live_tolerance.isEnabled()
+        assert dialog.setup_tolerance.value() == 25.
+        dialog.setup_tolerance.setValue(20)
+        assert dialog.config_value().cut_tolerance_m == .2
         assert 'Конечный профиль' in dialog.plan_summary.text()
         dialog.controls['dump_order'].setCurrentIndex(dialog.controls['dump_order'].findData('nearest'))
         assert dialog.config_value().dump_order=='nearest'
         assert host.sim.conventional is None and host.sim.time==0.
+        dialog.create_button.click()
+        assert host.sim.conventional is not None, dialog.message.text()
+        assert host.sim.conventional.config.cut_tolerance_m == .20
+        assert dialog.live_tolerance.value() == 20. and not dialog.apply_tolerance_button.isEnabled()
     finally:dialog.close();dialog.deleteLater()
 
 
@@ -56,6 +64,8 @@ def _check_live_order(host,tmp_path):
         assert 'полос съезда' in dialog.plan_summary.text()
         assert 'точек' in dialog.plan_summary.text()
         assert 'от дальнего края' in dialog.plan_summary.text()
+        assert 'Фактический остаток' in dialog.plan_summary.text()
+        assert 'сверх допуска' in dialog.plan_summary.text()
         assert not dialog.plan_apply_button.isEnabled()
         dialog.live_dump_order.setCurrentIndex(dialog.live_dump_order.findData('nearest'))
         dialog.refresh()
@@ -66,6 +76,17 @@ def _check_live_order(host,tmp_path):
         assert 'Текущие маршруты, грузы' in dialog.message.text()
         assert (truck.state,truck.cargo_kg,truck.target,host.sim.time)==(before[0],before[1],before[3],before[4])
         np.testing.assert_array_equal(truck.path[0],before[2])
+        dialog.live_tolerance.setValue(30)
+        dialog.refresh()
+        assert fleet.config.cut_tolerance_m == .25 and dialog.apply_tolerance_button.isEnabled()
+        assert dialog.live_tolerance.value() == 30.
+        ground = host.sim.terrain.height.copy()
+        dialog.apply_tolerance_button.click()
+        assert fleet.config.cut_tolerance_m == .30
+        assert not dialog.apply_tolerance_button.isEnabled()
+        np.testing.assert_array_equal(host.sim.terrain.height, ground)
+        assert (truck.state, truck.cargo_kg, truck.target, host.sim.time) == (before[0], before[1], before[3], before[4])
+        np.testing.assert_array_equal(truck.path[0], before[2])
         # Use an unloaded valid fleet for snapshot validation; UI must restore
         # the saved policy rather than its new-fleet default.
         truck.state='PARKED';truck.cargo_kg=0.;truck.path=[];truck.target=None
@@ -75,6 +96,19 @@ def _check_live_order(host,tmp_path):
         assert dialog.live_dump_order.currentData()=='nearest'
         assert dialog.controls['dump_order'].currentData()=='nearest'
         assert not dialog.plan_apply_button.isEnabled()
+        assert dialog.live_tolerance.value() == 30. and not dialog.apply_tolerance_button.isEnabled()
+
+        # Open an actual v23 mission created before the tolerance setting existed.
+        legacy = Path(__file__).parent / 'fixtures' / 'conventional-v23' / 'churn.atsstate'
+        host.sim = load_state(legacy).simulation
+        dialog.refresh()
+        old_fleet = host.sim.conventional
+        assert old_fleet.config.cut_tolerance_m == .25 and dialog.live_tolerance.value() == 25.
+        assert not dialog.apply_tolerance_button.isEnabled()
+        clock = host.sim.time
+        dialog.live_tolerance.setValue(0)
+        dialog.apply_tolerance_button.click()
+        assert old_fleet.config.cut_tolerance_m == 0. and host.sim.time == clock
     finally:dialog.close();dialog.deleteLater()
 
 

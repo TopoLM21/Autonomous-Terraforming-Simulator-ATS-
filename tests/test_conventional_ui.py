@@ -130,7 +130,10 @@ def test_released_patch_updates_the_open_dialog_without_another_purchase():
         capital=fleet.report()['capital_cost_usd'];clock=project.time
         # Presentation fixture only: natural handoff is covered by core tests.
         # Keep the same fleet and mask objects to catch stale widget caches.
-        fleet._work_complete=True
+        terrain=project.shared_site.core
+        terrain.target[fleet.work_mask]=terrain.height[fleet.work_mask]
+        terrain.revision+=1
+        assert not fleet._choose_excavator_site(fleet.excavator)
         assert fleet.ground_stage_drained
         project.shared_site.core._conventional_mask.fill(False)
         dialog.refresh()

@@ -39,6 +39,8 @@ class ConventionalWindow(QtWidgets.QDialog):
                 widget=self._spin(.5,30.,value);row.addWidget(widget);widgets.append(widget)
             self.dimension_controls[key]=widgets;machines.addRow(label,row)
         self._real(machines,'ramp_width_m','Ширина грунтового съезда, м',2.,100.)
+        self.setup_tolerance = self._tolerance_control()
+        machines.addRow('Допуск по высоте выемки', self.setup_tolerance)
         dump_order=QtWidgets.QComboBox()
         for label,value in DUMP_ORDERS:dump_order.addItem(label,value)
         dump_order.setCurrentIndex(dump_order.findData(self.defaults.dump_order))
@@ -93,7 +95,11 @@ class ConventionalWindow(QtWidgets.QDialog):
         self.summary=QtWidgets.QLabel('Обычная техника ещё не создана.');self.summary.setWordWrap(True);live_layout.addWidget(self.summary)
         plan_group=QtWidgets.QGroupBox('План работ');plan_layout=QtWidgets.QVBoxLayout(plan_group)
         self.plan_summary=QtWidgets.QLabel();self.plan_summary.setWordWrap(True);plan_layout.addWidget(self.plan_summary)
-        self.plan_summary.setToolTip('Рабочая полка — место для гусениц, откуда ковш достаёт до выемки и есть путь обратно. Экскаватор вынимает грунт до профиля съезда и оставляет дорогу с боковыми откосами для выезда.')
+        self.plan_summary.setToolTip(
+            'Фактический остаток включает грунт в пределах допуска. В ячейках сверх допуска указан весь '
+            'объём до рабочей поверхности. Рабочая полка — место для гусениц, откуда ковш достаёт до '
+            'выемки и есть путь обратно. Для выезда экскаватор оставляет съезд с боковыми откосами.'
+        )
         plan_actions=QtWidgets.QHBoxLayout();self.live_dump_order=QtWidgets.QComboBox()
         for label,value in DUMP_ORDERS:self.live_dump_order.addItem(label,value)
         self.live_dump_order.setToolTip(dump_order.toolTip());plan_actions.addWidget(self.live_dump_order,1)
@@ -101,6 +107,16 @@ class ConventionalWindow(QtWidgets.QDialog):
         self.plan_apply_button.clicked.connect(self.apply_dump_order);plan_actions.addWidget(self.plan_apply_button)
         self.live_dump_order.currentIndexChanged.connect(self.update_plan_button)
         plan_layout.addLayout(plan_actions);live_layout.addWidget(plan_group)
+        tolerance_actions = QtWidgets.QHBoxLayout()
+        self.live_tolerance = self._tolerance_control()
+        self.apply_tolerance_button = QtWidgets.QPushButton('Применить допуск')
+        tolerance_actions.addWidget(QtWidgets.QLabel('Допуск по высоте выемки'))
+        tolerance_actions.addWidget(self.live_tolerance)
+        tolerance_actions.addWidget(self.apply_tolerance_button)
+        tolerance_actions.addStretch()
+        plan_layout.addLayout(tolerance_actions)
+        self.live_tolerance.valueChanged.connect(self.update_plan_button)
+        self.apply_tolerance_button.clicked.connect(self.apply_cut_tolerance)
         self.table=QtWidgets.QTableWidget(0,8)
         self.table.setHorizontalHeaderLabels(['Машина','Тип','Состояние','Бак, л','Грунт, кг','X / Y, м','Д × Ш × В, м','Причина ожидания'])
         self.table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -153,11 +169,19 @@ class ConventionalWindow(QtWidgets.QDialog):
     def _integer(self,form,key,label,lo,hi):
         widget=QtWidgets.QSpinBox();widget.setRange(lo,hi);widget.setValue(getattr(self.defaults,key));self.controls[key]=widget;form.addRow(label,widget)
 
+    def _tolerance_control(self):
+        widget = self._spin(0., 30., self.defaults.cut_tolerance_m * 100, decimals=2)
+        widget.setSuffix(' см')
+        widget.setSpecialValueText('0 см · точно')
+        widget.setToolTip('Экскаватор может оставить слой грунта этой толщины над проектной поверхностью. Для проезда съезд может потребовать более точной выемки. При 0 см экскаватор стремится к проектной отметке.')
+        return widget
+
     def config_value(self):
         from dataclasses import replace
         values={key:(widget.currentData() if isinstance(widget,QtWidgets.QComboBox) else widget.value()) for key,widget in self.controls.items()}
         values['work_rect']=tuple(widget.value() for widget in self.rect)
         values['auto_work_area']=self.auto_area.isChecked()
+        values['cut_tolerance_m'] = self.setup_tolerance.value() / 100
         for key,widgets in self.dimension_controls.items():values[key]=tuple(widget.value() for widget in widgets)
         return replace(self.defaults,**values)
 
@@ -258,6 +282,22 @@ class ConventionalWindow(QtWidgets.QDialog):
     def update_plan_button(self,*_):
         fleet=self.fleet()
         self.plan_apply_button.setEnabled(fleet is not None and self.live_dump_order.currentData()!=fleet.config.dump_order)
+        self.apply_tolerance_button.setEnabled(
+            fleet is not None and self.live_tolerance.value() != round(fleet.config.cut_tolerance_m * 100, 2)
+        )
+
+    def apply_cut_tolerance(self):
+        fleet = self.fleet()
+        if fleet is None:
+            return
+        try:
+            fleet.set_cut_tolerance(self.live_tolerance.value() / 100)
+        except ValueError as error:
+            self.message.setText(str(error))
+            return
+        self.setup_tolerance.setValue(fleet.config.cut_tolerance_m * 100)
+        self.message.setText(f'Допуск экскаватора изменён на {self.live_tolerance.value():g} см.')
+        self._notify_host()
 
     def apply_dump_order(self):
         fleet=self.fleet()
@@ -273,6 +313,7 @@ class ConventionalWindow(QtWidgets.QDialog):
         self.expand_button.setEnabled(getattr(self.host,'landscape',None) is not None)
         self.create_button.setEnabled(not active);self.pause_button.setEnabled(active);self.replenish_button.setEnabled(active)
         self.live_dump_order.setEnabled(active);self.update_plan_button()
+        self.live_tolerance.setEnabled(active)
         for page in self.setup_pages:page.setEnabled(not active)
         if self._simulation is not self.host.sim:
             self._simulation=self.host.sim
@@ -293,7 +334,8 @@ class ConventionalWindow(QtWidgets.QDialog):
         order=next(label for label,value in DUMP_ORDERS if value==plan['policy'])
         r=fleet.report()
         self.plan_summary.setText(
-            f"Осталось вынуть {_number(r['remaining_work_m3'],3)} м³. Для выезда оставлено "
+            f"Фактический остаток выемки {_number(r['remaining_work_m3'],3)} м³. "
+            f"В ячейках сверх допуска {_number(r['remaining_actionable_m3'],3)} м³. Для выезда оставлено "
             f"{_number(r['ramp']['remaining_m3'],3)} м³ грунта в теле съезда и его откосах.\n"
             f"Выемка охватывает {plan['work_cells']} ячеек и {plan['access_sections']} полос съезда. "
             f"Отвал включает {plan['dump_candidates']} точек, {order.lower()}.")
@@ -306,6 +348,9 @@ class ConventionalWindow(QtWidgets.QDialog):
         self.live_dump_order.blockSignals(True)
         self.live_dump_order.setCurrentIndex(self.live_dump_order.findData(config.dump_order))
         self.live_dump_order.blockSignals(False)
+        tolerance_cm = config.cut_tolerance_m * 100
+        self.setup_tolerance.setValue(tolerance_cm)
+        self.live_tolerance.setValue(tolerance_cm)
         self.controls['shift_span_hours'].setMaximum(8 if config.shifts_per_day==3 else 9)
         for key in ('base_x','base_y'):self.controls[key].setMaximum(extent)
         for widget in self.rect:widget.setMaximum(extent)

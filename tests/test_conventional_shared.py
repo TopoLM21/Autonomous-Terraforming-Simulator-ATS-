@@ -198,7 +198,7 @@ def test_completed_ground_stage_hands_ramp_and_buffer_back_to_aircraft_naturally
                        PlanSegment([[48.,43.],[48.5,43.]],width=1.,height=-.1),
                        PlanSegment([[65.,60.],[90.,60.]],width=2.,height=-.25)])
     p=ComplexProject(Simulation(c));template=ComplexTemplate.capture(c);p.add_shared(template,position=(100.,20.))
-    f=p.units[0].simulation.install_conventional(ConventionalConfig(base_x=12.,base_y=100.,work_rect=(40.,40.,6.,6.),truck_count=1,refuel_l_min=3000.))
+    f=p.units[0].simulation.install_conventional(ConventionalConfig(base_x=12.,base_y=100.,work_rect=(40.,40.,6.,6.),truck_count=1,refuel_l_min=3000.,cut_tolerance_m=0.))
     reserved=p.shared_site.core._conventional_mask.copy();released=False;cleanup_flight=False
     # Bounded local tipping and a physically checked return can take one more
     # small haul than the former expanding dump. Keep all handoff conditions.
@@ -224,7 +224,10 @@ def test_pause_or_loaded_cargo_cannot_release_the_ground_allocation():
     f.set_enabled(False)
     assert not f.ground_stage_drained and not site.release_conventional_stage()
     np.testing.assert_array_equal(before,site.core._conventional_mask)
-    f._work_complete=True;f.machines[0].state='DRIVING';f.machines[0].path=[tuple(f.machines[0].home[:2])]
+    site.core.target[f.work_mask]=site.core.height[f.work_mask]-.02
+    site.core.revision+=1
+    assert not f._choose_excavator_site(f.excavator) and f._work_complete
+    f.machines[0].state='DRIVING';f.machines[0].path=[tuple(f.machines[0].home[:2])]
     assert not f.ground_stage_drained and not site.release_conventional_stage()
     np.testing.assert_array_equal(before,site.core._conventional_mask)
     f.machines[0].state='PARKED';f.machines[0].path=[]

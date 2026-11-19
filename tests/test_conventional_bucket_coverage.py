@@ -7,8 +7,8 @@ from ats.simulation import Simulation
 from tests.test_conventional_workspace import workspace_config
 
 
-@pytest.mark.parametrize('remaining_depth', [.2, .0001])
-def test_reachable_bite_after_the_first_128_depth_limited_centres(remaining_depth):
+@pytest.mark.parametrize(('remaining_depth','leading_depth'), [(.2,0.), (.0001,0.), (.2,.03)])
+def test_reachable_bite_after_the_first_128_depth_limited_centres(remaining_depth,leading_depth):
     config = workspace_config()
     config.terrain.floor = -10.
     config.local_reference = True
@@ -21,6 +21,7 @@ def test_reachable_bite_after_the_first_128_depth_limited_centres(remaining_dept
     config.initial_height = np.where(channel & ~tracks, -.2, 0.)
     bite = (x == 61.25) & (y == 60.25)
     config.initial_height[bite] += remaining_depth
+    config.initial_height[(x == 49.25) & (y == 60.25)] += leading_depth
     sim = Simulation.conventional_only(config)
     fleet = sim.install_conventional(ConventionalConfig(
         base_x=12., base_y=12., work_rect=(22., 42., 76., 36.), excavator_dig_depth_m=.2))
@@ -28,8 +29,8 @@ def test_reachable_bite_after_the_first_128_depth_limited_centres(remaining_dept
     excavator.position[:] = (56., 60., 0.)
     assert fleet.passable(excavator.position, excavator.radius, excavator)
     ids, _ = fleet._target_indices(excavator, focus_access=False)
-    # All of these unfinished western centres sort ahead of the only reachable
-    # soil; their entire bucket footprints are already at the depth limit.
+    # These western centres sort first. They are depth-limited; one case
+    # leaves an actual 12 kg slice here, with a larger scoop farther east.
     assert np.count_nonzero((x.ravel()[ids] < 59.) & (np.abs(y.ravel()[ids]-60.) <= 4.5)) > 128
     target = fleet._available_target(excavator, focus_access=False)
     assert target is not None

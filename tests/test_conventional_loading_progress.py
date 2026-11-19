@@ -91,7 +91,10 @@ def test_partial_truck_can_follow_a_real_excavator_relocation():
 def test_full_or_final_load_leaves_without_waiting_for_idle_timeout(ending):
     changes={'truck_body_m3':.02} if ending=='full' else {}
     s,f,e,truck=waiting_load(**changes);cargo=truck.cargo_kg
-    if ending=='complete':f._work_complete=True
+    if ending=='complete':
+        s.terrain.target[f.work_mask]=s.terrain.height[f.work_mask]
+        s.terrain.revision+=1
+        assert not f._choose_excavator_site(e) and f._work_complete
     s.step()
     assert truck.state=='DRIVING' and truck.after_drive=='UNLOADING'
     assert truck.cargo_kg==cargo

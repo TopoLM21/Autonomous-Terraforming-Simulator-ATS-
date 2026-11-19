@@ -89,10 +89,11 @@ class SharedSite:
 
     def release_conventional_stage(self):
         fleets=self.conventional_fleets();reserved=getattr(self.core,'_conventional_mask',None)
-        if not fleets or reserved is None or not np.any(reserved) or not fleets[0].ground_stage_drained:return False
+        if not fleets or reserved is None or fleets[0]._ground_released() or not fleets[0].ground_stage_drained:return False
         # Safe point between world steps: cargo is delivered and every machine
         # is physically parked. The retained ramp/buffer becomes aircraft work.
         self.core._conventional_mask=np.zeros(self.core.height.shape,dtype=bool)
+        fleets[0]._ground_stage_released=True
         self.partition()
         fleets[0].reason='Захватка передана дронам для завершения рампы и защитной полосы'
         fleets[0].sim.event('Обычная техника вернулась на базу; рампа и защитная полоса переданы дронам')

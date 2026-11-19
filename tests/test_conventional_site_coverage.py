@@ -25,7 +25,9 @@ def off_axis_work(*,closed=False,side_work=False):
         height.ravel()[ix]=.4
     config.initial_height=height;config.reference_height=height.copy();config.local_reference=True
     sim=Simulation.conventional_only(config)
-    crew=ConventionalConfig(base_x=12.,base_y=12.,work_rect=(35.,30.,60.,40.))
+    # This reachability fixture requires the shallow perimeter of its
+    # single-cell cut as well as the central 0.075 m³.
+    crew=ConventionalConfig(base_x=12.,base_y=12.,work_rect=(35.,30.,60.,40.),cut_tolerance_m=0.)
     if side_work:
         crew.ramp_entry_m=(35.,44.25);crew.ramp_end_m=(95.,44.25)
     fleet=ConventionalFleet(sim,crew)

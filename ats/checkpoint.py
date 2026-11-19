@@ -411,6 +411,8 @@ def load_state(path):
                 if isinstance(value,TerrainConfig) and 'cut_policy' not in vars(value):value.cut_policy='profile'
                 if isinstance(value,FleetConfig) and 'airspace_mode' not in vars(value):value.airspace_mode='per_drone'
                 if isinstance(value,ConventionalConfig) and 'dump_order' not in vars(value):value.dump_order='nearest'
+                if isinstance(value,ConventionalConfig) and 'cut_tolerance_m' not in vars(value):
+                    value.cut_tolerance_m=ConventionalConfig.cut_tolerance_m
                 if isinstance(value,LogisticsConfig) and 'solar' not in vars(value):value.solar=None
                 if isinstance(value,LogisticsConfig) and 'battery_platforms' not in vars(value):value.battery_platforms=None
                 if isinstance(value,LogisticsConfig) and 'self_solar' not in vars(value):value.self_solar=None

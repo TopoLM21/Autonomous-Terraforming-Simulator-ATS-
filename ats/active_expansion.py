@@ -281,7 +281,8 @@ def enlarge(site,side_m,*,origin_m=None,preserve_resolution=False):
         fleet.config=proposed.config;fleet.base_position=proposed.base_position;fleet.ramp=proposed.ramp
         # Keep machine identities that UI/debug callers may already reference.
         for original,m in zip(fleet.machines,proposed.machines):original.__dict__.update(m.__dict__)
-        for key in ('terrain','work_mask','mask','ramp_surface','ramp_mask','access_mask','_marine','_marine_stamp'):
+        for key in ('terrain','work_mask','mask','ramp_surface','ramp_mask','access_mask','_marine','_marine_stamp',
+                    '_ground_stage_released','_completed_revision'):
             if hasattr(proposed,key):setattr(fleet,key,getattr(proposed,key))
     site.core=replacement;site.owners=ownership;site._mass_revision=-1
     replacement.config=p.units[0].simulation.config;replacement._site_owner=p.units[0].simulation

@@ -67,6 +67,7 @@ class ConventionalConfig:
     ramp_end_m: tuple | None = None
     route_step_m: float = 2.
     max_route_nodes: int = 1200
+    cut_tolerance_m: float = .25
 
     def validate(self):
         numbers=[v for k,v in vars(self).items() if isinstance(v,(float,int)) and not isinstance(v,bool)]
@@ -90,6 +91,8 @@ class ConventionalConfig:
             if getattr(self,name)<=0:raise ValueError('Параметр должен быть положительным: '+name)
         if type(self.auto_work_area) is not bool:raise ValueError('Автоматическое назначение участка должно быть включено или выключено')
         if self.dump_order not in ('far_to_near','nearest'):raise ValueError('Неизвестный порядок заполнения отвала')
+        if not isinstance(self.cut_tolerance_m,(int,float)) or not 0<=self.cut_tolerance_m<=.30:
+            raise ValueError('Допуск выемки по высоте должен быть от 0 до 30 см')
         if (self.ramp_entry_m is None)!=(self.ramp_end_m is None):raise ValueError('Задайте оба конца съезда')
         if self.ramp_entry_m is not None:
             if any(len(p)!=2 or any(not math.isfinite(v) for v in p) for p in (self.ramp_entry_m,self.ramp_end_m)):
@@ -591,6 +594,22 @@ class ConventionalFleet:
         floor=np.where(self.ramp_mask.ravel()[ids],np.maximum(t.target.ravel()[ids],self.ramp_surface.ravel()[ids]),t.target.ravel()[ids])
         return np.where(t.dig_mask.ravel()[ids],np.maximum(t.height.ravel()[ids]-floor,0.),0.)
 
+    def _road_tolerance(self):
+        return min(.12,max(.03,.2*self.terrain.cell))
+
+    def _cut_threshold(self,on_access):
+        """Vertical acceptance above the final cut or retained ramp surface."""
+        tolerance=self.config.cut_tolerance_m
+        if tolerance==0:return 1e-6
+        road_tolerance=self._road_tolerance()
+        if tolerance<=road_tolerance:return tolerance+1e-9
+        return np.where(on_access,road_tolerance,tolerance)+1e-9
+
+    def _actionable_work(self,remaining):
+        ids=self._work_plan()['ids']
+        on_access=getattr(self,'access_mask',self.ramp_mask).ravel()[ids]
+        return remaining>self._cut_threshold(on_access)
+
     def _dump_plan(self):
         from .conventional_plan import dump_geometry
         t=self.terrain;key=(id(t),id(t._dump_indices),tuple(self.base_position[:2]))
@@ -818,8 +837,7 @@ class ConventionalFleet:
         """Pose-independent road cells and first station for one planning pass."""
         access=getattr(self,'access_mask',None)
         if access is not None:
-            tolerance=min(.12,max(.03,.2*self.terrain.cell))
-            pending=np.flatnonzero(access.ravel()[plan['ids']] & (remaining>tolerance))
+            pending=np.flatnonzero(access.ravel()[plan['ids']] & (remaining>self._road_tolerance()+1e-9))
             if len(pending):
                 along=plan['along'][pending]
                 first=float(along.min())
@@ -835,7 +853,7 @@ class ConventionalFleet:
         elif remaining.shape==t.height.shape:remaining=remaining.ravel()[work_ids]
         ids=eligible_ids
         if ids is None:
-            ids=work_ids[remaining>1e-6]
+            ids=work_ids[self._actionable_work(remaining)]
             if focus_access:ids,_=self._road_band(e,plan,remaining,ids)
         if not len(ids):return ids,remaining
         distance=(t.x.ravel()[ids]-e.position[0])**2+(t.y.ravel()[ids]-e.position[1])**2
@@ -923,6 +941,10 @@ class ConventionalFleet:
         # remaining cells in reach before declaring the stance exhausted.
         limit=min(128,len(ids))
         minimum=min(.005,self.config.bucket_m3*.005,max(1e-12,float(remaining.sum()*t.area)*.001))
+        if self.config.cut_tolerance_m>0:
+            # A support-limited slice can be millimetres deep even on a cell
+            # far above grade. Prefer a productive scoop elsewhere in reach.
+            minimum=max(minimum,.15*self.config.bucket_m3)
         if volume[:limit].max()<=minimum+1e-10:
             limit=len(ids)
         volume=volume[:limit]
@@ -935,9 +957,12 @@ class ConventionalFleet:
     def _bucket_geometry(self,e,patch):
         """One effective floor/support law for selection and actual extraction."""
         t=self.terrain;c=self.config
-        floor=np.maximum(t.target[patch],e.position[2]-c.excavator_dig_depth_m)
-        floor=np.where(self.ramp_mask[patch],np.maximum(floor,self.ramp_surface[patch]),floor)
+        grade=np.where(self.ramp_mask[patch],np.maximum(t.target[patch],self.ramp_surface[patch]),t.target[patch])
+        floor=np.maximum(grade,e.position[2]-c.excavator_dig_depth_m)
         allowed=(self.work_mask[patch]&t.dig_mask[patch]).copy()
+        if c.cut_tolerance_m>0:
+            access=getattr(self,'access_mask',self.ramp_mask)
+            allowed&=(t.height[patch]-grade)>self._cut_threshold(access[patch])
         for machine in self.machines:
             distance=np.hypot(t.x[patch]-machine.position[0],t.y[patch]-machine.position[1])
             floor=np.maximum(floor,machine.position[2]-t.dump_slope*np.maximum(distance-machine.radius-.5,0.))
@@ -949,7 +974,7 @@ class ConventionalFleet:
         access=getattr(self,'access_mask',None)
         if access is None:return None
         t=self.terrain;plan=self._work_plan();remaining=self._work_remaining()
-        positions=np.flatnonzero(access.ravel()[plan['ids']]&(remaining>min(.12,max(.03,.2*t.cell))))
+        positions=np.flatnonzero(access.ravel()[plan['ids']]&(remaining>self._road_tolerance()+1e-9))
         ids=plan['ids'][positions]
         if not len(ids):return None
         along=plan['along'][positions]
@@ -966,10 +991,13 @@ class ConventionalFleet:
             e.target=target;e.state='WAIT_TRUCK';e.reason='';self.reason=''
             e.site_search_cursor=0;e.site_search_stage=0
             return True
-        t=self.terrain;plan=self._work_plan();remaining=self._work_remaining();ids=plan['ids'][remaining>1e-6]
+        t=self.terrain;plan=self._work_plan();remaining=self._work_remaining()
+        actionable=self._actionable_work(remaining);ids=plan['ids'][actionable]
         if not len(ids):
             if productive_only:return False
-            self._work_complete=True;self.reason='Захватка обработана; выездная рампа остаётся в проектной выемке';return False
+            self._work_complete=True;self._completed_revision=t.revision
+            self.reason='Захватка обработана в пределах допуска; выездная рампа сохранена'
+            return False
         routes_started=self.route_calculations
         current_escape=self._home_route(e,validate=True)
         if current_escape is None and not productive_only:
@@ -1146,7 +1174,7 @@ class ConventionalFleet:
             message='Рабочая позиция не найдена: с проверенных опор ковш не достаёт до доступного грунта'
         else:
             message='Рабочая позиция не найдена: до проверенных мест не найден безопасный подъезд с возвратом'
-        self.reason=dispatch_wait or f'{message}. С учётом съезда осталось вынуть {float(remaining.sum()*t.area):.3f} м³'
+        self.reason=dispatch_wait or f'{message}. С учётом съезда и допуска осталось вынуть {float(remaining[actionable].sum()*t.area):.3f} м³'
         e.reason=self.reason;return False
 
     def _loading_point(self,truck,*,clear_exit=False,excavator_escape=None):
@@ -1373,9 +1401,49 @@ class ConventionalFleet:
         e.target=target
         return mass>1e-9
 
+    def _ground_released(self,offset=(0.,0.)):
+        if getattr(self,'_ground_stage_released',False):
+            return True
+        # Older checkpoints record the handoff in the shared terrain mask.
+        # It covers the entire rectangle or none of it. Sample one interior cell.
+        mask=getattr(self.terrain,'_conventional_mask',None)
+        if mask is None or self.sim.shared_site is None:
+            return False
+        x,y,w,h=self.config.work_rect
+        row=int((y+h/2-offset[1])/self.terrain.cell);col=int((x+w/2-offset[0])/self.terrain.cell)
+        return not bool(mask[row,col])
+
+    def _recheck_finished_work(self):
+        if not self._work_complete or getattr(self,'_completed_revision',None)==self.terrain.revision:
+            return
+        if self._ground_released() or self.carried_mass_kg>1e-8:
+            return
+        # A late avalanche can refill an accepted cell. Finish the committed
+        # haul before reopening, and leave any machine already en route alone.
+        self._completed_revision=self.terrain.revision
+        if np.any(self._actionable_work(self._work_remaining())):
+            self._work_complete=False
+            self.reason='На захватке снова есть грунт выше допуска'
+            self.excavator.next_plan_at=0.
+
+    def set_cut_tolerance(self,value):
+        from dataclasses import replace
+        replace(self.config,cut_tolerance_m=value).validate()
+        if value==self.config.cut_tolerance_m:
+            return
+        if self._ground_released():
+            raise ValueError('Наземный этап завершён: участок уже передан дронам')
+        self.config.cut_tolerance_m=value
+        self._completed_revision=None
+        self._recheck_finished_work()
+        self.excavator.site_search_cursor=0;self.excavator.site_search_stage=0
+        if self.excavator.state!='DRIVING':
+            self.excavator.next_plan_at=0.
+
     @property
     def ground_stage_drained(self):
         """A parked finished crew can hand its ramp/buffer to the aircraft."""
+        self._recheck_finished_work()
         return bool(self._work_complete and self.carried_mass_kg<=1e-8 and
                     all(m.state in ('PARKED','REFUELING','WAIT_FUEL') and not m.path and
                         np.linalg.norm(m.position[:2]-m.home[:2])<.1 for m in self.machines))
@@ -1391,6 +1459,8 @@ class ConventionalFleet:
         delta=end-entry;length=float(np.linalg.norm(delta));unit=delta/length
         old_along=(old.x[0,0]+offset[0]-entry[0])*unit[0]+(old.y[0,0]+offset[1]-entry[1])*unit[1]
         entry_height=self.ramp.get('entry_height_m',float(old_surface[0,0]+np.clip(old_along,0,length)*self.config.ramp_gradient))
+        self._ground_stage_released=self._ground_released(offset)
+        self._completed_revision=None
         self.terrain=terrain;x,y,w,h=self.config.work_rect
         self.work_mask=(terrain.x>=x)&(terrain.x<x+w)&(terrain.y>=y)&(terrain.y<y+h);self.mask=self.work_mask
         along=(terrain.x-entry[0])*unit[0]+(terrain.y-entry[1])*unit[1]
@@ -1447,6 +1517,7 @@ class ConventionalFleet:
     def step(self):
         """Called exactly once per world second, also while autonomous fleet idle."""
         if self._last_time==self.sim.time:return
+        self._recheck_finished_work()
         self._last_time=self.sim.time;c=self.config;shift=self.shift()
         wage=(c.excavator_count*c.excavator_wage_egp_month+c.truck_count*c.driver_wage_egp_month)*c.shifts_per_day
         self.payroll_usd+=wage/(30*86400*c.egp_per_usd)
@@ -1571,6 +1642,11 @@ class ConventionalFleet:
                 truck=next((v for v in self.machines if v.kind=='truck' and v.state=='WAIT_LOAD' and
                             np.linalg.norm(v.position[:2]-m.position[:2])<=self._loading_distance(v)+.5),None)
                 if truck is None:m.state='WAIT_TRUCK';m.waiting_seconds+=1;continue
+                if c.cut_tolerance_m>0 and m.timer==0 and self.target_yield(m,m.target)<=1e-12:
+                    # A previous bite or intervening slump can finish this
+                    # footprint. Replan before spending another bucket cycle.
+                    m.target=self._available_target(m)
+                    if m.target is None:continue
                 if not self._burn(m,True):continue
                 m.state='DIGGING';m.working_seconds+=1;m.timer+=1
                 factor=1.
@@ -1661,6 +1737,7 @@ class ConventionalFleet:
         retained=np.where(self.ramp_mask.ravel()[ids]&t.dig_mask.ravel()[ids],
             np.maximum(np.minimum(t.height.ravel()[ids],self.ramp_surface.ravel()[ids])-t.target.ravel()[ids],0.),0.)
         ramp={**self.ramp,'remaining_m3':float(retained.sum()*t.area)}
+        remaining=self._work_remaining()
         return dict(enabled=self.enabled,reason=self.reason,work_rect=list(c.work_rect),base_position_m=self.base_position.tolist(),
             excavated_m3=self.excavated_m3,excavated_mass_kg=self.excavated_mass_kg,delivered_m3=self.delivered_m3,
             carried_mass_kg=self.carried_mass_kg,capital_cost_usd=capital,operating_cost_usd=operating,total_cost_usd=capital+operating,
@@ -1673,7 +1750,8 @@ class ConventionalFleet:
             fuel_balance_error_l=c.fuel_stock_l+self.fuel_imported_l-self.fuel_stock_l-self.fuel_used_l-sum(m.fuel_l for m in self.machines),
             water_balance_error_l=c.water_stock_l+self.water_imported_l-self.water_stock_l-self.water_used_l,
             food_balance_error_units=c.food_stock_units+self.food_imported_units-self.food_stock_units-self.food_used_units,
-            diesel_energy_consumed_mj=self.fuel_used_l*35.8,shift=self.shift(),ramp=ramp,remaining_work_m3=float(self._work_remaining().sum()*t.area),
+            diesel_energy_consumed_mj=self.fuel_used_l*35.8,shift=self.shift(),ramp=ramp,remaining_work_m3=float(remaining.sum()*t.area),
+            cut_tolerance_m=c.cut_tolerance_m,remaining_actionable_m3=float(remaining[self._actionable_work(remaining)].sum()*t.area),
             refuel_slots=c.refuel_slots,route_calculations=self.route_calculations,crew_count=c.shifts_per_day*(c.excavator_count+c.truck_count),
             machines=[dict(id=m.id,kind=m.kind,state=m.state,reason=m.reason,position_m=m.position.tolist(),dimensions_m=list(m.dimensions_m),footprint_radius_m=m.radius,fuel_l=m.fuel_l,
                            heading_rad=m.heading_rad,cargo_kg=m.cargo_kg,excavated_m3=m.excavated_m3,delivered_m3=m.delivered_m3,path_m=[list(p) for p in m.path],

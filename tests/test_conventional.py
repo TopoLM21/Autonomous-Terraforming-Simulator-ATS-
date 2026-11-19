@@ -204,9 +204,11 @@ def test_finishing_the_cut_still_unloads_remaining_cargo_and_returns_home():
         s.step()
         if f.carried_mass_kg>100:break
     assert f.carried_mass_kg>0
-    # This isolates completion after a finite final bucket, preserving the real
-    # cargo and unmodified terrain instead of fabricating extra soil.
-    f._work_complete=True
+    # Close the work order at the current surface while a real load is still
+    # aboard. Revising the target changes no height, cargo or mass ledger.
+    s.terrain.target[f.work_mask]=s.terrain.height[f.work_mask]
+    s.terrain.revision+=1
+    assert not f._choose_excavator_site(f.excavator) and f._work_complete
     for _ in range(900):
         s.step()
         if f.carried_mass_kg==0 and all(np.linalg.norm(m.position[:2]-m.home[:2])<.1 for m in f.machines):break
@@ -219,7 +221,7 @@ def test_a_real_small_patch_finishes_unloads_and_parks_without_forcing_completio
     from ats.plan import PlanConfig,PlanSegment
     c=workspace_config();c.plan=PlanConfig([PlanSegment([[42.,43.],[44.,43.]],width=2.,height=-.05)])
     s=Simulation.conventional_only(c)
-    f=ConventionalFleet(s,ConventionalConfig(base_x=12.,base_y=12.,work_rect=(40.,40.,6.,6.),truck_count=1,refuel_l_min=3000.))
+    f=ConventionalFleet(s,ConventionalConfig(base_x=12.,base_y=12.,work_rect=(40.,40.,6.,6.),truck_count=1,refuel_l_min=3000.,cut_tolerance_m=0.))
     s.conventional=f
     for _ in range(2000):
         s.step()
