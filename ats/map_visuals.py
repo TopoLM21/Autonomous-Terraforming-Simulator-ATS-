@@ -54,12 +54,17 @@ def relief_light(sim,enabled):
     return (latitude,day,slot),vector
 
 
-def terrain_rgb(height,cell,depth,maximum,*,reference=None,marine=None,light=None,materials=None):
-    """Sea is connectivity data, never the sign of height in a dry depression."""
-    sea=np.zeros(height.shape,dtype=bool) if marine is None else np.asarray(marine,dtype=bool)
-    land=(height if reference is None else reference)[~sea]
+def land_height_range(reference,sea):
+    land=reference[~sea]
     lo=float(land.min()) if land.size else 0.;hi=float(land.max()) if land.size else 1.
     if hi-lo<1:lo-=.5;hi=lo+1.
+    return lo,hi
+
+
+def terrain_rgb(height,cell,depth,maximum,*,reference=None,marine=None,light=None,materials=None,height_range=None):
+    """Sea is connectivity data, never the sign of height in a dry depression."""
+    sea=np.zeros(height.shape,dtype=bool) if marine is None else np.asarray(marine,dtype=bool)
+    lo,hi=height_range if height_range is not None else land_height_range(height if reference is None else reference,sea)
     if materials is None:
         colors=np.array([[164,148,112],[203,185,141],[232,218,180]])
         rgb=np.stack([np.interp(height,[lo,(lo+hi)/2,hi],colors[:,i]) for i in range(3)],axis=-1)

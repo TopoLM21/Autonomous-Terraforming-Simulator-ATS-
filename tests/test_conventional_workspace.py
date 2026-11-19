@@ -43,6 +43,8 @@ def test_empty_conventional_window_has_no_autonomous_purchase_or_clock_advance()
 def test_conventional_window_renders_physical_machines_and_exact_snapshot(tmp_path):
     from ats.conventional import ConventionalConfig
     from ats.checkpoint import load_state
+    from ats.map_visuals import terrain_rgb
+    from ats.site_ground import marine_mask
     app,w=app_and_window()
     try:
         c=ConventionalConfig(base_x=12.,base_y=12.,work_rect=(35.,40.,60.,20.),truck_count=2)
@@ -63,6 +65,18 @@ def test_conventional_window_renders_physical_machines_and_exact_snapshot(tmp_pa
         assert w.load_session(state) and w.sim.time==30.
         assert not w.running and not w.sim.drones and len(w.machines.points())==3
         assert abs(w.sim.report()['mass_error_kg'])<1e-7
+        # Repaint the saved site after a local cut, then an edit touching the
+        # raster edge. Relief shading at neighbours must match a full render.
+        terrain=w.sim.terrain
+        assert terrain.scoop(45.,50.,50.,source='conventional',radius=.5)>0.
+        for edge in (False,True):
+            if edge:
+                terrain.height[0,:2]+=.15
+                terrain.revision+=1
+            w.refresh()
+            expected=terrain_rgb(terrain.height,terrain.cell,w.config.trench.depth,
+                w.config.terrain.dump_max_height,reference=terrain.reference,marine=marine_mask(terrain))
+            np.testing.assert_array_equal(w.image.image,expected)
     finally:w.close();app.processEvents()
 
 

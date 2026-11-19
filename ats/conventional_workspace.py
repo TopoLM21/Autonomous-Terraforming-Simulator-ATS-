@@ -7,7 +7,7 @@ import pyqtgraph as pg
 from .config import Config
 from .simulation import Simulation,elapsed_text
 from .checkpoint import load_state,save_state
-from .map_visuals import MapWidget,terrain_rgb
+from .map_visuals import MapWidget,land_height_range,terrain_rgb
 from .ui_windows import fit_window
 
 
@@ -132,20 +132,54 @@ class ConventionalWorkWindow(QtWidgets.QMainWindow):
         side=self.sim.terrain.cell*self.sim.terrain.height.shape[0]
         self.map.setRange(xRange=(0,side),yRange=(0,side),padding=.02)
 
+    def _refresh_ground(self,t,force):
+        from .site_ground import marine_mask
+        n=t.height.shape[0];stride=max(1,int(np.ceil(n/768)))
+        height=t.height[::stride,::stride];reference=t.reference[::stride,::stride]
+        marine=marine_mask(t)
+        style=(id(t),id(t.reference),id(marine),id(t.excavation),id(t.fill_mask),
+               height.shape,t.cell,self.config.trench.depth)
+        sea=marine[::stride,::stride]
+        if force or style!=getattr(self,'_ground_style',None):
+            self._ground_style=style
+            self._land_range=land_height_range(reference,sea)
+            self._display_heights=height.copy()
+            rect=QtCore.QRectF(0,0,t.cell*n,t.cell*n)
+            overlay=np.zeros((*height.shape,4),dtype=np.uint8)
+            overlay[t.excavation[::stride,::stride]]=[65,180,250,45]
+            overlay[t.fill_mask[::stride,::stride]]=[112,242,132,45]
+            self.design_overlay.setImage(overlay,autoLevels=False)
+            self.design_overlay.setRect(rect)
+            self._display_rgb=terrain_rgb(height,t.cell*stride,self.config.trench.depth,
+                self.config.terrain.dump_max_height,reference=reference,marine=sea,height_range=self._land_range)
+            self.image.setImage(self._display_rgb,autoLevels=False)
+            self.image.setRect(rect)
+            return
+
+        changed=height!=self._display_heights
+        rows=np.flatnonzero(changed.any(axis=1))
+        if not len(rows):return
+        cols=np.flatnonzero(changed.any(axis=0))
+        # A height edit affects shading one pixel away. One more pixel
+        # supplies exactly the original central differences at that rim.
+        bounds=[]
+        for indices,size in zip((rows,cols),height.shape):
+            lo=max(0,indices[0]-1);hi=min(size,indices[-1]+2)
+            a=max(0,lo-1);b=min(size,hi+1)
+            bounds.append((slice(a,b),slice(lo,hi),slice(lo-a,hi-a)))
+        patch,dest,interior=map(tuple,zip(*bounds))
+        rgb=terrain_rgb(height[patch],t.cell*stride,self.config.trench.depth,
+            self.config.terrain.dump_max_height,reference=reference[patch],marine=sea[patch],
+            height_range=self._land_range)
+        self._display_rgb[dest]=rgb[interior]
+        self._display_heights[dest]=height[dest]
+        self.image.setImage(self._display_rgb,autoLevels=False)
+
     def refresh(self,force=False):
         self._last_refresh=time.perf_counter();t=self.sim.terrain
         key=(id(t),t.revision)
         if force or key!=self._map_revision:
-            from .site_ground import marine_mask
-            n=t.height.shape[0];stride=max(1,int(np.ceil(n/768)))
-            rgb=terrain_rgb(t.height[::stride,::stride],t.cell*stride,self.config.trench.depth,
-                self.config.terrain.dump_max_height,reference=t.reference[::stride,::stride],marine=marine_mask(t)[::stride,::stride])
-            self.image.setImage(rgb,autoLevels=False);self.image.setRect(QtCore.QRectF(0,0,t.cell*n,t.cell*n))
-            overlay=np.zeros((*t.height[::stride,::stride].shape,4),dtype=np.uint8)
-            overlay[t.excavation[::stride,::stride]]=[65,180,250,45]
-            overlay[t.fill_mask[::stride,::stride]]=[112,242,132,45]
-            self.design_overlay.setImage(overlay,autoLevels=False)
-            self.design_overlay.setRect(QtCore.QRectF(0,0,t.cell*n,t.cell*n))
+            self._refresh_ground(t,force)
             self._map_revision=key
         fleet=getattr(self.sim,'conventional',None)
         from .conventional_visuals import refresh_geometry

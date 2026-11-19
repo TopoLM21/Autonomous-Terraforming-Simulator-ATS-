@@ -257,46 +257,90 @@ class ConventionalFleet:
         r=s.base.config.radius
         return [(s.base.position[0]-r,s.base.position[1]-r,2*r,2*r)]
 
+    def _marine_mask(self):
+        t=self.terrain
+        stamp=(id(t),id(t.protected),id(t.reference),id(t.config.plan))
+        if self._marine_stamp!=stamp:
+            from .site_ground import marine_mask
+            self._marine=marine_mask(t);self._marine_stamp=stamp
+        return self._marine
+
+    def _ground_obstacles(self,bounds,radius,machine,ignore_vehicles=False):
+        """Closed rectangle (or point) plus the existing body clearance."""
+        for x,y,width,height in self._other_rectangles(bounds):
+            yield x,y,x+width,y+height,radius+.2
+        if not ignore_vehicles:
+            x,y=self.base_position[:2]
+            yield x-4.,y-4.,x+4.,y+4.,radius+.2
+            for other in self.machines:
+                if other is not machine:
+                    x,y=other.position[:2]
+                    yield x,y,x,y,other.radius+radius+.25
+        from .conventional_integration import simulations_for
+        for owner in simulations_for(self.sim):
+            for drone in owner.drones:
+                if drone.grounded:
+                    x,y=drone.position[:2]
+                    yield x,y,x,y,radius+max(.5,owner.config.fleet.separation/2)
+                if drone.trip is not None:
+                    for point in (drone.trip.dig,drone.trip.dump):
+                        x,y=point[:2]
+                        yield x,y,x,y,radius+max(drone.config.grab_radius or .5,owner.config.fleet.separation)
+            for robot in (owner.logistics.excavators if owner.logistics else ()):
+                x,y=robot.position[:2]
+                yield x,y,x,y,robot.config.support_half_width_m+radius+.3
+
     def passable(self,point,radius,machine=None,*,ignore_vehicles=False):
         t=self.terrain;x,y=map(float,point[:2]);side=t.cell*t.height.shape[0]
         if min(x,y)<radius+t.cell/2 or max(x,y)>side-radius-t.cell/2:return False
         patch=t.patch(x,y,radius+t.cell/2);xx=t.x[patch]-x;yy=t.y[patch]-y
         footprint=xx*xx+yy*yy<=(radius+t.cell*.71)**2
         if not np.any(footprint):return False
-        stamp=(id(t),id(t.protected),id(t.reference),id(t.config.plan))
-        if self._marine_stamp!=stamp:
-            from .site_ground import marine_mask
-            self._marine=marine_mask(t);self._marine_stamp=stamp
-        if np.any(self._marine[patch]&footprint):return False
+        if np.any(self._marine_mask()[patch]&footprint):return False
         heights=t.height[patch];z=t.sample(x,y);distance=np.maximum(np.hypot(xx,yy),t.cell/2)
         # Full circumscribed support footprint, including every contained fine cell.
         if np.any((np.abs(heights-z)>.2*distance+.12)&footprint):return False
         if heights.shape[0]>1 and np.any((np.abs(np.diff(heights,axis=0))>.2*t.cell+.12)&footprint[:-1]&footprint[1:]):return False
         if heights.shape[1]>1 and np.any((np.abs(np.diff(heights,axis=1))>.2*t.cell+.12)&footprint[:,:-1]&footprint[:,1:]):return False
-        for bx,by,w,h in self._other_rectangles((x-radius,y-radius,x+radius,y+radius)):
-            nearest=np.array([np.clip(x,bx,bx+w),np.clip(y,by,by+h)])
-            if np.linalg.norm(nearest-[x,y])<radius+.2:return False
-        if not ignore_vehicles:
-            bx,by=self.base_position[:2]
-            nearest=np.array([np.clip(x,bx-4.,bx+4.),np.clip(y,by-4.,by+4.)])
-            if np.linalg.norm(nearest-[x,y])<radius+.2:return False
-            for other in self.machines:
-                if other is not machine and np.linalg.norm(other.position[:2]-[x,y])<other.radius+radius+.25:return False
-        # Every autonomous unit shares this road network. Inspect actual
-        # grounded aircraft and committed low-altitude work on the whole site.
-        from .conventional_integration import simulations_for
-        for owner in simulations_for(self.sim):
-            for drone in owner.drones:
-                if drone.grounded and np.linalg.norm(drone.position[:2]-[x,y])<radius+max(.5,owner.config.fleet.separation/2):return False
-                if drone.trip is not None:
-                    for point in (drone.trip.dig,drone.trip.dump):
-                        if np.linalg.norm(np.asarray(point)[:2]-[x,y])<radius+max(drone.config.grab_radius or .5,owner.config.fleet.separation):return False
-            for e in (owner.logistics.excavators if owner.logistics else ()):
-                if np.linalg.norm(e.position[:2]-[x,y])<e.config.support_half_width_m+radius+.3:return False
+        bounds=(x-radius,y-radius,x+radius,y+radius)
+        for left,bottom,right,top,clearance in self._ground_obstacles(bounds,radius,machine,ignore_vehicles):
+            dx=max(left-x,0.,x-right);dy=max(bottom-y,0.,y-top)
+            if np.linalg.norm((dx,dy))<clearance:return False
+        return True
+
+    def _clear_ground_corridor(self,a,b,radius,machine):
+        """Sufficient live proof for all original drive and return samples."""
+        t=self.terrain;cell=t.cell
+        left,right=sorted((a[0],b[0]));bottom,top=sorted((a[1],b[1]))
+        # Allow for floating point interpolation at the ends of a grid edge.
+        margin=radius+cell/2+1e-8
+        side=cell*t.height.shape[0]
+        if min(left,bottom)<margin or max(right,top)>side-margin:return False
+        col0=math.floor((left-margin)/cell);col1=math.floor((right+margin)/cell)+1
+        row0=math.floor((bottom-margin)/cell);row1=math.floor((top+margin)/cell)+1
+        if (col1-col0)*(row1-row0)>65536:return False
+        heights=t.height[row0:row1,col0:col1]
+        # Even a zero-length grade check allows 0.12 m. This range over the
+        # whole swept box bounds every pair of heights in every sample.
+        if np.any(self._marine_mask()[row0:row1,col0:col1]):return False
+        if np.ptp(heights)>.12:
+            # Bound the absolute height difference for any two grid cells by
+            # their numbers of x/y steps times the maximum local increments.
+            # Nearest-cell sampling adds at most one cell per axis to the
+            # separation of two actual points. Thus the gradient and the
+            # sampling slack below imply every original 0.2*run+0.12 test.
+            dx=np.abs(np.diff(heights,axis=1)).max(initial=0.)
+            dy=np.abs(np.diff(heights,axis=0)).max(initial=0.)
+            if dx+dy>=.12-1e-12 or math.hypot(dx,dy)>=.2*cell-1e-12:return False
+        bounds=(left-margin,bottom-margin,right+margin,top+margin)
+        for x0,y0,x1,y1,clearance in self._ground_obstacles(bounds,radius,machine):
+            # If the boxes are close on both axes use the normal disk check.
+            if max(left-x1,x0-right,bottom-y1,y0-top)<=clearance+1e-8:return False
         return True
 
     def segment_safe(self,a,b,radius,machine=None):
         a=np.asarray(a)[:2];b=np.asarray(b)[:2]
+        if self._clear_ground_corridor(a,b,radius,machine):return True
         length=float(np.linalg.norm(b-a));step=min(1.,self.terrain.cell)
         def samples(start,end):
             distance=float(np.linalg.norm(end-start))
@@ -770,26 +814,29 @@ class ConventionalFleet:
             m.reason=getattr(self,'_route_failure','') or 'Нет безопасного пути на базу';m.retry_route_at=self.sim.time+30;return False
         return self._assign_route(m,m.home[:2],'PARKED',outbound_path=path)
 
-    def _target_indices(self,e,remaining=None,focus_access=True):
+    def _road_band(self,e,plan,remaining,unfinished):
+        """Pose-independent road cells and first station for one planning pass."""
+        access=getattr(self,'access_mask',None)
+        if access is not None:
+            tolerance=min(.12,max(.03,.2*self.terrain.cell))
+            pending=np.flatnonzero(access.ravel()[plan['ids']] & (remaining>tolerance))
+            if len(pending):
+                along=plan['along'][pending]
+                first=float(along.min())
+                width=max(1.,self.terrain.cell,min(e.radius,self.config.excavator_reach_m/2))
+                return plan['ids'][pending[along<=first+width]],first
+        return unfinished,None
+
+    def _target_indices(self,e,remaining=None,focus_access=True,*,eligible_ids=None):
         """Current reachable design centres, retaining the first road section."""
         t=self.terrain
         plan=self._work_plan();work_ids=plan['ids']
         if remaining is None:remaining=self._work_remaining()
         elif remaining.shape==t.height.shape:remaining=remaining.ravel()[work_ids]
-        access=getattr(self,'access_mask',None)
-        positions=np.flatnonzero(remaining>1e-6);ids=work_ids[positions]
-        if access is not None and focus_access:
-            road_tolerance=min(.12,max(.03,.2*t.cell))
-            pending_positions=positions[access.ravel()[ids]&(remaining[positions]>road_tolerance)]
-            pending=work_ids[pending_positions]
-            if len(pending):
-                # Work a support-sized band from the earliest road section.
-                # A one-metre strip can contain only protected crumbs while
-                # neighbouring reachable rows still accept full buckets. The
-                # floor, track support and physical access checks stay live.
-                along=plan['along'][pending_positions]
-                band=max(1.,t.cell,min(e.radius,self.config.excavator_reach_m/2))
-                ids=pending[along<=float(along.min())+band]
+        ids=eligible_ids
+        if ids is None:
+            ids=work_ids[remaining>1e-6]
+            if focus_access:ids,_=self._road_band(e,plan,remaining,ids)
         if not len(ids):return ids,remaining
         distance=(t.x.ravel()[ids]-e.position[0])**2+(t.y.ravel()[ids]-e.position[1])**2
         valid=(distance<=self.config.excavator_reach_m**2)&(distance>=(e.radius+1.)**2)
@@ -806,7 +853,7 @@ class ConventionalFleet:
         volume=float(np.where(allowed&footprint,np.maximum(t.height[patch]-floor,0.),0.).sum()*t.area)
         return min(self.config.bucket_m3,volume)
 
-    def available_work_at_stance(self,e,remaining=None,focus_access=True):
+    def available_work_at_stance(self,e,remaining=None,focus_access=True,*,eligible_ids=None):
         """Distinct removable volume in the actionable road band, not future cuts.
 
         A broad reachable annulus may contain much soil behind an unfinished
@@ -814,7 +861,7 @@ class ConventionalFleet:
         currently take only crumbs. All floors/support guards are the same as
         an actual bucket's, and no capacity is reserved or soil transferred.
         """
-        ids,_=self._target_indices(e,remaining,focus_access)
+        ids,_=self._target_indices(e,remaining,focus_access,eligible_ids=eligible_ids)
         if not len(ids):return 0.
         t=self.terrain;n=t.height.shape[1]
         patch=t.patch(*e.position[:2],self.config.excavator_reach_m)
@@ -823,7 +870,7 @@ class ConventionalFleet:
         volume=np.where(allowed[rows,cols],np.maximum(t.height[patch][rows,cols]-floor[rows,cols],0.),0.)
         return float(volume.sum()*t.area)
 
-    def _available_target(self,e,remaining=None,focus_access=True):
+    def _available_target(self,e,remaining=None,focus_access=True,*,eligible_ids=None):
         t=self.terrain
         committed=getattr(e,'expose_target',None)
         if committed is not None and focus_access:
@@ -843,7 +890,7 @@ class ConventionalFleet:
             if remaining is None:
                 e.expose_target=None
                 e.side_bucket=False
-        ids,remaining=self._target_indices(e,remaining,focus_access)
+        ids,remaining=self._target_indices(e,remaining,focus_access,eligible_ids=eligible_ids)
         if not len(ids):return None
         plan=self._work_plan();work_ids=plan['ids']
         score=(t.x.ravel()[ids]-e.position[0])**2+(t.y.ravel()[ids]-e.position[1])**2
@@ -914,7 +961,7 @@ class ConventionalFleet:
 
     def _choose_excavator_site(self,e,advance_only=False,expose=None,productive_only=False):
         target=self._available_target(e)
-        current_yield=self.target_yield(e,target) if productive_only else 0.
+        current_yield=self.target_yield(e,target) if productive_only and target is not None else 0.
         if target is not None and not advance_only and expose is None and not productive_only:
             e.target=target;e.state='WAIT_TRUCK';e.reason='';self.reason=''
             e.site_search_cursor=0;e.site_search_stage=0
@@ -931,6 +978,9 @@ class ConventionalFleet:
                 e.retry_route_at=self.sim.time+5;e.next_plan_at=self.sim.time+5
             elif not advance_only:e.reason='Нет безопасного выезда от текущей полки'
             return False
+        # Trial positions share the same terrain snapshot. Their reach,
+        # support, bucket depth and route are still checked independently.
+        focused_ids,first_station=self._road_band(e,plan,remaining,ids)
         order=np.argsort((t.x.ravel()[ids]-e.position[0])**2+(t.y.ravel()[ids]-e.position[1])**2,kind='stable')
         samples=ids[order[::max(1,len(order)//8)][:8]]
         # Fine two-dimensional repositioning exposes critical cells just beyond
@@ -957,13 +1007,8 @@ class ConventionalFleet:
             # can be far from a camp beside the middle of a long ramp. Nearby
             # parking stations alone cannot expose that section. Retain both
             # local repositioning and stations at the actual excavation front.
-            access=getattr(self,'access_mask',None)
-            if access is not None:
-                selected=np.searchsorted(plan['ids'],ids)
-                pending=ids[access.ravel()[ids]&(remaining[selected]>min(.12,max(.03,.2*t.cell)))]
-                if len(pending):
-                    along=plan['along'][np.searchsorted(plan['ids'],pending)]
-                    chosen.extend(np.argsort(np.abs(stations-float(along.min())),kind='stable')[:24])
+            if first_station is not None:
+                chosen.extend(np.argsort(np.abs(stations-first_station),kind='stable')[:24])
             road_points=points[list(dict.fromkeys(chosen))]
             candidates.extend(sorted([p+offset for p in road_points for offset in (side,-side,np.zeros(2))],
                 key=lambda p:(t.sample(*p),float(np.sum((p-e.position[:2])**2)))))
@@ -989,10 +1034,10 @@ class ConventionalFleet:
                 old=e.position.copy();old_expose=e.expose_target
                 e.position[:2]=p;e.position[2]=t.sample(*p)
                 try:
-                    useful=self._available_target(e,remaining)
+                    useful=self._available_target(e,remaining,eligible_ids=focused_ids)
                     volume=self.target_yield(e,useful) if useful is not None else 0.
                     if volume+1e-10<minimum:continue
-                    batch=self.available_work_at_stance(e,remaining)
+                    batch=self.available_work_at_stance(e,remaining,eligible_ids=focused_ids)
                 finally:e.position[:]=old;e.expose_target=old_expose
                 productive_targets[key]=useful
                 ranked.append(((-volume,-batch,float(np.linalg.norm(p-e.position[:2]))),p))
@@ -1037,9 +1082,10 @@ class ConventionalFleet:
             try:
                 if productive_only:useful=productive_targets[tuple(map(float,p))]
                 elif expose is None:
-                    useful=self._available_target(e,remaining,focus_access=not advance_only)
+                    useful=self._available_target(e,remaining,focus_access=not advance_only,
+                                                  eligible_ids=ids if advance_only else focused_ids)
                     if useful is None and expanded:
-                        useful=self._available_target(e,remaining,focus_access=False)
+                        useful=self._available_target(e,remaining,focus_access=False,eligible_ids=ids)
                         side_target=useful is not None
                 else:
                     patch=t.patch(*expose,max(t.cell*.71,.5));floor,allowed=self._bucket_geometry(e,patch)
@@ -1297,31 +1343,28 @@ class ConventionalFleet:
     def _cut(self,e,truck):
         target=self._available_target(e)
         if target is None:return False
-        x,y,floor=target;t=self.terrain;c=self.config
+        x,y=target[:2];t=self.terrain;c=self.config
         radius=max(t.cell*.71,.5);patch=t.patch(x,y,radius)
         # Terrain already supports a per-cell lower surface. Keep every native
         # project cell and each ramp cell above its own envelope, not merely
         # above the centre cell's elevation.
-        floor,local_allowed=self._bucket_geometry(e,patch)
-        # Exact support masks for both vehicles. A bucket does not excavate
-        # beneath tracks, wheels, or the reserved exit ramp envelope.
-        # A conservative loose-soil support envelope prevents the excavation
-        # from leaving an unstable cliff below any parked machine. Lower layers
-        # may be stronger, but the support guard deliberately uses loose repose.
-        allowed=np.zeros(t.height.shape,dtype=bool);allowed[patch]=local_allowed
+        floor,allowed=self._bucket_geometry(e,patch)
+        # The existing floor parameter is local to the bucket footprint.
+        # Leaving protected cells at their current height gives zero removable
+        # volume there, without allocating a mask the size of the whole map.
+        floor=np.where(allowed,floor,t.height[patch])
         available_volume=min(c.bucket_m3,c.truck_body_m3-cargo_volume(truck.cargo_kg,truck.soil,t.config.terrain.density))
         mass_limit=c.truck_payload_kg-truck.cargo_kg
         if min(available_volume,mass_limit)<=1e-9:return False
-        radius=max(t.cell*.71,.5)
         if t.soil is not None:
-            load=t.scoop_load(x,y,mass_limit,source='conventional',radius=radius,max_volume=available_volume,allowed_mask=allowed,minimum_height=floor)
+            load=t.scoop_load(x,y,mass_limit,source='conventional',radius=radius,max_volume=available_volume,minimum_height=floor)
             mass=load.mass
             if mass>0:
                 if truck.soil is None:truck.soil=SoilLoad.empty(t.soil.profile)
                 truck.soil.add(load);self.extracted_materials+=load.masses
             volume=load.volume
         else:
-            mass=t.scoop(x,y,min(mass_limit,available_volume*t.config.terrain.density),source='conventional',radius=radius,allowed_mask=allowed,minimum_height=floor)
+            mass=t.scoop(x,y,min(mass_limit,available_volume*t.config.terrain.density),source='conventional',radius=radius,minimum_height=floor)
             volume=mass/t.config.terrain.density
         if mass>0:
             self._terrain_changed()
@@ -1531,7 +1574,9 @@ class ConventionalFleet:
                 if not self._burn(m,True):continue
                 m.state='DIGGING';m.working_seconds+=1;m.timer+=1
                 factor=1.
-                if self.terrain.soil is not None and m.target is not None:
+                # All material factors are >= 1. Until the base cycle elapses
+                # no bucket can finish, even if the exposed mixture changes.
+                if m.timer>=c.bucket_cycle_s and self.terrain.soil is not None and m.target is not None:
                     load=self.terrain.preview_load(*m.target[:2],c.truck_payload_kg,source='conventional',radius=max(.5,self.terrain.cell*.71),max_volume=c.bucket_m3)
                     factor=max(1.,load.factor)
                 if m.timer>=c.bucket_cycle_s*factor:
