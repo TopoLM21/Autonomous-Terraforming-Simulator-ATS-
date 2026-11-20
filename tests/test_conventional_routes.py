@@ -73,6 +73,21 @@ def test_empty_unloading_state_finishes_without_inventing_a_deposit():
     np.testing.assert_array_equal(s.terrain.height,before);balanced(s,f)
 
 
+def test_shift_break_at_camp_does_not_activate_outbound_tip():
+    s,f,truck=loaded_truck(soil=True)
+    stand=truck.position[:2].copy()
+    truck.position[:]=truck.home
+    assert f._assign_route(truck,stand,'UNLOADING')
+    cargo=truck.cargo_kg;fuel=truck.fuel_l
+    s.time=f.config.lunch_after_hours*3600
+    assert not f.shift()['active']
+    s.step()
+    assert truck.state=='PARKED' and not truck.path
+    np.testing.assert_array_equal(truck.position,truck.home)
+    assert truck.cargo_kg==cargo and truck.fuel_l==fuel and f.delivered_mass_kg==0
+    balanced(s,f)
+
+
 def test_partial_tipping_and_its_remaining_material_resume_exactly(tmp_path):
     s,f,truck=loaded_truck(True)
     s.terrain.dump_cap=np.minimum(s.terrain.dump_cap,s.terrain.height+.2)

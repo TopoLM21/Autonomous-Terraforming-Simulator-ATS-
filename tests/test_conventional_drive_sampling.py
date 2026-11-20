@@ -3,6 +3,7 @@ import numpy as np
 
 from ats.checkpoint import save_state,load_state
 from ats.conventional import ConventionalConfig,ConventionalFleet
+from ats.plan import PlanConfig,PlanSegment
 from ats.simulation import Simulation
 from tests.test_conventional import world,fuel_tanks,balanced
 from tests.test_conventional_workspace import workspace_config
@@ -128,3 +129,48 @@ def test_replan_watches_the_new_detour_ground_corridor():
     t.height[row,col]+=.01;t.revision+=1;t._touch_route_cells(np.array([row]),np.array([col]))
     assert e.route_token!=t.route_token(e.route_bounds)
     assert old_token==t.route_token(old_bounds)
+
+
+def test_unrelated_soil_edit_keeps_the_checked_truck_detour_beyond_local_search():
+    config=workspace_config()
+    config.plan=PlanConfig([PlanSegment([[40.,50.],[52.,50.]],width=8.,height=-.3)])
+    axis=(np.arange(config.terrain.n)+.5)*config.terrain.cell_size
+    x,y=np.meshgrid(axis,axis)
+    height=np.where((x>=65.)&(x<67.)&(y<70.),3.,0.)
+    config.initial_height=height;config.reference_height=height.copy();config.local_reference=True
+    sim=Simulation.conventional_only(config)
+    fleet=sim.install_conventional(ConventionalConfig(base_x=12.,base_y=12.,work_rect=(35.,40.,60.,20.)))
+    fuel_tanks(fleet);truck=fleet.machines[1];terrain=fleet.terrain
+    truck.position[:]=(90.,20.,0.)
+    truck.home[:]=(56.,26.,0.)
+    goal=tuple(truck.home[:2])
+    # This known return road goes round the end of the ridge, beyond the
+    # fresh local search window between the truck at (84,26) and its home.
+    road=[(84.,26.),(84.,82.),(56.,82.),goal]
+    assert all(fleet.segment_safe(a,b,truck.radius,truck)
+               for a,b in zip([truck.position[:2],*road[:-1]],road))
+    assert fleet._assign_route(truck,goal,'PARKED',outbound_path=road)
+    old_bounds=truck.route_bounds
+    for _ in range(3):
+        sim.time+=1;fleet._move(truck)
+    np.testing.assert_allclose(truck.position[:2],road[0])
+
+    # Move one centimetre of soil between two cells inside the bounding box,
+    # well clear of every wheel track. The heightfield and token really change.
+    row,col=int(50./terrain.cell),int(73./terrain.cell)
+    terrain.height[row,col]+=.01;terrain.height[row,col+1]-=.01
+    terrain.revision+=1;terrain._touch_route_cells([row,row],[col,col+1])
+    assert truck.route_token!=terrain.route_token(old_bounds)
+    remaining=list(truck.path);old_position=truck.position.copy()
+    assert all(fleet.segment_safe(a,b,truck.radius,truck)
+               for a,b in zip([old_position[:2],*remaining[:-1]],remaining))
+    calls=fleet.route_calculations;fuel=truck.fuel_l
+    sim.time+=1;fleet._move(truck)
+    assert fleet.route_calculations==calls and truck.path==remaining
+    assert truck.distance_m>0 and truck.fuel_l<fuel and not truck.reason
+    assert np.linalg.norm(truck.position[:2]-old_position[:2])>0
+    assert truck.route_bounds[2]<old_bounds[2] and truck.route_bounds[1]>old_bounds[1]
+    assert truck.route_token==terrain.route_token(truck.route_bounds)
+    finish_drive(sim,truck)
+    assert truck.state=='PARKED' and fleet.route_calculations==calls
+    balanced(sim,fleet)

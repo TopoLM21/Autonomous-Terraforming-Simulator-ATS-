@@ -268,48 +268,56 @@ class ConventionalFleet:
             self._marine=marine_mask(t);self._marine_stamp=stamp
         return self._marine
 
-    def _ground_obstacles(self,bounds,radius,machine,ignore_vehicles=False):
+    def _ground_obstacles(self,bounds,radius,machine,ignore_vehicles=False,*,describe=False):
         """Closed rectangle (or point) plus the existing body clearance."""
         for x,y,width,height in self._other_rectangles(bounds):
-            yield x,y,x+width,y+height,radius+.2
+            yield x,y,x+width,y+height,radius+.2,'оборудование комплекса'
         if not ignore_vehicles:
             x,y=self.base_position[:2]
-            yield x-4.,y-4.,x+4.,y+4.,radius+.2
+            yield x-4.,y-4.,x+4.,y+4.,radius+.2,'топливная база'
             for other in self.machines:
                 if other is not machine:
                     x,y=other.position[:2]
-                    yield x,y,x,y,other.radius+radius+.25
+                    yield x,y,x,y,other.radius+radius+.25,other.id
         from .conventional_integration import simulations_for
         for owner in simulations_for(self.sim):
             for drone in owner.drones:
                 if drone.grounded:
                     x,y=drone.position[:2]
-                    yield x,y,x,y,radius+max(.5,owner.config.fleet.separation/2)
+                    label=f'дрон №{drone.serial} на земле' if describe else ''
+                    yield x,y,x,y,radius+max(.5,owner.config.fleet.separation/2),label
                 if drone.trip is not None:
                     for point in (drone.trip.dig,drone.trip.dump):
                         x,y=point[:2]
-                        yield x,y,x,y,radius+max(drone.config.grab_radius or .5,owner.config.fleet.separation)
+                        label=f'рабочая точка дрона №{drone.serial}' if describe else ''
+                        yield x,y,x,y,radius+max(drone.config.grab_radius or .5,owner.config.fleet.separation),label
             for robot in (owner.logistics.excavators if owner.logistics else ()):
                 x,y=robot.position[:2]
-                yield x,y,x,y,robot.config.support_half_width_m+radius+.3
+                label=f'Крот №{robot.serial}' if describe else ''
+                yield x,y,x,y,robot.config.support_half_width_m+radius+.3,label
 
     def passable(self,point,radius,machine=None,*,ignore_vehicles=False):
+        return self._footprint_issue(point,radius,machine,ignore_vehicles) is None
+
+    def _footprint_issue(self,point,radius,machine,ignore_vehicles=False,*,describe=False):
+        """Same support law for routing and on-demand reports about a failed pose."""
         t=self.terrain;x,y=map(float,point[:2]);side=t.cell*t.height.shape[0]
-        if min(x,y)<radius+t.cell/2 or max(x,y)>side-radius-t.cell/2:return False
+        if min(x,y)<radius+t.cell/2 or max(x,y)>side-radius-t.cell/2:return 'габарит машины выходит за карту'
         patch=t.patch(x,y,radius+t.cell/2);xx=t.x[patch]-x;yy=t.y[patch]-y
         footprint=xx*xx+yy*yy<=(radius+t.cell*.71)**2
-        if not np.any(footprint):return False
-        if np.any(self._marine_mask()[patch]&footprint):return False
+        if not np.any(footprint):return 'нет ячеек опоры под машиной'
+        if np.any(self._marine_mask()[patch]&footprint):return 'вода под габаритом машины'
         heights=t.height[patch];z=t.sample(x,y);distance=np.maximum(np.hypot(xx,yy),t.cell/2)
         # Full circumscribed support footprint, including every contained fine cell.
-        if np.any((np.abs(heights-z)>.2*distance+.12)&footprint):return False
-        if heights.shape[0]>1 and np.any((np.abs(np.diff(heights,axis=0))>.2*t.cell+.12)&footprint[:-1]&footprint[1:]):return False
-        if heights.shape[1]>1 and np.any((np.abs(np.diff(heights,axis=1))>.2*t.cell+.12)&footprint[:,:-1]&footprint[:,1:]):return False
+        if np.any((np.abs(heights-z)>.2*distance+.12)&footprint):return 'слишком большой перепад от центра до края опоры'
+        if heights.shape[0]>1 and np.any((np.abs(np.diff(heights,axis=0))>.2*t.cell+.12)&footprint[:-1]&footprint[1:]):return 'ступень между ячейками под машиной'
+        if heights.shape[1]>1 and np.any((np.abs(np.diff(heights,axis=1))>.2*t.cell+.12)&footprint[:,:-1]&footprint[:,1:]):return 'ступень между ячейками под машиной'
         bounds=(x-radius,y-radius,x+radius,y+radius)
-        for left,bottom,right,top,clearance in self._ground_obstacles(bounds,radius,machine,ignore_vehicles):
+        for left,bottom,right,top,clearance,label in self._ground_obstacles(bounds,radius,machine,ignore_vehicles,describe=describe):
             dx=max(left-x,0.,x-right);dy=max(bottom-y,0.,y-top)
-            if np.linalg.norm((dx,dy))<clearance:return False
-        return True
+            if np.linalg.norm((dx,dy))<clearance:
+                return f'недостаточный зазор до препятствия ({label})' if describe else 'препятствие'
+        return None
 
     def _clear_ground_corridor(self,a,b,radius,machine):
         """Sufficient live proof for all original drive and return samples."""
@@ -336,12 +344,12 @@ class ConventionalFleet:
             dy=np.abs(np.diff(heights,axis=0)).max(initial=0.)
             if dx+dy>=.12-1e-12 or math.hypot(dx,dy)>=.2*cell-1e-12:return False
         bounds=(left-margin,bottom-margin,right+margin,top+margin)
-        for x0,y0,x1,y1,clearance in self._ground_obstacles(bounds,radius,machine):
+        for x0,y0,x1,y1,clearance,_ in self._ground_obstacles(bounds,radius,machine):
             # If the boxes are close on both axes use the normal disk check.
             if max(left-x1,x0-right,bottom-y1,y0-top)<=clearance+1e-8:return False
         return True
 
-    def segment_safe(self,a,b,radius,machine=None):
+    def segment_safe(self,a,b,radius,machine=None,*,reason=None):
         a=np.asarray(a)[:2];b=np.asarray(b)[:2]
         if self._clear_ground_corridor(a,b,radius,machine):return True
         length=float(np.linalg.norm(b-a));step=min(1.,self.terrain.cell)
@@ -365,11 +373,20 @@ class ConventionalFleet:
         checked=set()
         for points in checks():
             heights=self.terrain.sample_many(points);runs=np.linalg.norm(np.diff(points,axis=0),axis=1)
-            if np.any(np.abs(np.diff(heights))>.2*runs+.12):return False
+            steep=np.abs(np.diff(heights))>.2*runs+.12
+            if np.any(steep):
+                if reason is not None:
+                    x,y=points[np.flatnonzero(steep)[0]+1]
+                    reason.append(f'Слишком крутой перепад по ходу движения в точке ({x:.1f}, {y:.1f}) м')
+                return False
             for point in points:
                 key=tuple(point)
                 if key not in checked:
-                    if not self.passable(point,radius,machine):return False
+                    if not self.passable(point,radius,machine):
+                        if reason is not None:
+                            issue=self._footprint_issue(point,radius,machine,describe=True)
+                            reason.append(f'В точке ({point[0]:.1f}, {point[1]:.1f}) м — {issue}')
+                        return False
                     checked.add(key)
         return True
 
@@ -378,8 +395,15 @@ class ConventionalFleet:
         self.route_calculations+=1;start=machine.position[:2].copy();goal=np.asarray(destination)[:2]
         self._route_failure=''
         if not self.passable(goal,machine.radius,machine):
-            self._route_failure='Точка назначения не вмещает безопасный полный габарит';return None
+            issue=self._footprint_issue(goal,machine.radius,machine,describe=True)
+            self._route_failure=f'Точка назначения ({goal[0]:.1f}, {goal[1]:.1f}) м — {issue}'
+            return None
         if self.segment_safe(start,goal,machine.radius,machine):return [tuple(goal)]
+        if not self.passable(start,machine.radius,machine):
+            # Every outgoing edge includes the current footprint.
+            issue=self._footprint_issue(start,machine.radius,machine,describe=True)
+            self._route_failure=f'Текущая стоянка ({start[0]:.1f}, {start[1]:.1f}) м — {issue}'
+            return None
         step=max(self.config.route_step_m,self.terrain.cell)
         side=self.terrain.cell*self.terrain.height.shape[0]
         waypoints=[start,goal];x,y,w,h=self.config.work_rect
@@ -448,8 +472,8 @@ class ConventionalFleet:
                 if not edges[edge]:continue
                 costs[nxt]=tentative;parents[nxt]=current
                 heapq.heappush(queue,(tentative+heuristic(q),-tentative,nxt))
-        self._route_failure=('Лимит узлов локального поиска исчерпан; отсутствие пути не доказано'
-                             if queue else 'Нет безопасного пути в локальном окне поиска')
+        self._route_failure=(f'Лимит узлов локального поиска ({limit}) исчерпан, путь пока не найден' if queue else
+                             'Нет безопасного пути в локальном окне поиска')
         return None
 
     def _assign_route(self,m,destination,after,home_path=None,outbound_path=None):
@@ -526,25 +550,73 @@ class ConventionalFleet:
         self.maintenance_usd+=self.config.maintenance_usd_per_engine_hour/3600
         return True
 
+    def _recover_drive(self,m,details):
+        """Recover a blocked leg without abandoning the load or moving the vehicle."""
+        issue='Проезд занят или уклон изменился'
+        if details:issue+=': '+details[0]
+        m.next_plan_at=self.sim.time+30
+        returning=m.after_drive=='PARKED' and np.linalg.norm(np.asarray(m.destination)-m.home[:2])<1e-7
+        path=self._home_route(m,validate=True) if returning else self.route(m,m.destination)
+        if path is not None:
+            if m.kind=='truck' and m.after_drive!='PARKED':
+                ready=self._assign_route(m,m.destination,m.after_drive,outbound_path=path)
+            else:
+                self._set_drive_path(m,path)
+                ready=True
+            if ready:
+                m.reason=issue+'. Найден объезд'
+                return True
+            failure=m.reason
+        else:
+            failure=getattr(self,'_route_failure','')
+        if (m.kind=='truck' and m.after_drive in ('UNLOADING','WAIT_LOAD') and
+                self.enabled and self.shift()['active'] and self.passable(m.position,m.radius,m)):
+            # A loading or tipping stand may cease to exist during a trip.
+            # Try the same bounded dispatcher used for the original order. It
+            # verifies access, a way back and the trip's time/fuel budget.
+            # Each candidate gets its own budget even when the old trip failed.
+            m.retry_route_at=0.
+            if m.after_drive=='UNLOADING' and m.cargo_kg>0:
+                if self._dump_point(m) is not None:
+                    m.reason=issue+'. Выбрана другая стоянка для разгрузки'
+                    return True
+                failure='; '.join(filter(None,(failure,m.reason)))
+            elif (m.after_drive=='WAIT_LOAD' and self.excavator.target is not None and
+                  self.excavator.state in ('WAIT_TRUCK','DIGGING')):
+                if self._loading_point(m):
+                    m.reason=issue+'. Выбрана другая стоянка для погрузки'
+                    return True
+                failure='; '.join(filter(None,(failure,m.reason)))
+        m.reason='. '.join(filter(None,(issue,failure)))
+        if m.cargo_kg>0 and 'груз сохранён' not in m.reason:m.reason+='; груз сохранён'
+        return False
+
     def _move(self,m):
         if not m.path:
             m.state=m.after_drive;m.reason=''
             if m.kind=='truck' and m.state=='WAIT_LOAD' and m.cargo_kg<=1e-9:m.load_started=self.sim.time
             return
         if self.sim.time<m.retry_route_at:m.waiting_seconds+=1;return
-        if m.route_token!=self.terrain.route_token(m.route_bounds):
-            path=self.route(m,m.destination)
-            if path is None:m.reason='Маршрут изменён грунтом или препятствием; груз сохранён';m.retry_route_at=self.sim.time+30;m.waiting_seconds+=1;return
-            self._set_drive_path(m,path)
+        if m.route_bounds is None or m.route_token!=self.terrain.route_token(m.route_bounds):
+            # A changed block can be behind the truck or off the road. The
+            # saved waypoints may also include a detour outside a new A* box.
+            details=[]
+            for a,b in zip([m.position[:2],*m.path[:-1]],m.path):
+                if not self.segment_safe(a,b,m.radius,m,reason=details):
+                    if not self._recover_drive(m,details):
+                        m.retry_route_at=self.sim.time+30
+                    m.waiting_seconds+=1
+                    return
+            self._set_drive_path(m,m.path)
             if not m.path:return self._move(m)
         destination=np.asarray(m.path[0]);delta=destination-m.position[:2];length=float(np.linalg.norm(delta))
         next_point=m.position[:2]+delta*min(1.,self._speed(m)/max(length,1e-9))
-        if not self.segment_safe(m.position,next_point,m.radius,m):
-            m.reason='Проезд занят или уклон изменился';m.waiting_seconds+=1
-            if self.sim.time>=m.next_plan_at:
-                m.next_plan_at=self.sim.time+30;path=self.route(m,m.destination)
-                if path is not None:self._set_drive_path(m,path)
-                elif getattr(self,'_route_failure',''):m.reason+=': '+self._route_failure
+        details=[] if self.sim.time>=m.next_plan_at else None
+        if not self.segment_safe(m.position,next_point,m.radius,m,reason=details):
+            m.waiting_seconds+=1
+            if details is not None:
+                self._recover_drive(m,details)
+            elif not m.reason:m.reason='Проезд занят; ожидание повторной проверки'
             return
         if not self._burn(m):return
         m.reason=''
@@ -1558,7 +1630,10 @@ class ConventionalFleet:
             if m.state=='DRIVING':
                 # A committed return continues after clock/lunch boundaries.
                 if not active and m.after_drive!='PARKED':
-                    self._go_home(m)
+                    if self.sim.time<m.retry_route_at or not self._go_home(m):
+                        m.waiting_seconds+=1
+                        continue
+                    if m.state!='DRIVING':continue
                 if not shift['active'] and m.after_drive=='PARKED':
                     m.emergency_work_seconds+=1;m.reason='Аварийное возвращение: задержка маршрута после окончания рабочего времени'
                 self._move(m);continue
